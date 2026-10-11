@@ -16,9 +16,24 @@ in `reference/Intake.sol`; it is the contract that runs.
 | Intake writer (calls `complete`) | `0x3d3c0df7c1a17d384545e9d7c8228897bd9625cb` |
 
 The registry takes Curator, IDMD, IMD, Intake and attester as constructor arguments (static addresses; the launch
-pipeline allows only static address, uint, bool and bytes32 arguments, at most 16, and passive constructors). The
-writer is not a constructor argument: the registry trusts the Intake as `msg.sender` of the callback and the
-attester as the signer, never the writer.
+pipeline allows only static address, uint, bool and bytes32 arguments, at most 16; "passive" means the constructor
+stores its arguments, may read views and may deploy the renderer, but moves no funds and takes no external callback).
+The writer is not a constructor argument: the registry trusts the Intake as `msg.sender` of the callback and the
+attester as the signer, never the writer. **Store the five addresses in ordinary storage, not `immutable`:** immutables
+are patched into the runtime code at deployment, and the launch check compares the deployed runtime code with a clean
+rebuild byte for byte. The same holds for the renderer: `bytes constant` (solc emits a `codecopy`), never an
+SSTORE2 pointer in an immutable.
+
+### What can kill the registry (accepted, written down for the audit)
+
+The registry is ownerless, so none of these has a remedy inside it; each needs a successor contract.
+
+- The Intake's owner can `setPrice(action, IMD, 0)`: `request` then reverts `ActionNotSold` and every `upgrade`
+  reverts. It can `setCallbackGas` below what `onResult` needs: every callback then fails and no oracle trait can ever
+  be verified. It can `setWriter`, `setPayTo`, `setSigner`.
+- The attester `0x5598…` is a constant; if the plane rotates the key, every later attestation is a miss.
+- The plane may change the attestation struct (it did once, see section 4) or the action version string.
+- The Curator and IDMD are immutable and settled; they cannot change.
 
 ## 2. Asking: `Intake.request`
 
@@ -108,11 +123,27 @@ What the registry verifies before marking a trait (`CATALOG.md` section 4):
 3. `a.answerType` equals the template's type; `a.agreed >= a.quorum` and `a.quorum >= the template's quorum`
    (3 for chain, 7 for panel); `a.panelSize >= the template's panel size`.
 4. `a.fromBlock` and `a.toBlock` equal the trait's canonical window (or the spec's stored window).
-5. `a.issuedAt <= block.timestamp <= a.expiresAt`.
+5. `block.timestamp <= a.expiresAt` and `a.issuedAt <= block.timestamp + 1 hours` (the plane's clock may run ahead of
+   block time; a stricter lower bound would turn clock skew into an unrecoverable miss).
 6. The decoded answer passes the rule: `>= threshold`, `== true`, or the list contains the claimant within `head`.
 7. `questionHash`: the plane's hash function over the body is not documented and is **not** `keccak256(body)`;
    the registry does not recompute it. The binding is `requestId`, which the registry itself received from
    `request` and stored with `(claimant, traitId)`.
+8. **Decode defensively, never revert.** `a.answer` for `bool` and `uint256` must be exactly 32 bytes (and for `bool`
+   the word 0 or 1); otherwise reason `decode`. For `address[]` the registry does not decode the list in the callback
+   at all (see `CATALOG.md` section 4, T3): it stores `keccak256(a.answer)` and lets `applySharedFact` supply the list.
+   A plain `abi.decode` on hostile bytes reverts, and a revert in `onResult` is a permanent `delivered == false`.
+9. **Two struct shapes.** The plane's current attestation (v2, since early October 2026) signs the 15 fields above.
+   The record of 2026-10-08 shows an earlier shape without `panelSize`, `quorum` and `agreed`. Because a miss cannot
+   be retried, `onResult` computes the digest for the 15-field type string first and, if the signer does not match,
+   for the 12-field type string
+   `OracleAttestation(bytes32 requestId,uint256 chainId,bytes32 questionHash,uint8 answerType,bytes answer,uint256 figure,uint64 fromBlock,uint64 toBlock,bytes32 blockHash,bytes32 panelJobId,uint64 issuedAt,uint64 expiresAt)`
+   with the same domain; a 12-field match skips check 3's panel conditions (there are none to check) and records
+   which shape matched in the `Verified` event. Tests must recover the attester from the three served attestations in
+   `reference/attestations/` (15-field, zero `verifyingContract`).
+
+**`Missed` reason codes** (uint8): 1 not pending, 2 signer, 3 chainId, 4 answerType, 5 panel or quorum, 6 window,
+7 expiry, 8 rule, 9 decode, 10 requestId mismatch.
 
 Measured traps that shaped these rules: panel members mis-convert decimal block numbers (hence hex in every text);
 `rpc.flashbots.net` and `cloudflare-eth.com` answer `null` for mined transactions (hence "null is not evidence" in
@@ -123,7 +154,11 @@ panel definitions); three of the first seven Ethereum requests never completed (
 
 - Card mint: 0.1 IMD from the claimant to the registry's sponsor pool (`transferFrom`; the claimant approves the
   registry first; IMD has no `permit`).
-- Oracle trait: `priceOf` per request, pulled from the claimant, approved to the Intake, paid in `request`.
+- Oracle trait: `priceOf` per request read in the same transaction, pulled from the claimant, approved to the Intake,
+  paid in `request`. `upgrade` and `requestSharedFact` take a `maxPrice` argument and revert when `priceOf` exceeds
+  it, so a price change between the user's approval and inclusion never pulls more than the user agreed to.
+- `mintCard`: pull the fee first, then `_mint` (not `_safeMint`; no receiver callback). IMD is a plain OFT ERC-20
+  without transfer hooks, so `transferFrom` cannot re-enter; the order is still fee, then state, then mint.
 - `registerSpec`: 1 IMD to the pool. `sponsor()`: any amount to the pool.
 - The registry holds IMD only as the pool plus amounts of requests not yet sent in the same transaction; no
   `receive`, no `fallback`, no ETH.

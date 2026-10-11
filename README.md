@@ -34,8 +34,9 @@ function tokenURI(uint256 tokenId) external view returns (string memory);
 
 // traits
 function hasTrait(address wallet, uint16 traitId) external view returns (bool);   // no card needed
-function traitsOf(address wallet) external view returns (uint16[] memory);        // every true trait, highest tiers
-function upgrade(uint16[] calldata traitIds) external;                             // k oracle requests, k x priceOf
+function traitsOf(address wallet) external view returns (uint16[] memory);        // the 25 catalog ids that are true (all tiers), no specs
+function verifiedSpecsOf(address wallet) external view returns (uint16[] memory);  // verified community spec ids
+function upgrade(uint16[] calldata traitIds, uint256 maxPrice) external;           // k oracle requests, k x priceOf <= k x maxPrice
 function abandon(bytes32 requestId) external;                                      // after 14 days
 function verified(address claimant, uint16 traitId) external view returns (bytes32 requestId, uint64 fromBlock, uint64 toBlock);
 
@@ -47,13 +48,15 @@ function registerSpec(Spec calldata spec) external returns (uint16 traitId);    
 function specOf(uint16 traitId) external view returns (Spec memory);
 
 // shared facts
-function requestSharedFact(uint16 factId) external;                                // one price, no claimant
-function applySharedFact(uint16 factId) external;                                  // gas only
+function requestSharedFact(uint16 factId, uint256 maxPrice) external;              // one price, no claimant, one pending per fact
+function applySharedFact(uint16 factId, address[] calldata list) external;         // gas only; list must hash to the stored answer
+function sharedFact(uint16 factId) external view returns (bytes32 requestId, bytes32 answerHash);
 
 // sponsor pool
 function sponsor(uint256 amount) external;
-function upgradeSponsored(uint256 idmdTokenId, uint16[] calldata traitIds) external; // IDMD holder, once per token id
-function payForward(address wallet, uint16 traitId) external;                        // from day 30, chain traits only
+function upgradeSponsored(uint256 idmdTokenId, uint16[] calldata traitIds) external; // IDMD holder, one call per token id ever
+function payForward(address wallet, uint16 traitId) external;                        // from day 30, chain traits only, guarded (CONCEPT 4)
+function deployedAt() external view returns (uint64);
 function pool() external view returns (uint256);
 
 // catalog
@@ -61,9 +64,9 @@ function traitName(uint16 traitId) external view returns (string memory);
 function traitClass(uint16 traitId) external view returns (uint8);                 // 0 direct, 1 chain, 2 panel, 3 shared
 ```
 
-Events: `CardMinted(address indexed claimant, uint256 indexed tokenId)`, `Requested(address indexed claimant,
+Events: `CardMinted(address indexed claimant, uint256 indexed tokenId)`, `TraitRequested(address indexed claimant,
 uint16 indexed traitId, bytes32 requestId)`, `Verified(address indexed claimant, uint16 indexed traitId, bytes32
-requestId)`, `Missed(bytes32 requestId, uint16 traitId, uint8 reason)`, `Abandoned(bytes32 requestId)`,
+requestId, uint8 shape)`, `Missed(bytes32 requestId, uint16 traitId, uint8 reason)`, `Abandoned(bytes32 requestId)`,
 `SpecRegistered(uint16 indexed traitId, address indexed registrant)`, `SharedFactStored(uint16 indexed factId,
 bytes32 requestId)`, `Sponsored(address indexed from, uint256 amount)`, and ERC-4906 `MetadataUpdate`.
 
@@ -80,6 +83,11 @@ CHAINTRAITS_FORK_RPC=https://rpc.mevblocker.io forge test --match-path 'test/for
 python3 tools/gen_template.py --check    # the template blob, offsets and goldens are byte-exact
 ```
 
+Today `--check` and `python3 -m unittest discover -s tools` fail on purpose: the vendored generator still expects
+THE LIST's goldens, which are not vendored. They pass once the builder has adapted the generator and regenerated the
+goldens under `test/fixtures/`. `tools/rasterize_goldens.py` needs a macOS font path and is optional (a visual aid,
+not a gate).
+
 `foundry.toml` pins solc 0.8.24, `bytecode_hash = "none"` and `cbor_metadata = false`: a clean rebuild of a commit
 is byte-identical, which is how the deployed runtime code is checked against the reviewed source after launch.
 Submodules: forge-std v1.9.7 and OpenZeppelin at `cab19933` (both as in the record NFT this mirrors).
@@ -88,13 +96,14 @@ Submodules: forge-std v1.9.7 and OpenZeppelin at `cab19933` (both as in the reco
 
 - `src/Registry.sol` (working name), `src/Renderer.sol`, `src/interfaces/{IIntake,IOracleConsumer}.sol`, the
   catalog as constants (ids, rules, windows from `CATALOG.md` sections 1 to 3), the name table, the template
-  composer for the five templates.
+  composer for the five templates, the `Spec` struct of `CATALOG.md` section 5, no `immutable` anywhere.
 - `tools/gen_template.py` adapted to the trait-grid card; `template/card.svg` redrawn; goldens under
   `test/fixtures/` for synthetic wallets only (the convention `0x…c1a1`; never a real wallet).
 - Tests for every invariant in `CONCEPT.md` section 6: unit, fuzz, invariant; fork tests against the mainnet Curator
   at a pinned recent block (skipped without `CHAINTRAITS_FORK_RPC`); golden tests that `tokenURI` bytes equal the
   generator's; golden tests that the composed request bodies equal `templates/fixtures/*.json` byte for byte; a gas
-  test that `onResult` stays under the Intake's callback stipend.
+  test that `onResult` stays under the Intake's callback stipend; signature-recovery tests over the three served
+  attestations in `reference/attestations/`.
 - A README section **"How to verify a card"**: how a third party reruns a trait's recipe against public RPCs from the
   metadata alone, and how to compare the deployed runtime code with a rebuild.
 - `script/Deploy.s.sol` that deploys renderer and registry with the five static addresses, plus the same shape as a

@@ -11,6 +11,14 @@ to 25,777,045 to 25,789,604 and `toBlockHash` `0x57852dbfd56daf8e7b4bf68c2e25f73
 (the hash of `B_END`). The exact bodies are in `templates/fixtures/*.json` (sorted keys, two-space indent); the registry's golden tests
 must reproduce them byte for byte from the stored parameters, with the fixture's synthetic claimant `0x…c1a1`. A template that fails a later check is fixed in this file first.
 
+**Byte-exact rule.** The text below, with every placeholder replaced, must equal the fixture files under
+`templates/fixtures/` byte for byte (minus the file's trailing newline, which is not part of the body). In the
+texts, backticks around a placeholder are markdown and are NOT emitted, with ONE exception: the event or function
+item (`<EVENT>`, `<FN>`) is wrapped in literal backticks in the body, exactly as the fixtures show
+(`` count the `event HourSaved(...)` events ``). Nothing else carries backticks. The composer emits the fixture's
+`definitions` keys exactly (T1: `method`, `window`; T2: `method`, `units`, `window`; T3: `method`; T4: `method`;
+T5: `method`, `true`, `false`, `window`).
+
 Placeholders: `<A>` claimant address (lowercase hex), `<C>` target contract (lowercase), `<EVENT>` the human-readable
 event item, `<ARG>` the indexed argument that must equal `<A>`, `<FARG>`/`<FVAL>` an optional second indexed
 argument and its decimal value, `<SUMARG>` the argument to sum, `<N>` the threshold (decimal), `<FROM>`/`<TO>` the
@@ -24,7 +32,7 @@ window in hex, `<FN>` a `function name(address) view returns (uint256)` item, `<
 > `<A>`[ and whose indexed `<FARG>` argument equals `<FVAL>`]. Answer the count as one integer; answer 0 if no such
 > event exists."
 >
-> definitions.method: "eth_getLogs on `<C>` with topic0 = the event's signature hash and the indexed argument(s)
+> definitions.method: "eth_getLogs on the contract with topic0 = the event's signature hash and the indexed argument(s)
 > as topics, over exactly the pinned window; or the equivalent explorer log query. Count matching logs; do not
 > deduplicate by transaction. Block numbers are hex."
 > definitions.window: "The pinned window is the whole evidence; events outside it do not count."
@@ -39,8 +47,13 @@ Spec fields: `<C>`, `<EVENT>`, `<ARG>`, optional `<FARG>`+`<FVAL>`, `<N>`, windo
 > `<ARG>` argument equals `<A>`[ and whose indexed `<FARG>` argument equals `<FVAL>`]. Answer the sum as one integer
 > in the argument's raw units (no decimals applied); answer 0 if no such event exists."
 >
-> definitions.method and definitions.window as T1; definitions.units: "Raw integer units of the argument as
-> emitted, e.g. wei for an ETH amount."
+> definitions.method: "eth_getLogs on the contract with topic0 = the event's signature hash and the indexed argument(s)
+> as topics, over exactly the pinned window; or the equivalent explorer log query. Sum the named argument of matching
+> logs; do not deduplicate by transaction. Block numbers are hex."
+> definitions.units: "Raw integer units of the argument as emitted, e.g. wei for an ETH amount."
+> definitions.window: as T1.
+>
+> Fixture: `templates/fixtures/T2-log-sum-composed.json` (composed from this template; not yet plane-checked).
 
 Spec fields: as T1 plus `<SUMARG>`. No v1 trait uses it; wave-two families (degen volume, whale receiver by sum) do.
 
@@ -62,9 +75,11 @@ Spec fields: `<C>`, `<EVENT>`, `<ARG>` (groupBy), `<SUMARG>`, `<N>` (head, at mo
 > question: "At the last block of the request's pinned window (toBlock `<TO>`) on Ethereum mainnet, does the view
 > function `<FN>` of the contract `<C>` return a value `<OP>` `<N>` for the address `<A>`? Answer true or false."
 >
-> definitions.method: "One eth_call of `<FN>` with `<A>` as the argument at block `<TO>` (hex, not 'latest') on an
+> definitions.method: "One eth_call of the function with `<A>` as the argument at block `<TO>` (hex, not 'latest') on an
 > endpoint with historical state; compare the raw integer return value with `<N>` using `<OP>`. A null, pruned or
 > 'latest' read is no evidence."
+>
+> Fixture: `templates/fixtures/T4-call-compare-reference.json` (`pointsOf`, `>=`, 1000, `W_LIFE`).
 
 Spec fields: `<C>`, `<FN>` (one address argument, one uint256 return), `<OP>`, `<N>`, window (its last block is the
 state read). No v1 trait uses it (the registry reads the Curator's views directly); wave-two bagholder and
@@ -93,10 +108,13 @@ The body attested twice on mainnet (fixture `templates/fixtures/1301-not-born-ye
 > definitions.window: "The window is the single block `<B>`; it fixes which chain state to read. It is not a time
 > range, and the current (latest) nonce is not the answer."
 
-v1 trait 1301: `<B>` 25769870, `<BH>` 0x189378e, `<HASH>` as in `CATALOG.md` section 1, `<N>` 20. For community specs the clause
-"the block in which the WhitelistCurator contract ... was deployed" is replaced by "the last block of the spec's
-window", `<B>` is the spec's `toBlock`, and `<HASH>` is omitted (the plane pins `toBlockHash` itself; a contract
-cannot read the hash of a block older than 256 blocks). Panel specs are never paid by the sponsor pool.
+v1 trait 1301: `<B>` 25769870, `<BH>` 0x189378e, `<HASH>` as in `CATALOG.md` section 1, `<N>` 20; fixture
+`templates/fixtures/1301-not-born-yesterday.json`. **Community T5 specs** use the same text with one verbatim change in
+the question's parenthesis: `(hex <BH>, block hash <HASH>; the block in which the WhitelistCurator contract
+0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91 was deployed)` becomes `(hex <BH>; the last block of the spec's window)`;
+`<B>` is the spec's `toBlock` (equal to its `fromBlock`); the definitions are unchanged. Fixture:
+`templates/fixtures/T5-community-composed.json` (composed, not yet plane-checked). A contract cannot read the hash of a
+block older than 256 blocks; the plane pins `toBlockHash` itself. Panel specs are never paid by the sponsor pool.
 
 ## The request body
 

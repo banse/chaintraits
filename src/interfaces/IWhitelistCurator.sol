@@ -11,8 +11,8 @@ pragma solidity 0.8.24;
 ///
 ///         That getter IS present in the vendored ABI (all 32 functions are), so its absence
 ///         here is discipline, not an accident of what was available. The thing that keeps
-///         the discipline is Task 2's test that a non-member does not read as hour 0, not
-///         this comment.
+///         the discipline is the test that a non-member does not read as hour 0, not this
+///         comment.
 ///
 ///         `deposit()`, `settle()` and `rescue()` are state-changing and are not declared
 ///         here: this repository never writes to the game.
@@ -28,8 +28,8 @@ interface IWhitelistCurator {
     function weightOf(address account) external view returns (uint256);
 
     /// @notice The LARGEST SINGLE SEND in wei (`highWater`), uncapped. Not a lifetime sum
-    ///         and not the credited amount, which is capped at creditCap. Do not confuse it
-    ///         with the `credit_wei` figure in the maxpane sweep, which is the capped one.
+    ///         and not the credited amount, which is capped at creditCap. The Capital traits
+    ///         (401 to 404) read this view.
     function contributedBy(address account) external view returns (uint256);
 
     /// @notice Maximum lifetime principal credited by the game, in wei.

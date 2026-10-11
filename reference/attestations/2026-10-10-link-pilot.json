@@ -1,0 +1,92 @@
+{
+  "domain": {
+    "chainId": 1,
+    "name": "IdentityMD Oracle",
+    "verifyingContract": "0x0000000000000000000000000000000000000000",
+    "version": "2"
+  },
+  "message": {
+    "agreed": 7,
+    "answer": "0x0000000000000000000000000000000000000000000000000000000000000001",
+    "answerType": "bool",
+    "blockHash": "0x7166d9dba8cff98bf47797006fcc4aac04bb3a4fdf4b53d91a1bc46a28c5cacd",
+    "chainId": 1,
+    "expiresAt": 1794249026,
+    "figure": "0",
+    "fromBlock": 26142390,
+    "issuedAt": 1791657026,
+    "panelJobId": "0xd5e143615a7e4fb1bae6e57bff912efb00000000000000000000000000000000",
+    "panelSize": 11,
+    "questionHash": "0x762f64c142ebcbdf1eb5c51353294d1f4571041775d29fcefe82313054e05e29",
+    "quorum": 7,
+    "requestId": "0x0e21ab1aca724618b814d1909aeb543700000000000000000000000000000000",
+    "toBlock": 26142390
+  },
+  "primaryType": "OracleAttestation",
+  "signature": "0xc67a51abaea3259d31cbe3adf3e6f0cb9ceadd7f0ea592d5c4f8ca883b0974a94bec89225f2173c9a413499acca2e933f42466778508d98c08545455d952382f1c",
+  "signer": "0x5598aa9146215bc13eb26f2c692ad1461fd32982",
+  "types": {
+    "OracleAttestation": [
+      {
+        "name": "requestId",
+        "type": "bytes32"
+      },
+      {
+        "name": "chainId",
+        "type": "uint256"
+      },
+      {
+        "name": "questionHash",
+        "type": "bytes32"
+      },
+      {
+        "name": "answerType",
+        "type": "uint8"
+      },
+      {
+        "name": "answer",
+        "type": "bytes"
+      },
+      {
+        "name": "figure",
+        "type": "uint256"
+      },
+      {
+        "name": "fromBlock",
+        "type": "uint64"
+      },
+      {
+        "name": "toBlock",
+        "type": "uint64"
+      },
+      {
+        "name": "blockHash",
+        "type": "bytes32"
+      },
+      {
+        "name": "panelJobId",
+        "type": "bytes32"
+      },
+      {
+        "name": "panelSize",
+        "type": "uint16"
+      },
+      {
+        "name": "quorum",
+        "type": "uint16"
+      },
+      {
+        "name": "agreed",
+        "type": "uint16"
+      },
+      {
+        "name": "issuedAt",
+        "type": "uint64"
+      },
+      {
+        "name": "expiresAt",
+        "type": "uint64"
+      }
+    ]
+  }
+}

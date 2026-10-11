@@ -1,0 +1,19 @@
+{
+  "answerType": "uint256",
+  "chainId": 1,
+  "definitions": {
+    "method": "eth_getLogs on the contract with topic0 = the event's signature hash and the indexed argument(s) as topics, over exactly the pinned window; or the equivalent explorer log query. Sum the named argument of matching logs; do not deduplicate by transaction. Block numbers are hex.",
+    "units": "Raw integer units of the argument as emitted, e.g. wei for an ETH amount.",
+    "window": "The pinned window is the whole evidence; events outside it do not count."
+  },
+  "evidence": "chain",
+  "panelSize": 5,
+  "question": "Within the request's pinned block window (fromBlock 0x189378e to toBlock 0x18984a4, both inclusive) on Ethereum mainnet, sum the amount argument of the `event Deposited(address indexed contributor, uint256 indexed hour, uint256 amount, uint256 creditedDelta, uint256 weightAdded, uint256 newWeight, uint256 txCount, uint256 hourTotal, uint256 earlyBps)` events emitted by the contract 0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91 whose indexed contributor argument equals 0x000000000000000000000000000000000000c1a1. Answer the sum as one integer in the argument's raw units (no decimals applied); answer 0 if no such event exists.",
+  "quorum": 3,
+  "v": 1,
+  "validForSeconds": 2592000,
+  "window": {
+    "fromBlock": 25769870,
+    "toBlock": 25789604
+  }
+}
