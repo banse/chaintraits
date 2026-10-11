@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import os
 import argparse
 import base64
 import hashlib
@@ -20,7 +21,8 @@ CASES = ("held", "transferred", "width")
 SIZES = (1000, 320)
 SOURCE_COMMIT = "2b10de2"
 MANIFEST_PATH = Path("test/fixtures/raster/manifest.json")
-FONT_PATH = Path("/System/Library/Fonts/Menlo.ttc")
+# The pinned font is the macOS Menlo face; another machine points CHAINTRAITS_FONT at a file with the same SHA-256.
+FONT_PATH = Path(os.environ.get("CHAINTRAITS_FONT", "/System/Library/Fonts/Menlo.ttc"))
 EXPECTED_FONT_SHA256 = "dc256e0b39c2a6fec947129d421fef41b8b429f58f9b6e5d1b148c87f775c1f6"
 EXPECTED_RENDERER = """rsvg-convert version 2.62.0
 

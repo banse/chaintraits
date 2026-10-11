@@ -1,0 +1,82 @@
+{
+ "checkedAt": "2026-10-12T00:00Z",
+ "fixture": "1201-top-32",
+ "http": 200,
+ "input": {
+  "answerType": "address[]",
+  "chainId": 1,
+  "evidence": "chain",
+  "panelSize": 5,
+  "question": "Within the request's pinned block window (fromBlock 0x189378e to toBlock 0x18984a4, both inclusive) on Ethereum mainnet, sum the weightAdded argument of the `event Deposited(address indexed contributor, uint256 indexed hour, uint256 amount, uint256 creditedDelta, uint256 weightAdded, uint256 newWeight, uint256 txCount, uint256 hourTotal, uint256 earlyBps)` events emitted by the contract 0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91 grouped by the indexed contributor argument. Return the 32 keys with the largest sums, descending by sum, ties by address ascending (lowercase hex)."
+ },
+ "response": {
+  "action": "oracle.request",
+  "blockers": [],
+  "chains": [
+   {
+    "id": 1,
+    "name": "Ethereum mainnet"
+   },
+   {
+    "id": 56,
+    "name": "BNB Chain"
+   },
+   {
+    "id": 4663,
+    "name": "Robinhood Chain"
+   },
+   {
+    "id": 8453,
+    "name": "Base"
+   },
+   {
+    "id": 42161,
+    "name": "Arbitrum One"
+   }
+  ],
+  "judged": true,
+  "limits": {
+   "maxPanelSize": 100,
+   "minPanelSize": 5
+  },
+  "online": 948,
+  "proposed": {
+   "answerType": {
+    "confidence": 1,
+    "value": "address[]"
+   },
+   "chainId": {
+    "confidence": 1,
+    "value": 1
+   },
+   "evidence": {
+    "confidence": 1,
+    "value": "chain"
+   },
+   "head": {
+    "confidence": 0.91,
+    "value": 10
+   },
+   "toleranceBps": {
+    "confidence": 0.89,
+    "value": 0
+   }
+  },
+  "request": {
+   "answerType": "address[]",
+   "chainId": 1,
+   "evidence": "chain",
+   "head": 10,
+   "panelSize": 5,
+   "question": "Within the request's pinned block window (fromBlock 0x189378e to toBlock 0x18984a4, both inclusive) on Ethereum mainnet, sum the weightAdded argument of the `event Deposited(address indexed contributor, uint256 indexed hour, uint256 amount, uint256 creditedDelta, uint256 weightAdded, uint256 newWeight, uint256 txCount, uint256 hourTotal, uint256 earlyBps)` events emitted by the contract 0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91 grouped by the indexed contributor argument. Return the 32 keys with the largest sums, descending by sum, ties by address ascending (lowercase hex).",
+   "quorum": 4,
+   "v": 1,
+   "validForSeconds": 86400,
+   "window": {
+    "hours": 24
+   }
+  },
+  "suggestions": []
+ },
+ "route": "POST /requests/check"
+}

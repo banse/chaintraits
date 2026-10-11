@@ -1,6 +1,10 @@
 {
   "answerType": "bool",
   "chainId": 1,
+  "consumer": {
+    "chainId": 1,
+    "verifyingContract": "0x000000000000000000000000000000000000c0de"
+  },
   "definitions": {
     "method": "One eth_call of the function with 0x000000000000000000000000000000000000c1a1 as the argument at block 0x18984a4 (hex, not 'latest') on an endpoint with historical state; compare the raw integer return value with 1000 using >=. A null, pruned or 'latest' read is no evidence."
   },

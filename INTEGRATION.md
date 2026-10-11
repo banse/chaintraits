@@ -1,8 +1,15 @@
 # INTEGRATION.md: the Intake, the attestation, the external contracts
 
-Everything the registry talks to, as measured on Ethereum mainnet on 2026-10-10/11. Sources are vendored under
-`reference/` (see `reference/PROVENANCE.md`). Where this file and a skill disagree, re-read the verified source
-in `reference/Intake.sol`; it is the contract that runs.
+Everything the registry talks to, as measured on Ethereum mainnet on 2026-10-10 to 2026-10-12. Sources are vendored
+under `reference/` (see `reference/PROVENANCE.md`). Where this file and a skill disagree, re-read the verified
+source in `reference/IntakeV2.sol`; it is the contract that runs.
+
+**Round 2 (2026-10-12) changed this file in five places**, each from a measurement, each with its evidence vendored:
+the plane moved to Intake v2 (section 1); the attestation's signed `requestId` is the plane's own id, not the Intake's
+(section 4, check 1); the domain's `verifyingContract` is the body's `consumer` field (section 4); the plane's
+`questionHash` is a keccak of a canonical JSON document the registry can recompute, which is now the binding between
+a pending request and its attestation (section 4, check 7); and Intake v2's failure hook delivers refusals and failed
+panels (section 3).
 
 ## 1. Addresses (Ethereum mainnet, chainId 1)
 
@@ -11,9 +18,15 @@ in `reference/Intake.sol`; it is the contract that runs.
 | WhitelistCurator (THE LIST) | `0xcB0b0531e86A9aC36Fa865cA8e3dbccF047FDA91` |
 | IdentityMD collection (IDMD, ERC-721, 2,000 tokens) | `0x0000eC93127BAA929E58E97dd0095A2BFb38ec1D` |
 | IMD token (ERC-20, 18 decimals, a LayerZero OFT, **no `permit`**) | `0xD34a99Bc0f67aE1bbd63C660e6d0b0dd03E263B7` |
-| IMD Intake (pay and ask in one transaction) | `0x1397434cd35e8a9c8ac312a61d3a285eb31dea56` |
+| **IMD Intake v2** (pay and ask in one transaction; the one the registry uses) | `0xa43e6f75ee006411f79ac1c84120606c2330de82` |
+| IMD Intake v1 (legacy; `/health.intake.chains[].legacyIntakes`; still priced and still completed) | `0x1397434cd35e8a9c8ac312a61d3a285eb31dea56` |
 | oracle attester (signs attestations) | `0x5598aa9146215bc13eb26f2c692ad1461fd32982` |
 | Intake writer (calls `complete`) | `0x3d3c0df7c1a17d384545e9d7c8228897bd9625cb` |
+
+Intake v2 was deployed through CREATE2 at the same address on every chain the plane serves; `/health` lists it as
+`intake` for chains 1, 4663 and 11155111 with v1 under `legacyIntakes`. Its source says "every function, event and
+getter of version 1 is here unchanged"; `requestWithFailure`, `failureSelectorOf` and `FailureHookSet` are new. Both
+addresses return `priceOf` 0.5 IMD, `callbackGas` 200,000 and the same writer (read 2026-10-12 00:30 UTC).
 
 The registry takes Curator, IDMD, IMD, Intake and attester as constructor arguments (static addresses; the launch
 pipeline allows only static address, uint, bool and bytes32 arguments, at most 16; "passive" means the constructor
@@ -21,8 +34,9 @@ stores its arguments, may read views and may deploy the renderer, but moves no f
 The writer is not a constructor argument: the registry trusts the Intake as `msg.sender` of the callback and the
 attester as the signer, never the writer. **Store the five addresses in ordinary storage, not `immutable`:** immutables
 are patched into the runtime code at deployment, and the launch check compares the deployed runtime code with a clean
-rebuild byte for byte. The same holds for the renderer: `bytes constant` (solc emits a `codecopy`), never an
-SSTORE2 pointer in an immutable.
+rebuild byte for byte. The same holds for the renderer (`bytes constant`, never an SSTORE2 pointer in an immutable)
+and for the EIP-712 domain (section 4: computed at verification time, never OpenZeppelin's `EIP712` base, which holds
+seven immutables).
 
 ### What can kill the registry (accepted, written down for the audit)
 
@@ -30,75 +44,116 @@ The registry is ownerless, so none of these has a remedy inside it; each needs a
 
 - The Intake's owner can `setPrice(action, IMD, 0)`: `request` then reverts `ActionNotSold` and every `upgrade`
   reverts. It can `setCallbackGas` below what `onResult` needs: every callback then fails and no oracle trait can ever
-  be verified. It can `setWriter`, `setPayTo`, `setSigner`.
+  be verified. It can `setWriter`, `setPayTo`, `setSigner`. The plane can retire v2 for a v3 as it retired v1.
 - The attester `0x5598…` is a constant; if the plane rotates the key, every later attestation is a miss.
-- The plane may change the attestation struct (it did once, see section 4) or the action version string.
-- The Curator and IDMD are immutable and settled; they cannot change.
+- The plane may change the attestation struct or the action version string. It did change the struct once before
+  2026-10-10 (an earlier record shows a shape without the three panel fields); every completion measured since (five,
+  on both Intakes, `reference/intake/completions.json`) carries the 15-field shape, and the registry accepts only that.
+- The plane may change the canonical question document behind `questionHash` (section 4, check 7); every later
+  attestation then misses with reason 10. A live mainnet consumer (`SwarmFeed`, the one behind the Intake v2
+  completions) recomputes the same document onchain, so the format is relied upon beyond this registry.
+- The Curator is settled and its state is final. IDMD's code is immutable, but ownership is live: the Operator trait
+  (601) changes when an IDMD moves, by design (`CATALOG.md` section 3).
 
-## 2. Asking: `Intake.request`
+## 2. Asking: `Intake.requestWithFailure`
 
 ```solidity
 struct Callback { address target; bytes4 selector; }
 function request(bytes32 action, bytes calldata body, Callback calldata callback, address asset, uint256 amount)
     external payable returns (bytes32 requestId);
+function requestWithFailure(bytes32 action, bytes calldata body, Callback calldata callback, bytes4 onFailure,
+    address asset, uint256 amount) external payable returns (bytes32 requestId);
 function priceOf(bytes32 action, address asset) external view returns (uint256);
 function callbackGas() external view returns (uint64);
+function failureSelectorOf(bytes32 requestId) external view returns (bytes4);
 ```
 
+- The registry calls **`requestWithFailure`** with `callback = (address(this), this.onResult.selector)` and
+  `onFailure = this.onFailure.selector`, so a refusal or a failed panel reaches the registry too (section 3).
 - `action` is the action name, an at sign and the version, as a right-padded `bytes32`:
   **`oracle.request@oracle-1`** = `0x6f7261636c652e72657175657374406f7261636c652d31000000000000000000`.
-  `priceOf(action, IMD)` returned `500000000000000000` (0.5 IMD) on 2026-10-11; the other spellings return 0 and
+  `priceOf(action, IMD)` returned `500000000000000000` (0.5 IMD) on 2026-10-12; the other spellings return 0 and
   `request` reverts `ActionNotSold`. Read `priceOf` at call time and pay exactly that: the registry must never
   hard-code 0.5 IMD, and the claimant's `upgrade` charges `k * priceOf(...)`.
-- `body` is the UTF-8 JSON of `TEMPLATES.md`, at most `MAX_BODY_BYTES` = 16,384 bytes.
+- `body` is the UTF-8 JSON of `TEMPLATES.md`, at most `MAX_BODY_BYTES` = 16,384 bytes. **It carries
+  `"consumer": {"chainId": 1, "verifyingContract": "<the registry, lowercase hex>"}`**: that field, not the callback
+  target, becomes the attestation's `verifyingContract` (section 4).
 - `asset` is the IMD token; the Intake pulls `amount` with `transferFrom`, so the registry approves the Intake for
-  the amount (or holds an allowance) before calling. The claimant approves the registry; the registry pulls, then
-  forwards.
+  the amount before calling. The claimant approves the registry; the registry pulls, then forwards.
 - `requestId = keccak256(abi.encode(block.chainid, address(intake), ++nonce))` is returned and emitted in
-  `Requested(requestId, payer, action, body, callbackTarget, callbackSelector, asset, amount)`.
-- The plane reads `Requested`, admits or refuses the body, runs the panel, and the writer calls `complete`.
+  `Requested(requestId, payer, action, body, callbackTarget, callbackSelector, asset, amount)`, followed by
+  `FailureHookSet(requestId, onFailure)`. **This id is the Intake's. The plane gives the same request a second id, a
+  UUID, and that is the one it signs** (section 4).
+- The plane reads `Requested`, admits or refuses the body, pins `toBlockHash`, runs the panel, and the writer calls
+  `complete`.
 
-## 3. Answering: what reaches `onResult`
+## 3. Answering: what reaches `onResult` and `onFailure`
 
 ```solidity
 function complete(bytes32 requestId, uint8 status, bytes32 resultHash, string calldata uri, bytes calldata args)
 ```
 
-`status` 0 = a result, 1 = refused, 2 = ended without a result (a panel that disagreed, `not_answerable`). **Only
-status 0 calls the callback.** The Intake sends `bytes.concat(callback.selector, args)` to `callback.target` with a
-fixed gas stipend of **`callbackGas()` = 200,000** (read it; it is settable by the Intake's owner), no value, and
-records `delivered` without reverting the writer's transaction. A callback that reverts or runs out of gas is
-simply `delivered == false`: the request is still `completed` and will never be retried. Hence:
+`status` 0 = a result, 1 = refused, 2 = ended without a result (a panel that disagreed, `not_answerable`). The Intake
+sends `bytes.concat(selector, args)` to `callback.target` with a fixed gas stipend of **`callbackGas()` = 200,000**
+(read it; it is settable by the Intake's owner), no value, and records `delivered` without reverting the writer's
+transaction. A callback that reverts or runs out of gas is simply `delivered == false`: the request is still
+`completed` and will never be retried.
 
-- `onResult` must finish well inside 200,000 gas: one `ecrecover` (3,000), a few `sload`s, one or two `sstore`s, one
-  event. No loops over unbounded data except the `head`-bounded list of T3 (32 addresses, stored as a fixed array
-  or a mapping, measured).
-- `onResult` never reverts on bad input; it records a miss (`Missed(requestId, traitId, reason)`) and returns.
-- For status 1 and 2 nothing arrives; the pending record stays until `abandon(requestId)` after 14 days.
+- **Status 0** calls the result selector with `args = abi.encode(bytes32 requestId, OracleAttestation a, bytes
+  signature)`:
 
-For `oracle.request` the `args` are `abi.encode(bytes32 requestId, OracleAttestation a, bytes signature)`, so the
-consumer's function is:
+  ```solidity
+  function onResult(bytes32 requestId, OracleAttestation calldata a, bytes calldata signature) external;
+  ```
 
-```solidity
-function onResult(bytes32 requestId, OracleAttestation calldata a, bytes calldata signature) external;
-```
+- **Status 1 and 2** call the failure selector the request named, with `args = abi.encode(bytes32 requestId, uint8
+  status, bytes32 reason, uint16 agreed, uint16 answered, bytes signature)`. The Intake itself checks that the first
+  two words equal this request and this status (`FailureArgsMismatch` otherwise), and calls nothing when `args` is
+  empty:
 
-and the registry checks `msg.sender == intake` first.
+  ```solidity
+  function onFailure(bytes32 requestId, uint8 status, bytes32 reason, uint16 agreed, uint16 answered,
+      bytes calldata signature) external;
+  ```
+
+  The registry checks `msg.sender == intake` and that `pending[requestId]` exists, clears the pending pair, emits
+  `NoVerdict(requestId, traitId, status, reason, agreed, answered)` and never marks a trait. It does not interpret
+  `signature` (its scheme is undocumented; the Intake and the writer authenticate the call). A claimant may request
+  the same trait again afterwards.
+
+- `onResult` must finish well inside 200,000 gas: one `ecrecover` (3,000), the digest, a few `sload`s, three or four
+  `sstore`s, two events. The only loop is the `head`-bounded envelope check of T3 (at most 64 words).
+- `onResult` and `onFailure` never revert on an ABI-valid envelope with bad content; they record a miss
+  (`Missed(requestId, traitId, reason)`) and return. Calldata that does not decode as the declared tuple fails in
+  Solidity's decoder before the function body runs; the Intake records that as `delivered == false`. The promise is
+  therefore scoped to envelopes that decode, and the tests exercise the two cases separately.
+- A request the plane never completes (three of the first seven Ethereum requests stayed `admitted`) stays pending
+  until `abandon(requestId)` after 14 days.
+
+The registry checks `msg.sender == intake` first in both functions.
 
 ## 4. The attestation
 
-EIP-712, domain `{ name: "IdentityMD Oracle", version: "2", chainId: 1, verifyingContract: <the consumer> }`.
-`verifyingContract` is the registry's own address for requests the registry sends (it was the zero address in the
-two pilots, which had no callback). Primary type and field order, from two attestations served on mainnet:
+EIP-712, domain `{ name: "IdentityMD Oracle", version: "2", chainId: 1, verifyingContract: <consumer> }`.
+
+**`verifyingContract` is the body's `consumer.verifyingContract`**, measured on two third-party requests: for one the
+consumer equals the callback target, for the other it is a different contract (a `SwarmFeed`), and the attester signed
+the consumer, not the callback target (`reference/attestations/2026-10-10-meatbag-consumer.json`,
+`2026-10-11-feed-consumer-v2.json`, both verified with `cast wallet verify` under their domain and refused under the
+zero domain). Requests without a `consumer` field were signed for the zero address (the three pilot attestations).
+The registry therefore writes its own address into every body and verifies with
+`verifyingContract = address(this)`.
+
+Primary type and field order, identical on five mainnet completions and five served attestations:
 
 ```solidity
 struct OracleAttestation {
-    bytes32 requestId;
+    bytes32 requestId;      // the plane's oracle request UUID, right-padded to 32 bytes; NOT the Intake's requestId
     uint256 chainId;
-    bytes32 questionHash;
+    bytes32 questionHash;   // keccak256 of the canonical question document (check 7)
     uint8   answerType;     // 0 bool, 1 address, 2 bytes32, 3 uint256, 4 address[], 5 bytes32[]
     bytes   answer;         // abi.encode of the value: bool -> 32 bytes 0/1; uint256 -> 32 bytes; address[] -> abi.encode(address[])
-    uint256 figure;         // the number behind the answer (a sum, a count) where there is one
+    uint256 figure;         // the number behind the answer where there is one; the plane leaves it 0 for panel answers
     uint64  fromBlock;
     uint64  toBlock;
     bytes32 blockHash;      // the hash of toBlock, pinned by the plane at admission
@@ -113,55 +168,111 @@ struct OracleAttestation {
 
 Type string for the struct hash:
 `OracleAttestation(bytes32 requestId,uint256 chainId,bytes32 questionHash,uint8 answerType,bytes answer,uint256 figure,uint64 fromBlock,uint64 toBlock,bytes32 blockHash,bytes32 panelJobId,uint16 panelSize,uint16 quorum,uint16 agreed,uint64 issuedAt,uint64 expiresAt)`
-(`bytes answer` hashes as `keccak256(answer)` per EIP-712). The signature is 65 bytes r, s, v; use
-OpenZeppelin `ECDSA.recover` plus `EIP712._hashTypedDataV4` with the registry as the domain's verifying contract.
+(`bytes answer` hashes as `keccak256(answer)` per EIP-712). The signature is 65 bytes r, s, v.
 
-What the registry verifies before marking a trait (`CATALOG.md` section 4):
+**Digest without immutables.** Do not inherit OpenZeppelin's `EIP712` (its cached domain separator and name/version
+fallbacks are seven immutables, and two deployments of the same source produce different runtime code; measured by
+the round-2 reviewer). Compute at verification time:
 
-1. `msg.sender == intake`; `a.requestId == requestId`; `pending[requestId]` exists and is unconsumed.
+```solidity
+bytes32 domainSeparator = keccak256(abi.encode(
+    keccak256("EIP712Domain(string name,string version,uint256 chainId,address verifyingContract)"),
+    keccak256("IdentityMD Oracle"), keccak256("2"), block.chainid, address(this)));
+bytes32 digest = MessageHashUtils.toTypedDataHash(domainSeparator, structHash);   // keccak256("\x19\x01" . ds . sh)
+(address signer, ECDSA.RecoverError err, ) = ECDSA.tryRecover(digest, signature); // never ECDSA.recover: it reverts
+```
+
+A `tryRecover` error, a zero signer or a signer other than the attester is reason 2. The compiler artifact's
+`immutableReferences` must be empty for both contracts (a test asserts it, and deploys the pair twice to compare
+runtime bytes).
+
+**What the registry verifies before marking a trait** (`CATALOG.md` section 4; reason codes below):
+
+1. `msg.sender == intake`; `pending[requestId]` exists (the `requestId` argument is the Intake's id, which the
+   registry stored when it sent the request). **`a.requestId` is not compared with it**: the signed id is the plane's
+   UUID. It is stored in the `verified` tuple as `oracleRequestId`, so a third party can fetch
+   `/oracle/requests/<uuid>/attestation` from it.
 2. `a.chainId == block.chainid`; the recovered signer == attester.
-3. `a.answerType` equals the template's type; `a.agreed >= a.quorum` and `a.quorum >= the template's quorum`
-   (3 for chain, 7 for panel); `a.panelSize >= the template's panel size`.
-4. `a.fromBlock` and `a.toBlock` equal the trait's canonical window (or the spec's stored window).
+3. `a.answerType` equals the template's type; `a.agreed >= a.quorum`, `a.quorum >= the template's quorum` (3 for
+   chain, 7 for panel), `a.panelSize >= the template's panel size`.
+4. `a.fromBlock` and `a.toBlock` equal the pending request's window (the trait's canonical window or the spec's).
 5. `block.timestamp <= a.expiresAt` and `a.issuedAt <= block.timestamp + 1 hours` (the plane's clock may run ahead of
    block time; a stricter lower bound would turn clock skew into an unrecoverable miss).
-6. The decoded answer passes the rule: `>= threshold`, `== true`, or the list contains the claimant within `head`.
-7. `questionHash`: the plane's hash function over the body is not documented and is **not** `keccak256(body)`;
-   the registry does not recompute it. The binding is `requestId`, which the registry itself received from
-   `request` and stored with `(claimant, traitId)`.
+6. The decoded answer passes the rule: `>= threshold`, `== true`, or (T3) the envelope is canonical (check 8).
+7. **`a.questionHash == pending.questionHash`.** The plane's `questionHash` is
+   `keccak256(canonical JSON document)` where the document is the request body reduced to
+   `{answerType, chainId, definitions, question, v, window: {fromBlock, toBlock}}`, plus `head` when the body has one
+   and `evidence` only when it is `"panel"` (the default `"chain"` is omitted), serialised as RFC 8785 canonical JSON:
+   keys sorted, no whitespace, integers as decimal digits, strings escaped only for `"`, `\` and control characters.
+   `panelSize`, `quorum`, `validForSeconds`, `consumer` and the pinned `toBlockHash` are **not** in the document.
+   Measured on 14 free quotes (ten fixtures with their vendored quotes in `reference/plane/quotes/`, four probes) and
+   on the x402 pilot, whose quote hash equals its attested hash. The registry computes the document from the same
+   parameters it composes the body from, at request time, and stores the hash in the pending record; the callback
+   compares one word. This binds the attestation to the exact question the registry asked, so a writer that pairs
+   claimant A's attestation with claimant B's request, or one trait's with another's, produces a miss, not a trait.
+   The golden test asserts the registry's `questionHashOf(body)` equals the plane's value for all ten fixtures
+   (`reference/plane/questionHashes.json`).
 8. **Decode defensively, never revert.** `a.answer` for `bool` and `uint256` must be exactly 32 bytes (and for `bool`
-   the word 0 or 1); otherwise reason `decode`. For `address[]` the registry does not decode the list in the callback
-   at all (see `CATALOG.md` section 4, T3): it stores `keccak256(a.answer)` and lets `applySharedFact` supply the list.
+   the word 0 or 1); otherwise reason 9. For `address[]` (T3) the callback does not decode the list; it checks the
+   canonical envelope: `answer.length == 64 + 32 * n`, word 0 == `0x20`, word 1 == `n`, `1 <= n <= 64`, and the upper
+   12 bytes of every element word are zero. A malformed envelope is reason 9 and **does not store the shared fact**,
+   so the fact can be requested again. On success it stores `(requestId, keccak256(a.answer), n)`, nothing else.
    A plain `abi.decode` on hostile bytes reverts, and a revert in `onResult` is a permanent `delivered == false`.
-9. **Two struct shapes.** The plane's current attestation (v2, since early October 2026) signs the 15 fields above.
-   The record of 2026-10-08 shows an earlier shape without `panelSize`, `quorum` and `agreed`. Because a miss cannot
-   be retried, `onResult` computes the digest for the 15-field type string first and, if the signer does not match,
-   for the 12-field type string
-   `OracleAttestation(bytes32 requestId,uint256 chainId,bytes32 questionHash,uint8 answerType,bytes answer,uint256 figure,uint64 fromBlock,uint64 toBlock,bytes32 blockHash,bytes32 panelJobId,uint64 issuedAt,uint64 expiresAt)`
-   with the same domain; a 12-field match skips check 3's panel conditions (there are none to check) and records
-   which shape matched in the `Verified` event. Tests must recover the attester from the three served attestations in
-   `reference/attestations/` (15-field, zero `verifyingContract`).
+9. One shape. The registry accepts the 15-field struct only. A different wire tuple does not decode as this function's
+   arguments and is `delivered == false` at the Intake (section 3); no second type string is tried.
 
 **`Missed` reason codes** (uint8): 1 not pending, 2 signer, 3 chainId, 4 answerType, 5 panel or quorum, 6 window,
-7 expiry, 8 rule, 9 decode, 10 requestId mismatch.
+7 expiry, 8 rule, 9 decode, 10 questionHash. (The round-1 code 10, "requestId mismatch", is retired: the signed id is
+not the Intake id.)
+
+### 4b. Transition table (every pending request ends in exactly one row)
+
+The pending record is `pending[requestId] = (address claimant, uint16 traitId, uint64 requestedAt, bytes32
+questionHash)`; for a shared-fact request `claimant == address(0)` and `traitId` is the fact id. The reverse index is
+`pendingOf[claimant][traitId] = requestId` (for shared facts `sharedPending[factId]`). "Clear" means: delete
+`pending[requestId]`, and delete the reverse index **only if it still equals this `requestId`**.
+
+| event | who | effect on the pair | stored | event emitted |
+|---|---|---|---|---|
+| `onResult`, all checks pass, personal | Intake | clear | `verified[claimant][traitId] = (requestId, a.requestId, fromBlock, toBlock)`; a community id is appended to `verifiedSpecsOf(claimant)` | `Verified`, `MetadataUpdate(tokenOf[claimant])` if a card exists |
+| `onResult`, all checks pass, shared | Intake | clear | `sharedFact[factId] = (requestId, keccak256(a.answer), n)` | `SharedFactStored` |
+| `onResult`, rule false (reason 8) | Intake | clear | nothing; the pair may be requested again (paid by the claimant) | `Missed` |
+| `onResult`, any other reason 2 to 10 | Intake | clear | nothing | `Missed` |
+| `onResult` or `onFailure`, `requestId` unknown (abandoned, consumed, never ours) | Intake | nothing | nothing | `Missed(reason 1)` |
+| `onFailure` (status 1 or 2) | Intake | clear | nothing; the pair may be requested again | `NoVerdict` |
+| `abandon(requestId)` at `requestedAt + 14 days` or later | anyone | clear | nothing | `Abandoned` |
+| `abandon` earlier | anyone | revert | | |
+| late callback for an abandoned request | Intake | as the unknown-id row: the successor request's reverse index is untouched, because the index is cleared only when it equals the stale id | | `Missed(reason 1)` |
+| not called back, not abandoned | | stays pending; at most one pending request per pair, so a new `upgrade` for the pair reverts | | |
+
+A miss never blocks a claimant-paid retry. The pool's once-per-pair rule is about pool money (`poolUsed`), set when
+the pool funds a request, whatever the outcome (`CONCEPT.md` section 4). Pool-funded requests are made by the claimant
+for the claimant, so a third party cannot create a miss in someone else's name.
 
 Measured traps that shaped these rules: panel members mis-convert decimal block numbers (hence hex in every text);
 `rpc.flashbots.net` and `cloudflare-eth.com` answer `null` for mined transactions (hence "null is not evidence" in
 panel definitions); three of the first seven Ethereum requests never completed (hence `abandon`);
-`completion.resultHash` in the plane's API is not the keccak of the served attestation.
+`completion.resultHash` in the plane's API is not the keccak of the served attestation; the served attestation JSON
+spells `answerType` as a name (`"bool"`) while the signed field is `uint8`, so a test loader maps the name to its code
+and rejects unknown names.
 
 ## 5. Paying
 
-- Card mint: 0.1 IMD from the claimant to the registry's sponsor pool (`transferFrom`; the claimant approves the
-  registry first; IMD has no `permit`).
+- Card mint: 0.1 IMD from the claimant to the registry (`transferFrom`; the claimant approves the registry first; IMD
+  has no `permit`).
 - Oracle trait: `priceOf` per request read in the same transaction, pulled from the claimant, approved to the Intake,
-  paid in `request`. `upgrade` and `requestSharedFact` take a `maxPrice` argument and revert when `priceOf` exceeds
-  it, so a price change between the user's approval and inclusion never pulls more than the user agreed to.
+  paid in `requestWithFailure`. `upgrade` and `requestSharedFact` take a `maxPrice` argument and revert when `priceOf`
+  exceeds it, so a price change between the user's approval and inclusion never pulls more than the user agreed to.
 - `mintCard`: pull the fee first, then `_mint` (not `_safeMint`; no receiver callback). IMD is a plain OFT ERC-20
-  without transfer hooks, so `transferFrom` cannot re-enter; the order is still fee, then state, then mint.
-- `registerSpec`: 1 IMD to the pool. `sponsor()`: any amount to the pool.
-- The registry holds IMD only as the pool plus amounts of requests not yet sent in the same transaction; no
-  `receive`, no `fallback`, no ETH.
+  without transfer hooks (its verified ABI is vendored; the token's internals are an assumption the tests probe with a
+  malicious mock); the order is fee, then state, then mint, and a reentrancy guard covers every function that moves
+  IMD.
+- `registerSpec`: 1 IMD to the registry. `sponsor(amount)`: any amount.
+- **The pool is the registry's IMD balance.** There is no separate counter: `pool()` returns `IMD.balanceOf(this)`.
+  Fees, sponsorships and plain `IMD.transfer(registry, x)` donations are the same thing; the balance only ever leaves
+  through `requestWithFailure` on a pool-funded path (`claimSponsored`, `upgradeSponsored`), and a claimant-paid
+  request pulls and forwards in one transaction, so the balance after equals the balance before. Pool money is an
+  irrevocable donation: nobody can withdraw it, and a remainder below `priceOf` stays until someone adds to it.
 
 ## 6. The Curator's views the registry reads (all `view`, all frozen since the Curator settled)
 
@@ -174,4 +285,5 @@ panel definitions); three of the first seven Ethereum requests never completed (
 | `isSettled()` | `bool`, true since hour 66 | sanity check in the constructor, nothing else |
 
 Never read `contributors(address)` for the hour: its fourth word is `firstHour + 1`. IDMD: `balanceOf(address)` for
-the Operator trait, `ownerOf(uint256)` for `upgradeSponsored`.
+the Operator trait (live; guard `address(0)`, whose `balanceOf` reverts in OpenZeppelin), `ownerOf(uint256)` for
+`upgradeSponsored`.

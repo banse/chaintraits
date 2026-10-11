@@ -1,0 +1,20 @@
+{
+ "blockers": null,
+ "fixture": "1201-top-32",
+ "http": 201,
+ "order": {
+  "id": "f4bfad3d-4b06-4144-943e-113409390a43",
+  "pinned": {
+   "fromBlock": 25769870,
+   "toBlock": 25789604,
+   "toBlockHash": "0x57852dbfd56daf8e7b4bf68c2e25f73dd583f99eac5b00c03a50603e4a2cef37"
+  },
+  "questionHash": "0x2cbf7e639f87df2e7bbd05a95bed14fe7ad5d8beeb849e5cf81a3a3be09bfd83",
+  "requestEqualsFixture": true,
+  "status": "quoted"
+ },
+ "quotedAt": "2026-10-12T00:00Z",
+ "recomputedEqualsPlane": true,
+ "recomputedQuestionHash": "0x2cbf7e639f87df2e7bbd05a95bed14fe7ad5d8beeb849e5cf81a3a3be09bfd83",
+ "route": "POST /requests/quote (unpaid; expires after 600 s)"
+}

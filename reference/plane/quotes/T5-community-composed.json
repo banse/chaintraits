@@ -1,0 +1,20 @@
+{
+ "blockers": null,
+ "fixture": "T5-community-composed",
+ "http": 201,
+ "order": {
+  "id": "360b47b8-f2f6-44b0-aa70-83c88a573d1e",
+  "pinned": {
+   "fromBlock": 25789604,
+   "toBlock": 25789604,
+   "toBlockHash": "0x57852dbfd56daf8e7b4bf68c2e25f73dd583f99eac5b00c03a50603e4a2cef37"
+  },
+  "questionHash": "0x8102ba56a2562224dcdd7175861ca84faad909829d08a2f6dd6e0d8a949d39c0",
+  "requestEqualsFixture": true,
+  "status": "quoted"
+ },
+ "quotedAt": "2026-10-12T00:00Z",
+ "recomputedEqualsPlane": true,
+ "recomputedQuestionHash": "0x8102ba56a2562224dcdd7175861ca84faad909829d08a2f6dd6e0d8a949d39c0",
+ "route": "POST /requests/quote (unpaid; expires after 600 s)"
+}

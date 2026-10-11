@@ -1,6 +1,10 @@
 {
   "answerType": "address[]",
   "chainId": 1,
+  "consumer": {
+    "chainId": 1,
+    "verifyingContract": "0x000000000000000000000000000000000000c0de"
+  },
   "definitions": {
     "method": "eth_getLogs over exactly the pinned window, group by the indexed argument, sum in raw units, sort as stated; include a few positions beyond 32; agreement is on the first 32."
   },

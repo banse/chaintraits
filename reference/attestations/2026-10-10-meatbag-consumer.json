@@ -1,0 +1,104 @@
+{
+ "requestId": "03f89e74-3db8-4c10-8fa8-d3424c9a18d4",
+ "domain": {
+  "name": "IdentityMD Oracle",
+  "version": "2",
+  "chainId": 1,
+  "verifyingContract": "0x70c1b03ccc02905b2ad5683156592418424c787b"
+ },
+ "types": {
+  "OracleAttestation": [
+   {
+    "name": "requestId",
+    "type": "bytes32"
+   },
+   {
+    "name": "chainId",
+    "type": "uint256"
+   },
+   {
+    "name": "questionHash",
+    "type": "bytes32"
+   },
+   {
+    "name": "answerType",
+    "type": "uint8"
+   },
+   {
+    "name": "answer",
+    "type": "bytes"
+   },
+   {
+    "name": "figure",
+    "type": "uint256"
+   },
+   {
+    "name": "fromBlock",
+    "type": "uint64"
+   },
+   {
+    "name": "toBlock",
+    "type": "uint64"
+   },
+   {
+    "name": "blockHash",
+    "type": "bytes32"
+   },
+   {
+    "name": "panelJobId",
+    "type": "bytes32"
+   },
+   {
+    "name": "panelSize",
+    "type": "uint16"
+   },
+   {
+    "name": "quorum",
+    "type": "uint16"
+   },
+   {
+    "name": "agreed",
+    "type": "uint16"
+   },
+   {
+    "name": "issuedAt",
+    "type": "uint64"
+   },
+   {
+    "name": "expiresAt",
+    "type": "uint64"
+   }
+  ]
+ },
+ "primaryType": "OracleAttestation",
+ "message": {
+  "agreed": 4,
+  "answer": "0x0000000000000000000000000000000000000000000000000000000000000002",
+  "figure": "0",
+  "quorum": 4,
+  "chainId": 1,
+  "toBlock": 26159928,
+  "issuedAt": 1791610072,
+  "blockHash": "0xdf0e59942ba59221a25b950d2adfd706b687f67cf6e1e6f594fc7df962b18bc5",
+  "expiresAt": 1791696472,
+  "fromBlock": 26152748,
+  "panelSize": 7,
+  "requestId": "0x03f89e743db84c108fa8d3424c9a18d400000000000000000000000000000000",
+  "answerType": "uint256",
+  "panelJobId": "0xfe1b05cc43f643c6a3d0fa8ac31ee57700000000000000000000000000000000",
+  "questionHash": "0x62923fed5f71143bc4071678e964ad312a3e5a20c934062ba2af9353ec92f41b"
+ },
+ "signature": "0xbbb8ae0fcce7ad8a975bf4db2a8cba097deaa8818bf211c4005aadb7bc99d5ac3f8a85e220fddc81009110687497ad1e3a262ccd47f7c7ad9b7520dea2582b571c",
+ "signer": "0x5598aa9146215bc13eb26f2c692ad1461fd32982",
+ "attestedAt": "2026-10-10T05:27:52.950Z",
+ "readMe": "Served by GET /oracle/requests/03f89e74-3db8-4c10-8fa8-d3424c9a18d4/attestation on 2026-10-11. A third party's request (a public contract, 'MEATBAG') through Intake v1 with a callback; the attestation's verifyingContract is that consumer. Verified with cast: the signature recovers 0x5598\u2026 under this domain and NOT under the zero domain. The calldata of the complete transaction carries the same tuple and signature (reference/intake/completions.json).",
+ "intake": {
+  "address": "0x1397434cd35e8a9c8ac312a61d3a285eb31dea56",
+  "requestTx": "0x936f428b222e79cea3144365bb93969d0fcd052a406d9f99b85bb5d25c11b56e",
+  "completeTx": "0xccd599a6094ad58cbcb5c4c69288ab43e1055b83e435810d178ecc76f5958817",
+  "intakeRequestId": "0x8a6e741e5befc054253946250882c62be78707b5e0c741b9cdae1420952da068",
+  "callbackTarget": "0x70c1b03ccc02905b2ad5683156592418424c787b",
+  "callbackSelector": "0x510379c7",
+  "delivered": true
+ }
+}

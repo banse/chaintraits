@@ -106,7 +106,8 @@ contract RendererTest is Test {
         StrHarness s = new StrHarness();
         assertEq(s.u(0), "0");
         assertEq(s.u(44_721), "44721");
-        assertEq(s.hexAddr(0x381fe486D87C7F2633c777F1b5bE3105A2a51744), "0x381fe486d87c7f2633c777f1b5be3105a2a51744");
+        // Vendored copy: the upstream address vector was replaced by a synthetic one (see reference/PROVENANCE.md).
+        assertEq(s.hexAddr(0x00000000000000000000000000000000AbCdC1a1), "0x00000000000000000000000000000000abcdc1a1");
     }
 
     function _assertGolden(string memory name_, CardData memory d) internal view {

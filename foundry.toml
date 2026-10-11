@@ -27,6 +27,9 @@ fs_permissions = [
     { access = "read", path = "./templates/fixtures" },
     { access = "read", path = "./test/fixtures" },
     { access = "read", path = "./out" },
+    { access = "read", path = "./reference/attestations" },
+    { access = "read", path = "./reference/intake" },
+    { access = "read", path = "./reference/plane" },
 ]
 
 [invariant]

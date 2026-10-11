@@ -1,0 +1,105 @@
+{
+ "requestId": "0ef60725-f09e-4d53-874c-6210dc9d1a44",
+ "domain": {
+  "name": "IdentityMD Oracle",
+  "version": "2",
+  "chainId": 1,
+  "verifyingContract": "0x014dabf6f940c9c383d9ef48636f70d842f65d7a"
+ },
+ "types": {
+  "OracleAttestation": [
+   {
+    "name": "requestId",
+    "type": "bytes32"
+   },
+   {
+    "name": "chainId",
+    "type": "uint256"
+   },
+   {
+    "name": "questionHash",
+    "type": "bytes32"
+   },
+   {
+    "name": "answerType",
+    "type": "uint8"
+   },
+   {
+    "name": "answer",
+    "type": "bytes"
+   },
+   {
+    "name": "figure",
+    "type": "uint256"
+   },
+   {
+    "name": "fromBlock",
+    "type": "uint64"
+   },
+   {
+    "name": "toBlock",
+    "type": "uint64"
+   },
+   {
+    "name": "blockHash",
+    "type": "bytes32"
+   },
+   {
+    "name": "panelJobId",
+    "type": "bytes32"
+   },
+   {
+    "name": "panelSize",
+    "type": "uint16"
+   },
+   {
+    "name": "quorum",
+    "type": "uint16"
+   },
+   {
+    "name": "agreed",
+    "type": "uint16"
+   },
+   {
+    "name": "issuedAt",
+    "type": "uint64"
+   },
+   {
+    "name": "expiresAt",
+    "type": "uint64"
+   }
+  ]
+ },
+ "primaryType": "OracleAttestation",
+ "message": {
+  "agreed": 53,
+  "answer": "0x0000000000000000000000000000000000000000000000000db93cd65b2d59f1",
+  "figure": "988888484534901233",
+  "quorum": 51,
+  "chainId": 1,
+  "toBlock": 26171607,
+  "issuedAt": 1791750743,
+  "blockHash": "0x381a2db38a68b229d1094c5643df0cbcee11a22e6df8b13f7b4b8342e61ac6e6",
+  "expiresAt": 1791837143,
+  "fromBlock": 26171309,
+  "panelSize": 100,
+  "requestId": "0x0ef60725f09e4d53874c6210dc9d1a4400000000000000000000000000000000",
+  "answerType": "uint256",
+  "panelJobId": "0x6b2f1a5e723d4c1884b9df0c4e5fb6bc00000000000000000000000000000000",
+  "questionHash": "0x6b879a4a7e5fb597170744739ea1ed9f2cbc6f13274da3bd81a89184276e7a4f"
+ },
+ "signature": "0x462c9e082cdef29799157e6a29eaab3123912b63c1ba3fdc544962e0791f17b67a80b157c25083839d9ac697ac07f7ba32c8e21ce8fbc217c4a935a0aba4619e1c",
+ "signer": "0x5598aa9146215bc13eb26f2c692ad1461fd32982",
+ "attestedAt": "2026-10-11T20:32:23.782Z",
+ "readMe": "Served by GET /oracle/requests/0ef60725-f09e-4d53-874c-6210dc9d1a44/attestation on 2026-10-12. A third party's request through Intake v2 (requestWithFailure, callback 0x0085\u2026, failure hook 0xa7980e31); the body's consumer.verifyingContract is a SwarmFeed 0x014d\u2026, and that is the domain the attester signed, not the callback target. Verified with cast under this domain.",
+ "intake": {
+  "address": "0xa43e6f75ee006411f79ac1c84120606c2330de82",
+  "requestTx": "0x7648c2600885ea1597e0af0f178f5cd3c1401b808ff418a0952589086b40dd18",
+  "completeTx": "0x5dd22b37976a164ed927f449b8f73fffdc660eb6086c58cde474df248b7a5237",
+  "intakeRequestId": "0xb0baabb8b6b087bffcd3a64b33126ac0343f035e77ea784ae71102fe6a98d369",
+  "callbackTarget": "0x00856bd495941f3b95da5b7e374c76d822c9059e",
+  "callbackSelector": "0x510379c7",
+  "failureSelector": "0xa7980e31",
+  "delivered": true
+ }
+}

@@ -1,0 +1,61 @@
+{
+ "source": "eth_getBlockByNumber via https://rpc.mevblocker.io, 2026-10-11",
+ "launchTime": 1786910327,
+ "hourDuration": 3600,
+ "blocks": {
+  "B_DEPLOY": {
+   "number": "0x189378e",
+   "numberDec": 25769870,
+   "hash": "0x43ac0aadac9b134a5e4555d28323431664fd77d74cd6a28cb4ca65e34ba72256",
+   "parentHash": "0xa9d2ba8ab17480f3070b6969fd9d662e0bbed155f3680a18813c17b943582dba",
+   "timestamp": "0x6a821677",
+   "timestampDec": 1786910327,
+   "txCount": 268
+  },
+  "B_FIRST1000": {
+   "number": "0x1893b91",
+   "numberDec": 25770897,
+   "hash": "0x8123c122611f3d121e0bd63123243aff8684a340f5f82344044018b855213633",
+   "parentHash": "0x3487ffe6614c4e2faf63aed1bf13714fc295bd4447e5a0a31b81f0f212bfacfb",
+   "timestamp": "0x6a82469b",
+   "timestampDec": 1786922651,
+   "txCount": 115
+  },
+  "B_H24": {
+   "number": "0x1895395",
+   "numberDec": 25777045,
+   "hash": "0xe67985572955ccc9a8b50f21248d8bd99127eb379e2cb4af3dd466d208b302c9",
+   "parentHash": "0xf8b832a6129287c56d1cc5f0f2586737a04dfc9b01a504e78b5e9566c647e09b",
+   "timestamp": "0x6a8367f7",
+   "timestampDec": 1786996727,
+   "txCount": 253
+  },
+  "B_END": {
+   "number": "0x18984a4",
+   "numberDec": 25789604,
+   "hash": "0x57852dbfd56daf8e7b4bf68c2e25f73dd583f99eac5b00c03a50603e4a2cef37",
+   "parentHash": "0xc054192b33115aaf59288ee13de06b71dd08a233ab6fb1d83b7c8daf959ab6ad",
+   "timestamp": "0x6a85b68b",
+   "timestampDec": 1787147915,
+   "txCount": 173
+  },
+  "B_H64": {
+   "number": "0x1898250",
+   "numberDec": 25789008,
+   "hash": "0xc1ed7ac5ef46d9be87a30ad0acd9930af3a1a4f336db1a3ab7916d79a56dd5f9",
+   "parentHash": "0x49865befa4e0c6000263be01ad7e97c96da7636b08e28b9d53c0c88e2a2f139a",
+   "timestamp": "0x6a859a77",
+   "timestampDec": 1787140727,
+   "txCount": 436
+  },
+  "B_H65": {
+   "number": "0x189837a",
+   "numberDec": 25789306,
+   "hash": "0xe980334abf1a8928250e0a69659669fe4a1c3de65f3dc28375fe001902e95864",
+   "parentHash": "0x9a078fd4c5339645f74970d8223df6ca461ab7769bdbc2bd8c7b2671a9fb0a36",
+   "timestamp": "0x6a85a887",
+   "timestampDec": 1787144327,
+   "txCount": 455
+  }
+ }
+}

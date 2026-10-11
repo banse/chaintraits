@@ -1,0 +1,20 @@
+{
+ "blockers": null,
+ "fixture": "1001-hour-savior",
+ "http": 201,
+ "order": {
+  "id": "e2eb8fce-16a8-469b-8b86-71187cb0783e",
+  "pinned": {
+   "fromBlock": 25769870,
+   "toBlock": 25789604,
+   "toBlockHash": "0x57852dbfd56daf8e7b4bf68c2e25f73dd583f99eac5b00c03a50603e4a2cef37"
+  },
+  "questionHash": "0xd53ae03dbf73038fb5b807188f57486ac5bde3b82abcf1371e2cb1d81ceff089",
+  "requestEqualsFixture": true,
+  "status": "quoted"
+ },
+ "quotedAt": "2026-10-12T00:00Z",
+ "recomputedEqualsPlane": true,
+ "recomputedQuestionHash": "0xd53ae03dbf73038fb5b807188f57486ac5bde3b82abcf1371e2cb1d81ceff089",
+ "route": "POST /requests/quote (unpaid; expires after 600 s)"
+}

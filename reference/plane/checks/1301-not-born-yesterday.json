@@ -1,0 +1,86 @@
+{
+ "checkedAt": "2026-10-12T00:00Z",
+ "fixture": "1301-not-born-yesterday",
+ "http": 200,
+ "input": {
+  "answerType": "bool",
+  "chainId": 1,
+  "evidence": "panel",
+  "panelSize": 11,
+  "question": "At Ethereum mainnet block 25769870 (hex 0x189378e, block hash 0x43ac0aadac9b134a5e4555d28323431664fd77d74cd6a28cb4ca65e34ba72256; the block in which the WhitelistCurator contract 0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91 was deployed), was the account nonce of address 0x000000000000000000000000000000000000c1a1, as returned by eth_getTransactionCount at that block, at least 20? This asks about the account's nonce in the chain state at that block, not about its transaction history."
+ },
+ "response": {
+  "action": "oracle.request",
+  "blockers": [],
+  "chains": [
+   {
+    "id": 1,
+    "name": "Ethereum mainnet"
+   },
+   {
+    "id": 56,
+    "name": "BNB Chain"
+   },
+   {
+    "id": 4663,
+    "name": "Robinhood Chain"
+   },
+   {
+    "id": 8453,
+    "name": "Base"
+   },
+   {
+    "id": 42161,
+    "name": "Arbitrum One"
+   }
+  ],
+  "judged": true,
+  "limits": {
+   "maxPanelSize": 100,
+   "minPanelSize": 5
+  },
+  "online": 948,
+  "proposed": {
+   "answerType": {
+    "confidence": 1,
+    "value": "bool"
+   },
+   "chainId": {
+    "confidence": 1,
+    "value": 1
+   },
+   "evidence": {
+    "confidence": 1,
+    "value": "chain"
+   },
+   "head": {
+    "confidence": 1,
+    "value": 1
+   },
+   "toleranceBps": {
+    "confidence": 0.97,
+    "value": 0
+   }
+  },
+  "request": {
+   "answerType": "bool",
+   "chainId": 1,
+   "evidence": "panel",
+   "panelSize": 11,
+   "question": "At Ethereum mainnet block 25769870 (hex 0x189378e, block hash 0x43ac0aadac9b134a5e4555d28323431664fd77d74cd6a28cb4ca65e34ba72256; the block in which the WhitelistCurator contract 0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91 was deployed), was the account nonce of address 0x000000000000000000000000000000000000c1a1, as returned by eth_getTransactionCount at that block, at least 20? This asks about the account's nonce in the chain state at that block, not about its transaction history.",
+   "quorum": 8,
+   "v": 1,
+   "validForSeconds": 86400,
+   "window": {
+    "hours": 24
+   }
+  },
+  "suggestions": [
+   {
+    "code": "evidence",
+    "detail": "This reads as answered from blockchain data; you chose public sources."
+   }
+  ]
+ },
+ "route": "POST /requests/check"
+}

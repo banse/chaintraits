@@ -1,0 +1,20 @@
+{
+ "blockers": null,
+ "fixture": "1301-not-born-yesterday",
+ "http": 201,
+ "order": {
+  "id": "0cb1fc3a-4e59-4453-92f8-6722ef647718",
+  "pinned": {
+   "fromBlock": 25769870,
+   "toBlock": 25769870,
+   "toBlockHash": "0x43ac0aadac9b134a5e4555d28323431664fd77d74cd6a28cb4ca65e34ba72256"
+  },
+  "questionHash": "0xfc231062f6add7e836fdbb21001ca7660e49d1657d1e5516f322844112c93667",
+  "requestEqualsFixture": true,
+  "status": "quoted"
+ },
+ "quotedAt": "2026-10-12T00:00Z",
+ "recomputedEqualsPlane": true,
+ "recomputedQuestionHash": "0xfc231062f6add7e836fdbb21001ca7660e49d1657d1e5516f322844112c93667",
+ "route": "POST /requests/quote (unpaid; expires after 600 s)"
+}

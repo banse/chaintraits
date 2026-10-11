@@ -7,3 +7,6 @@
 - The registry has no owner, no upgrade path, no pause and no fee switch. There is no token.
 - Every oracle question the registry sends is paid by the claimant (or the sponsor pool) through the Intake; the
   entrant earns nothing from it.
+- Sponsor-pool money (mint fees, spec fees, `sponsor`, plain transfers) is an irrevocable donation: no one, the
+  entrant included, can withdraw it; it is spent only on members' own catalog traits through the Intake, and a remainder
+  below the Intake's price stays in the contract.

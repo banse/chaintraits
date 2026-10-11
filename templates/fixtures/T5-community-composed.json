@@ -1,15 +1,19 @@
 {
   "answerType": "bool",
   "chainId": 1,
+  "consumer": {
+    "chainId": 1,
+    "verifyingContract": "0x000000000000000000000000000000000000c0de"
+  },
   "definitions": {
-    "false": "false only if an endpoint with historical state returns a count at block 0x18984a4 below 20, or the explorer method shows fewer than 20 outgoing transactions at or before block 25789604. If you could not read the historical count, write no answer; never answer false from a pruned, null or 'latest' read.",
-    "method": "Call eth_getTransactionCount(0x000000000000000000000000000000000000c1a1, 0x18984a4) (hex block, not 'latest') on an endpoint with historical state, e.g. https://rpc.mevblocker.io or https://eth.drpc.org; cite endpoint and call. Pruned or unavailable state, errors or null (flashbots, 1rpc, cloudflare, publicnode) are no evidence: use another endpoint. Alternative: page an explorer's ascending tx list (Blockscout txlist, sort=asc) to the 20th tx whose from is the address; its block must be <= 25789604.",
-    "true": "true only if an endpoint returns a transaction count at block 0x18984a4 of at least 20 (0x14), or the explorer method finds the 20th outgoing transaction of the address at or before block 25789604.",
+    "false": "false only if an endpoint with historical state returns a count at block 0x18984a4 below 20 (0x14). If you could not read the historical count, write no answer; never answer false from a pruned, null or 'latest' read.",
+    "method": "Call eth_getTransactionCount(0x000000000000000000000000000000000000c1a1, 0x18984a4) (hex block, not 'latest') on an endpoint with historical state, e.g. https://rpc.mevblocker.io or https://eth.drpc.org; cite endpoint and call. Pruned or unavailable state, errors or null (flashbots, 1rpc, cloudflare, publicnode) are no evidence: use another endpoint with historical state. Explorer transaction lists are not the nonce and are not evidence.",
+    "true": "true only if an endpoint with historical state returns a transaction count at block 0x18984a4 of at least 20 (0x14).",
     "window": "The window is the single block 25789604; it fixes which chain state to read. It is not a time range, and the current (latest) nonce is not the answer."
   },
   "evidence": "panel",
   "panelSize": 11,
-  "question": "At Ethereum mainnet block 25789604 (hex 0x18984a4; the last block of the spec's window), was the transaction count (nonce) of address 0x000000000000000000000000000000000000c1a1 at least 20? Equivalently: had 0x000000000000000000000000000000000000c1a1 sent at least 20 transactions that were included at or before that block?",
+  "question": "At Ethereum mainnet block 25789604 (hex 0x18984a4; the last block of the spec's window), was the account nonce of address 0x000000000000000000000000000000000000c1a1, as returned by eth_getTransactionCount at that block, at least 20? This asks about the account's nonce in the chain state at that block, not about its transaction history.",
   "quorum": 7,
   "v": 1,
   "validForSeconds": 2592000,

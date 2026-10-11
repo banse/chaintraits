@@ -1,0 +1,92 @@
+{
+ "1001-hour-savior": {
+  "canonicalDocument": "{\"answerType\":\"uint256\",\"chainId\":1,\"definitions\":{\"method\":\"eth_getLogs on the contract with topic0 = the event's signature hash and the indexed argument(s) as topics, over exactly the pinned window; or the equivalent explorer log query. Count matching logs; do not deduplicate by transaction. Block numbers are hex.\",\"window\":\"The pinned window is the whole evidence; events outside it do not count.\"},\"question\":\"Within the request's pinned block window (fromBlock 0x189378e to toBlock 0x18984a4, both inclusive) on Ethereum mainnet, count the `event HourSaved(address indexed savior, uint256 indexed hour, uint256 hourTotal)` events emitted by the contract 0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91 whose indexed savior argument equals 0x000000000000000000000000000000000000c1a1. Answer the count as one integer; answer 0 if no such event exists.\",\"v\":1,\"window\":{\"fromBlock\":25769870,\"toBlock\":25789604}}",
+  "pinned": {
+   "fromBlock": 25769870,
+   "toBlock": 25789604,
+   "toBlockHash": "0x57852dbfd56daf8e7b4bf68c2e25f73dd583f99eac5b00c03a50603e4a2cef37"
+  },
+  "questionHash": "0xd53ae03dbf73038fb5b807188f57486ac5bde3b82abcf1371e2cb1d81ceff089"
+ },
+ "1102-ordinal-1000": {
+  "canonicalDocument": "{\"answerType\":\"uint256\",\"chainId\":1,\"definitions\":{\"method\":\"eth_getLogs on the contract with topic0 = the event's signature hash and the indexed argument(s) as topics, over exactly the pinned window; or the equivalent explorer log query. Count matching logs; do not deduplicate by transaction. Block numbers are hex.\",\"window\":\"The pinned window is the whole evidence; events outside it do not count.\"},\"question\":\"Within the request's pinned block window (fromBlock 0x189378e to toBlock 0x18984a4, both inclusive) on Ethereum mainnet, count the `event FirstDeposit(address indexed contributor, uint256 indexed index, uint256 timestamp)` events emitted by the contract 0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91 whose indexed contributor argument equals 0x000000000000000000000000000000000000c1a1 and whose indexed index argument equals 1000. Answer the count as one integer; answer 0 if no such event exists.\",\"v\":1,\"window\":{\"fromBlock\":25769870,\"toBlock\":25789604}}",
+  "pinned": {
+   "fromBlock": 25769870,
+   "toBlock": 25789604,
+   "toBlockHash": "0x57852dbfd56daf8e7b4bf68c2e25f73dd583f99eac5b00c03a50603e4a2cef37"
+  },
+  "questionHash": "0x10306bdedb7ab4264afb7eb389e2d9401dfc68aeab625be0c5f2512d853d427a"
+ },
+ "1105-first-thousand": {
+  "canonicalDocument": "{\"answerType\":\"uint256\",\"chainId\":1,\"definitions\":{\"method\":\"eth_getLogs on the contract with topic0 = the event's signature hash and the indexed argument(s) as topics, over exactly the pinned window; or the equivalent explorer log query. Count matching logs; do not deduplicate by transaction. Block numbers are hex.\",\"window\":\"The pinned window is the whole evidence; events outside it do not count.\"},\"question\":\"Within the request's pinned block window (fromBlock 0x189378e to toBlock 0x1893b91, both inclusive) on Ethereum mainnet, count the `event FirstDeposit(address indexed contributor, uint256 indexed index, uint256 timestamp)` events emitted by the contract 0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91 whose indexed contributor argument equals 0x000000000000000000000000000000000000c1a1. Answer the count as one integer; answer 0 if no such event exists.\",\"v\":1,\"window\":{\"fromBlock\":25769870,\"toBlock\":25770897}}",
+  "pinned": {
+   "fromBlock": 25769870,
+   "toBlock": 25770897,
+   "toBlockHash": "0x8123c122611f3d121e0bd63123243aff8684a340f5f82344044018b855213633"
+  },
+  "questionHash": "0x89b6f36a2e93f67be5ceafe64ba7935c5c4da35e30026c2d590f7aa911c04204"
+ },
+ "1201-top-32": {
+  "canonicalDocument": "{\"answerType\":\"address[]\",\"chainId\":1,\"definitions\":{\"method\":\"eth_getLogs over exactly the pinned window, group by the indexed argument, sum in raw units, sort as stated; include a few positions beyond 32; agreement is on the first 32.\"},\"head\":32,\"question\":\"Within the request's pinned block window (fromBlock 0x189378e to toBlock 0x18984a4, both inclusive) on Ethereum mainnet, sum the weightAdded argument of the `event Deposited(address indexed contributor, uint256 indexed hour, uint256 amount, uint256 creditedDelta, uint256 weightAdded, uint256 newWeight, uint256 txCount, uint256 hourTotal, uint256 earlyBps)` events emitted by the contract 0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91 grouped by the indexed contributor argument. Return the 32 keys with the largest sums, descending by sum, ties by address ascending (lowercase hex).\",\"v\":1,\"window\":{\"fromBlock\":25769870,\"toBlock\":25789604}}",
+  "pinned": {
+   "fromBlock": 25769870,
+   "toBlock": 25789604,
+   "toBlockHash": "0x57852dbfd56daf8e7b4bf68c2e25f73dd583f99eac5b00c03a50603e4a2cef37"
+  },
+  "questionHash": "0x2cbf7e639f87df2e7bbd05a95bed14fe7ad5d8beeb849e5cf81a3a3be09bfd83"
+ },
+ "1301-not-born-yesterday": {
+  "canonicalDocument": "{\"answerType\":\"bool\",\"chainId\":1,\"definitions\":{\"false\":\"false only if an endpoint with historical state returns a count at block 0x189378e below 20 (0x14). If you could not read the historical count, write no answer; never answer false from a pruned, null or 'latest' read.\",\"method\":\"Call eth_getTransactionCount(0x000000000000000000000000000000000000c1a1, 0x189378e) (hex block, not 'latest') on an endpoint with historical state, e.g. https://rpc.mevblocker.io or https://eth.drpc.org; cite endpoint and call. Pruned or unavailable state, errors or null (flashbots, 1rpc, cloudflare, publicnode) are no evidence: use another endpoint with historical state. Explorer transaction lists are not the nonce and are not evidence.\",\"true\":\"true only if an endpoint with historical state returns a transaction count at block 0x189378e of at least 20 (0x14).\",\"window\":\"The window is the single block 25769870; it fixes which chain state to read. It is not a time range, and the current (latest) nonce is not the answer.\"},\"evidence\":\"panel\",\"question\":\"At Ethereum mainnet block 25769870 (hex 0x189378e, block hash 0x43ac0aadac9b134a5e4555d28323431664fd77d74cd6a28cb4ca65e34ba72256; the block in which the WhitelistCurator contract 0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91 was deployed), was the account nonce of address 0x000000000000000000000000000000000000c1a1, as returned by eth_getTransactionCount at that block, at least 20? This asks about the account's nonce in the chain state at that block, not about its transaction history.\",\"v\":1,\"window\":{\"fromBlock\":25769870,\"toBlock\":25769870}}",
+  "pinned": {
+   "fromBlock": 25769870,
+   "toBlock": 25769870,
+   "toBlockHash": "0x43ac0aadac9b134a5e4555d28323431664fd77d74cd6a28cb4ca65e34ba72256"
+  },
+  "questionHash": "0xfc231062f6add7e836fdbb21001ca7660e49d1657d1e5516f322844112c93667"
+ },
+ "701-still-here": {
+  "canonicalDocument": "{\"answerType\":\"uint256\",\"chainId\":1,\"definitions\":{\"method\":\"eth_getLogs on the contract with topic0 = the event's signature hash and the indexed argument(s) as topics, over exactly the pinned window; or the equivalent explorer log query. Count matching logs; do not deduplicate by transaction. Block numbers are hex.\",\"window\":\"The pinned window is the whole evidence; events outside it do not count.\"},\"question\":\"Within the request's pinned block window (fromBlock 0x1895395 to toBlock 0x18984a4, both inclusive) on Ethereum mainnet, count the `event Deposited(address indexed contributor, uint256 indexed hour, uint256 amount, uint256 creditedDelta, uint256 weightAdded, uint256 newWeight, uint256 txCount, uint256 hourTotal, uint256 earlyBps)` events emitted by the contract 0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91 whose indexed contributor argument equals 0x000000000000000000000000000000000000c1a1. Answer the count as one integer; answer 0 if no such event exists.\",\"v\":1,\"window\":{\"fromBlock\":25777045,\"toBlock\":25789604}}",
+  "pinned": {
+   "fromBlock": 25777045,
+   "toBlock": 25789604,
+   "toBlockHash": "0x57852dbfd56daf8e7b4bf68c2e25f73dd583f99eac5b00c03a50603e4a2cef37"
+  },
+  "questionHash": "0x6ed453ddb90406b6c11cb8b885de2e3517abf3763617bb13e246afcc64a04e30"
+ },
+ "801-last-stand": {
+  "canonicalDocument": "{\"answerType\":\"uint256\",\"chainId\":1,\"definitions\":{\"method\":\"eth_getLogs on the contract with topic0 = the event's signature hash and the indexed argument(s) as topics, over exactly the pinned window; or the equivalent explorer log query. Count matching logs; do not deduplicate by transaction. Block numbers are hex.\",\"window\":\"The pinned window is the whole evidence; events outside it do not count.\"},\"question\":\"Within the request's pinned block window (fromBlock 0x189378e to toBlock 0x18984a4, both inclusive) on Ethereum mainnet, count the `event Deposited(address indexed contributor, uint256 indexed hour, uint256 amount, uint256 creditedDelta, uint256 weightAdded, uint256 newWeight, uint256 txCount, uint256 hourTotal, uint256 earlyBps)` events emitted by the contract 0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91 whose indexed contributor argument equals 0x000000000000000000000000000000000000c1a1 and whose indexed hour argument equals 64. Answer the count as one integer; answer 0 if no such event exists.\",\"v\":1,\"window\":{\"fromBlock\":25769870,\"toBlock\":25789604}}",
+  "pinned": {
+   "fromBlock": 25769870,
+   "toBlock": 25789604,
+   "toBlockHash": "0x57852dbfd56daf8e7b4bf68c2e25f73dd583f99eac5b00c03a50603e4a2cef37"
+  },
+  "questionHash": "0x677a18abf857a755b67a78935c1a108d36993bdbca4861d42bf53c6973ba81d9"
+ },
+ "T2-log-sum-composed": {
+  "canonicalDocument": "{\"answerType\":\"uint256\",\"chainId\":1,\"definitions\":{\"method\":\"eth_getLogs on the contract with topic0 = the event's signature hash and the indexed argument(s) as topics, over exactly the pinned window; or the equivalent explorer log query. Sum the named argument of matching logs; do not deduplicate by transaction. Block numbers are hex.\",\"units\":\"Raw integer units of the argument as emitted, e.g. wei for an ETH amount.\",\"window\":\"The pinned window is the whole evidence; events outside it do not count.\"},\"question\":\"Within the request's pinned block window (fromBlock 0x189378e to toBlock 0x18984a4, both inclusive) on Ethereum mainnet, sum the amount argument of the `event Deposited(address indexed contributor, uint256 indexed hour, uint256 amount, uint256 creditedDelta, uint256 weightAdded, uint256 newWeight, uint256 txCount, uint256 hourTotal, uint256 earlyBps)` events emitted by the contract 0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91 whose indexed contributor argument equals 0x000000000000000000000000000000000000c1a1. Answer the sum as one integer in the argument's raw units (no decimals applied); answer 0 if no such event exists.\",\"v\":1,\"window\":{\"fromBlock\":25769870,\"toBlock\":25789604}}",
+  "pinned": {
+   "fromBlock": 25769870,
+   "toBlock": 25789604,
+   "toBlockHash": "0x57852dbfd56daf8e7b4bf68c2e25f73dd583f99eac5b00c03a50603e4a2cef37"
+  },
+  "questionHash": "0x395e3ad7275853c66789b6380cf116a34acc10787032814e7983034b74d33837"
+ },
+ "T4-call-compare-reference": {
+  "canonicalDocument": "{\"answerType\":\"bool\",\"chainId\":1,\"definitions\":{\"method\":\"One eth_call of the function with 0x000000000000000000000000000000000000c1a1 as the argument at block 0x18984a4 (hex, not 'latest') on an endpoint with historical state; compare the raw integer return value with 1000 using >=. A null, pruned or 'latest' read is no evidence.\"},\"question\":\"At the last block of the request's pinned window (toBlock 0x18984a4) on Ethereum mainnet, does the view function `function pointsOf(address) view returns (uint256)` of the contract 0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91 return a value >= 1000 for the address 0x000000000000000000000000000000000000c1a1? Answer true or false.\",\"v\":1,\"window\":{\"fromBlock\":25769870,\"toBlock\":25789604}}",
+  "pinned": {
+   "fromBlock": 25769870,
+   "toBlock": 25789604,
+   "toBlockHash": "0x57852dbfd56daf8e7b4bf68c2e25f73dd583f99eac5b00c03a50603e4a2cef37"
+  },
+  "questionHash": "0x2589d51a9e75d6c96b5e84f8005c5939e74a411f66c92cb21a71faba042a5132"
+ },
+ "T5-community-composed": {
+  "canonicalDocument": "{\"answerType\":\"bool\",\"chainId\":1,\"definitions\":{\"false\":\"false only if an endpoint with historical state returns a count at block 0x18984a4 below 20 (0x14). If you could not read the historical count, write no answer; never answer false from a pruned, null or 'latest' read.\",\"method\":\"Call eth_getTransactionCount(0x000000000000000000000000000000000000c1a1, 0x18984a4) (hex block, not 'latest') on an endpoint with historical state, e.g. https://rpc.mevblocker.io or https://eth.drpc.org; cite endpoint and call. Pruned or unavailable state, errors or null (flashbots, 1rpc, cloudflare, publicnode) are no evidence: use another endpoint with historical state. Explorer transaction lists are not the nonce and are not evidence.\",\"true\":\"true only if an endpoint with historical state returns a transaction count at block 0x18984a4 of at least 20 (0x14).\",\"window\":\"The window is the single block 25789604; it fixes which chain state to read. It is not a time range, and the current (latest) nonce is not the answer.\"},\"evidence\":\"panel\",\"question\":\"At Ethereum mainnet block 25789604 (hex 0x18984a4; the last block of the spec's window), was the account nonce of address 0x000000000000000000000000000000000000c1a1, as returned by eth_getTransactionCount at that block, at least 20? This asks about the account's nonce in the chain state at that block, not about its transaction history.\",\"v\":1,\"window\":{\"fromBlock\":25789604,\"toBlock\":25789604}}",
+  "pinned": {
+   "fromBlock": 25789604,
+   "toBlock": 25789604,
+   "toBlockHash": "0x57852dbfd56daf8e7b4bf68c2e25f73dd583f99eac5b00c03a50603e4a2cef37"
+  },
+  "questionHash": "0x8102ba56a2562224dcdd7175861ca84faad909829d08a2f6dd6e0d8a949d39c0"
+ }
+}

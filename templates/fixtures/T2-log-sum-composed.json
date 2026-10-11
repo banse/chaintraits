@@ -1,6 +1,10 @@
 {
   "answerType": "uint256",
   "chainId": 1,
+  "consumer": {
+    "chainId": 1,
+    "verifyingContract": "0x000000000000000000000000000000000000c0de"
+  },
   "definitions": {
     "method": "eth_getLogs on the contract with topic0 = the event's signature hash and the indexed argument(s) as topics, over exactly the pinned window; or the equivalent explorer log query. Sum the named argument of matching logs; do not deduplicate by transaction. Block numbers are hex.",
     "units": "Raw integer units of the argument as emitted, e.g. wei for an ETH amount.",

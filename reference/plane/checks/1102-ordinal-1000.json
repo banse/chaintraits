@@ -1,0 +1,81 @@
+{
+ "checkedAt": "2026-10-12T00:00Z",
+ "fixture": "1102-ordinal-1000",
+ "http": 200,
+ "input": {
+  "answerType": "uint256",
+  "chainId": 1,
+  "evidence": "chain",
+  "panelSize": 5,
+  "question": "Within the request's pinned block window (fromBlock 0x189378e to toBlock 0x18984a4, both inclusive) on Ethereum mainnet, count the `event FirstDeposit(address indexed contributor, uint256 indexed index, uint256 timestamp)` events emitted by the contract 0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91 whose indexed contributor argument equals 0x000000000000000000000000000000000000c1a1 and whose indexed index argument equals 1000. Answer the count as one integer; answer 0 if no such event exists."
+ },
+ "response": {
+  "action": "oracle.request",
+  "blockers": [],
+  "chains": [
+   {
+    "id": 1,
+    "name": "Ethereum mainnet"
+   },
+   {
+    "id": 56,
+    "name": "BNB Chain"
+   },
+   {
+    "id": 4663,
+    "name": "Robinhood Chain"
+   },
+   {
+    "id": 8453,
+    "name": "Base"
+   },
+   {
+    "id": 42161,
+    "name": "Arbitrum One"
+   }
+  ],
+  "judged": true,
+  "limits": {
+   "maxPanelSize": 100,
+   "minPanelSize": 5
+  },
+  "online": 948,
+  "proposed": {
+   "answerType": {
+    "confidence": 1,
+    "value": "uint256"
+   },
+   "chainId": {
+    "confidence": 1,
+    "value": 1
+   },
+   "evidence": {
+    "confidence": 1,
+    "value": "chain"
+   },
+   "head": {
+    "confidence": 1,
+    "value": 1
+   },
+   "toleranceBps": {
+    "confidence": 0.97,
+    "value": 0
+   }
+  },
+  "request": {
+   "answerType": "uint256",
+   "chainId": 1,
+   "evidence": "chain",
+   "panelSize": 5,
+   "question": "Within the request's pinned block window (fromBlock 0x189378e to toBlock 0x18984a4, both inclusive) on Ethereum mainnet, count the `event FirstDeposit(address indexed contributor, uint256 indexed index, uint256 timestamp)` events emitted by the contract 0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91 whose indexed contributor argument equals 0x000000000000000000000000000000000000c1a1 and whose indexed index argument equals 1000. Answer the count as one integer; answer 0 if no such event exists.",
+   "quorum": 4,
+   "v": 1,
+   "validForSeconds": 86400,
+   "window": {
+    "hours": 24
+   }
+  },
+  "suggestions": []
+ },
+ "route": "POST /requests/check"
+}

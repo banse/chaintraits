@@ -1,0 +1,147 @@
+{
+ "readMe": "Every status-0 completion of oracle.request on Ethereum mainnet up to 2026-10-11 23:30 UTC on Intake v1, plus the first one read on Intake v2. Decoded with cast from the complete(bytes32,uint8,bytes32,string,bytes) calldata; args = abi.encode(bytes32 intakeRequestId, OracleAttestation a, bytes signature). Facts: (1) the attestation's signed requestId is the plane's oracle request UUID right-padded to 32 bytes, never the Intake's keccak id; (2) every wire tuple has the 15 fields of INTEGRATION.md section 4; (3) the EIP-712 domain's verifyingContract is the body's consumer.verifyingContract (zero when the body named none), not the callback target; (4) the calldata tuple and the served attestation are identical.",
+ "selectors": {
+  "0x510379c7": "onOracleResult(bytes32,(bytes32,uint256,bytes32,uint8,bytes,uint256,uint64,uint64,bytes32,bytes32,uint16,uint16,uint16,uint64,uint64),bytes)",
+  "0xa7980e31": "onOracleFailure(bytes32,uint8,bytes32,uint16,uint16,bytes)",
+  "0x0f6261af": "complete(bytes32,uint8,bytes32,string,bytes)"
+ },
+ "completions": [
+  {
+   "intake": "0x1397434cd35e8a9c8ac312a61d3a285eb31dea56 (v1, now legacy)",
+   "requestTx": "0x936f428b222e79cea3144365bb93969d0fcd052a406d9f99b85bb5d25c11b56e",
+   "requestBlock": 26159930,
+   "completeTx": "0xccd599a6094ad58cbcb5c4c69288ab43e1055b83e435810d178ecc76f5958817",
+   "completeBlock": 26159943,
+   "intakeRequestId": "0x8a6e741e5befc054253946250882c62be78707b5e0c741b9cdae1420952da068",
+   "callbackTarget": "0x70c1b03ccc02905b2ad5683156592418424c787b",
+   "callbackSelector": "0x510379c7",
+   "delivered": true,
+   "status": 0,
+   "oracleRequestId": "03f89e74-3db8-4c10-8fa8-d3424c9a18d4",
+   "attestationUri": "https://api.imd.fun/oracle/requests/03f89e74-3db8-4c10-8fa8-d3424c9a18d4/attestation",
+   "signedRequestId": "0x03f89e743db84c108fa8d3424c9a18d400000000000000000000000000000000",
+   "signedRequestIdEqualsIntakeId": false,
+   "structFields": 15,
+   "answerType": 3,
+   "window": [
+    26152748,
+    26159928
+   ],
+   "panel": [
+    7,
+    4,
+    4
+   ]
+  },
+  {
+   "intake": "0x1397434cd35e8a9c8ac312a61d3a285eb31dea56 (v1, now legacy)",
+   "requestTx": "0x2f442dc92de40d45b037bf1e211950bba3799e55fcf9370013d10d5aa30bdf57",
+   "requestBlock": 26165695,
+   "completeTx": "0xcd1dd892d8a247842b9c93ca560bb67f98541b8655aa345de7ae26bc458ee00e",
+   "completeBlock": 26165707,
+   "intakeRequestId": "0xadc931b0904305df883901adf7170501525de0b6fb7078821df20f1bac616782",
+   "callbackTarget": null,
+   "callbackSelector": null,
+   "delivered": false,
+   "status": 0,
+   "oracleRequestId": "91782ffa-316d-4ea9-853c-f18b8352e068",
+   "attestationUri": "https://api.imd.fun/oracle/requests/91782ffa-316d-4ea9-853c-f18b8352e068/attestation",
+   "signedRequestId": "0x91782ffa316d4ea9853cf18b8352e06800000000000000000000000000000000",
+   "signedRequestIdEqualsIntakeId": false,
+   "structFields": 15,
+   "answerType": 0,
+   "window": [
+    25769870,
+    25769870
+   ],
+   "panel": [
+    11,
+    7,
+    7
+   ]
+  },
+  {
+   "intake": "0x1397434cd35e8a9c8ac312a61d3a285eb31dea56 (v1, now legacy)",
+   "requestTx": "0x9c9b61d90d202084cf4cda99ed0ab3ba90061d70e8e530c054f5404911da51a9",
+   "requestBlock": 26163827,
+   "completeTx": "0x7fb7c794caade5a3aeeda0110f0f5eb0062c9e9e27021bc7deba039a658c9e1f",
+   "completeBlock": 26163839,
+   "intakeRequestId": "0x3e9f9da5ae87be0c52deeac8eef613894895ab89f9711200c33e83a9e1fb5ab9",
+   "callbackTarget": null,
+   "callbackSelector": null,
+   "delivered": false,
+   "status": 0,
+   "oracleRequestId": "0e21ab1a-ca72-4618-b814-d1909aeb5437",
+   "attestationUri": "https://api.imd.fun/oracle/requests/0e21ab1a-ca72-4618-b814-d1909aeb5437/attestation",
+   "signedRequestId": "0x0e21ab1aca724618b814d1909aeb543700000000000000000000000000000000",
+   "signedRequestIdEqualsIntakeId": false,
+   "structFields": 15,
+   "answerType": 0,
+   "window": [
+    26142390,
+    26142390
+   ],
+   "panel": [
+    11,
+    7,
+    7
+   ]
+  },
+  {
+   "intake": "0x1397434cd35e8a9c8ac312a61d3a285eb31dea56 (v1, now legacy)",
+   "requestTx": "0xbb37b2c82d62b61f000723200bfba55cc2b33d61e580411a80da87085bf2090b",
+   "requestBlock": 26155480,
+   "completeTx": "0x5fd3a978a2a2167cfc3557627d36ff4bfc70f5b21f1dfe78e85c899fe7846b1f",
+   "completeBlock": 26155506,
+   "intakeRequestId": "0x1b68c799b944bc9532fd49de5bd53eac42cdfbb21ab8020087e3f2c5c3b83693",
+   "callbackTarget": null,
+   "callbackSelector": null,
+   "delivered": false,
+   "status": 0,
+   "oracleRequestId": "49507255-0cb8-4d65-928a-770d886761ce",
+   "attestationUri": "https://api.imd.fun/oracle/requests/49507255-0cb8-4d65-928a-770d886761ce/attestation",
+   "signedRequestId": "0x495072550cb84d65928a770d886761ce00000000000000000000000000000000",
+   "signedRequestIdEqualsIntakeId": false,
+   "structFields": 15,
+   "answerType": 0,
+   "window": [
+    26155180,
+    26155478
+   ],
+   "panel": [
+    30,
+    20,
+    20
+   ]
+  },
+  {
+   "intake": "0xa43e6f75ee006411f79ac1c84120606c2330de82 (v2, current)",
+   "requestTx": "0x7648c2600885ea1597e0af0f178f5cd3c1401b808ff418a0952589086b40dd18",
+   "requestBlock": 26171609,
+   "completeTx": "0x5dd22b37976a164ed927f449b8f73fffdc660eb6086c58cde474df248b7a5237",
+   "completeBlock": 26171632,
+   "intakeRequestId": "0xb0baabb8b6b087bffcd3a64b33126ac0343f035e77ea784ae71102fe6a98d369",
+   "callbackTarget": "0x00856bd495941f3b95da5b7e374c76d822c9059e",
+   "callbackSelector": "0x510379c7",
+   "failureSelector": "0xa7980e31",
+   "delivered": true,
+   "status": 0,
+   "oracleRequestId": "0ef60725-f09e-4d53-874c-6210dc9d1a44",
+   "attestationUri": "https://api.imd.fun/oracle/requests/0ef60725-f09e-4d53-874c-6210dc9d1a44/attestation",
+   "signedRequestId": "0x0ef60725f09e4d53874c6210dc9d1a4400000000000000000000000000000000",
+   "signedRequestIdEqualsIntakeId": false,
+   "structFields": 15,
+   "answerType": 3,
+   "window": [
+    26171309,
+    26171607
+   ],
+   "panel": [
+    100,
+    51,
+    53
+   ],
+   "bodyConsumer": "0x014dabf6f940c9c383d9ef48636f70d842f65d7a (a SwarmFeed; the attestation's verifyingContract, not the callback target)"
+  }
+ ]
+}
