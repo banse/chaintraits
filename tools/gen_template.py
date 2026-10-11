@@ -1,12 +1,20 @@
 #!/usr/bin/env python3
-"""Generate THE LIST renderer template artifacts and synthetic conformance goldens.
+"""Generate the chaintraits renderer template artifacts and synthetic conformance goldens.
 
-The SVG is percent-encoded first, inserted into the exact JSON envelope, and then
-split around the 21 dynamic markers. Generated files are byte-exact and carry no
-terminal newline. Run from the repository root:
+The SVG (`template/card.svg`) is percent-encoded, inserted into the exact JSON envelope, and split
+around the 34 dynamic markers. The generator writes:
+
+    template/blob.hex        the template blob, 0x-prefixed hex
+    template/offsets.txt     start,length pairs of the 35 fixed slices, decimal, comma-separated
+    src/TemplateData.sol     the same blob and offsets as `bytes constant` (read by `Renderer.sol`)
+    test/fixtures/golden_<case>_{preimage,svg,uri}.txt   the goldens for the synthetic cards
+
+Generated files are byte-exact and carry no terminal newline. Run from the repository root:
 
     python3 tools/gen_template.py
     python3 tools/gen_template.py --check
+
+Goldens are for synthetic wallets only (the `0x...c1a1` convention); never a real wallet.
 """
 
 from __future__ import annotations
@@ -16,7 +24,7 @@ import base64
 import json
 import re
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 
@@ -24,317 +32,181 @@ ROOT = Path(__file__).resolve().parents[1]
 TEMPLATE_PATH = Path("template/card.svg")
 BLOB_PATH = Path("template/blob.hex")
 OFFSETS_PATH = Path("template/offsets.txt")
+SOLIDITY_PATH = Path("src/TemplateData.sol")
 
 DESCRIPTION = (
-    "A permanent onchain record of what the claimant wallet did in THE LIST. "
-    "Objective participation facts are read directly from WhitelistCurator.sol; eligibility is "
-    "bound to the published filter commitment. Ownership may transfer while Claimant remains "
-    "historical provenance. Marketplaces cache metadata and may temporarily show an older "
-    "ownership-derived value."
+    "An ownerless onchain registry of verifiable wallet feats. One card per wallet; every trait is a fact "
+    "about the claimant wallet that minted the card, never about the holder. Direct-read traits are read "
+    "live from the settled WhitelistCurator and the IdentityMD collection; chain-proven, panel-attested "
+    "and shared-fact traits are attested by the IMD oracle through the Intake and verified in the "
+    "registry. Allowlists read hasTrait, never ownerOf."
+)
+
+FAMILIES = (
+    "Contributor",
+    "Early bird",
+    "Climber",
+    "Capital",
+    "Scoreboard",
+    "Operator",
+    "Still here",
+    "Last stand",
+    "The last one in",
+    "Hour savior",
+    "Ordinal",
+    "Top 32",
+    "Not born yesterday",
 )
 
 ENVELOPE = (
-    '{"name":"THE LIST #{ID}",'
+    '{"name":"chaintraits #{ID}",'
     '"description":"' + DESCRIPTION + '",'
     '"image":"data:image/svg+xml,{IMAGE}",'
     '"attributes":['
-    '{"trait_type":"Points","value":{POINTS}},'
-    '{"trait_type":"Weight (ETH)","value":{WEIGHT}},'
-    '{"trait_type":"Credit (ETH)","value":{CREDIT}},'
-    '{"trait_type":"Deposits","value":{DEPOSITS}},'
-    '{"trait_type":"Hour","value":"{HOUR_J}"},'
-    '{"trait_type":"Window","value":"{WINDOW}"},'
-    '{"trait_type":"Join Index","value":{JOIN_INDEX}},'
-    '{"trait_type":"Claimed At Hour","value":{CLAIMED_AT_HOUR}},'
-    '{"trait_type":"Claim Order","value":{ID}},'
     '{"trait_type":"Claimant","value":"{CLAIMANT}"},'
-    '{"trait_type":"Held by claimant","value":"{HELD_YN}"}]}'
+    + "".join(
+        '{"trait_type":"' + name + '","value":"{F' + str(index + 1) + '}"},' for index, name in enumerate(FAMILIES)
+    )
+    + '{"trait_type":"community_count","value":{CC}}],'
+    '"traits":[{TRAITS}],'
+    '"community":[{COMMUNITY}],'
+    '"oracle":[{ORACLE}]}'
 )
 
-SLOT_ORDER = (
-    "ID",
-    "ID",
-    "CLAIMANT",
-    "POINTS",
-    "CREDIT",
-    "WEIGHT",
-    "DEPOSITS",
-    "HOUR",
-    "WINDOW",
-    "HELD",
-    "POINTS",
-    "WEIGHT",
-    "CREDIT",
-    "DEPOSITS",
-    "HOUR_J",
-    "WINDOW",
-    "JOIN_INDEX",
-    "CLAIMED_AT_HOUR",
-    "ID",
-    "CLAIMANT",
-    "HELD_YN",
+SVG_SLOT_ORDER = ("ID", "CLAIMANT") + tuple(f"F{i}" for i in range(1, 14))
+SLOT_ORDER = ("ID",) + SVG_SLOT_ORDER + ("CLAIMANT",) + tuple(f"F{i}" for i in range(1, 14)) + (
+    "CC",
+    "TRAITS",
+    "COMMUNITY",
+    "ORACLE",
 )
-
-SVG_SLOT_ORDER = (
-    "ID",
-    "CLAIMANT",
-    "POINTS",
-    "CREDIT",
-    "WEIGHT",
-    "DEPOSITS",
-    "HOUR",
-    "WINDOW",
-    "HELD",
-)
-
-EXPECTED_OFFSETS = (
-    0,
-    19,
-    19,
-    810,
-    829,
-    128,
-    957,
-    101,
-    1058,
-    278,
-    1336,
-    27,
-    1363,
-    126,
-    1489,
-    28,
-    1517,
-    12,
-    1529,
-    83,
-    1612,
-    269,
-    1881,
-    39,
-    1920,
-    39,
-    1959,
-    35,
-    1994,
-    32,
-    2026,
-    35,
-    2061,
-    38,
-    2099,
-    42,
-    2141,
-    38,
-    2179,
-    36,
-    2215,
-    45,
-    2260,
-    4,
-)
-
-EXPECTED_LENGTHS = {
-    "description": 359,
-    "svg": 1179,
-    "encoded_svg": 1477,
-    "blob": 2264,
-    "blob_hex": 4530,
-    "offsets": 173,
-    "runtime": 2265,
-}
-
-EXPECTED_KECCAK = {
-    "blob": "084304a65f55159ceff6e9d9a7d17683ca506b5d842cc94eb1014356f37bc5ef",
-    "blob_hex": "e05d01c268ec5d0e0586f4963d0f84ebfcc5a5f9f55403887e1b87bcd1c4a577",
-    "offsets": "70aa181f917fd631b8caa549648608779466f7aa4d29743b0db3251e97a27b6b",
-    "runtime": "7dd6d40bd56ace74468675e14b88bdf7ae401843be2978258e34832f13a35abe",
-}
-
-FORBIDDEN_WORDS = (
-    "clean",
-    "review",
-    "flagged",
-    "cluster",
-    "component",
-    "linkage",
-    "representative",
-    "confidence",
-    "analysis",
-    "solo",
-    "independent",
-    "farmer",
-    "sybil",
-    "human",
-    "tier",
-    "cohort",
-    "rank",
-    "rarity",
-    "reputation",
-)
+SLOTS = len(SLOT_ORDER)
+SLICES = SLOTS + 1
 
 MARKER = re.compile(r"[{][A-Z0-9_]+[}]")
 ADDRESS = re.compile(r"0x[0-9a-f]{40}")
 ENCODE = set(b'%#"& <>?') | set(range(0x80, 0x100))
 
+CATALOG_IDS = (
+    101, 201, 202, 301, 302, 303, 401, 402, 403, 404, 501, 502, 503, 601,
+    701, 801, 901, 1001, 1101, 1102, 1103, 1104, 1105, 1201, 1301,
+)
+
+CURATOR = "0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91"
+DEPOSITED = (
+    "event Deposited(address indexed contributor, uint256 indexed hour, uint256 amount, uint256 creditedDelta, "
+    "uint256 weightAdded, uint256 newWeight, uint256 txCount, uint256 hourTotal, uint256 earlyBps)"
+)
+B_DEPLOY = 25769870
+B_END = 25789604
+
+
+@dataclass(frozen=True)
+class SpecData:
+    kind: int
+    target: str
+    item: str
+    arg: str
+    fixedArg: str
+    fixedVal: int
+    sumArg: str
+    op: int
+    threshold: int
+    fromBlock: int
+    toBlock: int
+    name: str
+
+
+@dataclass(frozen=True)
+class OracleMeta:
+    traitId: int
+    requestId: str
+    oracleRequestId: str
+    spec: SpecData
+
 
 @dataclass(frozen=True)
 class CardData:
-    id: int
+    tokenId: int
     claimant: str
-    owner: str
-    points: int
-    weightWei: int
-    creditWei: int
-    deposits: int
-    hour: int
-    joinIndex: int
-    claimedAtHour: int
-    grace: bool
+    top: tuple[int, ...]  # 13 entries, 0 = none
+    traits: tuple[int, ...]
+    community: tuple[int, ...]
+    communityCount: int
+    oracle: tuple[OracleMeta, ...] = field(default_factory=tuple)
 
 
-SHARED = dict(
-    id=7,
-    claimant="0x0000000000000000000000000000000000000921",
-    points=921,
-    weightWei=849_700_000_000_000_000,
-    creditWei=690_000_000_000_000_000,
-    deposits=7,
-    hour=0,
-    joinIndex=47,
-    claimedAtHour=41,
-    grace=True,
+SPEC_801 = SpecData(1, CURATOR, DEPOSITED, "contributor", "hour", 64, "", 0, 1, B_DEPLOY, B_END, "Last stand")
+SPEC_10001 = SpecData(
+    1,
+    "0x000000000000000000000000000000000000c0de",
+    "event Transfer(address indexed from, address indexed to, uint256 value)",
+    "to",
+    "",
+    0,
+    "",
+    0,
+    1,
+    B_DEPLOY,
+    B_END,
+    "Received a token",
+)
+# A renderer-only case: a name and an item the registry would refuse, to prove the escaping.
+SPEC_HOSTILE = SpecData(
+    4,
+    "0x000000000000000000000000000000000000c0de",
+    'function f(address) view returns (uint256)"</text><script>&\x01\\',
+    "",
+    "",
+    0,
+    "",
+    1,
+    1000,
+    B_DEPLOY,
+    B_END,
+    'a"b\\c<d>&e',
 )
 
+REQUEST_1 = "0x1111111111111111111111111111111111111111111111111111111111111111"
+REQUEST_2 = "0x2222222222222222222222222222222222222222222222222222222222222222"
+ORACLE_1 = "0x0123456789abcdef0123456789abcdef00000000000000000000000000000000"
+ORACLE_2 = "0xfedcba9876543210fedcba987654321000000000000000000000000000000000"
+
 CASES = {
-    "synthetic_held": CardData(owner=SHARED["claimant"], **SHARED),
-    "synthetic_transferred": CardData(
-        owner="0x0000000000000000000000000000000000000b0b", **SHARED
+    # a member with direct-read traits only: hour 0, five deposits, 1 ETH high water, 1000 points
+    "synthetic_direct": CardData(
+        tokenId=1,
+        claimant="0x000000000000000000000000000000000000c1a1",
+        top=(101, 202, 302, 401, 501, 0, 0, 0, 0, 0, 0, 0, 0),
+        traits=(101, 201, 202, 301, 302, 401, 501),
+        community=(),
+        communityCount=0,
     ),
-    # T11 replaces this explicit placeholder with the finalized eligibleCount.
+    # a non-member IDMD holder with one verified catalog chain trait and one verified community spec
+    "synthetic_oracle": CardData(
+        tokenId=2,
+        claimant="0x00000000000000000000000000000000000ac1a1",
+        top=(0, 0, 0, 0, 0, 601, 0, 801, 0, 0, 0, 0, 0),
+        traits=(601, 801),
+        community=(10001,),
+        communityCount=1,
+        oracle=(OracleMeta(801, REQUEST_1, ORACLE_1, SPEC_801), OracleMeta(10001, REQUEST_2, ORACLE_2, SPEC_10001)),
+    ),
+    # the widest values the renderer can meet, through the renderer alone
     "synthetic_width": CardData(
-        id=4_294_967_295,
-        claimant="0xffffffffffffffffffffffffffffffffffffffff",
-        owner="0xffffffffffffffffffffffffffffffffffffffff",
-        points=44_721,
-        weightWei=2_000 * 10**18,
-        creditWei=1_000 * 10**18,
-        deposits=4_294_967_295,
-        hour=4_294_967_294,
-        joinIndex=4_294_967_295,
-        claimedAtHour=4_294_967_295,
-        grace=False,
+        tokenId=2**256 - 1,
+        claimant="0xffffffffffffffffffffffffffffffffffffc1a1",
+        top=(101, 202, 303, 404, 503, 601, 701, 801, 901, 1001, 1105, 1201, 1301),
+        traits=CATALOG_IDS,
+        community=tuple(range(10001, 10033)),
+        communityCount=40,
+        oracle=(OracleMeta(10001, REQUEST_1, ORACLE_1, SPEC_HOSTILE),),
     ),
 }
 
 GENERATED_PATHS = tuple(
-    Path(f"test/fixtures/golden_{case}_{kind}.txt")
-    for case in CASES
-    for kind in ("preimage", "svg", "uri")
+    Path(f"test/fixtures/golden_{case}_{kind}.txt") for case in CASES for kind in ("preimage", "svg", "uri")
 )
-
-OBSOLETE_PATHS = tuple(
-    Path(f"test/fixtures/golden_{case}_{kind}.txt")
-    for case in ("apex_sealed", "floor_live")
-    for kind in ("json", "svg", "uri")
-)
-
-
-def _rot(value: int, amount: int) -> int:
-    return ((value << amount) | (value >> (64 - amount))) & ((1 << 64) - 1) if amount else value
-
-
-def _keccak_f1600(state: list[int]) -> None:
-    rotations = (
-        0,
-        1,
-        62,
-        28,
-        27,
-        36,
-        44,
-        6,
-        55,
-        20,
-        3,
-        10,
-        43,
-        25,
-        39,
-        41,
-        45,
-        15,
-        21,
-        8,
-        18,
-        2,
-        61,
-        56,
-        14,
-    )
-    round_constants = (
-        0x0000000000000001,
-        0x0000000000008082,
-        0x800000000000808A,
-        0x8000000080008000,
-        0x000000000000808B,
-        0x0000000080000001,
-        0x8000000080008081,
-        0x8000000000008009,
-        0x000000000000008A,
-        0x0000000000000088,
-        0x0000000080008009,
-        0x000000008000000A,
-        0x000000008000808B,
-        0x800000000000008B,
-        0x8000000000008089,
-        0x8000000000008003,
-        0x8000000000008002,
-        0x8000000000000080,
-        0x000000000000800A,
-        0x800000008000000A,
-        0x8000000080008081,
-        0x8000000000008080,
-        0x0000000080000001,
-        0x8000000080008008,
-    )
-    mask = (1 << 64) - 1
-    for rc in round_constants:
-        columns = [state[x] ^ state[x + 5] ^ state[x + 10] ^ state[x + 15] ^ state[x + 20] for x in range(5)]
-        delta = [columns[(x - 1) % 5] ^ _rot(columns[(x + 1) % 5], 1) for x in range(5)]
-        for y in range(5):
-            for x in range(5):
-                state[x + 5 * y] ^= delta[x]
-
-        moved = [0] * 25
-        for y in range(5):
-            for x in range(5):
-                moved[y + 5 * ((2 * x + 3 * y) % 5)] = _rot(state[x + 5 * y], rotations[x + 5 * y])
-
-        for y in range(5):
-            for x in range(5):
-                state[x + 5 * y] = moved[x + 5 * y] ^ (
-                    (~moved[(x + 1) % 5 + 5 * y]) & moved[(x + 2) % 5 + 5 * y]
-                )
-                state[x + 5 * y] &= mask
-        state[0] ^= rc
-
-
-def keccak256(data: bytes) -> bytes:
-    """Return Ethereum Keccak-256 using the legacy Keccak domain suffix."""
-    rate = 136
-    padded = bytearray(data)
-    padded.append(0x01)
-    padded.extend(b"\x00" * ((rate - len(padded) % rate) % rate))
-    padded[-1] ^= 0x80
-
-    state = [0] * 25
-    for block_start in range(0, len(padded), rate):
-        block = padded[block_start : block_start + rate]
-        for lane in range(rate // 8):
-            state[lane] ^= int.from_bytes(block[lane * 8 : lane * 8 + 8], "little")
-        _keccak_f1600(state)
-    return b"".join(lane.to_bytes(8, "little") for lane in state)[:32]
 
 
 def percent_encode(raw: bytes) -> str:
@@ -376,18 +248,6 @@ def marker_names(text: str) -> tuple[str, ...]:
     return tuple(match.group()[1:-1] for match in MARKER.finditer(text))
 
 
-def _expect_length(name: str, data: bytes | str) -> None:
-    actual = len(data.encode("ascii") if isinstance(data, str) else data)
-    if actual != EXPECTED_LENGTHS[name]:
-        raise ValueError(f"{name} length changed: got {actual}, expected {EXPECTED_LENGTHS[name]}")
-
-
-def _expect_keccak(name: str, data: bytes) -> None:
-    actual = keccak256(data).hex()
-    if actual != EXPECTED_KECCAK[name]:
-        raise ValueError(f"{name} keccak changed: got 0x{actual}, expected 0x{EXPECTED_KECCAK[name]}")
-
-
 @dataclass(frozen=True)
 class TemplateArtifacts:
     svg: bytes
@@ -397,7 +257,7 @@ class TemplateArtifacts:
     blob_hex: bytes
     offsets: tuple[int, ...]
     offsets_text: bytes
-    runtime: bytes
+    solidity: bytes
 
 
 def build_template(raw_svg: bytes) -> TemplateArtifacts:
@@ -407,8 +267,6 @@ def build_template(raw_svg: bytes) -> TemplateArtifacts:
         raise ValueError(f"SVG marker order changed: got {marker_names(svg_text)}, expected {SVG_SLOT_ORDER}")
     if ENVELOPE.count("{IMAGE}") != 1:
         raise ValueError("JSON envelope must contain exactly one IMAGE marker")
-    if len(DESCRIPTION.encode("ascii")) != EXPECTED_LENGTHS["description"]:
-        raise ValueError("approved description is not 359 bytes")
 
     encoded_svg = percent_encode(svg)
     full = ENVELOPE.replace("{IMAGE}", encoded_svg)
@@ -417,8 +275,8 @@ def build_template(raw_svg: bytes) -> TemplateArtifacts:
         raise ValueError(f"slot order changed: got {names}, expected {SLOT_ORDER}")
 
     parts = tuple(MARKER.split(full))
-    if len(parts) != 22:
-        raise ValueError(f"expected 22 fixed slices, got {len(parts)}")
+    if len(parts) != SLICES:
+        raise ValueError(f"expected {SLICES} fixed slices, got {len(parts)}")
     blob = "".join(parts).encode("ascii")
     offsets: list[int] = []
     cursor = 0
@@ -426,7 +284,7 @@ def build_template(raw_svg: bytes) -> TemplateArtifacts:
         size = len(part.encode("ascii"))
         offsets.extend((cursor, size))
         cursor += size
-    if cursor != len(blob) or len(blob) > 24_575:
+    if cursor != len(blob) or len(blob) > 20_000:
         raise ValueError("template offsets do not cover a deployable blob")
     if any(value > 0xFFFF for value in offsets):
         raise ValueError("template offset does not fit uint16")
@@ -434,22 +292,24 @@ def build_template(raw_svg: bytes) -> TemplateArtifacts:
     offsets_tuple = tuple(offsets)
     offsets_text = ",".join(str(value) for value in offsets_tuple).encode("ascii")
     blob_hex = b"0x" + blob.hex().encode("ascii")
-    runtime = b"\x00" + blob
-
-    _expect_length("svg", svg)
-    _expect_length("encoded_svg", encoded_svg)
-    _expect_length("blob", blob)
-    _expect_length("blob_hex", blob_hex)
-    _expect_length("offsets", offsets_text)
-    _expect_length("runtime", runtime)
-    if offsets_tuple != EXPECTED_OFFSETS:
-        raise ValueError(f"offset lock changed: got {offsets_tuple}, expected {EXPECTED_OFFSETS}")
-    _expect_keccak("blob", blob)
-    _expect_keccak("blob_hex", blob_hex)
-    _expect_keccak("offsets", offsets_text)
-    _expect_keccak("runtime", runtime)
-
-    return TemplateArtifacts(svg, encoded_svg, parts, blob, blob_hex, offsets_tuple, offsets_text, runtime)
+    packed = b"".join(value.to_bytes(2, "big") for value in offsets_tuple)
+    solidity = (
+        "// SPDX-License-Identifier: MIT\n"
+        "pragma solidity 0.8.24;\n\n"
+        "/// @notice Generated by tools/gen_template.py from template/card.svg; do not edit by hand.\n"
+        "/// @dev    The metadata template as a compile-time constant (solc emits a codecopy) and the\n"
+        "///         start,length pairs of its fixed slices as big-endian uint16, written as ASCII hex so the\n"
+        "///         code data carries no byte the launch's opcode scan forbids (0xf2, 0xf4, 0xff).\n"
+        "library TemplateData {\n"
+        f"    uint256 internal constant SLOTS = {SLOTS};\n"
+        f"    uint256 internal constant SLICES = {SLICES};\n"
+        "    bytes internal constant TEMPLATE =\n"
+        f'        hex"{blob.hex()}";\n'
+        "    bytes internal constant OFFSETS =\n"
+        f'        "{packed.hex()}";\n'
+        "}\n"
+    ).encode("ascii")
+    return TemplateArtifacts(svg, encoded_svg, parts, blob, blob_hex, offsets_tuple, offsets_text, solidity)
 
 
 def unsigned(value: int) -> str:
@@ -458,72 +318,98 @@ def unsigned(value: int) -> str:
     return str(value)
 
 
-def eth4(wei_amount: int) -> str:
-    unsigned(wei_amount)
-    return f"{wei_amount // 10**18}.{(wei_amount % 10**18) // 10**14:04d}"
+def hex32(value: str) -> str:
+    if not re.fullmatch(r"0x[0-9a-f]{64}", value):
+        raise ValueError(f"expected a 32-byte lowercase hex word, got {value!r}")
+    return value
+
+
+def escape_json(raw: str) -> str:
+    """Mirror of Renderer.escapeJson: `"` and `\\` escaped; control bytes, `<`, `>`, `&` as \\u00xx."""
+    out = []
+    for byte in raw.encode("latin-1"):
+        if byte in (0x22, 0x5C):
+            out.append("\\" + chr(byte))
+        elif byte < 0x20 or byte in (0x3C, 0x3E, 0x26):
+            out.append(f"\\u00{byte:02x}")
+        else:
+            out.append(chr(byte))
+    return "".join(out)
+
+
+def oracle_entry(meta: OracleMeta) -> str:
+    s = meta.spec
+    return (
+        '{"traitId":' + unsigned(meta.traitId)
+        + ',"template":"T' + unsigned(s.kind)
+        + '","evidence":"' + ("panel" if s.kind == 5 else "chain")
+        + '","fromBlock":' + unsigned(s.fromBlock)
+        + ',"toBlock":' + unsigned(s.toBlock)
+        + ',"panelSize":' + ("11" if s.kind == 5 else "5")
+        + ',"quorum":' + ("7" if s.kind == 5 else "3")
+        + ',"requestId":"' + hex32(meta.requestId)
+        + '","oracleRequestId":"' + hex32(meta.oracleRequestId)
+        + '","target":"' + s.target
+        + '","item":"' + escape_json(s.item)
+        + '","arg":"' + escape_json(s.arg)
+        + '","fixedArg":"' + escape_json(s.fixedArg)
+        + '","fixedVal":' + unsigned(s.fixedVal)
+        + ',"sumArg":"' + escape_json(s.sumArg)
+        + '","op":' + unsigned(s.op)
+        + ',"threshold":' + unsigned(s.threshold)
+        + ',"name":"' + escape_json(s.name)
+        + '"}'
+    )
 
 
 def card_values(data: CardData) -> tuple[str, ...]:
-    if ADDRESS.fullmatch(data.claimant) is None or ADDRESS.fullmatch(data.owner) is None:
-        raise ValueError("claimant and owner must be full lowercase hexadecimal addresses")
-    claimant = data.claimant
-    held = data.owner == claimant
+    if ADDRESS.fullmatch(data.claimant) is None:
+        raise ValueError("claimant must be a full lowercase hexadecimal address")
+    if not data.claimant.endswith("c1a1"):
+        raise ValueError("goldens are for synthetic wallets only (0x...c1a1)")
+    if len(data.top) != 13:
+        raise ValueError("top must hold one entry per family")
     values = {
-        "ID": unsigned(data.id),
-        "CLAIMANT": claimant,
-        "POINTS": unsigned(data.points),
-        "CREDIT": eth4(data.creditWei),
-        "WEIGHT": eth4(data.weightWei),
-        "DEPOSITS": unsigned(data.deposits),
-        "HOUR": unsigned(data.hour),
-        "HOUR_J": f"hour {unsigned(data.hour)}",
-        "WINDOW": "grace" if data.grace else "judged",
-        "JOIN_INDEX": unsigned(data.joinIndex),
-        "CLAIMED_AT_HOUR": unsigned(data.claimedAtHour),
-        "HELD": "held%20by%20claimant" if held else "held%20by%20another",
-        "HELD_YN": "yes" if held else "no",
+        "ID": unsigned(data.tokenId),
+        "CLAIMANT": data.claimant,
+        "CC": unsigned(data.communityCount),
+        "TRAITS": ",".join(unsigned(v) for v in data.traits),
+        "COMMUNITY": ",".join(unsigned(v) for v in data.community),
+        "ORACLE": ",".join(oracle_entry(m) for m in data.oracle),
     }
+    for index, top in enumerate(data.top):
+        values[f"F{index + 1}"] = "none" if top == 0 else unsigned(top)
     return tuple(values[name] for name in SLOT_ORDER)
-
-
-def _reject_forbidden(label: str, raw: bytes) -> None:
-    folded = raw.decode("utf-8").lower()
-    for word in FORBIDDEN_WORDS:
-        if word in folded:
-            raise ValueError(f"{label} contains forbidden word: {word}")
 
 
 def render_case(template: TemplateArtifacts, data: CardData) -> tuple[bytes, bytes, bytes]:
     values = card_values(data)
     preimage = "".join(
-        template.parts[index] + (values[index] if index < len(values) else "")
-        for index in range(len(template.parts))
+        template.parts[index] + (values[index] if index < len(values) else "") for index in range(len(template.parts))
     ).encode("ascii")
-    if b"\n" in preimage or b"\r" in preimage or b"\\" in preimage:
-        raise ValueError("rendered preimage contains forbidden whitespace or JSON escaping")
+    if b"\n" in preimage or b"\r" in preimage:
+        raise ValueError("rendered preimage contains forbidden whitespace")
 
     metadata = json.loads(preimage)
-    if list(metadata) != ["name", "description", "image", "attributes"]:
+    if list(metadata) != ["name", "description", "image", "attributes", "traits", "community", "oracle"]:
         raise ValueError("top-level JSON keys changed")
     if metadata["description"] != DESCRIPTION:
         raise ValueError("approved description changed")
-    if len(metadata["attributes"]) != 11:
-        raise ValueError("metadata must contain exactly eleven attributes")
+    if len(metadata["attributes"]) != 15:
+        raise ValueError("metadata must contain exactly fifteen attributes")
 
     image_prefix = "data:image/svg+xml,"
     image = metadata["image"]
     if not image.startswith(image_prefix):
         raise ValueError("image data URI prefix changed")
     svg = percent_decode(image[len(image_prefix) :])
-    _reject_forbidden("decoded JSON", preimage)
-    _reject_forbidden("decoded SVG", svg)
     uri = b"data:application/json;base64," + base64.b64encode(preimage)
     return preimage, svg, uri
 
 
 def build_outputs(root: Path = ROOT) -> dict[Path, bytes]:
     template = build_template((root / TEMPLATE_PATH).read_bytes())
-    outputs = {BLOB_PATH: template.blob_hex, OFFSETS_PATH: template.offsets_text}
+    outputs = {BLOB_PATH: template.blob_hex, OFFSETS_PATH: template.offsets_text, SOLIDITY_PATH: template.solidity}
     for case, data in CASES.items():
         preimage, svg, uri = render_case(template, data)
         outputs[Path(f"test/fixtures/golden_{case}_preimage.txt")] = preimage
@@ -540,9 +426,6 @@ def check_outputs(outputs: dict[Path, bytes], root: Path = ROOT) -> int:
             failures.append(f"missing {relative}")
         elif path.read_bytes() != expected:
             failures.append(f"differs {relative}")
-    for relative in OBSOLETE_PATHS:
-        if (root / relative).exists():
-            failures.append(f"obsolete {relative}")
     if failures:
         print("\n".join(failures))
         return 1
@@ -555,10 +438,6 @@ def write_outputs(outputs: dict[Path, bytes], root: Path = ROOT) -> None:
         path = root / relative
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(data)
-    for relative in OBSOLETE_PATHS:
-        path = root / relative
-        if path.exists():
-            path.unlink()
     print(f"generated {len(outputs)} artifacts")
 
 

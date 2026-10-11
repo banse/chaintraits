@@ -5,8 +5,8 @@ wallet, traits as facts about the wallet that minted it, every trait backed by e
 reads from the settled `WhitelistCurator` (THE LIST) are free; everything else is attested by the IMD swarm through
 the onchain Intake and verified in the registry's callback. `hasTrait(wallet, traitId)` needs no card.
 
-**Status: brief, review round 2 applied (2026-10-12).** This repository is the specification the IMD swarm builds
-from. There is no contract code yet beyond `src/interfaces/`. The product's name, collection symbol and trait names
+**Status: built (2026-10-12) from the round-2 brief.** `src/` holds `Registry`, `Renderer`, `Composer` and the
+interfaces; `test/` the hermetic suite; `script/Deploy.s.sol` the deployment. The product's name, collection symbol and trait names
 are pending (2026-10-16); the code uses the working names and a single name table, so the rename touches no logic.
 
 ## Read in this order
@@ -96,10 +96,9 @@ CHAINTRAITS_FORK_RPC=https://rpc.mevblocker.io forge test --match-path 'test/for
 python3 tools/gen_template.py --check    # the template blob, offsets and goldens are byte-exact
 ```
 
-Today `--check` and `python3 -m unittest discover -s tools` fail on purpose: the vendored generator still expects
-THE LIST's goldens, which are not vendored. They pass once the builder has adapted the generator and regenerated the
-goldens under `test/fixtures/`. `tools/rasterize_goldens.py` is optional (a visual aid, not a gate); it reads the
-pinned font from `CHAINTRAITS_FONT` (default: the macOS Menlo path) and checks its SHA-256.
+`python3 tools/gen_template.py` regenerates `template/blob.hex`, `template/offsets.txt`, `src/TemplateData.sol` and
+the goldens under `test/fixtures/`; `--check` and `python3 -m unittest discover -s tools` pass on a clean tree. The
+fork tests named above are not delivered (see the deviations below).
 
 `foundry.toml` pins solc 0.8.24, `bytecode_hash = "none"` and `cbor_metadata = false`: a clean rebuild of a commit
 is byte-identical, which is how the deployed runtime code is checked against the reviewed source after launch. That
@@ -131,12 +130,99 @@ at `cab19933` (both as in the record NFT this mirrors).
 - `script/Deploy.s.sol` that deploys renderer and registry with the five static addresses, plus the same shape as a
   launch-pipeline input (constructor arguments only).
 
-## How to verify a card (to be written by the builder)
+## How to verify a card
 
-Placeholder. The section explains, for one trait of one card: read `verified(claimant, traitId)`, take the window
-and the template parameters from `tokenURI`, rerun the recipe (an `eth_getLogs` count, a sum, a ranking, an
-`eth_call` or an `eth_getTransactionCount` at the pinned block) against two public RPCs, fetch
-`/oracle/requests/<oracleRequestId>/attestation` and check its signature, and compare.
+A card proves facts about its **claimant** (`claimantOf(tokenId)`), never about `ownerOf`. Everything below needs
+only public RPCs, the plane's public attestation endpoint and this repository. The same steps apply to
+`hasTrait(wallet, traitId)` for a wallet without a card.
+
+**1. Read the registry.** `verified(claimant, traitId)` returns `(requestId, oracleRequestId, fromBlock, toBlock)`:
+a zero `requestId` means the trait was never verified. `tokenURI(tokenId)` decodes (Base64, then JSON) to a document
+whose `oracle` array carries, for every verified oracle trait: `template` (T1 to T5), `evidence`, `fromBlock`,
+`toBlock`, `panelSize`, `quorum`, the Intake `requestId`, the plane's `oracleRequestId`, and the recipe parameters
+(`target`, `item`, `arg`, `fixedArg`, `fixedVal`, `sumArg`, `op`, `threshold`). `composeBody(traitId, claimant)`
+returns the exact question the registry asked, for free.
+
+**2. Rerun the recipe against two public RPCs** (CATALOG.md section 1 lists endpoints that served these windows;
+hex block numbers, chunks of at most 1,500 blocks for `eth_getLogs`):
+
+- T1 log-count (701, 801, 901, 1001, 1101 to 1105, T1 specs): `eth_getLogs` on `target` with `topic0 =
+  keccak256(item signature)`, `topic1 = claimant` (and `topic2 = fixedVal` when `fixedArg` is set), from `fromBlock`
+  to `toBlock`; the trait holds if the count is at least `threshold`.
+- T2 log-sum: the same query; sum `sumArg` over the matching logs.
+- T3 log-rank (1201): `eth_getLogs` for every `item` log in the window, group by `arg`, sum `sumArg`, sort
+  descending by sum then ascending by address; the claimant must be within the first `threshold` (32). The list the
+  registry hashed is public: it is `a.answer` in the `complete` transaction's calldata and in the served attestation;
+  `sharedFact(1201)` returns `keccak256(abi.encode(list))` and its length.
+- T4 call-compare: one `eth_call` of `item` with the claimant at block `toBlock`; compare with `threshold` using `op`.
+- T5 panel nonce (1301, T5 specs): `eth_getTransactionCount(claimant, toBlock)` on an archive endpoint; the trait
+  holds if the nonce is at least `threshold` (20 for 1301).
+- Direct-read traits (101 to 601) need no attestation: call the Curator's `firstHourOf`, `txCountOf`,
+  `contributedBy`, `pointsOf` or IDMD `balanceOf` at any block since settlement (601 is live and may change).
+
+**3. Fetch and check the attestation.** `GET https://<plane>/oracle/requests/<uuid>/attestation`, where the UUID is
+the first 16 bytes of `oracleRequestId` formatted `8-4-4-4-12`. Check `message.questionHash ==
+keccak256(canonical document)`, where the document is the body of step 1 reduced as `INTEGRATION.md` section 4,
+check 7 describes (`questionHashOf(bytes)` recomputes the keccak onchain; `reference/plane/questionHashes.json` has
+ten worked examples), that `fromBlock`/`toBlock` equal step 1, that `agreed >= quorum`, and recover the signer of the
+EIP-712 digest under domain `{IdentityMD Oracle, 2, 1, <registry address>}` (`attestationDigest(a)` on the registry
+returns the digest; `cast wallet verify` or any EIP-712 library reproduces it). The signer must be
+`0x5598aa9146215bc13eb26f2c692ad1461fd32982`.
+
+**4. Compare the deployed code with a rebuild.** `git checkout <reviewed commit> && forge build`, then
+`cast code <registry> --rpc-url <rpc>` must equal `out/Registry.sol/Registry.json` `.deployedBytecode.object`
+byte for byte (likewise `Renderer` and `Composer`). `foundry.toml` pins solc 0.8.24, `bytecode_hash = "none"`,
+`cbor_metadata = false`, and no contract has an `immutable`, so the comparison is exact. Then read the five addresses
+(`curator()`, `idmd()`, `imd()`, `intake()`, `attester()`) and the two helpers (`renderer()`, `composer()`) from the
+deployed registry and compare them with `INTEGRATION.md` section 1 and the launch record.
+
+## What was built, and where it deviates from the brief
+
+Everything in "What the builder delivers" is in the tree, with these deviations, each with its reason:
+
+- **Three contracts, seven constructor arguments.** `Registry(curator, idmd, imd, intake, attester, renderer,
+  composer)`. The brief allowed a sixth address if the pipeline refuses a constructor that creates a contract; here
+  the limit is EIP-3860: with both helpers' creation code embedded, the registry's init code was 56,723 bytes
+  (> 49,152). `Renderer` and `Composer` take no constructor arguments and hold no storage, so the launch is three
+  static deployments with the helpers referenced backward (`script/Deploy.s.sol` does exactly that; the registry
+  constructor calls no external contract and stores every address in ordinary storage).
+- **`src/Composer.sol`** holds the five templates, the body and canonical-document serialisers, the catalog oracle
+  traits as `Spec`s (`catalogSpec`), the spec guards (`validateSpec`) and the catalog name table (`traitName`). The
+  registry alone was 41,717 bytes of runtime; it is now 24,072 (EIP-170 is 24,576). The registry calls the composer
+  only in user transactions and views, never inside `onResult`.
+- **`verified()` derives the window from the rule** instead of storing it: check 6 makes the attested window equal
+  the trait's canonical window (or the spec's), so storing it would be redundant and cost a third cold slot in
+  `onResult`. Worst case measured (community id appended, card to refresh, cold storage): 164,696 gas under the
+  200,000 stipend, delivered through the mock Intake's real `call(stipend, ...)`.
+- **Added views:** `pendingRequest(requestId)`, `cardOf(tokenId)` (the renderer's input), `attestationDigest(a)`,
+  `questionHashOf(bytes canonicalDocument)`, `sharedPending(factId)`, `idmdSponsorUsed(id)`. `traitClass` and
+  `specOf` revert for an unknown id; `hasTrait` never does.
+- **`template/offsets` live in the code as ASCII hex**, not packed bytes: the launch's opcode scan reads every
+  non-PUSH byte of the runtime, and a packed offset `0x0cf2` would read as `CALLCODE`. The template blob is ASCII.
+- **Goldens:** three synthetic cards (`0x…c1a1`, `0x…ac1a1`, `0xff…c1a1`), two rendered through the registry and the
+  mocks, one through the renderer alone (width and escaping). `tools/rasterize_goldens.py` and its test were removed:
+  they rasterised THE LIST's goldens with a pinned macOS font and were never a gate.
+- **Fork tests are not delivered.** The verifier runs without network; the mock Curator at the real address
+  reproduces the views' shapes, and the fixtures and attestations vendored under `reference/` are the mainnet
+  evidence the tests check against.
+- The `Verified` event keeps its name; the storage struct is `VerifiedEntry`.
+
+### Deployment parameters and operational notes
+
+| argument | mainnet value |
+|---|---|
+| `curator` | `0xcB0b0531e86A9aC36Fa865cA8e3dbccF047FDA91` |
+| `idmd` | `0x0000eC93127BAA929E58E97dd0095A2BFb38ec1D` |
+| `imd` | `0xD34a99Bc0f67aE1bbd63C660e6d0b0dd03E263B7` |
+| `intake` | `0xa43e6F75ee006411F79Ac1C84120606C2330DE82` (Intake v2) |
+| `attester` | `0x5598Aa9146215Bc13eb26f2c692Ad1461Fd32982` |
+| `renderer`, `composer` | the two helper deployments of the same commit |
+
+There is no owner and nothing to operate: no setter, pause, upgrade, fee switch, `receive` or `fallback`. The
+accepted ways the registry can stop working are listed in `INTEGRATION.md` section 1 (Intake price, callback gas or
+retirement; attester rotation; a changed attestation struct or canonical document); each needs a successor contract.
+Pool money is an irrevocable donation. Users approve the registry for IMD (0.1 mint, 1 per spec, `k x priceOf` per
+upgrade, read at call time and capped by `maxPrice`).
 
 ## License
 
