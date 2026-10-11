@@ -1,0 +1,18 @@
+{
+  "answerType": "uint256",
+  "chainId": 1,
+  "definitions": {
+    "method": "eth_getLogs on the contract with topic0 = the event's signature hash and the indexed argument(s) as topics, over exactly the pinned window; or the equivalent explorer log query. Count matching logs; do not deduplicate by transaction. Block numbers are hex.",
+    "window": "The pinned window is the whole evidence; events outside it do not count."
+  },
+  "evidence": "chain",
+  "panelSize": 5,
+  "question": "Within the request's pinned block window (fromBlock 0x189378e to toBlock 0x1893b91, both inclusive) on Ethereum mainnet, count the `event FirstDeposit(address indexed contributor, uint256 indexed index, uint256 timestamp)` events emitted by the contract 0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91 whose indexed contributor argument equals 0x000000000000000000000000000000000000c1a1. Answer the count as one integer; answer 0 if no such event exists.",
+  "quorum": 3,
+  "v": 1,
+  "validForSeconds": 2592000,
+  "window": {
+    "fromBlock": 25769870,
+    "toBlock": 25770897
+  }
+}

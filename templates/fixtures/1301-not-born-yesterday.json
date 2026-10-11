@@ -1,0 +1,20 @@
+{
+  "answerType": "bool",
+  "chainId": 1,
+  "definitions": {
+    "false": "false only if an endpoint with historical state returns a count at block 0x189378e below 20, or the explorer method shows fewer than 20 outgoing transactions at or before block 25769870. If you could not read the historical count, write no answer; never answer false from a pruned, null or 'latest' read.",
+    "method": "Call eth_getTransactionCount(0x000000000000000000000000000000000000c1a1, 0x189378e) (hex block, not 'latest') on an endpoint with historical state, e.g. https://rpc.mevblocker.io or https://eth.drpc.org; cite endpoint and call. Pruned or unavailable state, errors or null (flashbots, 1rpc, cloudflare, publicnode) are no evidence: use another endpoint. Alternative: page an explorer's ascending tx list (Blockscout txlist, sort=asc) to the 20th tx whose from is the address; its block must be <= 25769870.",
+    "true": "true only if an endpoint returns a transaction count at block 0x189378e of at least 20 (0x14), or the explorer method finds the 20th outgoing transaction of the address at or before block 25769870.",
+    "window": "The window is the single block 25769870; it fixes which chain state to read. It is not a time range, and the current (latest) nonce is not the answer."
+  },
+  "evidence": "panel",
+  "panelSize": 11,
+  "question": "At Ethereum mainnet block 25769870 (hex 0x189378e, block hash 0x43ac0aadac9b134a5e4555d28323431664fd77d74cd6a28cb4ca65e34ba72256; the block in which the WhitelistCurator contract 0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91 was deployed), was the transaction count (nonce) of address 0x000000000000000000000000000000000000c1a1 at least 20? Equivalently: had 0x000000000000000000000000000000000000c1a1 sent at least 20 transactions that were included at or before that block?",
+  "quorum": 7,
+  "v": 1,
+  "validForSeconds": 2592000,
+  "window": {
+    "fromBlock": 25769870,
+    "toBlock": 25769870
+  }
+}

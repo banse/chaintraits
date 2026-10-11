@@ -1,0 +1,17 @@
+{
+  "answerType": "bool",
+  "chainId": 1,
+  "definitions": {
+    "method": "One eth_call of the function with 0x000000000000000000000000000000000000c1a1 as the argument at block 0x18984a4 (hex, not 'latest') on an endpoint with historical state; compare the raw integer return value with 1000 using >=. A null, pruned or 'latest' read is no evidence."
+  },
+  "evidence": "chain",
+  "panelSize": 5,
+  "question": "At the last block of the request's pinned window (toBlock 0x18984a4) on Ethereum mainnet, does the view function `function pointsOf(address) view returns (uint256)` of the contract 0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91 return a value >= 1000 for the address 0x000000000000000000000000000000000000c1a1? Answer true or false.",
+  "quorum": 3,
+  "v": 1,
+  "validForSeconds": 2592000,
+  "window": {
+    "fromBlock": 25769870,
+    "toBlock": 25789604
+  }
+}
