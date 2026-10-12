@@ -28,11 +28,15 @@ Intake v2 was deployed through CREATE2 at the same address on every chain the pl
 getter of version 1 is here unchanged"; `requestWithFailure`, `failureSelectorOf` and `FailureHookSet` are new. Both
 addresses return `priceOf` 0.5 IMD, `callbackGas` 200,000 and the same writer (read 2026-10-12 00:30 UTC).
 
-The registry takes Curator, IDMD, IMD, Intake and attester as constructor arguments (static addresses; the launch
-pipeline allows only static address, uint, bool and bytes32 arguments, at most 16; "passive" means the constructor
-stores its arguments, may read views and may deploy the renderer, but moves no funds and takes no external callback).
+The launch is three contracts, `Renderer`, `Composer` and `Registry`. The registry takes seven constructor arguments,
+`(curator, idmd, imd, intake, attester, renderer, composer)`: the five external addresses above and the two helpers,
+deployed first from the same commit and passed in as static addresses (README, "What was built, and where it deviates
+from the brief": with both helpers embedded the registry's init code exceeded EIP-3860). The launch pipeline allows
+only static address, uint, bool and bytes32 arguments, at most 16; "passive" means the constructor stores its
+arguments and may read views (it requires `curator.isSettled()`), but creates no contract, moves no funds and takes
+no external callback.
 The writer is not a constructor argument: the registry trusts the Intake as `msg.sender` of the callback and the
-attester as the signer, never the writer. **Store the five addresses in ordinary storage, not `immutable`:** immutables
+attester as the signer, never the writer. **Store the seven addresses in ordinary storage, not `immutable`:** immutables
 are patched into the runtime code at deployment, and the launch check compares the deployed runtime code with a clean
 rebuild byte for byte. The same holds for the renderer (`bytes constant`, never an SSTORE2 pointer in an immutable)
 and for the EIP-712 domain (section 4: computed at verification time, never OpenZeppelin's `EIP712` base, which holds

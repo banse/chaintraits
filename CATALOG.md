@@ -191,6 +191,10 @@ most 1,000 before sending. A spec whose body is refused by the plane keeps its f
 every request about it: junk specs burden only whoever pays for junk. Sequential ids are a public ordering, not a
 reservation: a client reads the id from `SpecRegistered` or the return value, never predicts it.
 
+`nextSpecId` is a `uint16` starting at 10001, so at most 55,534 community specs (ids 10001 to 65534) can ever be
+registered; once the counter is exhausted `registerSpec` reverts for ever. Catalog ids and existing specs are
+unaffected.
+
 ## 6. Sharing, pool, fees
 
 `mintCard()` 0.1 IMD into the registry, once per wallet; `upgrade(traitIds[], maxPrice)` k x `priceOf` (reverts if
@@ -239,5 +243,8 @@ A rename replaces this table and the collection strings; it touches no rule, id 
 - T5's round-2 wording (account nonce only, no explorer fallback) passed the free check and a free quote; it has not
   been attested yet. The 2026-10-11 wording was attested twice (true 7/11, false 7/11). A paid re-attestation of the
   new wording is planned with the first real request from the registry on Sepolia.
+- Whether the plane ever signs chain evidence with `agreed` below `quorum`. The registry refuses such an attestation
+  (reason 5, `a.agreed < a.quorum`), so if the plane does sign one it is a paid request that ends as a miss. Open
+  until the plane documents that it signs only agreed verdicts.
 - The attestation struct, the callback shapes and the `questionHash` document are in `INTEGRATION.md`, read from
   the Intake's verified source, five mainnet completions and fourteen free quotes.

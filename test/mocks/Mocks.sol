@@ -79,6 +79,7 @@ contract ReentrantIMD is ERC20 {
     bytes public payload;
     bool internal armed;
     bool public reentryReverted;
+    bytes public reentryError; // the re-entered call's revert data, verbatim
 
     constructor() ERC20("EVIL", "EVIL") {}
 
@@ -94,8 +95,9 @@ contract ReentrantIMD is ERC20 {
     function transferFrom(address from, address to, uint256 amount) public override returns (bool) {
         if (armed) {
             armed = false;
-            (bool ok,) = msg.sender.call(payload);
+            (bool ok, bytes memory ret) = msg.sender.call(payload);
             reentryReverted = !ok;
+            reentryError = ok ? bytes("") : ret;
         }
         return super.transferFrom(from, to, amount);
     }
@@ -122,6 +124,8 @@ contract MockIntake {
     bytes32 public forcedId;
     mapping(bytes32 => Req) public requests;
     bytes32[] public ids;
+    /// @notice Gas the last callback consumed inside the stipend, measured around the `call` itself.
+    uint256 public lastCallbackGas;
 
     event Requested(bytes32 indexed requestId, address indexed payer, bytes body);
     event Completed(bytes32 indexed requestId, uint8 status, bool delivered);
@@ -215,9 +219,11 @@ contract MockIntake {
             bytes memory data = bytes.concat(selector, args);
             address target = r.target;
             if (target.code.length > 0) {
+                uint256 before = gasleft();
                 assembly ("memory-safe") {
                     delivered := call(stipend, target, 0, add(data, 0x20), mload(data), 0, 0)
                 }
+                lastCallbackGas = before - gasleft();
             }
         }
         emit Completed(id, status, delivered);

@@ -92,13 +92,19 @@ contract; a builder who finds a reason to change one writes it in the submission
 git clone --recursive <this repository>
 forge build
 forge test                       # hermetic: no RPC, no ffi
-CHAINTRAITS_FORK_RPC=https://rpc.mevblocker.io forge test --match-path 'test/fork/*'   # the fork tests, pinned block
+CHAINTRAITS_FORK_RPC=<mainnet archive RPC URL> forge test --match-path 'test/fork/*'   # the fork tests, block 26,170,000
 python3 tools/gen_template.py --check    # the template blob, offsets and goldens are byte-exact
 ```
 
 `python3 tools/gen_template.py` regenerates `template/blob.hex`, `template/offsets.txt`, `src/TemplateData.sol` and
-the goldens under `test/fixtures/`; `--check` and `python3 -m unittest discover -s tools` pass on a clean tree. The
-fork tests named above are not delivered (see the deviations below).
+the goldens under `test/fixtures/`; `--check` and `python3 -m unittest discover -s tools` pass on a clean tree.
+
+The fork tests are in `test/fork/Mainnet.fork.t.sol` (eleven tests at the pinned block 26,170,000: the real Curator,
+IDMD, IMD and Intake v2, with the registry deployed on top and a request completed by the real `complete` under the
+real stipend). Run them by setting `CHAINTRAITS_FORK_RPC` to an Ethereum mainnet RPC URL that serves that block
+(archive state), for example `CHAINTRAITS_FORK_RPC=https://ethereum-rpc.publicnode.com forge test --match-path
+'test/fork/*' -vv`. They only read the variable; without it they skip, so plain `forge test` stays hermetic and needs
+no network.
 
 `foundry.toml` pins solc 0.8.24, `bytecode_hash = "none"` and `cbor_metadata = false`: a clean rebuild of a commit
 is byte-identical, which is how the deployed runtime code is checked against the reviewed source after launch. That
@@ -118,7 +124,7 @@ at `cab19933` (both as in the record NFT this mirrors).
 - Tests for every invariant in `CONCEPT.md` section 6: unit, fuzz, invariant; fork tests against the mainnet Curator
   at a pinned recent block (skipped without `CHAINTRAITS_FORK_RPC`); golden tests that `tokenURI` bytes equal the
   generator's; golden tests that the composed request bodies equal `templates/fixtures/*.json` byte for byte and that
-  `questionHashOf` equals `reference/plane/questionHashes.json` for all ten; a gas test that `onResult` stays under the
+  `questionHashOf` of each fixture's canonical document (not its body) equals `reference/plane/questionHashes.json` for all ten; a gas test that `onResult` stays under the
   Intake's callback stipend in the worst case; signature-recovery tests over the five served attestations in
   `reference/attestations/` (three under the zero domain, two under their consumer's domain; the loader maps the JSON
   `answerType` name to its uint8 code); a test that both artifacts have empty `immutableReferences` and that two
@@ -152,11 +158,22 @@ other tier families display their highest id.
 **2. Rerun the recipe against two public RPCs** (CATALOG.md section 1 lists endpoints that served these windows;
 hex block numbers, chunks of at most 1,500 blocks for `eth_getLogs`):
 
-- T1 log-count (701, 801, 901, 1001, 1101 to 1105, T1 specs): `eth_getLogs` on `target` with `topic0 =
-  keccak256(item signature)`, `topic1 = claimant` (and `topic2 = fixedVal` when `fixedArg` is set), from `fromBlock`
-  to `toBlock`; the trait holds if the count is at least `threshold`.
-- T2 log-sum: the same query; sum `sumArg` over the matching logs.
-- T3 log-rank (1201): `eth_getLogs` for every `item` log in the window, group by `arg`, sum `sumArg`, sort
+- Topics come from the stored `item`, never from an assumed layout. `topic0` is `keccak256` of the item's canonical
+  event signature: the event name and the parameter types in order, comma-separated, without names, `indexed` or
+  spaces (`event Transfer(address indexed from, address indexed to, uint256 value)` gives
+  `keccak256("Transfer(address,address,uint256)")`). The indexed parameters then take `topic1`, `topic2`, `topic3` in
+  the order they are declared; non-indexed parameters take no topic. The claimant goes in the topic of the indexed
+  parameter named `arg` (left-padded to 32 bytes), `fixedVal` (as a 32-byte word) in the topic of the indexed
+  parameter named `fixedArg` when it is set, and every other topic position stays open (`null` in the filter). So
+  that `Transfer` item with `arg = "to"` puts the claimant in `topic2` and leaves `topic1` open; the catalog's
+  `Deposited`, `FirstDeposit` and `HourSaved` items happen to declare the claimant argument first, so for them it is
+  `topic1` (and `hour` or `index`, the `fixedArg`, is `topic2`).
+- T1 log-count (701, 801, 901, 1001, 1101 to 1105, T1 specs): `eth_getLogs` on `target` with the topics above, from
+  `fromBlock` to `toBlock`; the trait holds if the count is at least `threshold`.
+- T2 log-sum: the same query; sum `sumArg` (decoded from the log's data, or from its topic if it is indexed) over the
+  matching logs.
+- T3 log-rank (1201): `eth_getLogs` with only `topic0` set for every `item` log in the window, group by `arg` (read
+  from its topic position as above), sum `sumArg`, sort
   descending by sum then ascending by address; the claimant must be within the first `threshold` (32). The list the
   registry hashed is public: it is `a.answer` in the `complete` transaction's calldata and in the served attestation;
   `sharedFact(1201)` returns `keccak256(abi.encode(list))` and its length.
@@ -169,8 +186,9 @@ hex block numbers, chunks of at most 1,500 blocks for `eth_getLogs`):
 **3. Fetch and check the attestation.** `GET https://<plane>/oracle/requests/<uuid>/attestation`, where the UUID is
 the first 16 bytes of `oracleRequestId` formatted `8-4-4-4-12`. Check `message.questionHash ==
 keccak256(canonical document)`, where the document is the body of step 1 reduced as `INTEGRATION.md` section 4,
-check 7 describes (`questionHashOf(bytes)` recomputes the keccak onchain; `reference/plane/questionHashes.json` has
-ten worked examples), that `fromBlock`/`toBlock` equal step 1, that `agreed >= quorum`, and recover the signer of the
+check 7 describes (`questionHashOf(bytes canonicalDocument)` recomputes the keccak onchain; pass it the canonical
+document, **not** the body: the body's keccak is a different value; `reference/plane/questionHashes.json` has ten
+worked examples), that `fromBlock`/`toBlock` equal step 1, that `agreed >= quorum`, and recover the signer of the
 EIP-712 digest under domain `{IdentityMD Oracle, 2, 1, <registry address>}` (`attestationDigest(a)` on the registry
 returns the digest; `cast wallet verify` or any EIP-712 library reproduces it). The signer must be
 `0x5598aa9146215bc13eb26f2c692ad1461fd32982`.
@@ -203,16 +221,14 @@ Everything in "What the builder delivers" is in the tree, with these deviations,
   `onResult`. Worst case measured (community id appended, card to refresh, cold storage): 164,954 gas under the
   200,000 stipend, delivered through the mock Intake's real `call(stipend, ...)`.
 - **Added views:** `pendingRequest(requestId)`, `cardOf(tokenId)` (the renderer's input), `attestationDigest(a)`,
-  `questionHashOf(bytes canonicalDocument)`, `sharedPending(factId)`, `idmdSponsorUsed(id)`. `traitClass` and
+  `questionHashOf(bytes canonicalDocument)` (the keccak of the canonical document of `INTEGRATION.md` section 4,
+  check 7, not of the body `composeBody` returns), `sharedPending(factId)`, `idmdSponsorUsed(id)`. `traitClass` and
   `specOf` revert for an unknown id; `hasTrait` never does.
 - **`template/offsets` live in the code as ASCII hex**, not packed bytes: the launch's opcode scan reads every
   non-PUSH byte of the runtime, and a packed offset `0x0cf2` would read as `CALLCODE`. The template blob is ASCII.
 - **Goldens:** three synthetic cards (`0x…c1a1`, `0x…ac1a1`, `0xff…c1a1`), two rendered through the registry and the
   mocks, one through the renderer alone (width and escaping). `tools/rasterize_goldens.py` and its test were removed:
   they rasterised THE LIST's goldens with a pinned macOS font and were never a gate.
-- **Fork tests are not delivered.** The verifier runs without network; the mock Curator at the real address
-  reproduces the views' shapes, and the fixtures and attestations vendored under `reference/` are the mainnet
-  evidence the tests check against.
 - The `Verified` event keeps its name; the storage struct is `VerifiedEntry`.
 
 ### Deployment parameters and operational notes

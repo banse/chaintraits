@@ -6,7 +6,8 @@ import {Registry} from "../src/Registry.sol";
 import {Composer} from "../src/Composer.sol";
 import {OracleAttestation} from "../src/interfaces/IOracleConsumer.sol";
 import {Spec, Card} from "../src/Types.sol";
-import {ReentrantIMD} from "./mocks/Mocks.sol";
+import {ReentrantIMD, MockIntake} from "./mocks/Mocks.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /// @notice The inputs the happy path never sends: a writer that pairs one claimant's attestation
 ///         with another's request, a signed struct altered after signing (every field), panels and
@@ -196,26 +197,39 @@ contract AdversarialTest is Base {
     }
 
     function test_signatureShapesThatDoNotRecover() public {
-        bytes32 rid = ask(alice, 701);
-        OracleAttestation memory a = attestationFor(rid, word(1));
-        bytes memory good = sign(a);
-        // 64 bytes, 66 bytes, empty, v = 2, and a high-s twin of the good signature
-        bytes[5] memory bad;
-        bad[0] = _slice(good, 64);
-        bad[1] = bytes.concat(good, hex"00");
-        bad[2] = "";
-        bad[3] = bytes.concat(_slice(good, 64), hex"02");
-        (bytes32 r, bytes32 s, uint8 v) = _split(good);
         uint256 n = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141;
-        bad[4] = abi.encodePacked(r, bytes32(n - uint256(s)), v == 27 ? uint8(28) : uint8(27));
+        // 64 bytes, 66 bytes, empty, v = 2, and the high-s twin, each derived from the signature of the
+        // exact envelope delivered with it, so the shape alone is what fails.
         for (uint256 i; i < 5; ++i) {
-            if (i > 0) rid = ask(alice, 701);
-            a = attestationFor(rid, word(1));
+            bytes32 rid = ask(alice, 701);
+            OracleAttestation memory a = attestationFor(rid, word(1));
+            bytes memory good = sign(a);
+            bytes memory bad;
+            if (i == 0) {
+                bad = _slice(good, 64);
+            } else if (i == 1) {
+                bad = bytes.concat(good, hex"00");
+            } else if (i == 3) {
+                bad = bytes.concat(_slice(good, 64), hex"02");
+            } else if (i == 4) {
+                (bytes32 r, bytes32 s, uint8 v) = _split(good);
+                bad = abi.encodePacked(r, bytes32(n - uint256(s)), v == 27 ? uint8(28) : uint8(27));
+                // The twin is a valid secp256k1 signature of this envelope's digest by the attester:
+                // only the low-s rule refuses it.
+                assertEq(
+                    ecrecover(registry.attestationDigest(a), v == 27 ? 28 : 27, r, bytes32(n - uint256(s))), attester
+                );
+            }
             vm.expectEmit(false, false, false, true);
             emit Registry.Missed(rid, 701, 2);
-            assertTrue(deliver(rid, a, bad[i]));
+            assertTrue(deliver(rid, a, bad));
             assertFalse(registry.hasTrait(alice, 701));
         }
+        // Positive control: the low-s original of the same shape of envelope verifies.
+        bytes32 last = ask(alice, 701);
+        OracleAttestation memory ok = attestationFor(last, word(1));
+        assertTrue(deliver(last, ok, sign(ok)));
+        assertTrue(registry.hasTrait(alice, 701));
     }
 
     function _slice(bytes memory b, uint256 n) internal pure returns (bytes memory out) {
@@ -718,28 +732,65 @@ contract AdversarialTest is Base {
 
     function test_reentrantTokenCannotReenterAnyIMDMovingFunction() public {
         ReentrantIMD evil = new ReentrantIMD();
+        // An Intake selling in the evil token, so a re-entered upgrade or shared-fact request could
+        // otherwise complete.
+        MockIntake evilIntake = new MockIntake(address(evil));
         Registry r = new Registry(
-            CURATOR_ADDR, address(idmd), address(evil), address(intake), attester, address(renderer), address(composer)
+            CURATOR_ADDR,
+            address(idmd),
+            address(evil),
+            address(evilIntake),
+            attester,
+            address(renderer),
+            address(composer)
         );
         evil.mint(alice, 100 ether);
         vm.prank(alice);
         evil.approve(address(r), type(uint256).max);
-        bytes[4] memory payloads;
+        // The re-entered call comes from the token contract: fund and approve it, so the guard is the
+        // only thing that can refuse it.
+        evil.mint(address(evil), 100 ether);
+        vm.prank(address(evil));
+        evil.approve(address(r), type(uint256).max);
+        bytes[5] memory payloads = _reentryPayloads(r);
+        bytes memory guardError = abi.encodeWithSelector(ReentrancyGuard.ReentrancyGuardReentrantCall.selector);
+        for (uint256 i; i < 5; ++i) {
+            evil.arm(payloads[i]);
+            vm.prank(alice);
+            r.sponsor(1 ether);
+            assertTrue(evil.reentryReverted(), "the guard refused the re-entered call");
+            assertEq(evil.reentryError(), guardError, "exactly ReentrancyGuardReentrantCall");
+        }
+        assertEq(r.nextSpecId(), 10001);
+        assertEq(r.pendingOf(address(evil), 701), bytes32(0));
+        assertEq(r.sharedPending(1201), bytes32(0));
+        assertEq(r.tokenOf(address(evil)), 0);
+        assertEq(evil.balanceOf(address(r)), 5 ether);
+
+        // Unguarded positive control: the same funded, approved attacker and the same payloads, fired
+        // from a frame that holds no guard (the token's transferFrom called with the registry as
+        // sender), succeed. The refusals above are the guard's, not a harness artefact.
+        for (uint256 i; i < 5; ++i) {
+            evil.arm(payloads[i]);
+            vm.prank(address(r));
+            evil.transferFrom(address(evil), address(r), 0);
+            assertFalse(evil.reentryReverted(), "the unguarded re-entry succeeds");
+            assertEq(evil.reentryError(), "");
+        }
+        assertEq(r.pendingOf(address(evil), 701) != bytes32(0), true);
+        assertEq(r.nextSpecId(), 10002);
+        assertEq(r.sharedPending(1201) != bytes32(0), true);
+        assertEq(r.tokenOf(address(evil)), 1);
+    }
+
+    function _reentryPayloads(Registry r) internal pure returns (bytes[5] memory payloads) {
         uint16[] memory ids = new uint16[](1);
         ids[0] = 701;
         payloads[0] = abi.encodeCall(r.upgrade, (ids, PRICE));
         payloads[1] = abi.encodeCall(r.sponsor, (1 ether));
         payloads[2] = abi.encodeCall(r.registerSpec, (t1Spec(address(0xCAFE), "Evil")));
         payloads[3] = abi.encodeCall(r.requestSharedFact, (1201, PRICE));
-        for (uint256 i; i < 4; ++i) {
-            evil.arm(payloads[i]);
-            vm.prank(alice);
-            r.sponsor(1 ether);
-            assertTrue(evil.reentryReverted(), "the guard refused the re-entered call");
-        }
-        assertEq(r.nextSpecId(), 10001);
-        assertEq(r.pendingOf(alice, 701), bytes32(0));
-        assertEq(evil.balanceOf(address(r)), 4 ether);
+        payloads[4] = abi.encodeCall(r.mintCard, ());
     }
 
     function test_onFailureRecordsWhatItIsToldAndStoresNothing() public {

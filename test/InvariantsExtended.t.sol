@@ -24,6 +24,7 @@ contract FullHandler is Base {
     uint256 public poolIn;
     uint256 public poolSpent;
     uint256 public deliveries;
+    uint256 public replays; // replayConsumed calls that reached the registry
     mapping(address => mapping(uint16 => bool)) public ghostVerified;
     mapping(address => mapping(uint16 => bool)) public ghostPoolUsed;
     mapping(address => uint256) public ghostCommunityCount;
@@ -312,6 +313,7 @@ contract FullHandler is Base {
         registry.onResult(rid, a, "");
         vm.prank(address(intake));
         registry.onFailure(rid, 1, "x", 0, 0, "");
+        replays++;
     }
 
     function applyShared(uint256 seed, uint256 which) external {
@@ -382,7 +384,7 @@ contract InvariantsExtendedTest is Test {
         h = new FullHandler();
         registry = h.theRegistry();
         targetContract(address(h));
-        bytes4[] memory sel = new bytes4[](15);
+        bytes4[] memory sel = new bytes4[](16);
         sel[0] = FullHandler.mintCard.selector;
         sel[1] = FullHandler.transfer.selector;
         sel[2] = FullHandler.sponsor.selector;
@@ -398,6 +400,7 @@ contract InvariantsExtendedTest is Test {
         sel[12] = FullHandler.failRequest.selector;
         sel[13] = FullHandler.abandonLate.selector;
         sel[14] = FullHandler.applyShared.selector;
+        sel[15] = FullHandler.replayConsumed.selector;
         targetSelector(FuzzSelector({addr: address(h), selectors: sel}));
     }
 
@@ -408,6 +411,20 @@ contract InvariantsExtendedTest is Test {
         assertEq(h.openCount(), 3);
         assertEq(h.poolSpent(), 1.5 ether);
         assertTrue(registry.idmdSponsorUsed(3));
+        assertEq(registry.pool(), h.poolIn() - h.poolSpent());
+    }
+
+    function test_handlerReplayOfAConsumedIdChangesNothing() public {
+        h.upgradePaid(0, 0); // actor 0x2001 asks for 701
+        h.deliverTrue(0);
+        address c = h.actorAt(0);
+        (bytes32 rid,,,) = registry.verified(c, 701);
+        assertTrue(rid != 0);
+        h.replayConsumed(0, 0);
+        assertEq(h.replays(), 1, "the replay reached onResult and onFailure");
+        (bytes32 after_,,,) = registry.verified(c, 701);
+        assertEq(after_, rid, "a replayed settled id leaves the verification intact");
+        assertTrue(registry.hasTrait(c, 701));
         assertEq(registry.pool(), h.poolIn() - h.poolSpent());
     }
 

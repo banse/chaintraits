@@ -1,4 +1,31 @@
-# Test notes: review follow-up (a) to (h)
+# Test notes: tests and docs follow-up (i) to (q)
+
+Continues the review follow-up below (contract changes (a) to (h)). This step changes tests and documents only:
+no file under `src/`, no id, window, template, fixture, questionHash document, quorum rule or pool rule changed, and
+nothing was deployed.
+
+| change | what changed | where |
+|---|---|---|
+| (i) | `FullHandler.upgradeSponsored` reduces `which` modulo `catalogChain.length` before adding the loop index (kept from the previous step, with its max-seed regression). `replayConsumed` is now among the targeted selectors (16), and counts the replays that reached the registry; a deterministic test replays a consumed id through `onResult` and `onFailure` and shows nothing changes. All five extended campaigns pass with `fail_on_revert = true`. | `test/InvariantsExtended.t.sol` |
+| (j) | Cold `onResult` gas: the request and the signature are prepared first, then `vm.cool(registry)`, then delivery through the mock Intake's real `call(200,000)`; each test asserts `delivered` and logs the gas the mock measured around its `call` (new `MockIntake.lastCallbackGas`, which includes the cold account access). Measured: **133,356** first community verification with a card; **164,087** 64-address shared fact, catalog 1201; **170,445** 64-address shared fact, community T3 (head 32, the maximum). The independent reviewer measured 135,193 / 170,779 / 177,134 before the contract changes. | `test/ReReview.t.sol` `test_coldGas_*`; `test/mocks/Mocks.sol` |
+| (k) | Re-entrancy: the token re-enters each of the five IMD-moving functions (`upgrade`, `sponsor`, `registerSpec`, `requestSharedFact`, `mintCard`) as a funded, approved attacker (the token contract itself holds IMD and approved the registry; an Intake selling in that token is wired in), and the test asserts the exact revert data `ReentrancyGuardReentrantCall()` (new `ReentrantIMD.reentryError`). Unguarded positive control: the same payloads fired from a frame without the guard succeed and take effect. High-s: each malformed signature, including the high-s twin, is now derived from the signature of the exact envelope delivered with it; the test also proves the twin recovers the attester under plain `ecrecover`, and the low-s original then verifies. New tests: (a) 262,144-byte signatures on a community shared fact and a community personal request with a card, cold, under the stipend; (b) a lower ordinal acquired later replaces a higher one and never the reverse; (c) community attributes appear only for verified specs, with the name; (e) an unused `fixedVal` is refused and an empty filter is never serialised, a named one is; (f) the constructor reads `isSettled` by static call (a writing Curator cannot deploy and is not written). Also (n) and (p) below. | `test/Adversarial.t.sol`, `test/ReReview.t.sol`, `test/mocks/Mocks.sol` |
+| (l) | README "How to verify a card": `topic0` is the keccak of the canonical event signature, and topic positions come from the indexed-argument order of the stored item (`Transfer(from,to,value)` with `arg = "to"` puts the claimant in `topic2` and leaves `topic1` open); the catalog's layout is the special case. | `README.md` |
+| (m) | README says how to run `test/fork/Mainnet.fork.t.sol` with `CHAINTRAITS_FORK_RPC` (archive RPC, block 26,170,000) and no longer says the fork tests are not delivered. | `README.md` |
+| (n) | CONCEPT.md invariant 4: one pending request is consumed once; the same signed evidence may satisfy another request with an identical canonical question. Test: `test_sameSignedEvidenceSatisfiesAnotherRequestWithTheSameQuestion` (abandoned request is reason 1; successor with the same `questionHash` verifies with the same signature; successor then consumed). | `CONCEPT.md`, `test/ReReview.t.sol` |
+| (o) | `questionHashOf` takes the canonical document, not the body: said in README (interface deviations, delivered tests, verification step 3) and CONCEPT.md invariant 7. | `README.md`, `CONCEPT.md` |
+| (p) | CATALOG.md section 5: `nextSpecId` is a `uint16`, at most 55,534 community specs (ids 10001 to 65534). Test: `test_specIdsEndAt65534` (65534 registers, the next one reverts with an arithmetic panic). | `CATALOG.md`, `test/ReReview.t.sol` |
+| (q) | CONCEPT.md section 6 and INTEGRATION.md section 1: three contracts (`Registry`, `Renderer`, `Composer`) and seven constructor arguments with renderer and composer as static addresses, matching README's deviations. CATALOG.md section 8: open question whether the plane ever signs chain evidence with `agreed` below quorum; the registry refuses it (reason 5). | `CONCEPT.md`, `INTEGRATION.md`, `CATALOG.md` |
+
+Observation, not changed (outside the listed changes): `INTEGRATION.md` section 4, check 7, last sentence still
+writes `questionHashOf(body)`; the test it describes passes the canonical document, as (o) now says elsewhere.
+
+Re-review of this step: the edits touch only tests, mocks and documents. The two mock additions (`lastCallbackGas`
+recorded after the callback returns; `reentryError` recorded on a failed re-entry) do not change what any existing
+test asserts. Local validation after the changes: `forge build`; `forge test --offline` with no
+`CHAINTRAITS_FORK_RPC` (all suites pass, the eleven fork tests skip); `forge fmt --check`;
+`python3 tools/gen_template.py --check`. This is not an independent audit.
+
+# Previous step: review follow-up (a) to (h)
 
 Continues the accepted build and test job. No deployment or launch was performed. The frozen ids, windows,
 question templates, request/attestation fixtures, canonical questionHash document, quorum predicate and pool
@@ -87,8 +114,7 @@ python3 tools/gen_template.py --check                             # templates, o
 
 The fork tests were run on 2026-10-11 against `rpc.mevblocker.io/fast` and `ethereum-rpc.publicnode.com`: all
 eleven pass. They never write the environment (`vm.envOr` only) and skip cleanly when the variable is unset, so
-the verifier's no-network run is unaffected. The README's statement that fork tests are not delivered predates
-this round (README.md is outside this task's write paths).
+the verifier's no-network run is unaffected. README now says how to run them (change (m) above).
 
 ## CONCEPT.md section 6, invariant by invariant
 
@@ -114,8 +140,8 @@ Golden and byte-exact gates: `Goldens.t.sol` (three synthetic cards), `Templates
 
 - The earlier diagnostic-order discrepancy is resolved by change (a) above. Signature and answer lengths now
   precede chainId and signer; `INTEGRATION.md` states the implemented precedence.
-- `nextSpecId` is a `uint16` starting at 10001: after 55,535 registrations `registerSpec` reverts on overflow for
-  ever. At 1 IMD each this is a bound, not a path anyone reaches by accident.
+- `nextSpecId` is a `uint16` starting at 10001: after 55,534 registrations (ids 10001 to 65534) `registerSpec`
+  reverts on overflow for ever (CATALOG.md section 5, change (p)). At 1 IMD each this is a bound, not a path anyone reaches by accident.
 - The mainnet Intake v2's `signer()` is `0x169b…279f`, not the attester `0x5598…2982`. The registry never reads
   `signer()`; it trusts the attester constructor argument, which is what the five served attestations recover to.
 - A claimant-paid request whose callback the plane never completes locks the pair for 14 days (`abandon`); a

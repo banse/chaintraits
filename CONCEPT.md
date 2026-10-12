@@ -128,10 +128,13 @@ in the registry can withdraw or migrate pool money; a successor contract starts 
 
 ## 6. Contracts
 
+Three contracts: `Registry`, `Renderer` and `Composer`; the registry's constructor takes seven arguments.
+
 | contract | role | constructor |
 |---|---|---|
-| `Registry` (name pending) | ERC-721 + IERC4906; catalog table; `mintCard`, `upgrade`, `hasTrait`; Intake consumer (`onResult`, `onFailure`); specs; shared facts; sponsor pool | `(curator, idmd, imd, intake, attester)` static addresses stored in storage (no `immutable`); it deploys its renderer itself, or takes it as a sixth address if the pipeline refuses a constructor that creates a contract; records `deployedAt = block.timestamp`; requires the passive view `curator.isSettled()` to be true |
+| `Registry` (name pending) | ERC-721 + IERC4906; catalog table; `mintCard`, `upgrade`, `hasTrait`; Intake consumer (`onResult`, `onFailure`); specs; shared facts; sponsor pool | seven static addresses `(curator, idmd, imd, intake, attester, renderer, composer)` stored in storage (no `immutable`); the renderer and the composer are deployed first and passed in as static addresses (the registry creates no contract: with both helpers embedded its init code exceeded EIP-3860, see README "What was built, and where it deviates from the brief"); records `deployedAt = block.timestamp`; requires the passive view `curator.isSettled()` to be true |
 | `Renderer` | template `bytes constant` + offsets as constants + splice + Base64 | none |
+| `Composer` | the five templates, body and canonical-document serialisers, catalog specs, spec guards, name table, catalog enumeration and direct-read predicates; views only, never called inside `onResult` | none |
 | interfaces | `IWhitelistCurator` (in `src/interfaces/`), `IIntake` (v2: `requestWithFailure`), `IOracleConsumer` (`onResult`, `onFailure`) | |
 
 Ownerless, no upgrade, no pause, no fee switch, no `receive`, no `fallback`, no `immutable`, no `tx.origin`. Solidity
@@ -151,7 +154,11 @@ section 4). `hasTrait(wallet, unknownId)` returns false, never reverts; `hasTrai
    `(c, t)`, or, for any T3 id, after `applySharedFact` matched the stored hash and found `c` within `head`.
    `hasTrait(c, t)` equals the live rule for direct-read traits and the `verified` entry for oracle traits, card or no
    card.
-4. An attestation is consumed once. A wrong signer, wrong `verifyingContract`, wrong `chainId`, wrong `questionHash`,
+4. An attestation is consumed once: one pending request is consumed once (its first callback clears it, and any later
+   callback for that request id is reason 1 and touches nothing). The same signed evidence is not tied to one request:
+   it may satisfy another pending request whose canonical question is identical (same `questionHash`, which binds
+   the claimant, the trait and the window), because the registry checks the question, not the attestation's identity.
+   A wrong signer, wrong `verifyingContract`, wrong `chainId`, wrong `questionHash`,
    wrong answer type, malformed answer bytes, wrong window, insufficient quorum, expiry or a failing rule never marks
    a trait and never reverts the callback for an envelope that decodes (no unchecked `abi.decode`); each records a
    `Missed` event with its reason code. An attestation signed for another consumer or another chain is never
@@ -162,8 +169,9 @@ section 4). `hasTrait(wallet, unknownId)` returns false, never reverts; `hasTrai
 6. Tiers are monotone: `hasTrait(c, 303)` implies `hasTrait(c, 302)` and `hasTrait(c, 301)`; `hasTrait(c, 202)`
    implies `hasTrait(c, 201)`; likewise 4xx and 5xx. The ordinal family (11xx) is not a tier family.
 7. A registered spec never changes; the body sent to the Intake is a deterministic function of the spec and the
-   claimant (golden tests per template against `templates/fixtures/`), and the registry's `questionHashOf(body)`
-   equals the plane's value for every fixture (`reference/plane/questionHashes.json`); registration fees stay in the
+   claimant (golden tests per template against `templates/fixtures/`), and the registry's
+   `questionHashOf(canonicalDocument)`, which takes the canonical document of `INTEGRATION.md` section 4, check 7,
+   not the body, equals the plane's value for every fixture (`reference/plane/questionHashes.json`); registration fees stay in the
    registry.
 8. `tokenURI` is pure over the registry's storage, the Curator's views and IDMD `balanceOf`; the renderer output
    decodes to the golden bytes; a hostile spec name cannot break the JSON or the SVG (escaping tests).
