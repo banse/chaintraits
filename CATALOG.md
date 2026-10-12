@@ -87,7 +87,8 @@ windows unchanged in the free quotes of 2026-10-12 (`reference/plane/quotes/`).
 | 1301 | Not born yesterday | panel, T5 bool | account nonce `eth_getTransactionCount(A, 0x189378e) >= 20` | `W_DEPLOY` | 4,765 contributors had nonce >= 20 at the launch block (sybil census) |
 
 The ordinal family is not monotone (each id is a different wallet); 1105 is a window fact, not a tier of 1101 to
-1104. The Early bird family is monotone in the direction of rarity: every hour-0 wallet (202) is also an hour <= 1
+1104. The card slot and Ordinal attribute show the **lowest verified id** (1101 is rarest), not the highest.
+The Early bird family is monotone in the direction of rarity: every hour-0 wallet (202) is also an hour <= 1
 wallet (201), and the card shows 202 when both hold. 1301 is a statement about the account's nonce in the chain state
 at the launch block; for a contract claimant that nonce counts its own `CREATE`s, which is the predicate, not a flaw.
 Not in the catalog by decision: the wallet that called `settle()` (it belongs to the entrant; no back door).
@@ -109,8 +110,10 @@ like an hour-0 founder. Capital reads `contributedBy(A)`, never the struct.
 
 The registry stores `pending[requestId] = (claimant, traitId, requestedAt, questionHash)` when it sends a question
 and, in `onResult(requestId, attestation, signature)`, verifies in this order: `msg.sender` is the Intake and
-`requestId` is pending; signer == attester (`0x5598aa9146215bc13eb26f2c692ad1461fd32982`, constructor argument) under
-the domain with `verifyingContract` == the registry; `chainId` == 1; `answerType` (uint8) == the template's code;
+`requestId` is pending; signature length == 65 (reason 2); answer length <= 2112 and exactly 32 for bool/uint256
+kinds (reason 9), before any dynamic copy or hash; `chainId` == 1; signer == attester
+(`0x5598aa9146215bc13eb26f2c692ad1461fd32982`, constructor argument) under the domain with
+`verifyingContract` == the registry; `answerType` (uint8) == the template's code;
 `agreed >= quorum >= the template's quorum` and `panelSize >= the template's`; window == the pending request's window;
 expiry; **`questionHash` == the hash the registry computed when it composed the body**; and the answer against the
 rule below (decoded defensively: `INTEGRATION.md` section 4). The attestation's `requestId` is the plane's own id and
@@ -149,7 +152,7 @@ trait in section 3 names its template there (T1, T3, T5).
 | `target` | address | nonzero for T1 to T4; unused for T5 |
 | `item` | string | the event item (T1 to T3) or function item (T4); charset `[A-Za-z0-9_ ,()[]]`, at most 256 bytes, must start with `event ` or `function ` as the kind requires |
 | `arg` | string | indexed argument that equals the claimant (T1, T2) or the groupBy key (T3); ASCII `[A-Za-z0-9_]`, at most 32 |
-| `fixedArg`, `fixedVal` | string, uint256 | optional second indexed filter (T1, T2); empty string = none |
+| `fixedArg`, `fixedVal` | string, uint256 | optional second indexed filter (T1, T2); empty string = none and requires `fixedVal == 0` (`BadSpec` otherwise) |
 | `sumArg` | string | T2 and T3 only |
 | `op` | uint8 | T4 only: 1 `>=`, 2 `>`, 3 `<=`, 4 `<`, 5 `==` |
 | `threshold` | uint256 | T1, T2, T4, T5: `>= 1`; T3: head, 1 to 32 |

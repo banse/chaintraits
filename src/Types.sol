@@ -22,8 +22,8 @@ struct Spec {
 ///         registry for the renderer; never stored in this shape.
 struct OracleMeta {
     uint16 traitId;
-    uint16 panelSize;
-    uint16 quorum;
+    uint16 panelSize; // registry minimum; JSON minPanelSize (ABI field name retained)
+    uint16 quorum; // registry minimum; JSON minQuorum (ABI field name retained)
     bytes32 requestId; // the Intake's id
     bytes32 oracleRequestId; // the plane's signed UUID
     Spec spec; // the catalog trait expressed as a spec, or the community spec itself
@@ -33,7 +33,7 @@ struct OracleMeta {
 struct Card {
     uint256 tokenId;
     address claimant;
-    uint16[13] top; // highest true catalog id per family (index 0 = family 1), 0 = none
+    uint16[13] top; // highest true catalog id per family, except lowest for family 11; index 0 = family 1, 0 = none
     uint16[] traits; // every true catalog id
     uint16[] community; // the first 32 verified community ids
     uint256 communityCount;

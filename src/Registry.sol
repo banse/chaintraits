@@ -25,8 +25,8 @@ import {Renderer} from "./Renderer.sol";
 ///         signed by the IMD oracle passes every check of INTEGRATION.md section 4 inside `onResult`.
 /// @dev    No owner, pause, upgrade, fee switch, `receive`, `fallback`, `immutable` or `tx.origin`.
 ///         The five external addresses are ordinary storage so a clean rebuild equals the deployed
-///         runtime code byte for byte (`bytecode_hash = "none"`). The constructor calls no external
-///         contract: the launch rehearsal runs it on an empty chain.
+///         runtime code byte for byte (`bytecode_hash = "none"`). The constructor passively checks that
+///         the Curator is settled before accepting its direct-read traits as final.
 contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     using SafeERC20 for IERC20;
 
@@ -160,10 +160,9 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     /// @param renderer_ the `Renderer` (no constructor arguments, no storage), deployed first
     /// @param composer_ the `Composer` (no constructor arguments, no storage), deployed first
     /// @dev The renderer and the composer are taken as addresses, not deployed here: with both creation
-    ///      codes embedded, the registry's init code exceeded EIP-3860's 49,152 bytes, and the launch
-    ///      pipeline rehearses constructors on an empty chain where `new` is the only thing that could
-    ///      run anyway. Three launches (renderer, composer, registry) with static arguments. The
-    ///      constructor calls no external contract and stores everything in ordinary storage.
+    ///      codes embedded, the registry's init code exceeded EIP-3860's 49,152 bytes. Three deployments
+    ///      (renderer, composer, registry) use static arguments stored in ordinary storage. The only
+    ///      external constructor call is the passive Curator settlement check.
     constructor(
         address curator_,
         address idmd_,
@@ -178,6 +177,7 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
                 || attester_ == address(0) || renderer_ == address(0) || composer_ == address(0)
         ) revert ZeroAddress();
         curator = IWhitelistCurator(curator_);
+        require(curator.isSettled(), "Curator not settled");
         idmd = IIDMD(idmd_);
         imd = IERC20(imd_);
         intake = IIntake(intake_);
@@ -218,7 +218,9 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
         for (uint256 i; i < c.traits.length; ++i) {
             uint16 id = c.traits[i];
             uint256 fam = id / 100;
-            c.top[fam - 1] = id; // ids ascend, so the last of a family is its highest tier
+            // Ordinals are independent facts: retain the lowest verified id (the rarest).
+            // Other families show their highest tier as the sorted ids are visited.
+            if (fam != 11 || c.top[fam - 1] == 0) c.top[fam - 1] = id;
         }
         uint16[] storage specs = _specsOf[claimant];
         c.communityCount = specs.length;
@@ -267,66 +269,13 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     ///         Needs no card. Unknown ids and the zero address are false, never a revert.
     function hasTrait(address wallet, uint16 traitId) public view returns (bool) {
         if (wallet == address(0)) return false;
-        if (traitId == 101 || traitId == 201 || traitId == 202) {
-            (uint256 hour, bool joined) = curator.firstHourOf(wallet);
-            if (!joined) return false;
-            if (traitId == 101) return true;
-            return traitId == 201 ? hour <= 1 : hour == 0;
-        }
-        if (traitId >= 301 && traitId <= 303) {
-            uint256 n = curator.txCountOf(wallet);
-            return n >= (traitId == 301 ? 3 : traitId == 302 ? 5 : 10);
-        }
-        if (traitId >= 401 && traitId <= 404) {
-            uint256 w = curator.contributedBy(wallet);
-            return w >= (traitId == 401 ? 1e18 : traitId == 402 ? 1e19 : traitId == 403 ? 1e20 : 8e20);
-        }
-        if (traitId >= 501 && traitId <= 503) {
-            uint256 p = curator.pointsOf(wallet);
-            return p >= (traitId == 501 ? 1000 : traitId == 502 ? 3162 : 10000);
-        }
-        if (traitId == 601) return idmd.balanceOf(wallet) >= 1;
+        if (_isDirect(traitId)) return composer.hasDirectTrait(wallet, traitId, curator, idmd);
         return _verified[wallet][traitId].requestId != 0;
     }
 
     /// @notice The catalog ids (all tiers) that are true for a wallet, ascending; no community specs.
     function traitsOf(address wallet) public view returns (uint16[] memory ids) {
-        uint16[25] memory all = [
-            101,
-            201,
-            202,
-            301,
-            302,
-            303,
-            401,
-            402,
-            403,
-            404,
-            501,
-            502,
-            503,
-            601,
-            701,
-            801,
-            901,
-            1001,
-            1101,
-            1102,
-            1103,
-            1104,
-            1105,
-            1201,
-            1301
-        ];
-        uint16[] memory tmp = new uint16[](25);
-        uint256 n;
-        for (uint256 i; i < 25; ++i) {
-            if (hasTrait(wallet, all[i])) tmp[n++] = all[i];
-        }
-        ids = new uint16[](n);
-        for (uint256 i; i < n; ++i) {
-            ids[i] = tmp[i];
-        }
+        return composer.traitsOf(address(this), wallet);
     }
 
     function verifiedSpecsOf(address wallet) external view returns (uint16[] memory) {
@@ -554,7 +503,7 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
         return (1, B_DEPLOY, B_END, 1);
     }
 
-    /// @dev Checks 2 to 7 of INTEGRATION.md section 4; returns the reason code or 0.
+    /// @dev Bound calldata before any dynamic copy or hash, then validate in INTEGRATION.md order.
     function _check(
         Pending memory p,
         OracleAttestation calldata a,
@@ -563,8 +512,18 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
         uint64 fromBlock,
         uint64 toBlock
     ) internal view returns (uint8) {
+        if (signature.length != 65) return 2;
+        if (a.answer.length > 2112 || (kind != 3 && a.answer.length != 32)) return 9;
         if (a.chainId != block.chainid) return 3;
-        (address signer, ECDSA.RecoverError err,) = ECDSA.tryRecover(attestationDigest(a), signature);
+        bytes32 r;
+        bytes32 s;
+        uint8 v;
+        assembly ("memory-safe") {
+            r := calldataload(signature.offset)
+            s := calldataload(add(signature.offset, 32))
+            v := byte(0, calldataload(add(signature.offset, 64)))
+        }
+        (address signer, ECDSA.RecoverError err,) = ECDSA.tryRecover(attestationDigest(a), v, r, s);
         if (err != ECDSA.RecoverError.NoError || signer == address(0) || signer != attester) return 2;
         if (a.answerType != _answerTypeOf(kind)) return 4;
         (uint16 panelSize, uint16 quorum) = _panelOf(kind);
@@ -593,7 +552,7 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
             }
             return 0;
         }
-        if (ans.length != 32) return 9;
+        // _check already required exactly one word for bool and uint256 kinds.
         uint256 word = uint256(bytes32(ans[0:32]));
         if (kind == 1 || kind == 2) return word >= threshold ? 0 : 8;
         if (word > 1) return 9;

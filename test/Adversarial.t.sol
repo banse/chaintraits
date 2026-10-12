@@ -73,9 +73,9 @@ contract AdversarialTest is Base {
         OracleAttestation memory a = attestationFor(rid, word(1));
         bytes memory sig = sign(a);
         _mutate(a, field, seed);
-        // the chain id is checked before the signature (reason 3); every other alteration breaks the signature
+        // Answer size precedes hashing; chain id then precedes recovery; other mutations break the signature.
         vm.expectEmit(false, false, false, true);
-        emit Registry.Missed(rid, 701, field == 1 ? 3 : 2);
+        emit Registry.Missed(rid, 701, field == 1 ? 3 : field == 4 ? 9 : 2);
         assertTrue(deliver(rid, a, sig));
         assertFalse(registry.hasTrait(alice, 701));
         assertEq(registry.pendingOf(alice, 701), bytes32(0));
@@ -695,6 +695,22 @@ contract AdversarialTest is Base {
         assertEq(c.community[0], 10001);
         assertEq(c.community[31], 10032);
         assertEq(registry.verifiedSpecsOf(alice).length, 34);
+        string memory metadata = string(renderer.preimage(c));
+        assertEq(vm.parseJsonUint(metadata, ".attributes[14].value"), 34, "full community count");
+        for (uint256 i; i < 32; ++i) {
+            string memory prefix = string.concat(".attributes[", vm.toString(15 + i), "]");
+            assertEq(
+                vm.parseJsonString(metadata, string.concat(prefix, ".trait_type")),
+                string.concat("Community ", vm.toString(10001 + i)),
+                "community id is a standard attribute"
+            );
+            assertEq(
+                vm.parseJsonString(metadata, string.concat(prefix, ".value")),
+                string.concat("S", vm.toString(i)),
+                "community name is a standard attribute"
+            );
+        }
+        assertFalse(vm.keyExistsJson(metadata, ".attributes[47]"), "only the first 32 are shown");
         assertGt(bytes(registry.tokenURI(id)).length, 0);
     }
 

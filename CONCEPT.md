@@ -113,7 +113,7 @@ in the registry can withdraw or migrate pool money; a successor contract starts 
 - System monospace font stack, no web fonts, no `<image>`, no external URLs (marketplace sandboxes block them).
 - The card is a fixed grid of the 25 catalog slots. Community traits (ids 10001 and up) are not drawn in the grid;
   the JSON `attributes` list the claimant's verified community ids from `verifiedSpecsOf(claimant)`, **at most the
-  first 32** plus a `community_count` attribute with the full count, so metadata stays bounded whatever a claimant
+  first 32**, each with its spec name, plus a `community_count` attribute with the full count, so metadata stays bounded whatever a claimant
   buys; `verifiedSpecsOf` returns every id. Only the claimant can add to that index (`upgrade` and `applySharedFact`
   act for `msg.sender`; the pool never funds community traits), and an id is appended once (a second verification of
   the same pair is impossible: a verified trait cannot be requested or applied again).
@@ -121,7 +121,7 @@ in the registry can withdraw or migrate pool money; a successor contract starts 
   template by splicing per-card values at fixed offsets; the generator in `tools/` produces the template blob, the
   offsets and the goldens, and the golden tests prove the Solidity output byte-exact (see the vendored
   `Renderer.t.sol` and `Template.t.sol` for the method).
-- Every oracle trait's metadata carries its template, parameters, pinned window, panel size, quorum, the Intake
+- Every oracle trait's metadata carries its template, parameters, pinned window, `minPanelSize`, `minQuorum` (acceptance minima; signed values are in the served attestation), the Intake
   `requestId` and the plane's `oracleRequestId`, so a third party can rerun the recipe against public RPCs or fetch the
   served attestation without trusting the registry or the swarm.
 - The card prints the Curator author's caveat: "this list is not sybil-resistant by design; filter offchain".
@@ -130,7 +130,7 @@ in the registry can withdraw or migrate pool money; a successor contract starts 
 
 | contract | role | constructor |
 |---|---|---|
-| `Registry` (name pending) | ERC-721 + IERC4906; catalog table; `mintCard`, `upgrade`, `hasTrait`; Intake consumer (`onResult`, `onFailure`); specs; shared facts; sponsor pool | `(curator, idmd, imd, intake, attester)` static addresses stored in storage (no `immutable`); it deploys its renderer itself, or takes it as a sixth address if the pipeline refuses a constructor that creates a contract; records `deployedAt = block.timestamp` |
+| `Registry` (name pending) | ERC-721 + IERC4906; catalog table; `mintCard`, `upgrade`, `hasTrait`; Intake consumer (`onResult`, `onFailure`); specs; shared facts; sponsor pool | `(curator, idmd, imd, intake, attester)` static addresses stored in storage (no `immutable`); it deploys its renderer itself, or takes it as a sixth address if the pipeline refuses a constructor that creates a contract; records `deployedAt = block.timestamp`; requires the passive view `curator.isSettled()` to be true |
 | `Renderer` | template `bytes constant` + offsets as constants + splice + Base64 | none |
 | interfaces | `IWhitelistCurator` (in `src/interfaces/`), `IIntake` (v2: `requestWithFailure`), `IOracleConsumer` (`onResult`, `onFailure`) | |
 

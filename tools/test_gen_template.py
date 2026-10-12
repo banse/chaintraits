@@ -53,6 +53,16 @@ class GeneratorTest(unittest.TestCase):
                 self.assertEqual(metadata["traits"], list(data.traits))
                 self.assertEqual(metadata["community"], list(data.community))
                 self.assertEqual(len(metadata["oracle"]), len(data.oracle))
+                self.assertEqual(len(metadata["attributes"]), 15 + len(data.community))
+                self.assertEqual(metadata["attributes"][14], {"trait_type": "community_count", "value": data.communityCount})
+                for index, trait_id in enumerate(data.community):
+                    name = next(m.spec.name for m in data.oracle if m.traitId == trait_id)
+                    self.assertEqual(metadata["attributes"][15 + index], {"trait_type": f"Community {trait_id}", "value": name})
+                for meta in metadata["oracle"]:
+                    self.assertEqual(meta["minPanelSize"], 11 if meta["template"] == "T5" else 5)
+                    self.assertEqual(meta["minQuorum"], 7 if meta["template"] == "T5" else 3)
+                    self.assertNotIn("panelSize", meta)
+                    self.assertNotIn("quorum", meta)
                 self.assertTrue(svg.startswith(b"<svg ") and svg.endswith(b"</svg>"))
                 self.assertIn(data.claimant.encode(), svg)
                 self.assertEqual(uri, b"data:application/json;base64," + gen.base64.b64encode(preimage))

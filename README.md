@@ -139,9 +139,15 @@ only public RPCs, the plane's public attestation endpoint and this repository. T
 **1. Read the registry.** `verified(claimant, traitId)` returns `(requestId, oracleRequestId, fromBlock, toBlock)`:
 a zero `requestId` means the trait was never verified. `tokenURI(tokenId)` decodes (Base64, then JSON) to a document
 whose `oracle` array carries, for every verified oracle trait: `template` (T1 to T5), `evidence`, `fromBlock`,
-`toBlock`, `panelSize`, `quorum`, the Intake `requestId`, the plane's `oracleRequestId`, and the recipe parameters
+`toBlock`, `minPanelSize`, `minQuorum`, the Intake `requestId`, the plane's `oracleRequestId`, and the recipe parameters
 (`target`, `item`, `arg`, `fixedArg`, `fixedVal`, `sumArg`, `op`, `threshold`). `composeBody(traitId, claimant)`
-returns the exact question the registry asked, for free.
+returns the exact question the registry asked, for free. `minPanelSize` and `minQuorum` are the registry's
+acceptance minima (5/3 for chain, 11/7 for panel), not the signed panel values. The signed `panelSize`, `quorum`
+and `agreed` are in the served attestation at `/oracle/requests/<oracleRequestId>/attestation` (step 3).
+The standard `attributes` array includes the first 32 verified community ids in verification order, as
+`{"trait_type":"Community <id>","value":"<spec name>"}`, plus `community_count` with the full count.
+The custom `community` array retains those same ids. Ordinal displays the lowest verified id in family 11;
+other tier families display their highest id.
 
 **2. Rerun the recipe against two public RPCs** (CATALOG.md section 1 lists endpoints that served these windows;
 hex block numbers, chunks of at most 1,500 blocks for `eth_getLogs`):
@@ -185,14 +191,16 @@ Everything in "What the builder delivers" is in the tree, with these deviations,
   the limit is EIP-3860: with both helpers' creation code embedded, the registry's init code was 56,723 bytes
   (> 49,152). `Renderer` and `Composer` take no constructor arguments and hold no storage, so the launch is three
   static deployments with the helpers referenced backward (`script/Deploy.s.sol` does exactly that; the registry
-  constructor calls no external contract and stores every address in ordinary storage).
+  constructor requires `curator.isSettled()` and stores every address in ordinary storage).
 - **`src/Composer.sol`** holds the five templates, the body and canonical-document serialisers, the catalog oracle
-  traits as `Spec`s (`catalogSpec`), the spec guards (`validateSpec`) and the catalog name table (`traitName`). The
-  registry alone was 41,717 bytes of runtime; it is now 24,072 (EIP-170 is 24,576). The registry calls the composer
+  traits as `Spec`s (`catalogSpec`), the spec guards (`validateSpec`), the catalog name table (`traitName`), catalog enumeration (`traitsOf`)
+  and the unchanged direct-read predicates (`hasDirectTrait`). The registry alone was 41,717 bytes of runtime;
+  it is now 23,027, with 1,549 bytes of EIP-170 headroom. Composer is 23,455 bytes and Renderer is 11,791 bytes.
+  The registry calls the composer
   only in user transactions and views, never inside `onResult`.
 - **`verified()` derives the window from the rule** instead of storing it: check 6 makes the attested window equal
   the trait's canonical window (or the spec's), so storing it would be redundant and cost a third cold slot in
-  `onResult`. Worst case measured (community id appended, card to refresh, cold storage): 164,696 gas under the
+  `onResult`. Worst case measured (community id appended, card to refresh, cold storage): 164,954 gas under the
   200,000 stipend, delivered through the mock Intake's real `call(stipend, ...)`.
 - **Added views:** `pendingRequest(requestId)`, `cardOf(tokenId)` (the renderer's input), `attestationDigest(a)`,
   `questionHashOf(bytes canonicalDocument)`, `sharedPending(factId)`, `idmdSponsorUsed(id)`. `traitClass` and
@@ -217,6 +225,11 @@ Everything in "What the builder delivers" is in the tree, with these deviations,
 | `intake` | `0xa43e6F75ee006411F79Ac1C84120606C2330DE82` (Intake v2) |
 | `attester` | `0x5598Aa9146215Bc13eb26f2c692Ad1461Fd32982` |
 | `renderer`, `composer` | the two helper deployments of the same commit |
+
+Deployment must target a chain where the configured Curator answers `isSettled() == true`; an unset, reverting
+or unsettled Curator makes construction revert. This is a passive view read and moves no funds. The deployer
+must verify the seven constructor addresses and both helpers' runtime code against the reviewed build; none can
+be changed later. This assignment deploys nothing.
 
 There is no owner and nothing to operate: no setter, pause, upgrade, fee switch, `receive` or `fallback`. The
 accepted ways the registry can stop working are listed in `INTEGRATION.md` section 1 (Intake price, callback gas or

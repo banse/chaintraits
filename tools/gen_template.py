@@ -2,10 +2,10 @@
 """Generate the chaintraits renderer template artifacts and synthetic conformance goldens.
 
 The SVG (`template/card.svg`) is percent-encoded, inserted into the exact JSON envelope, and split
-around the 34 dynamic markers. The generator writes:
+around the 35 dynamic markers. The generator writes:
 
     template/blob.hex        the template blob, 0x-prefixed hex
-    template/offsets.txt     start,length pairs of the 35 fixed slices, decimal, comma-separated
+    template/offsets.txt     start,length pairs of the 36 fixed slices, decimal, comma-separated
     src/TemplateData.sol     the same blob and offsets as `bytes constant` (read by `Renderer.sol`)
     test/fixtures/golden_<case>_{preimage,svg,uri}.txt   the goldens for the synthetic cards
 
@@ -67,7 +67,7 @@ ENVELOPE = (
     + "".join(
         '{"trait_type":"' + name + '","value":"{F' + str(index + 1) + '}"},' for index, name in enumerate(FAMILIES)
     )
-    + '{"trait_type":"community_count","value":{CC}}],'
+    + '{"trait_type":"community_count","value":{CC}}{COMMUNITY_ATTRIBUTES}],'
     '"traits":[{TRAITS}],'
     '"community":[{COMMUNITY}],'
     '"oracle":[{ORACLE}]}'
@@ -76,6 +76,7 @@ ENVELOPE = (
 SVG_SLOT_ORDER = ("ID", "CLAIMANT") + tuple(f"F{i}" for i in range(1, 14))
 SLOT_ORDER = ("ID",) + SVG_SLOT_ORDER + ("CLAIMANT",) + tuple(f"F{i}" for i in range(1, 14)) + (
     "CC",
+    "COMMUNITY_ATTRIBUTES",
     "TRAITS",
     "COMMUNITY",
     "ORACLE",
@@ -196,11 +197,11 @@ CASES = {
     "synthetic_width": CardData(
         tokenId=2**256 - 1,
         claimant="0xffffffffffffffffffffffffffffffffffffc1a1",
-        top=(101, 202, 303, 404, 503, 601, 701, 801, 901, 1001, 1105, 1201, 1301),
+        top=(101, 202, 303, 404, 503, 601, 701, 801, 901, 1001, 1101, 1201, 1301),
         traits=CATALOG_IDS,
         community=tuple(range(10001, 10033)),
         communityCount=40,
-        oracle=(OracleMeta(10001, REQUEST_1, ORACLE_1, SPEC_HOSTILE),),
+        oracle=tuple(OracleMeta(i, REQUEST_1, ORACLE_1, SPEC_HOSTILE) for i in range(10001, 10033)),
     ),
 }
 
@@ -345,8 +346,8 @@ def oracle_entry(meta: OracleMeta) -> str:
         + '","evidence":"' + ("panel" if s.kind == 5 else "chain")
         + '","fromBlock":' + unsigned(s.fromBlock)
         + ',"toBlock":' + unsigned(s.toBlock)
-        + ',"panelSize":' + ("11" if s.kind == 5 else "5")
-        + ',"quorum":' + ("7" if s.kind == 5 else "3")
+        + ',"minPanelSize":' + ("11" if s.kind == 5 else "5")
+        + ',"minQuorum":' + ("7" if s.kind == 5 else "3")
         + ',"requestId":"' + hex32(meta.requestId)
         + '","oracleRequestId":"' + hex32(meta.oracleRequestId)
         + '","target":"' + s.target
@@ -375,6 +376,11 @@ def card_values(data: CardData) -> tuple[str, ...]:
         "CC": unsigned(data.communityCount),
         "TRAITS": ",".join(unsigned(v) for v in data.traits),
         "COMMUNITY": ",".join(unsigned(v) for v in data.community),
+        "COMMUNITY_ATTRIBUTES": "".join(
+            ',{"trait_type":"Community ' + unsigned(trait_id) + '","value":"'
+            + escape_json(next((m.spec.name for m in data.oracle if m.traitId == trait_id), "")) + '"}'
+            for trait_id in data.community
+        ),
         "ORACLE": ",".join(oracle_entry(m) for m in data.oracle),
     }
     for index, top in enumerate(data.top):
@@ -395,8 +401,8 @@ def render_case(template: TemplateArtifacts, data: CardData) -> tuple[bytes, byt
         raise ValueError("top-level JSON keys changed")
     if metadata["description"] != DESCRIPTION:
         raise ValueError("approved description changed")
-    if len(metadata["attributes"]) != 15:
-        raise ValueError("metadata must contain exactly fifteen attributes")
+    if len(metadata["attributes"]) != 15 + len(data.community):
+        raise ValueError("metadata must contain fifteen base attributes plus the shown community traits")
 
     image_prefix = "data:image/svg+xml,"
     image = metadata["image"]

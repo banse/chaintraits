@@ -17,11 +17,11 @@ contract GoldensTest is Base {
         bytes memory blob = vm.parseBytes(vm.trim(vm.readFile("template/blob.hex")));
         assertEq(renderer.template(), blob, "blob.hex");
         string[] memory parts = vm.split(vm.trim(vm.readFile("template/offsets.txt")), ",");
-        assertEq(parts.length, 70, "35 slices");
+        assertEq(parts.length, 72, "36 slices");
         bytes memory offs = renderer.offsets();
-        assertEq(offs.length, 140);
+        assertEq(offs.length, 144);
         uint256 cursor;
-        for (uint256 i; i < 70; ++i) {
+        for (uint256 i; i < 72; ++i) {
             uint256 v = vm.parseUint(parts[i]);
             assertEq((uint256(uint8(offs[2 * i])) << 8) | uint256(uint8(offs[2 * i + 1])), v, "offset");
             if (i % 2 == 0) assertEq(v, cursor, "contiguous");
@@ -62,7 +62,7 @@ contract GoldensTest is Base {
         Card memory c;
         c.tokenId = type(uint256).max;
         c.claimant = 0xffffFFFFFfffFFFFFFfFFFFfFFFFFFFFfFFFC1a1;
-        uint16[13] memory top = [101, 202, 303, 404, 503, 601, 701, 801, 901, 1001, 1105, 1201, 1301];
+        uint16[13] memory top = [101, 202, 303, 404, 503, 601, 701, 801, 901, 1001, 1101, 1201, 1301];
         c.top = top;
         c.traits = new uint16[](25);
         uint16[25] memory all = [
@@ -100,7 +100,7 @@ contract GoldensTest is Base {
             c.community[i] = uint16(10001 + i);
         }
         c.communityCount = 40;
-        c.oracle = new OracleMeta[](1);
+        c.oracle = new OracleMeta[](32);
         Spec memory s;
         s.kind = 4;
         s.target = REGISTRY_ADDR;
@@ -110,7 +110,9 @@ contract GoldensTest is Base {
         s.fromBlock = B_DEPLOY;
         s.toBlock = B_END;
         s.name = 'a"b\\c<d>&e';
-        c.oracle[0] = OracleMeta(10001, 5, 3, REQUEST_1, ORACLE_1, s);
+        for (uint256 i; i < 32; ++i) {
+            c.oracle[i] = OracleMeta(uint16(10001 + i), 5, 3, REQUEST_1, ORACLE_1, s);
+        }
         _assertGolden("synthetic_width", renderer.tokenURI(c), c);
     }
 

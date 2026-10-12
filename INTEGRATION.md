@@ -130,7 +130,10 @@ transaction. A callback that reverts or runs out of gas is simply `delivered == 
 - A request the plane never completes (three of the first seven Ethereum requests stayed `admitted`) stays pending
   until `abandon(requestId)` after 14 days.
 
-The registry checks `msg.sender == intake` first in both functions.
+The registry checks `msg.sender == intake` first in both functions. For a pending result, it bounds both dynamic
+fields directly in calldata before copying signature bytes or hashing the answer. Even an ABI-valid 262,144-byte
+signature or answer must finish as a miss under the stipend, clear its pending record and reverse index, and allow
+an immediate paid retry. An unknown request still returns reason 1 without inspecting these fields.
 
 ## 4. The attestation
 
@@ -192,13 +195,16 @@ runtime bytes).
    registry stored when it sent the request). **`a.requestId` is not compared with it**: the signed id is the plane's
    UUID. It is stored in the `verified` tuple as `oracleRequestId`, so a third party can fetch
    `/oracle/requests/<uuid>/attestation` from it.
-2. `a.chainId == block.chainid`; the recovered signer == attester.
+2. Before any dynamic copy or hash: `signature.length == 65` (otherwise reason 2); then
+   `a.answer.length <= 2112` (64 ABI-encoded addresses) and, for the pending bool/uint256 kind,
+   `a.answer.length == 32` (otherwise reason 9). The expected kind comes from the pending trait, not the untrusted
+   `a.answerType`. Only then check `a.chainId == block.chainid`, followed by the recovered signer == attester.
 3. `a.answerType` equals the template's type; `a.agreed >= a.quorum`, `a.quorum >= the template's quorum` (3 for
    chain, 7 for panel), `a.panelSize >= the template's panel size`.
 4. `a.fromBlock` and `a.toBlock` equal the pending request's window (the trait's canonical window or the spec's).
 5. `block.timestamp <= a.expiresAt` and `a.issuedAt <= block.timestamp + 1 hours` (the plane's clock may run ahead of
    block time; a stricter lower bound would turn clock skew into an unrecoverable miss).
-6. The decoded answer passes the rule: `>= threshold`, `== true`, or (T3) the envelope is canonical (check 8).
+6. After the question-hash check (7), the decoded answer passes the rule: `>= threshold`, `== true`, or (T3) the envelope is canonical (check 8).
 7. **`a.questionHash == pending.questionHash`.** The plane's `questionHash` is
    `keccak256(canonical JSON document)` where the document is the request body reduced to
    `{answerType, chainId, definitions, question, v, window: {fromBlock, toBlock}}`, plus `head` when the body has one
@@ -220,6 +226,12 @@ runtime bytes).
    A plain `abi.decode` on hostile bytes reverts, and a revert in `onResult` is a permanent `delivered == false`.
 9. One shape. The registry accepts the 15-field struct only. A different wire tuple does not decode as this function's
    arguments and is `delivered == false` at the Intake (section 3); no second type string is tried.
+
+**Diagnostic precedence**, after the Intake caller and pending-request checks: signature length (2), answer
+length (9), chainId (3), signer (2), answerType (4), panel/quorum (5), window (6), expiry/issuedAt (7), questionHash
+(10), then defensive decoding (9) and the rule (8). When several fields are invalid, the first failed check wins.
+The size checks precede EIP-712 hashing and signature recovery; the subsequent quorum rule and canonical question
+document are unchanged.
 
 **`Missed` reason codes** (uint8): 1 not pending, 2 signer, 3 chainId, 4 answerType, 5 panel or quorum, 6 window,
 7 expiry, 8 rule, 9 decode, 10 questionHash. (The round-1 code 10, "requestId mismatch", is retired: the signed id is

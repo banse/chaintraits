@@ -122,7 +122,7 @@ contract FullHandler is Base {
         uint16[] memory ids = new uint16[](k);
         uint256 n;
         for (uint256 i; i < catalogChain.length && n < k; ++i) {
-            uint16 id = catalogChain[(which + i) % catalogChain.length];
+            uint16 id = catalogChain[(which % catalogChain.length + i) % catalogChain.length];
             if (registry.poolUsed(a, id) || registry.pendingOf(a, id) != 0 || ghostVerified[a][id]) continue;
             bool dup;
             for (uint256 j; j < n; ++j) {
@@ -399,6 +399,16 @@ contract InvariantsExtendedTest is Test {
         sel[13] = FullHandler.abandonLate.selector;
         sel[14] = FullHandler.applyShared.selector;
         targetSelector(FuzzSelector({addr: address(h), selectors: sel}));
+    }
+
+    function test_handlerSponsoredSelectionAcceptsMaxSeed() public {
+        h.sponsor(2, 3 ether);
+        // This shrunk invariant input used to overflow in the handler before reaching the registry.
+        h.upgradeSponsored(12_242_742, type(uint256).max, 57);
+        assertEq(h.openCount(), 3);
+        assertEq(h.poolSpent(), 1.5 ether);
+        assertTrue(registry.idmdSponsorUsed(3));
+        assertEq(registry.pool(), h.poolIn() - h.poolSpent());
     }
 
     /// @dev Invariant 9: the balance is fees plus donations minus pool-funded requests, exactly.

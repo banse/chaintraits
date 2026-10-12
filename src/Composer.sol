@@ -3,13 +3,19 @@ pragma solidity 0.8.24;
 
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
 import {Spec} from "./Types.sol";
+import {IWhitelistCurator} from "./interfaces/IWhitelistCurator.sol";
+import {IIDMD} from "./interfaces/IIDMD.sol";
+
+interface ICatalogRegistry {
+    function hasTrait(address wallet, uint16 traitId) external view returns (bool);
+}
 
 /// @notice Composes the five question templates of TEMPLATES.md into the Intake request body (sorted
 ///         keys, two-space indent, byte-exact against `templates/fixtures/`) and into the plane's
 ///         canonical question document (RFC 8785: sorted keys, no whitespace) whose keccak is the
 ///         attestation's `questionHash` (INTEGRATION.md section 4, check 7).
-/// @dev    A separate contract, deployed by the registry's constructor (no arguments, no storage, no
-///         immutables): the composed text does not fit the registry's EIP-170 budget. All template text is ASCII and carries no `"` or `\`;
+/// @dev    A separately deployed contract (no arguments, no storage, no immutables): the composed text
+///         does not fit the registry's EIP-170 budget. All template text is ASCII and carries no `"` or `\`;
 ///         spec strings are charset-checked at registration, so no JSON escaping is ever needed here.
 contract Composer {
     string public constant DEPOSITED =
@@ -118,6 +124,76 @@ contract Composer {
         }
     }
 
+    /// @notice The direct-read predicates used by Registry.hasTrait and catalog enumeration.
+    function hasDirectTrait(address wallet, uint16 traitId, IWhitelistCurator curator, IIDMD idmd)
+        external
+        view
+        returns (bool)
+    {
+        if (wallet == address(0)) return false;
+        if (traitId == 101 || traitId == 201 || traitId == 202) {
+            (uint256 hour, bool joined) = curator.firstHourOf(wallet);
+            if (!joined) return false;
+            if (traitId == 101) return true;
+            return traitId == 201 ? hour <= 1 : hour == 0;
+        }
+        if (traitId >= 301 && traitId <= 303) {
+            uint256 n = curator.txCountOf(wallet);
+            return n >= (traitId == 301 ? 3 : traitId == 302 ? 5 : 10);
+        }
+        if (traitId >= 401 && traitId <= 404) {
+            uint256 w = curator.contributedBy(wallet);
+            return w >= (traitId == 401 ? 1e18 : traitId == 402 ? 1e19 : traitId == 403 ? 1e20 : 8e20);
+        }
+        if (traitId >= 501 && traitId <= 503) {
+            uint256 p = curator.pointsOf(wallet);
+            return p >= (traitId == 501 ? 1000 : traitId == 502 ? 3162 : 10000);
+        }
+        if (traitId == 601) return idmd.balanceOf(wallet) >= 1;
+        return false;
+    }
+
+    /// @notice Enumerates all true catalog ids in ascending order; community specs are excluded.
+    /// @dev The registry supplies itself as the read source. Kept here for its EIP-170 headroom.
+    function traitsOf(address registry, address wallet) external view returns (uint16[] memory ids) {
+        uint16[25] memory all = [
+            101,
+            201,
+            202,
+            301,
+            302,
+            303,
+            401,
+            402,
+            403,
+            404,
+            501,
+            502,
+            503,
+            601,
+            701,
+            801,
+            901,
+            1001,
+            1101,
+            1102,
+            1103,
+            1104,
+            1105,
+            1201,
+            1301
+        ];
+        uint16[] memory tmp = new uint16[](25);
+        uint256 n;
+        for (uint256 i; i < 25; ++i) {
+            if (ICatalogRegistry(registry).hasTrait(wallet, all[i])) tmp[n++] = all[i];
+        }
+        ids = new uint16[](n);
+        for (uint256 i; i < n; ++i) {
+            ids[i] = tmp[i];
+        }
+    }
+
     // ------------------------------------------------------------------ names and spec guards
 
     error UnknownTrait(uint16 traitId);
@@ -180,6 +256,7 @@ contract Composer {
         bytes memory fixedArg = bytes(s.fixedArg);
         if (fixedArg.length > 32 || !_charset(fixedArg, false)) revert BadSpec("fixedArg");
         if (s.kind > 2 && (fixedArg.length != 0 || s.fixedVal != 0)) revert BadSpec("fixedArg");
+        if (s.kind <= 2 && fixedArg.length == 0 && s.fixedVal != 0) revert BadSpec("fixedVal");
         bytes memory sumArg = bytes(s.sumArg);
         if (s.kind == 2 || s.kind == 3) {
             if (sumArg.length == 0 || sumArg.length > 32 || !_charset(sumArg, false)) revert BadSpec("sumArg");

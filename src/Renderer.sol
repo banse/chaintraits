@@ -13,8 +13,8 @@ import {TemplateData} from "./TemplateData.sol";
 ///         constant offsets. Rendering copies slice, value, slice, value ... into one buffer and
 ///         Base64-encodes it once. No constructor arguments, no immutables, no storage.
 contract Renderer {
-    uint256 internal constant SLOTS = 34;
-    uint256 internal constant SLICES = 35;
+    uint256 internal constant SLOTS = 35;
+    uint256 internal constant SLICES = 36;
 
     /// @notice The template blob, for the golden tests.
     function template() external pure returns (bytes memory) {
@@ -74,7 +74,7 @@ contract Renderer {
     }
 
     /// @dev Slot order: name id; SVG id, claimant, 13 family values; JSON claimant, 13 family values,
-    ///      community count, traits list, community list, oracle metadata.
+    ///      community count, community attributes, traits list, community list, oracle metadata.
     function _values(Card memory c) internal pure returns (bytes[SLOTS] memory v) {
         bytes memory id = bytes(Strings.toString(c.tokenId));
         bytes memory claimant = bytes(Strings.toHexString(c.claimant));
@@ -88,9 +88,32 @@ contract Renderer {
         }
         v[16] = claimant;
         v[30] = bytes(Strings.toString(c.communityCount));
-        v[31] = _list(c.traits);
-        v[32] = _list(c.community);
-        v[33] = _oracle(c.oracle);
+        v[31] = _communityAttributes(c);
+        v[32] = _list(c.traits);
+        v[33] = _list(c.community);
+        v[34] = _oracle(c.oracle);
+    }
+
+    /// @dev Standard marketplace attributes carry both the community id and its escaped name.
+    ///      Registry.cardOf supplies the first 32 ids and the matching oracle metadata in order.
+    function _communityAttributes(Card memory c) internal pure returns (bytes memory out) {
+        for (uint256 i; i < c.community.length; ++i) {
+            string memory name;
+            for (uint256 j; j < c.oracle.length; ++j) {
+                if (c.oracle[j].traitId == c.community[i]) {
+                    name = c.oracle[j].spec.name;
+                    break;
+                }
+            }
+            out = bytes.concat(
+                out,
+                ',{"trait_type":"Community ',
+                bytes(Strings.toString(c.community[i])),
+                '","value":"',
+                escapeJson(bytes(name)),
+                '"}'
+            );
+        }
     }
 
     function _list(uint16[] memory ids) internal pure returns (bytes memory out) {
@@ -119,9 +142,9 @@ contract Renderer {
                 bytes(Strings.toString(s.fromBlock)),
                 ',"toBlock":',
                 bytes(Strings.toString(s.toBlock)),
-                ',"panelSize":',
+                ',"minPanelSize":',
                 bytes(Strings.toString(m.panelSize)),
-                ',"quorum":',
+                ',"minQuorum":',
                 bytes(Strings.toString(m.quorum)),
                 ',"requestId":"',
                 bytes(Strings.toHexString(uint256(m.requestId), 32)),
