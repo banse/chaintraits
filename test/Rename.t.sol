@@ -184,11 +184,11 @@ contract RenameTest is Base {
             assertEq(vm.parseJsonString(metadata, key), families[i]);
         }
         assertEq(vm.parseJsonString(metadata, ".attributes[14].trait_type"), "community_count");
-        // the card prints the product name and the family labels
+        // the hive card prints only the token id; the family labels live in the attributes above
         string memory image = vm.parseJsonString(metadata, ".image");
-        assertTrue(vm.contains(image, "%3ESworn%3C/text%3E"));
-        assertTrue(vm.contains(image, "%3EP%20Pretrained%3C/text%3E"));
+        assertTrue(vm.contains(image, string.concat("%3E%23", vm.toString(tokenId), "%3C/text%3E%3C/svg%3E")));
         assertFalse(vm.contains(image, "chaintraits"));
+        assertFalse(vm.contains(image, "Pretrained"));
     }
 
     /// @dev Documentation fix 3: 1201 is an oracle trait, but a shared fact; `upgrade` says so, like a T3 spec.

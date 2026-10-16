@@ -153,11 +153,40 @@ forge test                       # hermetic: no RPC, no ffi
 forge fmt --check
 CHAINTRAITS_FORK_RPC=<mainnet archive RPC URL> forge test --match-path 'test/fork/*'   # the fork tests, block 26,170,000
 forge test --match-contract BurnRuleForkTest --fork-url <mainnet archive RPC URL> --fork-block-number 26202203
-python3 tools/gen_template.py --check    # the template blob, offsets and goldens are byte-exact
+python3 tools/gen_template.py --check    # the envelope blob, offsets, hive data and goldens are byte-exact
 ```
 
-`python3 tools/gen_template.py` regenerates `template/blob.hex`, `template/offsets.txt`, `src/TemplateData.sol` and
-the goldens under `test/fixtures/`; `--check` and `python3 -m unittest discover -s tools` pass on a clean tree.
+`python3 tools/gen_template.py` regenerates `template/blob.hex`, `template/offsets.txt`, `src/TemplateData.sol`,
+`src/HiveData.sol` and the goldens under `test/fixtures/`; `--check` and `python3 -m unittest discover -s tools` pass
+on a clean tree. There is no SVG template file: the generator's `hive_svg` is the normative drawing of the card
+image, and the generator precomputes every coordinate string the Renderer needs (see "The card image" below).
+
+### The card image
+
+The card image is a **hive symbol**: thirteen flat-topped hexagonal cells on a dark ground, one per family in catalog
+order, with Armed in the centre, the five Curator families around it and the seven oracle families on the outer ring.
+A cell's outline takes the family's class colour (direct `#00cc33`, chain `#00ff41`, shared `#dbfee6`, panel
+`#8ff0a4`) when the family has a trait and `#151515` when it has none; a lit cell is filled, and a family that is
+part way up its tiers (201 of 202; 301, 302 of 303; 401 to 403 of 404; 501, 502 of 503) is filled with "honey" from
+the bottom to `lv/n` of its height, the rest of its rings outlined above the line. The first 39 verified community
+specs add up to three concentric rings per cell (spec 1 to 13 the outer ring of each slot, 14 to 26 the middle, 27 to
+39 the inner one; the rings are tinted in a lit cell and outlined in a dark one). A white dot marks a rare top tier
+(202, 801, 901, 1001, 1101 to 1104, 1201; never 1105). A thin ring hexagon frames the hive; from the fortieth
+community spec on, a path runs around it that grows with the eighth power of `community_count`: 2 of 64 steps at 40,
+9 at 70, 58 at 5000 and the full ring from 8192 on. The token id is printed at the bottom right. The hive shows no
+address and no family label: those stay in the JSON attributes, which the image change did not touch (every key and
+byte of the metadata other than the `image` value is as before).
+
+Onchain there is no trigonometry. `tools/gen_template.py` computes every point string of the drawing once (the five
+hexagons of each cell, the eight honey/above polygon pairs, the ring, its six corners, the 62 interpolated path end
+points and the thirteen cell centres), percent-encodes them exactly as the data URI needs, and writes them to
+`src/HiveData.sol` with the fixed markup fragments, colours and opacities. The Renderer selects strings by index and
+concatenates them; `Renderer.image(card)` is the percent-encoded SVG, and `python3 tools/gen_template.py --check`
+fails if the committed data or any golden drifts from the generator. The eight goldens (`synthetic_direct`,
+`synthetic_oracle`, `synthetic_width`, `synthetic_newcomer`, `synthetic_outsider`, `synthetic_honey`,
+`synthetic_collector`, `synthetic_fullhouse`) cover an empty hive, a single lit cell, every part-filled tier, every
+rare dot, zero to three rings, no path, a short path and a six-segment path; `test/Goldens.t.sol` proves the Solidity
+output equal to each of them byte for byte and pins the step table, the rare-dot rule and the ring counts directly.
 
 The fork tests are in `test/fork/Mainnet.fork.t.sol` (eleven tests at the pinned block 26,170,000: the real Curator,
 IDMD, IMD and Intake v2, with the registry deployed on top and a request completed by the real `complete` under the
@@ -181,8 +210,9 @@ at `cab19933` (both as in the record NFT this mirrors).
   catalog as constants (ids, rules, windows from `CATALOG.md` sections 1 to 3), the name table, the template
   composer for the five templates **and the canonical question document plus its keccak** (`INTEGRATION.md` section
   4, check 7), the `Spec` struct of `CATALOG.md` section 5, no `immutable` anywhere.
-- `tools/gen_template.py` adapted to the trait-grid card; `template/card.svg` redrawn; goldens under
-  `test/fixtures/` for synthetic wallets only (the convention `0x…c1a1`; never a real wallet).
+- `tools/gen_template.py` as the normative drawing of the hive card (`hive_svg`) and the source of
+  `src/TemplateData.sol` and `src/HiveData.sol`; goldens under `test/fixtures/` for synthetic wallets only (the
+  convention `0x…c1a1`; never a real wallet).
 - Tests for every invariant in `CONCEPT.md` section 6: unit, fuzz, invariant; fork tests against the mainnet Curator
   at a pinned recent block (skipped without `CHAINTRAITS_FORK_RPC`); golden tests that `tokenURI` bytes equal the
   generator's; golden tests that the composed request bodies equal `templates/fixtures/*.json` byte for byte and that
@@ -279,8 +309,9 @@ Everything in "What the builder delivers" is in the tree, with these deviations,
   it was 23,364 after the Registry rules update and is **24,495 after the burn rule**, with **81 bytes** of EIP-170
   headroom. Local factoring shares the membership and pool checks without changing their order. Composer remains
   23,377 bytes after the rename
-  (down from 23,455; 1,199 bytes of headroom, and the rename had to keep at least 600) and Renderer is 11,712 bytes;
-  `test/Rename.t.sol` pins the Composer budget.
+  (down from 23,455; 1,199 bytes of headroom, and the rename had to keep at least 600) and Renderer is 21,570 bytes
+  with the hive card (3,006 bytes of headroom; it was 11,712 with the text grid); `test/Rename.t.sol` pins the
+  Composer budget and `test/Artifacts.t.sol` the EIP-170 limit of all three.
   The registry calls the composer
   only in user transactions and views, never inside `onResult`.
 - **`verified()` derives the window from the rule** instead of storing it: check 6 makes the attested window equal
@@ -291,11 +322,13 @@ Everything in "What the builder delivers" is in the tree, with these deviations,
   `questionHashOf(bytes canonicalDocument)` (the keccak of the canonical document of `INTEGRATION.md` section 4,
   check 7, not of the body `composeBody` returns), `sharedPending(factId)`, `idmdSponsored(id)`, `lastPoolDay(wallet)`. `traitClass` and
   `specOf` revert for an unknown id; `hasTrait` never does.
-- **`template/offsets` live in the code as ASCII hex**, not packed bytes: the launch's opcode scan reads every
-  non-PUSH byte of the runtime, and a packed offset `0x0cf2` would read as `CALLCODE`. The template blob is ASCII.
-- **Goldens:** three synthetic cards (`0x…c1a1`, `0x…ac1a1`, `0xff…c1a1`), two rendered through the registry and the
-  mocks, one through the renderer alone (width and escaping). `tools/rasterize_goldens.py` and its test were removed:
-  they rasterised THE LIST's goldens with a pinned macOS font and were never a gate.
+- **`template/offsets` and the hive start tables live in the code as ASCII hex**, not packed bytes: the launch's
+  opcode scan reads every non-PUSH byte of the runtime, and a packed offset `0x0cf2` would read as `CALLCODE`. The
+  envelope blob and the hive strings are ASCII (percent-encoded).
+- **Goldens:** eight synthetic cards (`0x…c1a1`, `0x…ac1a1`, `0xff…c1a1`, `0x…3c1a1` to `0x…7c1a1`), two rendered
+  through the registry and the mocks, six through the renderer alone (width and escaping, and the hive states listed
+  under "The card image"). `tools/rasterize_goldens.py` and its test were removed: they rasterised THE LIST's goldens
+  with a pinned macOS font and were never a gate.
 - The `Verified` event keeps its name; the storage struct is `VerifiedEntry`.
 
 ### Deployment parameters and operational notes

@@ -158,9 +158,11 @@ contract ReviewChangesTest is Base {
         string memory metadata = string(renderer.preimage(c));
         assertEq(vm.parseJsonString(metadata, ".attributes[11].trait_type"), "PID");
         assertEq(vm.parseJsonString(metadata, ".attributes[11].value"), value);
-        assertTrue(
-            vm.contains(vm.parseJsonString(metadata, ".image"), string.concat("y='730'%3E", value, "%3C/text%3E"))
-        );
+        // the hive shows the Ordinal cell lit for any ordinal, with the rare dot for 1101 to 1104 only;
+        // 202 (Zero-Shot's top tier) is the other rare dot on this card
+        string memory image = vm.parseJsonString(metadata, ".image");
+        uint256 dots = vm.split(image, "%3Ccircle%20").length - 1;
+        assertEq(dots, (expected != 0 && expected != 1105) ? 2 : 1, "rare dots");
     }
 
     function test_metadataReportsMinimaEvenWhenSignedPanelIsLarger() public {

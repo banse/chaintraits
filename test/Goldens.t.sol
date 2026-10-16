@@ -3,6 +3,7 @@ pragma solidity 0.8.24;
 
 import {Base} from "./Base.t.sol";
 import {Card, OracleMeta, Spec} from "../src/Types.sol";
+import {Renderer} from "../src/Renderer.sol";
 import {OracleAttestation} from "../src/interfaces/IOracleConsumer.sol";
 
 /// @notice Invariant 8: `tokenURI` bytes equal the generator's goldens (`tools/gen_template.py`),
@@ -17,11 +18,11 @@ contract GoldensTest is Base {
         bytes memory blob = vm.parseBytes(vm.trim(vm.readFile("template/blob.hex")));
         assertEq(renderer.template(), blob, "blob.hex");
         string[] memory parts = vm.split(vm.trim(vm.readFile("template/offsets.txt")), ",");
-        assertEq(parts.length, 72, "36 slices");
+        assertEq(parts.length, 44, "22 slices");
         bytes memory offs = renderer.offsets();
-        assertEq(offs.length, 144);
+        assertEq(offs.length, 88);
         uint256 cursor;
-        for (uint256 i; i < 72; ++i) {
+        for (uint256 i; i < 44; ++i) {
             uint256 v = vm.parseUint(parts[i]);
             assertEq((uint256(uint8(offs[2 * i])) << 8) | uint256(uint8(offs[2 * i + 1])), v, "offset");
             if (i % 2 == 0) assertEq(v, cursor, "contiguous");
@@ -114,6 +115,209 @@ contract GoldensTest is Base {
             c.oracle[i] = OracleMeta(uint16(10001 + i), 5, 3, REQUEST_1, ORACLE_1, s);
         }
         _assertGolden("synthetic_width", renderer.tokenURI(c), c);
+    }
+
+    // ------------------------------------------------------------------ the hive goldens (renderer only)
+
+    function test_goldenSyntheticNewcomer() public view {
+        uint16[13] memory top;
+        top[0] = 101;
+        uint16[] memory traits = new uint16[](1);
+        traits[0] = 101;
+        Card memory c = _card(3, address(uint160(0x3c1a1)), top, traits, 0, 0);
+        _assertGolden("synthetic_newcomer", renderer.tokenURI(c), c);
+    }
+
+    function test_goldenSyntheticOutsider() public view {
+        uint16[13] memory top;
+        Card memory c = _card(4, address(uint160(0x4c1a1)), top, new uint16[](0), 5, 5);
+        _assertGolden("synthetic_outsider", renderer.tokenURI(c), c);
+    }
+
+    function test_goldenSyntheticHoney() public view {
+        uint16[13] memory top = [101, 201, 302, 403, 502, 601, 701, 801, 901, 1001, 1101, 1201, 1301];
+        uint16[17] memory ids =
+            [101, 201, 301, 302, 401, 402, 403, 501, 502, 601, 701, 801, 901, 1001, 1101, 1201, 1301];
+        uint16[] memory traits = new uint16[](17);
+        for (uint256 i; i < 17; ++i) {
+            traits[i] = ids[i];
+        }
+        Card memory c = _card(5, address(uint160(0x5c1a1)), top, traits, 32, 39);
+        _assertGolden("synthetic_honey", renderer.tokenURI(c), c);
+    }
+
+    function test_goldenSyntheticCollector() public view {
+        uint16[13] memory top;
+        top[0] = 101;
+        top[2] = 301;
+        uint16[] memory traits = new uint16[](2);
+        traits[0] = 101;
+        traits[1] = 301;
+        Card memory c = _card(6, address(uint160(0x6c1a1)), top, traits, 32, 70);
+        _assertGolden("synthetic_collector", renderer.tokenURI(c), c);
+    }
+
+    function test_goldenSyntheticFullhouse() public view {
+        uint16[13] memory top = [101, 202, 303, 404, 503, 601, 701, 801, 901, 1001, 1101, 1201, 1301];
+        Card memory c = _card(7, address(uint160(0x7c1a1)), top, _allCatalogIds(), 32, 5000);
+        _assertGolden("synthetic_fullhouse", renderer.tokenURI(c), c);
+    }
+
+    // ------------------------------------------------------------------ the hive rules
+
+    /// @dev The community path length table of tools/test_gen_template.py: steps for the counts, and the
+    ///      number of segments the path has (one per whole corner passed, plus one to the end point).
+    function test_imageCommunityPathFollowsTheStepTable() public view {
+        uint256[12] memory counts = [uint256(32), 39, 40, 53, 70, 100, 200, 1000, 5000, 8191, 8192, 65535];
+        uint256[12] memory segments = [uint256(0), 0, 1, 1, 1, 2, 2, 4, 6, 6, 6, 6];
+        uint16[13] memory top;
+        for (uint256 i; i < 12; ++i) {
+            Card memory c = _card(1, C1A1, top, new uint16[](0), 0, counts[i]);
+            string memory image = string(renderer.image(c));
+            string[] memory split = vm.split(image, "%3Cpath%20d='M");
+            if (segments[i] == 0) {
+                assertEq(split.length, 1, "no path up to 39 members");
+                continue;
+            }
+            assertEq(split.length, 2, "one path");
+            string memory d = vm.split(split[1], "'")[0];
+            assertEq(vm.split(d, "L").length - 1, segments[i], "segments");
+        }
+        // 8192 and 64 steps close on the first corner: the last point equals the first
+        Card memory full = _card(1, C1A1, top, new uint16[](0), 0, 8192);
+        string memory dFull = vm.split(vm.split(string(renderer.image(full)), "%3Cpath%20d='M")[1], "'")[0];
+        string[] memory pts = vm.split(dFull, "L");
+        assertEq(pts[0], pts[6], "closed");
+        Card memory max = _card(1, C1A1, top, new uint16[](0), 0, type(uint256).max);
+        assertEq(string(renderer.image(max)), string(renderer.image(full)), "capped at 64 steps");
+    }
+
+    function test_imageRareDotOnlyAtATopTierRareId() public view {
+        uint16[25] memory all = _allCatalogIdsFixed();
+        for (uint256 j; j < 25; ++j) {
+            uint16 id = all[j];
+            uint16[13] memory top;
+            top[id / 100 - 1] = id;
+            Card memory c = _card(1, C1A1, top, new uint16[](0), 0, 0);
+            string memory image = string(renderer.image(c));
+            bool rare = id == 202 || id == 801 || id == 901 || id == 1001 || id == 1201 || (id >= 1101 && id <= 1104);
+            assertEq(vm.split(image, "%3Ccircle%20").length - 1, rare ? 1 : 0, vm.toString(id));
+            // a lit cell is outlined in its class colour; the twelve others are dark
+            assertEq(vm.split(image, "stroke='%23151515'").length - 1, 12, "dark outlines");
+            // a part-filled family carries exactly two clip paths; a full or single-tier one carries none
+            uint256 n = id / 100 == 2 ? 2 : id / 100 == 3 ? 3 : id / 100 == 4 ? 4 : id / 100 == 5 ? 3 : 1;
+            bool partFilled = id / 100 != 11 && id % 100 < n;
+            assertEq(vm.split(image, "%3CclipPath%20id='").length - 1, partFilled ? 2 : 0, "clip paths");
+        }
+    }
+
+    function test_imageRingsByCommunityCount() public view {
+        uint16[13] memory top;
+        top[5] = 601; // Armed sits in the centre slot, so its rings come first
+        uint256[5] memory counts = [uint256(0), 1, 14, 27, 39];
+        uint256[5] memory ringsInCentre = [uint256(0), 1, 2, 3, 3];
+        uint256[5] memory ringsTotal = [uint256(0), 1, 14, 27, 39];
+        for (uint256 i; i < 5; ++i) {
+            Card memory c = _card(1, C1A1, top, new uint16[](0), 0, counts[i]);
+            string memory image = string(renderer.image(c));
+            // the centre cell is lit: its zones carry fill-opacity, one per ring plus the cell
+            assertEq(vm.split(image, "fill-opacity='").length - 1, ringsInCentre[i] + 1, "centre zones");
+            // every other cell is empty: its rings are outlines of width 3 (the outer ring V is one more)
+            assertEq(
+                vm.split(image, "stroke-width='3'%20stroke-linejoin='round'/%3E").length - 1,
+                ringsTotal[i] - ringsInCentre[i] + 1,
+                "empty ring outlines"
+            );
+        }
+        Card memory many = _card(1, C1A1, top, new uint16[](0), 0, 5000);
+        Card memory thirtyNine = _card(1, C1A1, top, new uint16[](0), 0, 39);
+        assertEq(
+            vm.split(string(renderer.image(many)), "fill-opacity='0.57'").length,
+            vm.split(string(renderer.image(thirtyNine)), "fill-opacity='0.57'").length,
+            "rings saturate at 39"
+        );
+    }
+
+    function test_imageIdsOutsideTheCatalogRenderWithoutReverting() public view {
+        uint16[13] memory top = [uint16(199), 200, 399, 65535, 1, 602, 0, 0, 0, 0, 1199, 0, 0];
+        Card memory c = _card(1, C1A1, top, new uint16[](0), 0, 0);
+        bytes memory image = renderer.image(c);
+        assertGt(image.length, 0);
+        assertEq(vm.split(string(image), "%3Ccircle%20").length - 1, 0, "nothing rare");
+        // the level is clamped into the family's tier list: 199, 399, 65535, 602 and 1199 count as full
+        // cells (one zone each), 200 and 1 as the first of several tiers (two clip paths and one zone each)
+        assertEq(vm.split(string(image), "%3Cpolygon%20points='").length - 1, 13 + 5 + 2 * 3 + 1, "polygons");
+        assertEq(vm.split(string(image), "%3CclipPath%20id='").length - 1, 4, "two part-filled cells");
+    }
+
+    function test_imageIsPureAndDeterministic() public {
+        uint16[13] memory top = [101, 202, 303, 404, 503, 601, 701, 801, 901, 1001, 1101, 1201, 1301];
+        Card memory c = _card(7, C1A1, top, _allCatalogIds(), 32, 5000);
+        bytes memory first = renderer.image(c);
+        Renderer other = new Renderer();
+        assertEq(other.image(c), first);
+        assertEq(keccak256(renderer.preimage(c)), keccak256(other.preimage(c)));
+    }
+
+    function _card(
+        uint256 tokenId,
+        address claimant,
+        uint16[13] memory top,
+        uint16[] memory traits,
+        uint256 shownCommunity,
+        uint256 communityCount
+    ) internal view returns (Card memory c) {
+        c.tokenId = tokenId;
+        c.claimant = claimant;
+        c.top = top;
+        c.traits = traits;
+        c.community = new uint16[](shownCommunity);
+        c.oracle = new OracleMeta[](shownCommunity);
+        for (uint256 i; i < shownCommunity; ++i) {
+            uint16 id = uint16(10001 + i);
+            c.community[i] = id;
+            Spec memory s = t1Spec(REGISTRY_ADDR, string.concat("Community spec ", vm.toString(id)));
+            c.oracle[i] = OracleMeta(id, 5, 3, REQUEST_1, ORACLE_1, s);
+        }
+        c.communityCount = communityCount;
+    }
+
+    function _allCatalogIdsFixed() internal pure returns (uint16[25] memory all) {
+        all = [
+            101,
+            201,
+            202,
+            301,
+            302,
+            303,
+            401,
+            402,
+            403,
+            404,
+            501,
+            502,
+            503,
+            601,
+            701,
+            801,
+            901,
+            1001,
+            1101,
+            1102,
+            1103,
+            1104,
+            1105,
+            1201,
+            1301
+        ];
+    }
+
+    function _allCatalogIds() internal pure returns (uint16[] memory ids) {
+        uint16[25] memory all = _allCatalogIdsFixed();
+        ids = new uint16[](25);
+        for (uint256 i; i < 25; ++i) {
+            ids[i] = all[i];
+        }
     }
 
     function test_escapeJsonNeutralisesMarkup() public view {

@@ -1,3 +1,41 @@
+# Step 4: the hive generator, data and goldens (2026-10-16)
+
+`tools/gen_template.py` now holds the normative drawing of the card image (`hive_svg`, README "The card image") and
+writes two Solidity data libraries: `src/TemplateData.sol` (the JSON envelope, 21 slots and 22 slices: name id,
+image, claimant, the thirteen family values, the community count and attributes, the three lists) and the new
+`src/HiveData.sol` (163 point strings and 34 markup fragments, each stored once, percent-encoded, with ASCII-hex
+start tables and index constants). `template/card.svg` and its SVG value slots are gone; `template/blob.hex` and
+`template/offsets.txt` describe the envelope only. The Renderer was brought onto the new data so that the goldens are
+the executable specification of the image: `Renderer.image(card)` selects and concatenates `HiveData` strings (no
+trigonometry; levels, rings, rare dots and the path length are the only logic), `preimage` splices the 21 slots.
+The Card struct, `tokenURI(Card)`/`preimage(Card)` and every metadata byte other than the image value are unchanged
+(the old `synthetic_direct`, `synthetic_oracle` and `synthetic_width` preimages differ from the previous commit only
+in the `image` value). Registry and Composer are untouched. The later Renderer step may restructure the contract;
+the goldens and `--check` pin what it must produce.
+
+| artifact | state |
+|---|---|
+| goldens | 8 cases x {preimage, svg, uri}: `synthetic_direct` (1), `synthetic_oracle` (2), `synthetic_width` (uint256 max), `synthetic_newcomer` (3), `synthetic_outsider` (4), `synthetic_honey` (5), `synthetic_collector` (6), `synthetic_fullhouse` (7); synthetic `0x...c1a1` claimants only |
+| Renderer runtime | 21,570 bytes (3,006 of EIP-170 headroom); no immutables, no storage, no constructor arguments |
+| `python3 tools/gen_template.py --check` | 28 artifacts byte-equal |
+| `python3 -m unittest discover -s tools` | 18 tests: the step table at 32,39,40,53,70,100,200,1000,5000,8191,8192,65535 = 0,0,2,5,9,13,21,39,58,63,64,64, levels, rings, honey polygons, path points, element order, rare dots, opacities, string uniqueness and indexability, goldens, drift detection |
+| `forge test` (verifier seed) | 155 passed, 0 failed, 15 fork skips; `forge fmt --check` and `forge build` pass |
+
+`test/Goldens.t.sol` adds the five renderer-only goldens and direct rule tests: the step table (segments per count,
+closure at 64 steps, the cap at `uint256.max`), the rare dot for every catalog id, clip paths only for part-filled
+families, ring counts and opacities at 0/1/14/27/39 and saturation at 5000, out-of-catalog ids rendering without a
+revert (levels are clamped), and determinism across two deployments. `test/Rename.t.sol` and
+`test/ReviewChanges.t.sol` asserted on the old text grid (the product name, the family labels, the Ordinal value
+line); they now assert on the hive (the token id text, no label, the rare dot for 1101 to 1104 and not for 1105).
+
+Assumptions stated: the image reads only `tokenId`, `top` and `communityCount` of the Card; `top[i]` outside its
+family's tier list is clamped to the nearest level (the registry never produces one); `communityCount` is the full
+count (the rings use at most 39 of it, the path its eighth power, 64 steps from 8192). Operationally nothing changes:
+the Renderer is pure and launched without arguments; a drawing change is a generator change, a regeneration and a
+new Renderer deployment, never a storage write. Not run: Slither, Mythril, the opt-in fork suites.
+
+---
+
 # Step 3: sponsored-claim burn rule (2026-10-16)
 
 Only the burn-rule assignment is implemented here. Registry adds the eighth ordinary-storage constructor

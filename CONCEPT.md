@@ -135,9 +135,13 @@ in the registry can withdraw or migrate pool money; a successor contract starts 
 
 ## 5. Rendering
 
-- One card template: a grid of trait slots (name, value or evidence line, class glyph), text, rects and paths only;
-  the whole card well inside the EIP-170 limit; a second renderer only if the grid needs it.
-- The template is a **compile-time constant** in the renderer's bytecode (`bytes constant`; solc emits a `codecopy`),
+- One card image, the **hive symbol** (2026-10-16; README "The card image"): thirteen hexagonal cells, one per
+  family, lit in the family's class colour, part-filled with honey up to the tier reached, ringed by the first 39
+  community specs, dotted white at a rare top tier, framed by a ring that a path circles as the community count
+  grows. Polygons, clip paths, one circle per rare tier, one path and one text element only; the whole renderer
+  inside the EIP-170 limit; a second renderer only if it ever needs it.
+- The JSON envelope and every coordinate string of the image are **compile-time constants** in the renderer's
+  bytecode (`bytes constant`; solc emits a `codecopy`),
   not a constructor argument and not a deploy-dependent immutable. **Do not copy the vendored renderer's mechanism:**
   `ListRecordRenderer` takes the blob as a constructor argument, writes it to an SSTORE2 pointer and keeps that
   address in an immutable, which is exactly what the launch check forbids; mirror only its splice loop and its
@@ -145,16 +149,19 @@ in the registry can withdraw or migrate pool money; a successor contract starts 
   the deployed runtime code must equal a clean rebuild of the reviewed source (`foundry.toml` sets
   `bytecode_hash = "none"`). Constants and ordinary storage only.
 - System monospace font stack, no web fonts, no `<image>`, no external URLs (marketplace sandboxes block them).
-- The card is a fixed grid of the 25 catalog slots. Community traits (ids 10001 and up) are not drawn in the grid;
-  the JSON `attributes` list the claimant's verified community ids from `verifiedSpecsOf(claimant)`, **at most the
+- The card draws the 13 families, not the 25 ids: the tier reached shows as the honey level and the rare top tiers
+  as a dot. Community traits (ids 10001 and up) are drawn only as a count (rings up to 39, the path beyond) and are
+  never named in the image; the JSON `attributes` list the claimant's verified community ids from
+  `verifiedSpecsOf(claimant)`, **at most the
   first 32**, each with its spec name, plus a `community_count` attribute with the full count, so metadata stays bounded whatever a claimant
   buys; `verifiedSpecsOf` returns every id. Only the claimant can add to that index (`upgrade` and `applySharedFact`
   act for `msg.sender`; the pool never funds community traits), and an id is appended once (a second verification of
   the same pair is impossible: a verified trait cannot be requested or applied again).
 - `tokenURI` returns `data:application/json;base64,...` with the SVG percent-encoded inside, built from the
-  template by splicing per-card values at fixed offsets; the generator in `tools/` produces the template blob, the
-  offsets and the goldens, and the golden tests prove the Solidity output byte-exact (see the vendored
-  `Renderer.t.sol` and `Template.t.sol` for the method).
+  envelope by splicing per-card values at fixed offsets; the image value is assembled from precomputed,
+  pre-encoded strings selected by index (no trigonometry onchain). The generator in `tools/` is the normative
+  drawing and produces the envelope blob, the offsets, the hive data and the goldens, and the golden tests prove
+  the Solidity output byte-exact (see the vendored `Renderer.t.sol` and `Template.t.sol` for the method).
 - Every oracle trait's metadata carries its template, parameters, pinned window, `minPanelSize`, `minQuorum` (acceptance minima; signed values are in the served attestation), the Intake
   `requestId` and the plane's `oracleRequestId`, so a third party can rerun the recipe against public RPCs or fetch the
   served attestation without trusting the registry or the swarm.
