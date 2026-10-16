@@ -78,19 +78,19 @@ contract Composer {
             s.item = DEPOSITED;
             s.arg = "contributor";
             s.fromBlock = B_H24;
-            s.name = "Still here";
+            s.name = "Uptime";
         } else if (traitId == 801 || traitId == 901) {
             s.kind = 1;
             s.item = DEPOSITED;
             s.arg = "contributor";
             s.fixedArg = "hour";
             s.fixedVal = traitId == 801 ? 64 : 65;
-            s.name = traitId == 801 ? "Last stand" : "The last one in";
+            s.name = traitId == 801 ? "Holdout" : "Final Token";
         } else if (traitId == 1001) {
             s.kind = 1;
             s.item = HOUR_SAVED;
             s.arg = "savior";
-            s.name = "Hour savior";
+            s.name = "Hotfix";
         } else if (traitId >= 1101 && traitId <= 1104) {
             s.kind = 1;
             s.item = FIRST_DEPOSIT;
@@ -98,8 +98,8 @@ contract Composer {
             s.fixedArg = "index";
             s.fixedVal = traitId == 1101 ? 1 : traitId == 1102 ? 1000 : traitId == 1103 ? 10000 : 19522;
             s.name = traitId == 1101
-                ? "Ordinal #1"
-                : traitId == 1102 ? "Ordinal #1000" : traitId == 1103 ? "Ordinal #10000" : "Ordinal #19522";
+                ? "PID #1"
+                : traitId == 1102 ? "PID #1000" : traitId == 1103 ? "PID #10000" : "PID #19522";
         } else if (traitId == 1105) {
             s.kind = 1;
             s.item = FIRST_DEPOSIT;
@@ -112,13 +112,13 @@ contract Composer {
             s.arg = "contributor";
             s.sumArg = "weightAdded";
             s.threshold = 32;
-            s.name = "Top 32";
+            s.name = "Top Weights";
         } else if (traitId == 1301) {
             s.kind = 5;
             s.target = address(0);
             s.threshold = 20;
             s.toBlock = B_DEPLOY;
-            s.name = "Not born yesterday";
+            s.name = "Pretrained";
         } else {
             revert NotACatalogOracleTrait(traitId);
         }
@@ -199,33 +199,33 @@ contract Composer {
     error UnknownTrait(uint16 traitId);
     error BadSpec(string field);
 
-    /// @notice The working name table of CATALOG.md section 7 for the 25 catalog ids.
+    /// @notice The name table of CATALOG.md section 7 (final names, 2026-10-16) for the 25 catalog ids.
     function traitName(uint16 traitId) external pure returns (string memory) {
-        if (traitId == 101) return "Contributor";
-        if (traitId == 201) return "Early bird, hour <= 1";
-        if (traitId == 202) return "Early bird, hour 0";
-        if (traitId == 301) return "Climber >= 3";
-        if (traitId == 302) return "Climber >= 5";
-        if (traitId == 303) return "Climber >= 10";
-        if (traitId == 401) return "Capital >= 1 ETH";
-        if (traitId == 402) return "Capital >= 10 ETH";
-        if (traitId == 403) return "Capital >= 100 ETH";
-        if (traitId == 404) return "Capital >= 800 ETH";
-        if (traitId == 501) return "Scoreboard >= 1000";
-        if (traitId == 502) return "Scoreboard >= 3162";
-        if (traitId == 503) return "Scoreboard >= 10000";
-        if (traitId == 601) return "Operator";
-        if (traitId == 701) return "Still here";
-        if (traitId == 801) return "Last stand";
-        if (traitId == 901) return "The last one in";
-        if (traitId == 1001) return "Hour savior";
-        if (traitId == 1101) return "Ordinal #1";
-        if (traitId == 1102) return "Ordinal #1000";
-        if (traitId == 1103) return "Ordinal #10000";
-        if (traitId == 1104) return "Ordinal #19522";
+        if (traitId == 101) return "Spawned";
+        if (traitId == 201) return "Zero-Shot, hour <= 1";
+        if (traitId == 202) return "Zero-Shot, hour 0";
+        if (traitId == 301) return "Hopper >= 3";
+        if (traitId == 302) return "Hopper >= 5";
+        if (traitId == 303) return "Hopper >= 10";
+        if (traitId == 401) return "Bullfrog >= 1 ETH";
+        if (traitId == 402) return "Bullfrog >= 10 ETH";
+        if (traitId == 403) return "Bullfrog >= 100 ETH";
+        if (traitId == 404) return "Bullfrog >= 800 ETH";
+        if (traitId == 501) return "Benchmarked >= 1000";
+        if (traitId == 502) return "Benchmarked >= 3162";
+        if (traitId == 503) return "Benchmarked >= 10000";
+        if (traitId == 601) return "Armed";
+        if (traitId == 701) return "Uptime";
+        if (traitId == 801) return "Holdout";
+        if (traitId == 901) return "Final Token";
+        if (traitId == 1001) return "Hotfix";
+        if (traitId == 1101) return "PID #1";
+        if (traitId == 1102) return "PID #1000";
+        if (traitId == 1103) return "PID #10000";
+        if (traitId == 1104) return "PID #19522";
         if (traitId == 1105) return "First thousand";
-        if (traitId == 1201) return "Top 32";
-        if (traitId == 1301) return "Not born yesterday";
+        if (traitId == 1201) return "Top Weights";
+        if (traitId == 1301) return "Pretrained";
         revert UnknownTrait(traitId);
     }
 

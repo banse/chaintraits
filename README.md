@@ -1,13 +1,20 @@
-# chaintraits
+# Sworn
 
-An ownerless onchain registry of verifiable wallet feats on Ethereum mainnet: one transferable ERC-721 card per
+Sworn (collection symbol `SWORN`) is an ownerless onchain registry of verifiable wallet feats on Ethereum mainnet: one transferable ERC-721 card per
 wallet, traits as facts about the wallet that minted it, every trait backed by evidence anyone can rerun. Direct
 reads from the settled `WhitelistCurator` (THE LIST) are free; everything else is attested by the IMD swarm through
 the onchain Intake and verified in the registry's callback. `hasTrait(wallet, traitId)` needs no card.
 
 **Status: built (2026-10-12) from the round-2 brief.** `src/` holds `Registry`, `Renderer`, `Composer` and the
-interfaces; `test/` the hermetic suite; `script/Deploy.s.sol` the deployment. The product's name, collection symbol and trait names
-are pending (2026-10-16); the code uses the working names and a single name table, so the rename touches no logic.
+interfaces; `test/` the hermetic suite; `script/Deploy.s.sol` the deployment. **Renamed 2026-10-16:** the product is
+Sworn, the collection `ERC721("Sworn", "SWORN")`, metadata names `Sworn #<tokenId>`, and the family display names
+are Spawned (101), Zero-Shot (201, 202), Hopper (3xx), Bullfrog (4xx), Benchmarked (5xx), Armed (601), Uptime (701),
+Holdout (801), Final Token (901), Hotfix (1001), PID (11xx; 1105 keeps `First thousand`), Top Weights (1201) and
+Pretrained (1301); `CATALOG.md` section 7 maps them to the working names. The rename lives in one name table
+(`Composer.traitName`, `catalogSpec`), the generator's `FAMILIES`, the collection strings and the card template; it
+touched no id, rule, window, threshold or address. The same change made `upgrade` refuse 1201 with `NotASharedFact`
+(as it does a community T3 id), fixed the T5 `target` guard row of `CATALOG.md` section 5 (must be zero) and the
+last sentence of `INTEGRATION.md` check 7 (the golden test hashes the canonical document, not the body).
 
 ## Read in this order
 
@@ -83,7 +90,8 @@ traitId, bytes32 requestId, bytes32 oracleRequestId)`, `Missed(bytes32 requestId
 amount)`, `PoolSpent(address indexed claimant, uint16 indexed traitId, bytes32 requestId)`, and ERC-4906
 `MetadataUpdate`.
 
-Names in this summary are the working names. Types, arities and the behaviour described in `CONCEPT.md` are the
+Function and event names in this summary are the working names of the interface and did not change in the rename
+(only display strings did). Types, arities and the behaviour described in `CONCEPT.md` are the
 contract; a builder who finds a reason to change one writes it in the submission's notes rather than silently.
 
 ## Build
@@ -152,7 +160,7 @@ acceptance minima (5/3 for chain, 11/7 for panel), not the signed panel values. 
 and `agreed` are in the served attestation at `/oracle/requests/<oracleRequestId>/attestation` (step 3).
 The standard `attributes` array includes the first 32 verified community ids in verification order, as
 `{"trait_type":"Community <id>","value":"<spec name>"}`, plus `community_count` with the full count.
-The custom `community` array retains those same ids. Ordinal displays the lowest verified id in family 11;
+The custom `community` array retains those same ids. PID (family 11, working name Ordinal) displays the lowest verified id;
 other tier families display their highest id.
 
 **2. Rerun the recipe against two public RPCs** (CATALOG.md section 1 lists endpoints that served these windows;
@@ -213,7 +221,9 @@ Everything in "What the builder delivers" is in the tree, with these deviations,
 - **`src/Composer.sol`** holds the five templates, the body and canonical-document serialisers, the catalog oracle
   traits as `Spec`s (`catalogSpec`), the spec guards (`validateSpec`), the catalog name table (`traitName`), catalog enumeration (`traitsOf`)
   and the unchanged direct-read predicates (`hasDirectTrait`). The registry alone was 41,717 bytes of runtime;
-  it is now 23,027, with 1,549 bytes of EIP-170 headroom. Composer is 23,455 bytes and Renderer is 11,791 bytes.
+  it is now 23,055 after the rename, with 1,521 bytes of EIP-170 headroom. Composer is 23,377 bytes after the rename
+  (down from 23,455; 1,199 bytes of headroom, and the rename had to keep at least 600) and Renderer is 11,712 bytes;
+  `test/Rename.t.sol` pins the Composer budget.
   The registry calls the composer
   only in user transactions and views, never inside `onResult`.
 - **`verified()` derives the window from the rule** instead of storing it: check 6 makes the attested window equal

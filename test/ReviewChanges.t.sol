@@ -156,7 +156,7 @@ contract ReviewChangesTest is Base {
         assertEq(c.top[4], 503);
         string memory value = expected == 0 ? "none" : vm.toString(expected);
         string memory metadata = string(renderer.preimage(c));
-        assertEq(vm.parseJsonString(metadata, ".attributes[11].trait_type"), "Ordinal");
+        assertEq(vm.parseJsonString(metadata, ".attributes[11].trait_type"), "PID");
         assertEq(vm.parseJsonString(metadata, ".attributes[11].value"), value);
         assertTrue(
             vm.contains(vm.parseJsonString(metadata, ".image"), string.concat("y='730'%3E", value, "%3C/text%3E"))

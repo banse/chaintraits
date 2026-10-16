@@ -1,6 +1,9 @@
 # CONCEPT.md: what the registry is and how it works
 
-The product has no name yet. These pages say *the registry* and *the card*; the per-wallet facts are *traits*.
+The product is **Sworn** (collection symbol `SWORN`, named 2026-10-16). These pages say *the registry* and *the
+card*; the per-wallet facts are *traits*. Family display names are the final names of `CATALOG.md` section 7:
+Spawned, Zero-Shot, Hopper, Bullfrog, Benchmarked, Armed, Uptime, Holdout, Final Token, Hotfix, PID, Top Weights,
+Pretrained.
 
 ## 1. In one paragraph
 
@@ -21,7 +24,7 @@ What it is not: not an eligibility list, not a sybil verdict, not a token.
 | **direct read** | the registry calls a view of the settled Curator (or IDMD `balanceOf`) when rendering or when asked | gas only; no transaction at all for `hasTrait` |
 | **chain-proven** | an IMD oracle question with `evidence: chain`, one of the deployer's recipes, rerun by the deployer before it is signed; the attestation is verified in the registry's callback | the Intake's price (0.5 IMD on 2026-10-12) + gas |
 | **panel-attested** | an IMD oracle question with `evidence: panel`: a pinned RPC read every member repeats | the same price + gas |
-| **shared fact** | one chain-proven question whose answer serves many wallets (the top-32 list) | paid once by whoever asks first |
+| **shared fact** | one chain-proven question whose answer serves many wallets (the Top Weights list, 1201) | paid once by whoever asks first |
 
 ## 3. One card per wallet: claimant and holder
 
@@ -31,7 +34,7 @@ Mirrors the THE LIST record NFT (`reference/list-record/`):
   changes. `mintedAtBlock(tokenId)` is immutable. `ownerOf(tokenId)` is the holder and may differ after a sale.
 - **Direct-read traits are computed live** in `tokenURI` and `hasTrait` from the Curator's views and IDMD
   `balanceOf`. No per-trait action, no storage, no oracle. Families 1 to 5 read the settled Curator and never change;
-  the Operator trait (601) reads live IDMD ownership and changes when an IDMD moves. It is a live fact, not a
+  the Armed trait (601, working name Operator) reads live IDMD ownership and changes when an IDMD moves. It is a live fact, not a
   historical one, and the card says so.
 - **Oracle traits are stored per `(claimant, traitId)`** once an attestation is verified in the callback:
   `verified[claimant][traitId] = (bytes32 requestId, bytes32 oracleRequestId, uint64 fromBlock, uint64 toBlock)`
@@ -132,7 +135,7 @@ Three contracts: `Registry`, `Renderer` and `Composer`; the registry's construct
 
 | contract | role | constructor |
 |---|---|---|
-| `Registry` (name pending) | ERC-721 + IERC4906; catalog table; `mintCard`, `upgrade`, `hasTrait`; Intake consumer (`onResult`, `onFailure`); specs; shared facts; sponsor pool | seven static addresses `(curator, idmd, imd, intake, attester, renderer, composer)` stored in storage (no `immutable`); the renderer and the composer are deployed first and passed in as static addresses (the registry creates no contract: with both helpers embedded its init code exceeded EIP-3860, see README "What was built, and where it deviates from the brief"); records `deployedAt = block.timestamp`; requires the passive view `curator.isSettled()` to be true |
+| `Registry` (`ERC721("Sworn", "SWORN")`) | ERC-721 + IERC4906; catalog table; `mintCard`, `upgrade`, `hasTrait`; Intake consumer (`onResult`, `onFailure`); specs; shared facts; sponsor pool | seven static addresses `(curator, idmd, imd, intake, attester, renderer, composer)` stored in storage (no `immutable`); the renderer and the composer are deployed first and passed in as static addresses (the registry creates no contract: with both helpers embedded its init code exceeded EIP-3860, see README "What was built, and where it deviates from the brief"); records `deployedAt = block.timestamp`; requires the passive view `curator.isSettled()` to be true |
 | `Renderer` | template `bytes constant` + offsets as constants + splice + Base64 | none |
 | `Composer` | the five templates, body and canonical-document serialisers, catalog specs, spec guards, name table, catalog enumeration and direct-read predicates; views only, never called inside `onResult` | none |
 | interfaces | `IWhitelistCurator` (in `src/interfaces/`), `IIntake` (v2: `requestWithFailure`), `IOracleConsumer` (`onResult`, `onFailure`) | |
@@ -167,7 +170,7 @@ section 4). `hasTrait(wallet, unknownId)` returns false, never reverts; `hasTrai
    gas stipend (measured in a gas test at 200,000 with margin, worst case: cold storage, a community id appended, a
    card to refresh).
 6. Tiers are monotone: `hasTrait(c, 303)` implies `hasTrait(c, 302)` and `hasTrait(c, 301)`; `hasTrait(c, 202)`
-   implies `hasTrait(c, 201)`; likewise 4xx and 5xx. The ordinal family (11xx) is not a tier family.
+   implies `hasTrait(c, 201)`; likewise 4xx and 5xx. The PID family (11xx, working name Ordinal) is not a tier family.
 7. A registered spec never changes; the body sent to the Intake is a deterministic function of the spec and the
    claimant (golden tests per template against `templates/fixtures/`), and the registry's
    `questionHashOf(canonicalDocument)`, which takes the canonical document of `INTEGRATION.md` section 4, check 7,
@@ -181,7 +184,7 @@ section 4). `hasTrait(wallet, unknownId)` returns false, never reverts; `hasTrai
    one call per IDMD token id; the pool funds only the nine catalog chain traits, never a panel, shared or community
    trait; one pending request per pair and per fact id; `sharedFact` holds a hash and a length, never a list.
 10. Curator-derived direct-read traits (families 1 to 5) for a non-member are all false (`firstHourOf` returns
-    `(0, false)`): a non-member never renders as an hour-0 early bird. 601 is independent of membership.
+    `(0, false)`): a non-member never renders as an hour-0 Zero-Shot. 601 is independent of membership.
 11. Any address can call `hasTrait` and `tokenURI` for any wallet; no function depends on `tx.origin`.
 
 Harness discipline (not a product invariant): invariant handlers guard expected reverts (a second `mintCard`, a

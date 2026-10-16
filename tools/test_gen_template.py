@@ -48,7 +48,7 @@ class GeneratorTest(unittest.TestCase):
             with self.subTest(case=name):
                 preimage, svg, uri = gen.render_case(self.template, data)
                 metadata = json.loads(preimage)
-                self.assertEqual(metadata["name"], f"chaintraits #{data.tokenId}")
+                self.assertEqual(metadata["name"], f"Sworn #{data.tokenId}")
                 self.assertEqual(metadata["attributes"][0]["value"], data.claimant)
                 self.assertEqual(metadata["traits"], list(data.traits))
                 self.assertEqual(metadata["community"], list(data.community))
@@ -75,7 +75,7 @@ class GeneratorTest(unittest.TestCase):
             self.assertTrue(data.claimant.endswith("c1a1"))
 
     def test_check_mode_detects_drift_without_rewriting(self) -> None:
-        with tempfile.TemporaryDirectory(prefix="chaintraits-generator-") as directory:
+        with tempfile.TemporaryDirectory(prefix="sworn-generator-") as directory:
             root = Path(directory)
             template_path = root / gen.TEMPLATE_PATH
             template_path.parent.mkdir(parents=True)

@@ -1,6 +1,6 @@
 # INTEGRATION.md: the Intake, the attestation, the external contracts
 
-Everything the registry talks to, as measured on Ethereum mainnet on 2026-10-10 to 2026-10-12. Sources are vendored
+The registry is Sworn (`ERC721("Sworn", "SWORN")`). Everything the registry talks to, as measured on Ethereum mainnet on 2026-10-10 to 2026-10-12. Sources are vendored
 under `reference/` (see `reference/PROVENANCE.md`). Where this file and a skill disagree, re-read the verified
 source in `reference/IntakeV2.sol`; it is the contract that runs.
 
@@ -56,7 +56,7 @@ The registry is ownerless, so none of these has a remedy inside it; each needs a
 - The plane may change the canonical question document behind `questionHash` (section 4, check 7); every later
   attestation then misses with reason 10. A live mainnet consumer (`SwarmFeed`, the one behind the Intake v2
   completions) recomputes the same document onchain, so the format is relied upon beyond this registry.
-- The Curator is settled and its state is final. IDMD's code is immutable, but ownership is live: the Operator trait
+- The Curator is settled and its state is final. IDMD's code is immutable, but ownership is live: the Armed trait
   (601) changes when an IDMD moves, by design (`CATALOG.md` section 3).
 
 ## 2. Asking: `Intake.requestWithFailure`
@@ -220,8 +220,9 @@ runtime bytes).
    parameters it composes the body from, at request time, and stores the hash in the pending record; the callback
    compares one word. This binds the attestation to the exact question the registry asked, so a writer that pairs
    claimant A's attestation with claimant B's request, or one trait's with another's, produces a miss, not a trait.
-   The golden test asserts the registry's `questionHashOf(body)` equals the plane's value for all ten fixtures
-   (`reference/plane/questionHashes.json`).
+   The golden test asserts that the `questionHash` of the canonical document (`questionHashOf(canonicalDocument)`,
+   the keccak of the document, never of the body: the body's keccak is a different value) equals the plane's value
+   for all ten fixtures (`reference/plane/questionHashes.json`).
 8. **Decode defensively, never revert.** `a.answer` for `bool` and `uint256` must be exactly 32 bytes (and for `bool`
    the word 0 or 1); otherwise reason 9. For `address[]` (T3) the callback does not decode the list; it checks the
    canonical envelope: `answer.length == 64 + 32 * n`, word 0 == `0x20`, word 1 == `n`, `1 <= n <= 64`, and the upper
@@ -301,5 +302,5 @@ and rejects unknown names.
 | `isSettled()` | `bool`, true since hour 66 | sanity check in the constructor, nothing else |
 
 Never read `contributors(address)` for the hour: its fourth word is `firstHour + 1`. IDMD: `balanceOf(address)` for
-the Operator trait (live; guard `address(0)`, whose `balanceOf` reverts in OpenZeppelin), `ownerOf(uint256)` for
+the Armed trait (601, live; guard `address(0)`, whose `balanceOf` reverts in OpenZeppelin), `ownerOf(uint256)` for
 `upgradeSponsored`.

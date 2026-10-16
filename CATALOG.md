@@ -1,7 +1,7 @@
 # CATALOG.md: the v1 trait catalog, frozen 2026-10-11
 
-This file binds the code. Ids, rules, windows and acceptance rules do not change; the display names in section 7 do
-(the product has no name yet). Read `README.md` first, `TEMPLATES.md` for the question bodies and `INTEGRATION.md`
+This file binds the code. Ids, rules, windows and acceptance rules do not change; the display names in section 7
+were filled in by the owner on 2026-10-16 (product **Sworn**, symbol **SWORN**). Read `README.md` first, `TEMPLATES.md` for the question bodies and `INTEGRATION.md`
 for the Intake and the attestation.
 
 **Round 2 (2026-10-12), before any code exists:** the two Early bird predicates swapped ids so the family is monotone
@@ -149,7 +149,7 @@ trait in section 3 names its template there (T1, T3, T5).
 | field | type | guard |
 |---|---|---|
 | `kind` | uint8: 1 T1, 2 T2, 3 T3, 4 T4, 5 T5 | one of the five |
-| `target` | address | nonzero for T1 to T4; unused for T5 |
+| `target` | address | nonzero for T1 to T4; must be zero for T5 (`validateSpec` reverts `BadSpec("target")` otherwise, as the struct comment says) |
 | `item` | string | the event item (T1 to T3) or function item (T4); charset `[A-Za-z0-9_ ,()[]]`, at most 256 bytes, must start with `event ` or `function ` as the kind requires |
 | `arg` | string | indexed argument that equals the claimant (T1, T2) or the groupBy key (T3); ASCII `[A-Za-z0-9_]`, at most 32 |
 | `fixedArg`, `fixedVal` | string, uint256 | optional second indexed filter (T1, T2); empty string = none and requires `fixedVal == 0` (`BadSpec` otherwise) |
@@ -216,22 +216,26 @@ pool money is an irrevocable donation (`CONCEPT.md` section 4 states the policy)
 
 | id | working name | final name |
 |---|---|---|
-| 101 | Contributor | |
-| 201, 202 | Early bird | |
-| 301 to 303 | Climber | |
-| 401 to 404 | Capital | |
-| 501 to 503 | Scoreboard | |
-| 601 | Operator | |
-| 701 | Still here | |
-| 801 | Last stand | |
-| 901 | The last one in | |
-| 1001 | Hour savior | |
-| 1101 to 1105 | Ordinal | |
-| 1201 | Top 32 | |
-| 1301 | Not born yesterday | |
-| product, symbol, X handle | the registry | |
+| 101 | Contributor | Spawned |
+| 201, 202 | Early bird | Zero-Shot (`Zero-Shot, hour <= 1`, `Zero-Shot, hour 0`) |
+| 301 to 303 | Climber | Hopper (`Hopper >= 3 / 5 / 10`) |
+| 401 to 404 | Capital | Bullfrog (`Bullfrog >= 1 / 10 / 100 / 800 ETH`) |
+| 501 to 503 | Scoreboard | Benchmarked (`Benchmarked >= 1000 / 3162 / 10000`) |
+| 601 | Operator | Armed |
+| 701 | Still here | Uptime |
+| 801 | Last stand | Holdout |
+| 901 | The last one in | Final Token |
+| 1001 | Hour savior | Hotfix |
+| 1101 to 1105 | Ordinal | PID (`PID #1 / #1000 / #10000 / #19522`; 1105 keeps `First thousand`) |
+| 1201 | Top 32 | Top Weights |
+| 1301 | Not born yesterday | Pretrained |
+| product, symbol, X handle | the registry | Sworn, SWORN, (handle not given) |
 
-A rename replaces this table and the collection strings; it touches no rule, id or window.
+The final names are the `traitName` table of `Composer`, the `name` of every catalog `Spec` (`catalogSpec`), the
+`FAMILIES` of `tools/gen_template.py` (the thirteen family `trait_type`s of the metadata and the card's labels) and
+the collection strings `ERC721("Sworn", "SWORN")` with metadata names `Sworn #<tokenId>`. The rename (2026-10-16)
+replaced this table and the collection strings; it touched no rule, id or window. Section 3 keeps the working names
+in its first column as the historical key; the id is the identity.
 
 ## 8. Not frozen (open)
 

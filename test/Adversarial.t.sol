@@ -342,7 +342,9 @@ contract AdversarialTest is Base {
         uint16[] memory ids = new uint16[](1);
         ids[0] = id;
         vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(Registry.NotAnOracleTrait.selector, id));
+        // 1201 is an oracle trait but a shared fact: it goes through requestSharedFact, never upgrade
+        bytes4 want = id == 1201 ? Registry.NotASharedFact.selector : Registry.NotAnOracleTrait.selector;
+        vm.expectRevert(abi.encodeWithSelector(want, id));
         registry.upgrade(ids, PRICE);
     }
 

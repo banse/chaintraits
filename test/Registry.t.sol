@@ -188,7 +188,7 @@ contract RegistryTest is Base {
         registry.upgrade(ids, PRICE);
         ids[0] = 1201;
         vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(Registry.NotAnOracleTrait.selector, 1201));
+        vm.expectRevert(abi.encodeWithSelector(Registry.NotASharedFact.selector, 1201));
         registry.upgrade(ids, PRICE);
         ids[0] = 10001;
         vm.prank(alice);

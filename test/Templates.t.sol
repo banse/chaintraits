@@ -136,8 +136,8 @@ contract TemplatesTest is Base {
     }
 
     function test_traitNamesAndClasses() public view {
-        assertEq(registry.traitName(101), "Contributor");
-        assertEq(registry.traitName(1301), "Not born yesterday");
+        assertEq(registry.traitName(101), "Spawned");
+        assertEq(registry.traitName(1301), "Pretrained");
         assertEq(registry.traitName(t2Id), "Deposited sum");
         assertEq(registry.traitClass(101), 0);
         assertEq(registry.traitClass(701), 1);

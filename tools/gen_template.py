@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Generate the chaintraits renderer template artifacts and synthetic conformance goldens.
+"""Generate the Sworn renderer template artifacts and synthetic conformance goldens.
 
 The SVG (`template/card.svg`) is percent-encoded, inserted into the exact JSON envelope, and split
 around the 35 dynamic markers. The generator writes:
@@ -35,7 +35,7 @@ OFFSETS_PATH = Path("template/offsets.txt")
 SOLIDITY_PATH = Path("src/TemplateData.sol")
 
 DESCRIPTION = (
-    "An ownerless onchain registry of verifiable wallet feats. One card per wallet; every trait is a fact "
+    "Sworn is an ownerless onchain registry of verifiable wallet feats. One card per wallet; every trait is a fact "
     "about the claimant wallet that minted the card, never about the holder. Direct-read traits are read "
     "live from the settled WhitelistCurator and the IdentityMD collection; chain-proven, panel-attested "
     "and shared-fact traits are attested by the IMD oracle through the Intake and verified in the "
@@ -43,23 +43,23 @@ DESCRIPTION = (
 )
 
 FAMILIES = (
-    "Contributor",
-    "Early bird",
-    "Climber",
-    "Capital",
-    "Scoreboard",
-    "Operator",
-    "Still here",
-    "Last stand",
-    "The last one in",
-    "Hour savior",
-    "Ordinal",
-    "Top 32",
-    "Not born yesterday",
+    "Spawned",
+    "Zero-Shot",
+    "Hopper",
+    "Bullfrog",
+    "Benchmarked",
+    "Armed",
+    "Uptime",
+    "Holdout",
+    "Final Token",
+    "Hotfix",
+    "PID",
+    "Top Weights",
+    "Pretrained",
 )
 
 ENVELOPE = (
-    '{"name":"chaintraits #{ID}",'
+    '{"name":"Sworn #{ID}",'
     '"description":"' + DESCRIPTION + '",'
     '"image":"data:image/svg+xml,{IMAGE}",'
     '"attributes":['
@@ -137,7 +137,7 @@ class CardData:
     oracle: tuple[OracleMeta, ...] = field(default_factory=tuple)
 
 
-SPEC_801 = SpecData(1, CURATOR, DEPOSITED, "contributor", "hour", 64, "", 0, 1, B_DEPLOY, B_END, "Last stand")
+SPEC_801 = SpecData(1, CURATOR, DEPOSITED, "contributor", "hour", 64, "", 0, 1, B_DEPLOY, B_END, "Holdout")
 SPEC_10001 = SpecData(
     1,
     "0x000000000000000000000000000000000000c0de",

@@ -18,7 +18,7 @@ import {Spec, OracleMeta, Card} from "./Types.sol";
 import {Composer} from "./Composer.sol";
 import {Renderer} from "./Renderer.sol";
 
-/// @title chaintraits registry (working name)
+/// @title Sworn registry
 /// @notice Ownerless, non-upgradeable ERC-721: one card per wallet, traits as facts about the wallet
 ///         that minted it. Direct-read traits are evaluated live from the settled WhitelistCurator and
 ///         IDMD `balanceOf`; oracle traits are stored per (claimant, traitId) after an attestation
@@ -171,7 +171,7 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
         address attester_,
         address renderer_,
         address composer_
-    ) ERC721("chaintraits", "TRAITS") {
+    ) ERC721("Sworn", "SWORN") {
         if (
             curator_ == address(0) || idmd_ == address(0) || imd_ == address(0) || intake_ == address(0)
                 || attester_ == address(0) || renderer_ == address(0) || composer_ == address(0)
@@ -306,7 +306,7 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
         return 1;
     }
 
-    /// @notice The working name table (CATALOG.md section 7); a spec's name for community ids.
+    /// @notice The name table (CATALOG.md section 7); a spec's name for community ids.
     function traitName(uint16 traitId) external view returns (string memory) {
         if (traitId >= FIRST_SPEC_ID) {
             if (_specs[traitId].kind == 0) revert NotAnOracleTrait(traitId);
@@ -372,7 +372,8 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
         imd.safeTransferFrom(msg.sender, address(this), price * k);
         for (uint256 i; i < k; ++i) {
             uint16 id = traitIds[i];
-            if (_isDirect(id) || id == 1201) revert NotAnOracleTrait(id);
+            if (_isDirect(id)) revert NotAnOracleTrait(id);
+            if (id == 1201) revert NotASharedFact(id);
             if (id >= FIRST_SPEC_ID) {
                 uint8 kind = _specs[id].kind;
                 if (kind == 0) revert NotAnOracleTrait(id);

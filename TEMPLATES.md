@@ -1,6 +1,6 @@
 # TEMPLATES.md: the five question templates
 
-Community specs and the v1 oracle traits (`CATALOG.md` section 3) compose their question bodies from exactly these five templates, one per
+These are the templates of the Sworn registry. Community specs and the v1 oracle traits (`CATALOG.md` section 3) compose their question bodies from exactly these five templates, one per
 recipe kind, so the stored parameters and the text can never disagree. The v4 pool recipes (`v4-volume-rank`,
 `univ4-spot`) are not wallet facts and are not offered; a fees-paid panel text was considered, never ran end to end, and is not offered. T2 shares T1's shape with a sum instead of a
 count. **Checked and quoted 2026-10-12, 00:00 UTC (round 2):** all ten fixture bodies passed `POST /requests/check`
