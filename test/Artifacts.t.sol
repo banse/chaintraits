@@ -125,6 +125,7 @@ contract ArtifactsTest is Test {
         assertEq(d.BURN_EXECUTOR(), 0xe29386719C155B6847aD5a4E97C6674f10ffc750);
         deployCodeTo("Mocks.sol:MockCurator", d.CURATOR());
         deployCodeTo("Mocks.sol:MockIntake", abi.encode(d.IMD()), d.INTAKE_V2());
+        deployCodeTo("MockBurnExecutor.sol:MockBurnExecutor", d.BURN_EXECUTOR());
         Registry reg = d.deploy(d.CURATOR(), d.IDMD(), d.IMD(), d.INTAKE_V2(), d.ATTESTER(), d.BURN_EXECUTOR());
         assertEq(address(reg.curator()), d.CURATOR());
         assertEq(reg.attester(), d.ATTESTER());

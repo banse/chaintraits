@@ -1,3 +1,106 @@
+# Burn-rule corrections: preview gas and executor code check (2026-10-16)
+
+Two corrections to `src/Registry.sol` found by the independent verification of the burn rule, plus one test gap.
+Nothing else in `src/` changes; Composer and Renderer are byte-equal (23,377 and 21,570 B).
+
+**Correction 1, preview gas.** `_burnOrRefund` called `previewBridge()` with a 200,000-gas cap. BurnExecutor V2
+catches its inner OFT quote running out of gas and returns `(0,0,0)` instead of reverting, so measured on
+2026-10-16 against the deployed executor `0xe29386719C155B6847aD5a4E97C6674f10ffc750`: an `eth_call` at block
+26,202,500 returns zeros below about 272,000 gas at the CALL and the real quote above it; a cold fork trace at block
+26,202,203 shows 264,408 gas. The delivered rule therefore never burned on mainnet (amount read as zero, below
+`BURN_MIN`, silent refund), and the old fork test passed only because it read the uncapped quote first and warmed
+the executor, OFT and endpoint state. Fix: `uint256 internal constant PREVIEW_GAS = 600_000;` as the gas argument
+of that call (2.2 times the measured need, below `BURN_GAS`); nothing else in the rule moves.
+
+**Correction 2, executor without code.** `try`/`catch` catches only a revert of the external call; the three
+return words are decoded outside it, so a nonzero executor address with no code would revert `claimSponsored` and
+`upgradeSponsored` for every wallet for ever, in a registry nobody can repair. Fix: the constructor reverts
+`ExecutorHasNoCode()` when `burnExecutor_` is nonzero and `burnExecutor_.code.length == 0`; zero stays allowed and
+means no burn rule (the Sepolia rehearsal). Residual, documented and not patched: a coded executor returning fewer
+than three words still reverts a claim; no low-level call was added for it. Consequence in the suite:
+`test/Artifacts.t.sol` `test_deployScriptUsesTheFiveStaticAddresses` runs the deploy script offline with the
+mainnet executor constant, so it now installs `MockBurnExecutor` at that address (one `deployCodeTo` line) before
+`d.deploy()`. No other test needed a change: every other deployment passes `address(0)` or a mock.
+
+**Test gap.** `test_paidFunctionsRemainNonpayableAndNeverTriggerBurn` accepted any revert, so a payable `upgrade`
+would have survived the suite. Replaced by `test_paidFunctionsRejectOneWeiWhereZeroValueSucceeds`: for each of
+`upgrade`, `requestSharedFact`, `sponsor`, `mintCard` and `registerSpec`, a funded and approved call succeeds with
+zero value and has its effect (positive control), the state is restored with `vm.snapshotState` /
+`vm.revertToState`, and the identical call with 1 wei must revert and leave no effect.
+
+| measure (solc 0.8.24, optimizer 200, Cancun, unchanged foundry.toml) | before | after |
+|---|---:|---:|
+| Registry runtime | 24,495 B (81 under EIP-170) | 24,495 B (81 under EIP-170) |
+| Registry init code | 26,082 B | 26,146 B (the code check lives in the constructor only) |
+| Composer / Renderer runtime | 23,377 / 21,570 B | unchanged, byte-equal |
+
+The runtime size is unchanged because `PREVIEW_GAS` replaces a literal of the same width and the constructor check
+is init code only; no factoring was needed.
+
+## Unit tests (`test/BurnRule.t.sol`, `test/mocks/MockBurnExecutor.sol`)
+
+- `test_constructorRejectsNonzeroExecutorWithoutCodeAndAcceptsZeroOrCode`: a fresh address and the mainnet
+  executor constant (no code offline) revert `ExecutorHasNoCode()`; `address(0)` and the mock deploy.
+- The mock's gas fixture (`requirePreviewGasCap`) now requires 590,000 < entry gas <= 600,000; the bridge
+  assertions stay (800,000 plus the value stipend; no stipend at zero value).
+- `burnPreviewGas(n)` makes the mock's preview consume about `n` gas before answering.
+  `test_previewUsingMostOfTheBudgetIsQuotedAndBurns` (500,000: quoted, `BurnTriggered`, bridge called) and
+  `testFuzz_previewExceedingTheBudgetSkipsWithCodeOneAndRefunds` (600,001: the preview runs out of gas inside the
+  registry's `try`, `BurnSkipped(claimant, 1)`, full refund, no bridge call).
+- The mock's surplus refund now does what the real executor's `forceSafeTransferETH` does: a 100,000-gas call to
+  `refundTo` first, a forced send only if that fails. `test_executorSurplusCallReentryIsGuarded`: a claimant whose
+  `receive()` re-enters `claimSponsored` from the executor's surplus call gets `ReentrancyGuardReentrantCall()`,
+  the surplus still arrives and the outer claim completes; `test_executorSurplusIsForcedOnARejectingRecipient`
+  covers the forced path.
+- `forge test` with the verifier seed: **164 passed, 0 failed, 17 skipped** (5 unit tests added, 1 replaced; the
+  17 skips are the opt-in fork suites: 11 in `Mainnet.fork.t.sol`, 6 in `BurnRule.fork.t.sol`).
+
+## Fork tests (`test/fork/BurnRule.fork.t.sol`, block 26,202,203, same parent-hash check, same opt-in flags)
+
+Pinned constants at the block: amount `454939975000000000000`, native fee `219261761563315` wei, executor token
+balance `454939975535748811691` before any claim. The two tests that expected a zero preview
+(`test_fork_cappedPreviewReturnsZeroAndFreeClaimRefunds`, `test_fork_nonpayableClaimantWithNoETHCanClaimWhenPreviewReturnsZero`)
+are deleted: with the corrected cap a claimant without the fee reverts. In every new test the claim is the first
+call of the test that touches the executor, the OFT, the endpoint or the message libraries (the executor
+configuration reads moved from `setUp` to their own test; the executor's ETH balance is read in `setUp`'s own
+transaction), and the assertions use the pinned constants rather than a quote read before (warm state hides the
+defect) or after (the executor is drained).
+
+| test | what it proves |
+|---|---|
+| `test_fork_executorConfigurationAndPinnedQuote` | token/OFT/dstEid/receiver as before; `tokenBalance()` and the uncapped quote equal the pinned constants |
+| `test_fork_coldFreeClaimWithSurplusBurnsAndExecutorReturnsTheSurplus` | (f) member's cold claim with the fee plus 0.001 ETH: `BurnTriggered(MEMBER, amount, fee)`, real `TokensBridgedForBurn` and `OFTSent`, `tokenBalance()` = pinned balance minus amount (dust), registry ETH unchanged, executor kept nothing, claimant got the surplus back from the executor |
+| `test_fork_coldFreeClaimExactFeeFromNonpayableContractClaimant` | (g) exact fee from a contract without `receive`: burns, balance 0 afterwards |
+| `test_fork_coldFreeClaimWithoutTheFeeReverts` | (h) `BurnFeeRequired(219261761563315)`, no oracle request, no pool effect |
+| the two direct-executor tests | (i) kept as they were |
+
+Run on 2026-10-16 over `https://eth.drpc.org` and `https://eth-mainnet.public.blastapi.io` (both serve the
+block's state; `ethereum-rpc.publicnode.com` no longer does): **6 passed, 0 failed** on each. Over
+`https://rpc.mevblocker.io/fast` one run reported two transient `EvmError: Revert`s at a few hundred thousand gas
+(backend fetch failures under parallel load); rerun alone, both tests pass there with the same gas as on the other
+endpoints. The cold claim burning at the pinned block is the direct evidence for correction 1. This is one block's
+behaviour, not a liveness promise.
+
+```sh
+forge build --sizes
+FOUNDRY_FUZZ_SEED=0x77340b097846e4f021221b852dc3d4986cdbebddb3ced0290fa383c3f88b021c forge test
+forge fmt --check
+python3 tools/gen_template.py --check            # 28 artifacts
+python3 -m unittest discover -s tools            # 18 tests
+forge test --match-contract BurnRuleForkTest --fork-url https://eth.drpc.org --fork-block-number 26202203 -vv
+```
+
+Docs updated to the same facts: README "Free claims and the burn rule" and the deployment notes, INTEGRATION.md
+section 5b, CONCEPT.md, DISCLOSURE.md. Each says: `PREVIEW_GAS` and the measurement behind it; at the pinned block
+the corrected preview returns the real quote and the fork test burns; the constructor rejects a nonzero executor
+without code; a claimant attaches exactly the fee quoted in the same block (the executor re-quotes when it bridges
+and keeps the whole attachment if the quote rose); the residuals (short return data from a coded executor, the
+executor owner's configuration authority, a future quote above `PREVIEW_GAS` or `BURN_FEE_CAP`, the asynchronous
+Base burn). The step-3 notes below are history: their statement that the capped preview returned zeros described
+the 200,000 cap this step replaces.
+
+---
+
 # Step 5: the Renderer hive image (2026-10-16)
 
 `src/Renderer.sol` draws the card image per the normative SVG by selecting and concatenating `HiveData` strings
@@ -107,13 +210,13 @@ Registry runtime.
 `BurnRule.fork.t.sol` runs against mainnet block **26,202,203**, block hash
 `0x21d8ce848d55043d0539b2c88ca2c5dd6c0e9072137ae295a5906bc0cabae2bd` (chain, number and parent checked by the test).
 It executes the deployed executor, IMD OFT, Intake and LayerZero code. The uncapped executor quote is
-454939975000000000000 token units and 219261761563315 wei. Its preview under **200,000 gas returns zeros** after
-catching an internal OFT quote failure, even though tokens are waiting. The regression explicitly asserts that a
-sponsored claim skips, refunds attached ETH, and keeps its oracle request pending. A nonpayable claimant with no
-value also succeeds (only its membership is mocked). Separate direct executor calls use the **800,000 CALL gas
-argument** and prove real OFT sends, exact-fee success, forced surplus refunds to a nonpayable recipient, no native
-retention, zero allowance after send, and only shared-decimal token dust left. These tests do not assert a
-successful sponsored bridge at that snapshot or prove asynchronous Base delivery. Caps bound cost, not liveness.
+454939975000000000000 token units and 219261761563315 wei. This step's 200,000-gas preview cap starved the
+executor's inner OFT quote, which the independent verification later found and the correction at the top of this
+file replaces with `PREVIEW_GAS = 600_000`; the two fork tests this step wrote around that outcome are gone, and
+the current fork tests make a cold sponsored claim burn at the same block. Separate direct executor calls use the
+**800,000 CALL gas argument** and prove real OFT sends, exact-fee success, forced surplus refunds to a nonpayable
+recipient, no native retention, zero allowance after send, and only shared-decimal token dust left. They do not
+prove asynchronous Base delivery.
 
 The verified executor source and ABI are pinned as non-build reference files in `reference/burn/`, with provenance
 and source hash. The Sourcify reported onchain runtime was compared to RPC eth_getCode. No new dependency is

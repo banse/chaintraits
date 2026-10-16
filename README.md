@@ -117,12 +117,22 @@ IMD already held by BurnExecutor V2 at `0xe29386719C155B6847aD5a4E97C6674f10ffc7
 receiver. The claimant supplies only the native LayerZero fee; the registry does not transfer pool IMD to the
 executor. Paid upgrades and shared-fact requests remain non-payable and do not run this rule.
 
-After all eligibility checks and the oracle request, the registry calls `previewBridge()` with 200,000 gas. If the
-quoted amount is at least **69 IMD** and the native fee is at most **0.005 ETH**, the caller must attach at least
-that fee or the whole transaction reverts `BurnFeeRequired(nativeFee)` (all pool allowances and the oracle request
-roll back). The registry forwards **all `msg.value`** to `bridgeToBaseBurnReceiver(amount, msg.sender)` with a
-CALL gas argument of **800,000**, plus the EVM's 2,300 stipend for nonzero value. On success the executor pays the
-fee and force-refunds surplus directly to the claimant; the registry refunds nothing.
+After all eligibility checks and the oracle request, the registry calls `previewBridge()` with
+**`PREVIEW_GAS` = 600,000** gas. The executor catches its inner OFT quote running out of gas and answers `(0,0,0)`
+instead of reverting: measured against the real BurnExecutor V2 on 2026-10-16, an `eth_call` at block 26,202,500
+returns zeros below about 272,000 gas at the CALL and the real quote above it, and a cold fork trace at block
+26,202,203 shows 264,408 gas. The earlier 200,000 cap therefore never burned on mainnet; 600,000 is 2.2 times the
+measured need and below `BURN_GAS`. If the quoted amount is at least **69 IMD** and the native fee is at most
+**0.005 ETH**, the caller must attach at least that fee or the whole transaction reverts `BurnFeeRequired(nativeFee)`
+(all pool allowances and the oracle request roll back). The registry forwards **all `msg.value`** to
+`bridgeToBaseBurnReceiver(amount, msg.sender)` with a CALL gas argument of **800,000**, plus the EVM's 2,300
+stipend for nonzero value. On success the executor pays the fee and refunds the surplus directly to the claimant
+(a plain call first, a forced send if the claimant rejects it); the registry refunds nothing.
+
+**Attach exactly the fee quoted in the same block.** The executor re-quotes when it bridges and keeps the whole
+attachment if that quote rose above the registry's preview; a surplus is returned only when the bridge quote is at
+or below what was attached. Read `previewBridge()` in the block of the claim (`eth_call` with at least 300,000 gas)
+and attach its `nativeFee`.
 
 A reverting preview skips with code 1; a reverting bridge skips with code 2 and leaves the oracle request pending;
 a quote over the cap skips with code 3. Below-threshold and disabled-executor skips emit no burn event. On every
@@ -132,17 +142,25 @@ executor succeeds, but cannot reject a nonzero registry refund. `BurnRefundFaile
 The registry's ETH balance after each accepted free claim equals its balance before; pre-existing ETH is neither
 a precondition nor spent. There is still no `receive` or `fallback`.
 
-**Caps bound cost, not liveness.** At pinned mainnet block **26,202,203**, the real executor's uncapped preview
-quotes a burn, but its quote under 200,000 gas catches an OFT failure and returns `(0,0,0)`. The sponsored claim then
-succeeds without bridging and refunds attached ETH. The fork tests pin this behavior and separately exercise the
-real executor/OFT bridge with the 800,000-gas argument, exact fees and forced surplus refunds to a nonpayable
-recipient. A successful Ethereum bridge submission is not proof of the later, asynchronous Base burn.
+**At the pinned block the rule burns.** At mainnet block **26,202,203** the executor holds
+454,939,975,535,748,811,691 IMD units and quotes 454,939,975,000,000,000,000 units for 219,261,761,563,315 wei;
+with the corrected cap the registry's preview returns that quote, and the fork tests (`test/fork/BurnRule.fork.t.sol`)
+make a cold sponsored claim burn through the real executor, OFT and endpoint: `BurnTriggered(claimant, amount, fee)`,
+only shared-decimal dust left in the executor, the surplus back from the executor, the registry's ETH balance
+unchanged, and the same claim without the fee reverting `BurnFeeRequired(fee)` with no oracle request. The rule
+stays best effort: this is the behaviour at one block, not a promise of future liveness.
 
-The registry has no administrator; `burnExecutor` is its eighth constructor argument, fixed in ordinary storage.
-The **executor's owner** can change its token, OFT, destination, options and minimum batch, and rescue funds; the
-OFT and LayerZero have their own configuration authorities. Integrators must monitor those dependencies and
-message delivery. Neither the registry nor these tests promise that executor dependencies cannot call the
-claimant. See `INTEGRATION.md` section 5b and `DISCLOSURE.md`.
+**Residuals, stated.** The constructor rejects a nonzero `burnExecutor` without code (`ExecutorHasNoCode()`),
+because the preview's three return words are decoded outside the `try`/`catch`, and an executor that cannot be
+decoded would revert every sponsored claim for ever in a registry nobody can repair. A coded executor that returns
+fewer than three words still reverts a claim; no low-level call is added for it. The executor's owner can change
+its token, OFT, destination, options and minimum batch, and rescue funds; the OFT and LayerZero have their own
+configuration authorities. A future quote needing more than `PREVIEW_GAS` is a skip with code 1, and one above
+`BURN_FEE_CAP` a skip with code 3; neither blocks the claim. A successful Ethereum bridge submission is not proof of
+the later, asynchronous Base burn. Integrators must monitor those dependencies and message delivery. Neither the
+registry nor these tests promise that executor dependencies cannot call the claimant. The registry has no
+administrator; `burnExecutor` is its eighth constructor argument, fixed in ordinary storage. See `INTEGRATION.md`
+section 5b and `DISCLOSURE.md`.
 
 ## Build
 
@@ -358,7 +376,9 @@ retirement; attester rotation; a changed attestation struct or canonical documen
 For mainnet, `Deploy.BURN_EXECUTOR` is the address above; `run()` passes it. On chain 11155111 it passes
 `address(0)`. For a Sepolia rehearsal with its own dependencies, call the tested six-argument
 `deploy(curator, idmd, imd, intake, attester, address(0))`; those five rehearsal addresses must be supplied by the
-rehearsal operator, not assumed from mainnet. No executor setter or new owner role is added to the registry.
+rehearsal operator, not assumed from mainnet. A nonzero executor must have code on the launch chain at
+construction (`ExecutorHasNoCode()` otherwise); the constructor only reads `extcodesize`, it never calls the
+executor. No executor setter or new owner role is added to the registry.
 Before launch the operator verifies the executor's current `token`, `oft`, `dstEid`, `baseBurnReceiver`,
 `extraOptions`, `minBridgeAmount` and ownership, and the OFT peer/LayerZero configuration. After launch they monitor
 `BurnTriggered`/`BurnSkipped`, zero previews, quotes, delivery and Base burns; they cannot repair the registry.

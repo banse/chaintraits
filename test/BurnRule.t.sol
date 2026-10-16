@@ -79,6 +79,94 @@ contract BurnRuleTest is Base {
         assertEq(address(registry.burnExecutor()), address(executor));
     }
 
+    function test_constructorRejectsNonzeroExecutorWithoutCodeAndAcceptsZeroOrCode() public {
+        address bare = makeAddr("executor without code");
+        assertEq(bare.code.length, 0);
+        vm.expectRevert(Registry.ExecutorHasNoCode.selector);
+        new Registry(
+            CURATOR_ADDR,
+            address(idmd),
+            address(imd),
+            address(intake),
+            attester,
+            address(renderer),
+            address(composer),
+            bare
+        );
+        // The mainnet executor constant has no code in this offline suite either.
+        vm.expectRevert(Registry.ExecutorHasNoCode.selector);
+        new Registry(
+            CURATOR_ADDR,
+            address(idmd),
+            address(imd),
+            address(intake),
+            attester,
+            address(renderer),
+            address(composer),
+            0xe29386719C155B6847aD5a4E97C6674f10ffc750
+        );
+        _useExecutor(address(0));
+        assertEq(address(registry.burnExecutor()), address(0), "zero still means no burn rule");
+        _useExecutor(address(executor));
+        assertEq(address(registry.burnExecutor()), address(executor));
+    }
+
+    function test_previewUsingMostOfTheBudgetIsQuotedAndBurns() public {
+        // The real executor's cold preview needs about 264,408 gas; a mock needing 500,000 is still quoted.
+        executor.burnPreviewGas(500_000);
+        executor.requirePreviewGasCap();
+        vm.expectEmit(true, false, false, true, address(registry));
+        emit Registry.BurnTriggered(alice, 69 ether, FEE);
+        _claim(false, 701, FEE);
+        _pending(false, 701);
+        assertEq(executor.calls(), 1);
+        assertEq(address(executor).balance, FEE);
+        assertEq(alice.balance, 10 ether - FEE);
+    }
+
+    function testFuzz_previewExceedingTheBudgetSkipsWithCodeOneAndRefunds(bool throughIdmd, uint96 surplus) public {
+        executor.burnPreviewGas(600_001);
+        uint256 attached = FEE + bound(surplus, 0, 1 ether);
+        vm.expectEmit(true, false, false, true, address(registry));
+        emit Registry.BurnSkipped(alice, 1);
+        _claim(throughIdmd, 701, attached);
+        _pending(throughIdmd, 701);
+        assertEq(executor.calls(), 0);
+        assertEq(address(executor).balance, 0);
+        assertEq(alice.balance, 10 ether);
+    }
+
+    function test_executorSurplusCallReentryIsGuarded() public {
+        ReentrantBurnClaimant wallet = new ReentrantBurnClaimant();
+        wallet.arm(registry);
+        curator.set(address(wallet), 1, true, 1, 1, 1);
+        vm.deal(address(wallet), 1 ether);
+        executor.configure(69 ether, FEE, 0);
+        vm.expectEmit(true, false, false, true, address(registry));
+        emit Registry.BurnTriggered(address(wallet), 69 ether, FEE);
+        wallet.claim(registry, false, 701, 2 * FEE);
+        assertTrue(registry.pendingOf(address(wallet), 701) != 0);
+        assertEq(executor.calls(), 1);
+        assertEq(wallet.refunds(), 1, "the executor's plain call reached the claimant's receive()");
+        assertFalse(wallet.reentrySucceeded());
+        assertEq(wallet.reentryError(), abi.encodeWithSelector(ReentrancyGuard.ReentrancyGuardReentrantCall.selector));
+        assertEq(registry.pendingOf(address(wallet), 801), bytes32(0), "the nested claim left nothing behind");
+        assertEq(address(wallet).balance, 1 ether - FEE, "surplus came back from the executor");
+        assertEq(address(executor).balance, FEE);
+        assertEq(address(registry).balance, 3 ether);
+    }
+
+    function test_executorSurplusIsForcedOnARejectingRecipient() public {
+        NonpayableBurnClaimant wallet = new NonpayableBurnClaimant();
+        curator.set(address(wallet), 1, true, 1, 1, 1);
+        vm.deal(address(wallet), 1 ether);
+        executor.configure(69 ether, FEE, 0);
+        wallet.claim(registry, false, 701, 2 * FEE);
+        assertTrue(registry.pendingOf(address(wallet), 701) != 0);
+        assertEq(address(wallet).balance, 1 ether - FEE, "the plain call failed, the forced send landed");
+        assertEq(address(executor).balance, FEE);
+    }
+
     function testFuzz_belowThresholdRefundsWithoutFee(bool throughIdmd, uint96 amount, uint96 value) public {
         uint256 quotedAmount = bound(amount, 0, 69 ether - 1);
         uint256 attached = bound(value, 0, 1 ether);
@@ -265,14 +353,11 @@ contract BurnRuleTest is Base {
         _rolledBack();
     }
 
-    function test_paidFunctionsRemainNonpayableAndNeverTriggerBurn() public {
-        ask(alice, 701);
-        fund(alice, PRICE);
-        vm.prank(alice);
-        registry.requestSharedFact(1201, PRICE);
-        assertEq(executor.calls(), 0);
-        assertEq(registry.lastPoolDay(alice), 0);
-        assertEq(address(registry).balance, 3 ether);
+    /// @dev Each paid function is first proven to succeed with zero value from a funded, approved caller
+    ///      (the positive control), the state is restored, and the identical call with 1 wei must revert.
+    ///      A payable paid function would fail the second half; a broken fixture would fail the first.
+    function test_paidFunctionsRejectOneWeiWhereZeroValueSucceeds() public {
+        fund(alice, 2 * PRICE + registry.MINT_FEE() + registry.SPEC_FEE() + 1);
         uint16[] memory ids = new uint16[](1);
         ids[0] = 801;
         bytes[] memory payloads = new bytes[](5);
@@ -282,12 +367,39 @@ contract BurnRuleTest is Base {
         payloads[3] = abi.encodeCall(Registry.mintCard, ());
         payloads[4] = abi.encodeCall(Registry.registerSpec, (t1Spec(CURATOR_ADDR, "Nonpayable")));
         for (uint256 i; i < payloads.length; ++i) {
+            uint256 snapshot = vm.snapshotState();
             vm.prank(alice);
-            (bool ok,) = address(registry).call{value: 1}(payloads[i]);
-            assertFalse(ok, "paid IMD path must reject ETH");
+            (bool ok,) = address(registry).call{value: 0}(payloads[i]);
+            assertTrue(ok, "positive control: the same call succeeds with zero value");
+            _assertPaidEffect(i);
+            assertEq(executor.calls(), 0, "a paid path never reaches the executor");
+            assertEq(registry.lastPoolDay(alice), 0, "a paid path consumes no pool allowance");
+            assertEq(address(registry).balance, 3 ether);
+            assertTrue(vm.revertToState(snapshot));
+            vm.prank(alice);
+            (bool accepted,) = address(registry).call{value: 1}(payloads[i]);
+            assertFalse(accepted, "paid IMD path must reject ETH");
+            _assertNoPaidEffect(i);
         }
         vm.prank(alice);
-        (bool accepted,) = address(registry).call{value: 1}("");
-        assertFalse(accepted, "no receive or fallback");
+        (bool fallbackAccepted,) = address(registry).call{value: 1}("");
+        assertFalse(fallbackAccepted, "no receive or fallback");
+    }
+
+    function _assertPaidEffect(uint256 i) internal view {
+        if (i == 0) assertTrue(registry.pendingOf(alice, 801) != 0);
+        else if (i == 1) assertTrue(registry.sharedPending(1201) != 0);
+        else if (i == 2) assertEq(registry.pool(), 10 ether + 1);
+        else if (i == 3) assertEq(registry.tokenOf(alice), 1);
+        else assertEq(registry.nextSpecId(), 10002);
+    }
+
+    function _assertNoPaidEffect(uint256 i) internal view {
+        if (i == 0) assertEq(registry.pendingOf(alice, 801), bytes32(0));
+        else if (i == 1) assertEq(registry.sharedPending(1201), bytes32(0));
+        else if (i == 2) assertEq(registry.pool(), 10 ether);
+        else if (i == 3) assertEq(registry.tokenOf(alice), 0);
+        else assertEq(registry.nextSpecId(), 10001);
+        assertEq(intake.nonce(), 0);
     }
 }

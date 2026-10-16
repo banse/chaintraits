@@ -31,6 +31,9 @@ contract MockBurnExecutor is IBurnExecutor {
     bytes public reentryError;
     bool public reentrySucceeded;
     bool public checkPreviewGas;
+    // Gas the preview deliberately consumes before answering (0: none). Above the registry's PREVIEW_GAS
+    // the preview runs out of gas inside the registry's try, like the real executor's inner OFT quote.
+    uint256 public previewGasBurn;
 
     function configure(uint256 amount_, uint256 fee_, uint8 mode_) external {
         amount = amount_;
@@ -52,13 +55,25 @@ contract MockBurnExecutor is IBurnExecutor {
         checkPreviewGas = true;
     }
 
+    function burnPreviewGas(uint256 gasToBurn) external {
+        previewGasBurn = gasToBurn;
+    }
+
     function tokenBalance() external view returns (uint256) {
         return amount;
     }
 
     function previewBridge() external view returns (uint256, uint256, uint256) {
         uint256 entryGas = gasleft();
-        if (checkPreviewGas) require(entryGas <= 200_000 && entryGas > 195_000, "preview gas cap");
+        // Registry.PREVIEW_GAS = 600,000 is the CALL gas argument; dispatch costs a little before this read.
+        if (checkPreviewGas) require(entryGas <= 600_000 && entryGas > 590_000, "preview gas cap");
+        if (previewGasBurn != 0) {
+            uint256 target = previewGasBurn;
+            bytes32 h;
+            while (entryGas - gasleft() < target) {
+                h = keccak256(abi.encode(h));
+            }
+        }
         if (mode == 1) revert("preview unavailable");
         if (mode == 3) {
             assembly ("memory-safe") {
@@ -92,7 +107,14 @@ contract MockBurnExecutor is IBurnExecutor {
         if (reentry.length != 0) {
             (reentrySucceeded, reentryError) = msg.sender.call(reentry);
         }
-        if (msg.value > fee) new ForceBurnRefund{value: msg.value - fee}(refundTo);
+        if (msg.value > fee) _refundSurplus(refundTo, msg.value - fee);
+    }
+
+    /// @dev Like the real executor's `forceSafeTransferETH`: a 100,000-gas call to `refundTo` first, and a
+    ///      forced send only when that call fails (a nonpayable or rejecting recipient).
+    function _refundSurplus(address refundTo, uint256 surplus) internal {
+        (bool ok,) = refundTo.call{value: surplus, gas: 100_000}("");
+        if (!ok) new ForceBurnRefund{value: surplus}(refundTo);
     }
 
     function _largeRevert() internal pure {
@@ -116,7 +138,8 @@ contract NonpayableBurnClaimant {
     }
 }
 
-/// @notice A payable claimant that attempts a nested free claim when the registry refunds it.
+/// @notice A payable claimant that attempts a nested free claim whenever it is refunded, by the registry
+///         (a skip) or by the executor's plain surplus call (a successful burn).
 contract ReentrantBurnClaimant is NonpayableBurnClaimant {
     Registry public target;
     bytes public reentryError;

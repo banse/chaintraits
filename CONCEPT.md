@@ -108,11 +108,15 @@ request consumes them even if the eventual callback fails or the request is aban
 `requestSharedFact` neither consume nor check these limits.
 
 **Burn on a free claim.** Both pool entry points are payable. After the existing checks and oracle request,
-`previewBridge()` reads BurnExecutor V2's whole bridgeable balance with a 200,000-gas cap. At least 69 IMD and a
-quote at most 0.005 ETH requires the caller to attach the quote (`BurnFeeRequired(nativeFee)` otherwise). The
-registry calls `bridgeToBaseBurnReceiver(amount, msg.sender)` with all attached ETH and an 800,000 CALL gas
-argument (2,300 stipend on top for nonzero value). The executor pays the fee and force-refunds the surplus. This
-uses IMD already held by the executor, not an extra charge against the pool or claimant.
+`previewBridge()` reads BurnExecutor V2's whole bridgeable balance with a 600,000-gas cap (`PREVIEW_GAS`: the
+executor answers zeros instead of reverting when its inner OFT quote runs out of gas, which happens below about
+272,000 gas at the CALL on 2026-10-16, block 26,202,500; a cold trace at block 26,202,203 needs 264,408; the cap is
+2.2 times that). At least 69 IMD and a quote at most 0.005 ETH requires the caller to attach the quote
+(`BurnFeeRequired(nativeFee)` otherwise). The registry calls `bridgeToBaseBurnReceiver(amount, msg.sender)` with
+all attached ETH and an 800,000 CALL gas argument (2,300 stipend on top for nonzero value). The executor re-quotes,
+pays the fee and returns the surplus over its own quote (a call first, a forced send if the claimant rejects it);
+a claimant should attach exactly the fee quoted in the same block, since the executor keeps the whole attachment if
+its quote rose. This uses IMD already held by the executor, not an extra charge against the pool or claimant.
 
 Reverting preview (skip code 1), reverting bridge (2), quote above cap (3), amount below 69 IMD, or an unset
 executor all let the oracle request proceed. The registry returns `msg.value` on a skip, with a plain call only
@@ -121,8 +125,12 @@ Insufficient fee or a rejected nonzero registry refund rolls the transaction bac
 can therefore send nothing when no burn is due or the exact fee when it is, and can receive a forced surplus
 refund from a successful executor. Its rejection of a registry refund still reverts its own claim.
 
-The caps bound cost, not liveness: the deployed executor can return zero when its internal quote fails (as the
-200,000-gas pinned mainnet test demonstrates), and an executor/bridge revert does not block the oracle request.
+At the pinned mainnet block 26,202,203 the corrected preview returns the executor's real quote and the fork test's
+cold sponsored claim burns through the real executor and OFT. The rule stays best effort and promises no future
+liveness: a quote needing more than `PREVIEW_GAS` or above the fee cap, or an executor/bridge revert, is a skip
+that does not block the oracle request. The constructor rejects a nonzero executor without code
+(`ExecutorHasNoCode()`), because a preview that returns nothing cannot be decoded and would revert every sponsored
+claim for ever; a coded executor returning fewer than three words still reverts a claim (residual).
 `BurnTriggered` records a bridge submission; the Base burn is asynchronous. The registry's executor address is
 fixed, but the executor, OFT and destination configuration remain dependencies controlled by their respective
 owners; those dependencies may call the claimant. `INTEGRATION.md` section 5b describes operation and monitoring.

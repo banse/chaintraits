@@ -313,7 +313,12 @@ client-facing view of raw holdings. The registry bases the threshold on the **br
 balance preview**, which accounts for OFT limits and dust, not on raw `tokenBalance()`.
 
 All existing pool checks, allowance effects and the Intake request occur first. The registry then tries the
-preview with **200,000 gas**. It does not copy revert data into events. If the preview returns at least
+preview with **`PREVIEW_GAS` = 600,000 gas**. The cap is sized from a measurement of the deployed executor on
+2026-10-16: it catches its inner `quoteOFT`/`quoteSend` running out of gas and returns `(0,0,0)` rather than
+reverting, so an `eth_call` at block 26,202,500 answers zeros below about 272,000 gas at the CALL and the real
+quote above it, and a cold fork trace at block 26,202,203 shows 264,408 gas. 600,000 is 2.2 times that need and
+below `BURN_GAS`; the previous 200,000 cap read zeros on mainnet and never burned. The registry does not copy
+revert data into events. If the preview returns at least
 `BURN_MIN = 69 ether` (69 IMD, 18 decimals) and `nativeFee <= BURN_FEE_CAP = 0.005 ether`, it requires
 `msg.value >= nativeFee` or reverts `BurnFeeRequired(nativeFee)`. On that revert, the earlier Intake request,
 IMD payment and both pool allowance counters roll back too.
@@ -321,7 +326,11 @@ IMD payment and both pool allowance counters roll back too.
 With sufficient ETH the registry tries `bridgeToBaseBurnReceiver(amountToSend, msg.sender)`, forwarding **all
 `msg.value`** with **`BURN_GAS = 800_000` as the CALL gas argument**. Nonzero value adds the EVM's 2,300-gas stipend;
 EIP-150 may reduce forwarding if the outer transaction has insufficient gas. The executor quotes again, pays
-LayerZero, and force-sends surplus to `refundTo`. A successful registry call emits
+LayerZero, and returns the surplus over *its* quote to `refundTo` (a 100,000-gas call first, a forced send if that
+fails). A claimant should attach exactly the `nativeFee` quoted by `previewBridge()` in the same block: if the
+executor's own quote at bridge time is higher than the registry's preview, the executor keeps the whole attachment
+up to its quote and refunds only what is left, and if it is higher than the attachment the bridge reverts and the
+registry skips with code 2 and returns the attachment. A successful registry call emits
 `BurnTriggered(claimant, amountToSend, nativeFee)`. Those fields are the registry's preview, not a promise that
 Base delivery has completed. Inspect the executor's `TokensBridgedForBurn` and the OFT receipt for actual send
 amounts and the LayerZero GUID.
@@ -355,7 +364,12 @@ The registry remains ownerless and non-upgradeable. Its eighth constructor argum
 `IBurnExecutor public burnExecutor`, without an immutable or setter. `Deploy.BURN_EXECUTOR` is the mainnet V2
 address above. `run()` passes zero on Sepolia (chain 11155111); the testable
 `deploy(curator, idmd, imd, intake, attester, burnExecutor)` also accepts an explicit zero for a rehearsal with
-operator-supplied dependencies. The constructor does not query or mutate the executor.
+operator-supplied dependencies. The constructor never calls the executor, but it reverts `ExecutorHasNoCode()`
+for a nonzero executor address without code: the three preview return words are decoded outside the registry's
+`try`/`catch`, so an executor that returns no data would revert `claimSponsored` and `upgradeSponsored` for every
+wallet for ever, and an ownerless registry cannot repair that. Residual: a coded executor that returns fewer than
+three words still reverts a claim; no low-level call is added for it. The offline deploy-script test installs a
+mock at the mainnet executor address before deploying.
 
 **The external dependencies are owner-configurable.** The executor's owner can call `setBridgeConfig` to change
 the token, OFT, destination endpoint id, Base receiver and options; `setBaseBurnReceiver`, `setExtraOptions` and
@@ -366,16 +380,23 @@ verify these settings and their owners before launch, then monitor configuration
 skip rates, executor token balances, receipts and eventual Base burns. Do not infer current destination or
 ownership from a constant in the executor's source. There is no new token or executor deployment in this step.
 
-**Caps bound cost, not liveness.** At block **26,202,203**, hash
-`0x21d8ce848d55043d0539b2c88ca2c5dd6c0e9072137ae295a5906bc0cabae2bd`, the uncapped preview quotes
-`454939975000000000000` IMD units and `219261761563315` wei. With the registry's 200,000-gas cap the executor
-catches an internal OFT quote failure and returns zeros. That is a below-threshold skip without `BurnSkipped`,
-not proof that no IMD is waiting. The fork regression pins this behavior and proves the claim/refund completes.
-Separate fork assertions execute the real bridge and OFT with the 800,000 CALL gas argument, exact fees and
-surplus force-refunds to a nonpayable recipient. They do not mock or replace the executor, OFT or LayerZero code,
-and do not execute the asynchronous Base delivery. A failing executor never blocks a claim merely because the
-bridge failed: the registry skips it; the caller still must satisfy the fee and refund requirements above.
-The Base burn is asynchronous and depends on LayerZero delivery and the configured receiver.
+**At the pinned block the rule burns; it stays best effort.** At block **26,202,203**, hash
+`0x21d8ce848d55043d0539b2c88ca2c5dd6c0e9072137ae295a5906bc0cabae2bd`, the executor holds
+`454939975535748811691` IMD units and the preview quotes `454939975000000000000` units for `219261761563315`
+wei. With `PREVIEW_GAS` the registry's preview returns that quote, and the fork tests
+(`test/fork/BurnRule.fork.t.sol`, opt-in, `--fork-block-number 26202203`) make a cold sponsored claim (no quote
+read before it, so nothing is warm) burn through the real executor, OFT and endpoint: `BurnTriggered(claimant,
+454939975000000000000, 219261761563315)`, `tokenBalance()` afterwards equal to the pinned balance minus the
+amount (the shared-decimal dust), the registry's ETH balance unchanged, the executor keeping nothing, the surplus
+back to the claimant from the executor; the same claim with the exact fee from a nonpayable contract succeeds;
+the same claim without the fee reverts `BurnFeeRequired(219261761563315)` with no oracle request. Separate fork
+assertions execute the real bridge and OFT directly with the 800,000 CALL gas argument, exact fees and surplus
+force-refunds to a nonpayable recipient. They do not mock or replace the executor, OFT or LayerZero code, and do
+not execute the asynchronous Base delivery. This is the behaviour at one block, not a promise of future liveness:
+a future quote needing more than `PREVIEW_GAS` is a skip with code 1 and one above `BURN_FEE_CAP` a skip with
+code 3; a failing bridge is a skip with code 2; none blocks the claim, and the caller still must satisfy the fee
+and refund requirements above. The Base burn is asynchronous and depends on LayerZero delivery and the configured
+receiver.
 
 Verified executor source, ABI and provenance are in `reference/burn/` as reference data, not build dependencies.
 The source was retrieved from [Sourcify](https://sourcify.dev/server/v2/contract/1/0xe29386719C155B6847aD5a4E97C6674f10ffc750?fields=all)

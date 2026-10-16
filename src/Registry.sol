@@ -62,6 +62,9 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     uint256 public constant BURN_MIN = 69 ether;
     uint256 public constant BURN_FEE_CAP = 0.005 ether;
     uint256 internal constant BURN_GAS = 800_000;
+    /// @dev BurnExecutor V2 catches its inner OFT quote running out of gas and returns (0,0,0) below about
+    ///      272,000 gas at the CALL (cold mainnet trace at block 26,202,203: 264,408); 600,000 is 2.2x that.
+    uint256 internal constant PREVIEW_GAS = 600_000;
     uint256 internal constant ABANDON_AFTER = 14 days;
     uint256 internal constant MAX_SPONSORED = 9;
     uint256 internal constant MAX_COMMUNITY_IN_METADATA = 32;
@@ -159,6 +162,7 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     error NoCard(uint256 tokenId);
     error BurnFeeRequired(uint256 nativeFee);
     error BurnRefundFailed();
+    error ExecutorHasNoCode();
 
     // ------------------------------------------------------------------ constructor
 
@@ -169,11 +173,14 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     /// @param attester_ oracle attester 0x5598aa9146215bc13eb26f2c692ad1461fd32982
     /// @param renderer_ the `Renderer` (no constructor arguments, no storage), deployed first
     /// @param composer_ the `Composer` (no constructor arguments, no storage), deployed first
-    /// @param burnExecutor_ IMD BurnExecutor V2; zero disables the burn rule (Sepolia rehearsal)
+    /// @param burnExecutor_ IMD BurnExecutor V2; zero disables the burn rule (Sepolia rehearsal). A nonzero
+    ///        address must have code: the preview's three return words are decoded outside the try/catch,
+    ///        so an executor without code would revert every sponsored claim for ever.
     /// @dev The renderer and the composer are taken as addresses, not deployed here: with both creation
     ///      codes embedded, the registry's init code exceeded EIP-3860's 49,152 bytes. Three deployments
     ///      (renderer, composer, registry) use static arguments stored in ordinary storage. The only
-    ///      external constructor calls are passive Curator settlement and Intake price checks.
+    ///      external constructor calls are passive Curator settlement and Intake price checks; the
+    ///      executor is only checked for code, never called.
     constructor(
         address curator_,
         address idmd_,
@@ -188,6 +195,7 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
             curator_ == address(0) || idmd_ == address(0) || imd_ == address(0) || intake_ == address(0)
                 || attester_ == address(0) || renderer_ == address(0) || composer_ == address(0)
         ) revert ZeroAddress();
+        if (burnExecutor_ != address(0) && burnExecutor_.code.length == 0) revert ExecutorHasNoCode();
         curator = IWhitelistCurator(curator_);
         require(curator.isSettled(), "Curator not settled");
         require(IIntake(intake_).priceOf(ACTION, imd_) != 0, "Intake price");
@@ -715,7 +723,7 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     ///      otherwise only this call's msg.value is returned, never a pre-existing ETH balance.
     function _burnOrRefund() internal {
         if (address(burnExecutor) != address(0)) {
-            try burnExecutor.previewBridge{gas: 200_000}() returns (uint256 amount, uint256, uint256 fee) {
+            try burnExecutor.previewBridge{gas: PREVIEW_GAS}() returns (uint256 amount, uint256, uint256 fee) {
                 if (amount >= BURN_MIN) {
                     if (fee > BURN_FEE_CAP) {
                         emit BurnSkipped(msg.sender, 3);

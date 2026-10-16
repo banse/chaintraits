@@ -27,10 +27,19 @@
   surplus; paid upgrades are unchanged. A failing executor never blocks a claim solely because a preview or
   bridge reverted: the registry skips it and returns attached ETH. Insufficient fee and a claimant rejecting a
   nonzero registry refund still revert the claimant's transaction, including its oracle request and allowances.
-- The 200,000 preview cap and 800,000 CALL gas argument (plus value stipend) bound cost, not burn liveness. At the
-  pinned mainnet block 26,202,203 the executor catches an internal quote failure under the preview cap and returns
-  zero, so the registry skips despite IMD waiting. The tests record that outcome and separately exercise the real
-  executor/OFT exact-fee and forced-surplus paths. There is no guarantee that every free claim burns tokens.
+- The preview runs with `PREVIEW_GAS` = 600,000 gas: the executor answers zeros, not a revert, when its inner OFT
+  quote runs out of gas, which a measurement on 2026-10-16 placed below about 272,000 gas at the CALL (block
+  26,202,500; a cold trace at block 26,202,203 needs 264,408). The earlier 200,000 cap read zeros on mainnet and
+  never burned. At the pinned block 26,202,203 the corrected preview returns the real quote and the fork test's
+  cold sponsored claim burns through the real executor and OFT. The rule stays best effort: a future quote
+  needing more than 600,000 gas or above the 0.005 ETH cap is a skip, and there is no guarantee that every free
+  claim burns tokens.
+- A claimant should attach exactly the fee quoted by `previewBridge()` in the same block: the executor re-quotes
+  when it bridges and keeps the whole attachment if its quote rose; only the part above its own quote comes back.
+- The constructor rejects a nonzero executor address without code (`ExecutorHasNoCode()`): the preview's three
+  return words are decoded outside the registry's `try`/`catch`, and an executor returning nothing would revert
+  every sponsored claim for ever in a registry nobody can repair. A coded executor that returns fewer than three
+  words still reverts a claim; that residual is accepted rather than adding a low-level call.
 - The registry's eighth argument is fixed ordinary storage; zero disables the burn rule for Sepolia. The
   executor's owner can change its token, OFT, destination, options and minimum, and can rescue funds. The OFT and
   LayerZero have configuration authorities too. These are owner-configurable external dependencies, not registry

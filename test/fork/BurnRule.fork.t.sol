@@ -20,6 +20,10 @@ interface BurnExecutorConfig {
 
 /// @notice Opt-in with forge test --match-contract BurnRuleForkTest --fork-url <RPC> --fork-block-number 26202203.
 /// No environment reads and no RPC calls in the default offline suite. Real executor, IMD/OFT and Intake code.
+/// @dev In every sponsored-claim test the claim is the first call of the test that touches the executor, the
+///      OFT, the endpoint or the message libraries: a quote read before it would warm the state the registry's
+///      preview must pay for cold (the 200,000 cap only ever passed warm), and one after it would see a drained
+///      executor. The expected values are the pinned constants below (test/NOTES.md).
 contract BurnRuleForkTest is Test {
     uint256 internal constant FORK_BLOCK = 26_202_203;
     bytes32 internal constant PARENT_HASH = 0x1c99cd7e58e1ce4aa357f48944d6d15c0e4a499cec2c6d3c5a0a0ccbdec0aca8;
@@ -30,9 +34,14 @@ contract BurnRuleForkTest is Test {
     address internal constant INTAKE = 0xa43e6F75ee006411F79Ac1C84120606C2330DE82;
     address internal constant ATTESTER = 0x5598Aa9146215Bc13eb26f2c692Ad1461Fd32982;
     address internal constant MEMBER = 0x200E710aCAA6A93bbc77146026328C40F1d60fB1;
+    // Pinned at FORK_BLOCK: the executor's uncapped quote and its IMD balance before any claim.
+    uint256 internal constant PINNED_AMOUNT = 454939975000000000000;
+    uint256 internal constant PINNED_FEE = 219261761563315;
+    uint256 internal constant PINNED_EXECUTOR_BALANCE = 454939975535748811691;
     IBurnExecutor internal executor = IBurnExecutor(EXECUTOR);
     Registry internal registry;
     bool internal forked;
+    uint256 internal executorEthAtSetUp;
 
     function setUp() public {
         try vm.activeFork() returns (uint256) {
@@ -44,16 +53,14 @@ contract BurnRuleForkTest is Test {
         assertEq(block.number, FORK_BLOCK, "use the documented pinned block");
         assertEq(blockhash(FORK_BLOCK - 1), PARENT_HASH);
         assertGt(EXECUTOR.code.length, 0);
-        assertEq(BurnExecutorConfig(EXECUTOR).token(), IMD);
-        assertEq(BurnExecutorConfig(EXECUTOR).oft(), IMD, "exercise the real OFT");
-        assertEq(BurnExecutorConfig(EXECUTOR).dstEid(), 30184);
-        assertTrue(BurnExecutorConfig(EXECUTOR).baseBurnReceiver() != address(0));
         registry = new Registry(
             CURATOR, IDMD, IMD, INTAKE, ATTESTER, address(new Renderer()), address(new Composer()), EXECUTOR
         );
         // Test-only funding, on an isolated local fork. No live transaction is broadcast.
         deal(IMD, address(registry), 2 ether);
         vm.deal(address(registry), 1 ether);
+        // Read here, in setUp's own transaction, so the claim tests touch the executor cold.
+        executorEthAtSetUp = EXECUTOR.balance;
     }
 
     modifier onFork() {
@@ -64,34 +71,70 @@ contract BurnRuleForkTest is Test {
         _;
     }
 
-    function test_fork_cappedPreviewReturnsZeroAndFreeClaimRefunds() public onFork {
-        (uint256 amount,, uint256 quotedFee) = executor.previewBridge();
-        assertGe(amount, registry.BURN_MIN(), "uncapped quote is due at the pinned block");
-        assertLe(quotedFee, registry.BURN_FEE_CAP());
-        // The real executor catches its OFT quote failure and returns zeros under this cap.
-        // This is a below-threshold skip, not a Registry catch / BurnSkipped(1).
-        (uint256 cappedAmount,,) = executor.previewBridge{gas: 200_000}();
-        assertEq(cappedAmount, 0, "the gas cap bounds cost, not burn liveness");
-        vm.deal(MEMBER, 1 ether);
-        uint256 beforeTokens = executor.tokenBalance();
-        uint256 executorEth = EXECUTOR.balance;
-        uint256 attached = registry.BURN_FEE_CAP();
-        vm.recordLogs();
-        vm.prank(MEMBER);
-        registry.claimSponsored{value: attached}(701);
-        Vm.Log[] memory logs = vm.getRecordedLogs();
-        for (uint256 i; i < logs.length; ++i) {
-            if (logs[i].emitter == address(registry)) {
-                assertTrue(logs[i].topics[0] != keccak256("BurnTriggered(address,uint256,uint256)"));
-            }
-        }
-        assertEq(MEMBER.balance, 1 ether, "all attached ETH is returned on skip");
-        assertEq(address(registry).balance, 1 ether);
-        assertEq(EXECUTOR.balance, executorEth);
-        assertEq(executor.tokenBalance(), beforeTokens);
-        assertTrue(registry.pendingOf(MEMBER, 701) != 0);
+    function test_fork_executorConfigurationAndPinnedQuote() public onFork {
+        assertEq(BurnExecutorConfig(EXECUTOR).token(), IMD);
+        assertEq(BurnExecutorConfig(EXECUTOR).oft(), IMD, "exercise the real OFT");
+        assertEq(BurnExecutorConfig(EXECUTOR).dstEid(), 30184);
+        assertTrue(BurnExecutorConfig(EXECUTOR).baseBurnReceiver() != address(0));
+        assertEq(executor.tokenBalance(), PINNED_EXECUTOR_BALANCE);
+        (uint256 amount,, uint256 fee) = executor.previewBridge();
+        assertEq(amount, PINNED_AMOUNT);
+        assertEq(fee, PINNED_FEE);
+        assertGe(amount, registry.BURN_MIN());
+        assertLe(fee, registry.BURN_FEE_CAP());
     }
 
+    // (f) A member's cold free claim with the pinned fee plus a surplus burns through the real executor.
+    function test_fork_coldFreeClaimWithSurplusBurnsAndExecutorReturnsTheSurplus() public onFork {
+        uint256 attached = PINNED_FEE + 0.001 ether;
+        vm.deal(MEMBER, 1 ether);
+        vm.recordLogs();
+        vm.expectEmit(true, false, false, true, address(registry));
+        emit Registry.BurnTriggered(MEMBER, PINNED_AMOUNT, PINNED_FEE);
+        vm.prank(MEMBER);
+        registry.claimSponsored{value: attached}(701);
+        _assertBridged(PINNED_AMOUNT);
+        assertTrue(registry.pendingOf(MEMBER, 701) != 0, "the oracle request is pending");
+        assertEq(executor.tokenBalance(), PINNED_EXECUTOR_BALANCE - PINNED_AMOUNT, "only shared-decimal dust remains");
+        assertEq(address(registry).balance, 1 ether, "the registry's ETH balance is conserved");
+        assertEq(EXECUTOR.balance, executorEthAtSetUp, "the executor kept nothing");
+        assertEq(MEMBER.balance, 1 ether - PINNED_FEE, "the surplus came back to the claimant from the executor");
+        assertEq(IERC20(IMD).allowance(EXECUTOR, IMD), 0);
+    }
+
+    // (g) The same cold claim with the exact fee from a contract claimant without receive() or fallback().
+    function test_fork_coldFreeClaimExactFeeFromNonpayableContractClaimant() public onFork {
+        NonpayableBurnClaimant wallet = new NonpayableBurnClaimant();
+        // Only membership is mocked; executor, OFT, endpoint and Intake remain real.
+        vm.mockCall(
+            CURATOR, abi.encodeCall(IWhitelistCurator.firstHourOf, (address(wallet))), abi.encode(uint256(1), true)
+        );
+        vm.deal(address(wallet), PINNED_FEE);
+        vm.recordLogs();
+        vm.expectEmit(true, false, false, true, address(registry));
+        emit Registry.BurnTriggered(address(wallet), PINNED_AMOUNT, PINNED_FEE);
+        wallet.claim(registry, false, 701, PINNED_FEE);
+        _assertBridged(PINNED_AMOUNT);
+        assertTrue(registry.pendingOf(address(wallet), 701) != 0);
+        assertEq(executor.tokenBalance(), PINNED_EXECUTOR_BALANCE - PINNED_AMOUNT);
+        assertEq(address(wallet).balance, 0, "exactly the fee was spent");
+        assertEq(address(registry).balance, 1 ether);
+        assertEq(EXECUTOR.balance, executorEthAtSetUp);
+    }
+
+    // (h) The same cold claim without the fee reverts with the pinned quote and leaves no oracle request.
+    function test_fork_coldFreeClaimWithoutTheFeeReverts() public onFork {
+        vm.expectRevert(abi.encodeWithSelector(Registry.BurnFeeRequired.selector, PINNED_FEE));
+        vm.prank(MEMBER);
+        registry.claimSponsored(701);
+        assertEq(registry.pendingOf(MEMBER, 701), bytes32(0), "no oracle request");
+        assertFalse(registry.poolUsed(MEMBER, 701));
+        assertEq(registry.lastPoolDay(MEMBER), 0);
+        assertEq(registry.pool(), 2 ether, "no pool IMD left the registry");
+        assertEq(address(registry).balance, 1 ether);
+    }
+
+    // (i) The two direct-executor tests, unchanged: the registry is bypassed, so the warm quote read is fine.
     function test_fork_realExecutorAndOFTForceRefundSurplusToNonpayableRecipient() public onFork {
         NonpayableBurnClaimant wallet = new NonpayableBurnClaimant();
         (uint256 amount,, uint256 fee) = executor.previewBridge();
@@ -110,18 +153,6 @@ contract BurnRuleForkTest is Test {
         assertEq(address(registry).balance, 1 ether);
         assertLt(executor.tokenBalance(), 1e12, "only OFT shared-decimal dust remains");
         assertEq(IERC20(IMD).allowance(EXECUTOR, IMD), 0);
-    }
-
-    function test_fork_nonpayableClaimantWithNoETHCanClaimWhenPreviewReturnsZero() public onFork {
-        NonpayableBurnClaimant wallet = new NonpayableBurnClaimant();
-        // Only membership is mocked; executor, OFT, endpoint and Intake remain real.
-        vm.mockCall(
-            CURATOR, abi.encodeCall(IWhitelistCurator.firstHourOf, (address(wallet))), abi.encode(uint256(1), true)
-        );
-        wallet.claim(registry, false, 701, 0);
-        assertTrue(registry.pendingOf(address(wallet), 701) != 0);
-        assertEq(address(registry).balance, 1 ether);
-        assertEq(address(wallet).balance, 0);
     }
 
     function test_fork_realExecutorExactFeeForNonpayableRecipient() public onFork {
