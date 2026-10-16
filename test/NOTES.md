@@ -1,3 +1,27 @@
+# Step 5: the Renderer hive image (2026-10-16)
+
+`src/Renderer.sol` draws the card image per the normative SVG by selecting and concatenating `HiveData` strings
+(per family: outline, zones, honey/above clips and clipped rings from lv, n and k; rare dot; empty rings; frame
+ghost; the overflow path only above 39 with steps = 64 from 8192 else min(64, bitlen(count ** 8) - 41); token id
+text). The JSON envelope and every non-image byte are unchanged. Registry, Composer and Types are untouched.
+
+| measure (solc 0.8.24, optimizer 200, Cancun) | value |
+|---|---:|
+| Renderer runtime size (`test_reportRendererRuntimeSize`) | 21,570 B (3,006 under EIP-170) |
+| tokenURI gas, synthetic_width | 10,810,085 |
+| tokenURI gas, synthetic_fullhouse | 9,147,472 |
+| tokenURI gas, synthetic_honey | 9,589,924 |
+| `forge test` (verifier seed) | 159 passed, 0 failed, 15 fork skips |
+
+Tests added in `test/Goldens.t.sol`: gas report (bounded under 30M for an `eth_call`), runtime size report, no
+path at 39 / a path at 40, identical images at 8192 and `uint256.max` (no `count ** 8` overflow), and 40 vs 53
+rendering differently (exponentiation, not XOR). Every golden is checked byte-equal through `Renderer.tokenURI`.
+Operational note: the image costs about 9-11M gas to read; indexers calling `tokenURI` need an `eth_call` gas
+cap above that (most public RPCs allow 30M or more). Nothing is deployed by this step; the Renderer stays pure and
+takes no constructor arguments.
+
+---
+
 # Step 4: the hive generator, data and goldens (2026-10-16)
 
 `tools/gen_template.py` now holds the normative drawing of the card image (`hive_svg`, README "The card image") and

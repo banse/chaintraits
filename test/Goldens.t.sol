@@ -60,7 +60,11 @@ contract GoldensTest is Base {
     }
 
     function test_goldenSyntheticWidthThroughTheRenderer() public view {
-        Card memory c;
+        Card memory c = _widthCard();
+        _assertGolden("synthetic_width", renderer.tokenURI(c), c);
+    }
+
+    function _widthCard() internal view returns (Card memory c) {
         c.tokenId = type(uint256).max;
         c.claimant = 0xffffFFFFFfffFFFFFFfFFFFfFFFFFFFFfFFFC1a1;
         uint16[13] memory top = [101, 202, 303, 404, 503, 601, 701, 801, 901, 1001, 1101, 1201, 1301];
@@ -114,7 +118,6 @@ contract GoldensTest is Base {
         for (uint256 i; i < 32; ++i) {
             c.oracle[i] = OracleMeta(uint16(10001 + i), 5, 3, REQUEST_1, ORACLE_1, s);
         }
-        _assertGolden("synthetic_width", renderer.tokenURI(c), c);
     }
 
     // ------------------------------------------------------------------ the hive goldens (renderer only)
@@ -135,6 +138,11 @@ contract GoldensTest is Base {
     }
 
     function test_goldenSyntheticHoney() public view {
+        Card memory c = _honeyCard();
+        _assertGolden("synthetic_honey", renderer.tokenURI(c), c);
+    }
+
+    function _honeyCard() internal view returns (Card memory c) {
         uint16[13] memory top = [101, 201, 302, 403, 502, 601, 701, 801, 901, 1001, 1101, 1201, 1301];
         uint16[17] memory ids =
             [101, 201, 301, 302, 401, 402, 403, 501, 502, 601, 701, 801, 901, 1001, 1101, 1201, 1301];
@@ -142,8 +150,7 @@ contract GoldensTest is Base {
         for (uint256 i; i < 17; ++i) {
             traits[i] = ids[i];
         }
-        Card memory c = _card(5, address(uint160(0x5c1a1)), top, traits, 32, 39);
-        _assertGolden("synthetic_honey", renderer.tokenURI(c), c);
+        c = _card(5, address(uint160(0x5c1a1)), top, traits, 32, 39);
     }
 
     function test_goldenSyntheticCollector() public view {
@@ -158,9 +165,85 @@ contract GoldensTest is Base {
     }
 
     function test_goldenSyntheticFullhouse() public view {
-        uint16[13] memory top = [101, 202, 303, 404, 503, 601, 701, 801, 901, 1001, 1101, 1201, 1301];
-        Card memory c = _card(7, address(uint160(0x7c1a1)), top, _allCatalogIds(), 32, 5000);
+        Card memory c = _fullhouseCard();
         _assertGolden("synthetic_fullhouse", renderer.tokenURI(c), c);
+    }
+
+    function _fullhouseCard() internal view returns (Card memory c) {
+        uint16[13] memory top = [101, 202, 303, 404, 503, 601, 701, 801, 901, 1001, 1101, 1201, 1301];
+        c = _card(7, address(uint160(0x7c1a1)), top, _allCatalogIds(), 32, 5000);
+    }
+
+    // ------------------------------------------------------------------ step 5: gas, size, failure paths
+
+    /// @dev Reports the tokenURI gas of the three heaviest goldens and bounds it well under a block, so a
+    ///      marketplace eth_call (commonly capped at 30-50M gas) always succeeds.
+    function test_reportTokenURIGas() public {
+        Card memory w = _widthCard();
+        Card memory f = _fullhouseCard();
+        Card memory h = _honeyCard();
+        uint256 g = gasleft();
+        renderer.tokenURI(w);
+        uint256 gw = g - gasleft();
+        g = gasleft();
+        renderer.tokenURI(f);
+        uint256 gf = g - gasleft();
+        g = gasleft();
+        renderer.tokenURI(h);
+        uint256 gh = g - gasleft();
+        emit log_named_uint("tokenURI gas synthetic_width", gw);
+        emit log_named_uint("tokenURI gas synthetic_fullhouse", gf);
+        emit log_named_uint("tokenURI gas synthetic_honey", gh);
+        assertLt(gw, 30_000_000);
+        assertLt(gf, 30_000_000);
+        assertLt(gh, 30_000_000);
+    }
+
+    /// @dev Reports the Renderer runtime size; it must stay under EIP-170 and be immutable-free and pure.
+    function test_reportRendererRuntimeSize() public {
+        Renderer fresh = new Renderer();
+        uint256 size = address(fresh).code.length;
+        emit log_named_uint("Renderer runtime bytes", size);
+        assertLt(size, 24_576, "Renderer exceeds EIP-170");
+        assertEq(address(fresh).code, address(renderer).code, "constructor-free, identical runtime");
+    }
+
+    /// @dev Failure side of the overflow rule: at and below 39 there is no path, a single tokenURI at the
+    ///      uint256 maximum count neither reverts nor overflows (count ** 8 is never evaluated from 8192).
+    function test_imageOverflowPathAbsentAtOrBelow39AndNeverOverflows() public view {
+        uint16[13] memory top;
+        bytes memory none = renderer.image(_card(1, C1A1, top, new uint16[](0), 0, 39));
+        assertFalse(_contains(none, "%3Cpath%20d="), "no path at 39");
+        bytes memory some = renderer.image(_card(1, C1A1, top, new uint16[](0), 0, 40));
+        assertTrue(_contains(some, "%3Cpath%20d="), "path at 40");
+        bytes memory max = renderer.image(_card(1, C1A1, top, new uint16[](0), 0, type(uint256).max));
+        bytes memory at8192 = renderer.image(_card(1, C1A1, top, new uint16[](0), 0, 8192));
+        assertEq(max, at8192, "64 steps from 8192 up");
+    }
+
+    /// @dev XOR would give 40 ^ 8 = 32 (no path, bitlen < 41); exponentiation gives bitlen(40**8) - 41 = 2 steps,
+    ///      so 40 and 41 must render a path while the XOR reading would underflow or render none.
+    function test_imageStepsUseExponentiationNotXor() public view {
+        uint16[13] memory top;
+        bytes memory a = renderer.image(_card(1, C1A1, top, new uint16[](0), 0, 40));
+        bytes memory b = renderer.image(_card(1, C1A1, top, new uint16[](0), 0, 53));
+        assertTrue(_contains(a, "%3Cpath"), "path at 40");
+        assertTrue(keccak256(a) != keccak256(b), "40 (2 steps) and 53 (5 steps) differ");
+    }
+
+    function _contains(bytes memory hay, bytes memory needle) internal pure returns (bool) {
+        if (needle.length > hay.length) return false;
+        for (uint256 i; i + needle.length <= hay.length; ++i) {
+            bool ok = true;
+            for (uint256 j; j < needle.length; ++j) {
+                if (hay[i + j] != needle[j]) {
+                    ok = false;
+                    break;
+                }
+            }
+            if (ok) return true;
+        }
+        return false;
     }
 
     // ------------------------------------------------------------------ the hive rules
