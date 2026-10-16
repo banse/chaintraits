@@ -60,7 +60,7 @@ function onFailure(bytes32 requestId, uint8 status, bytes32 reason, uint16 agree
     bytes calldata signature) external;
 
 // community specs
-function registerSpec(Spec calldata spec) external returns (uint16 traitId);       // 1 IMD to the registry
+function registerSpec(Spec calldata spec) external returns (uint16 traitId);       // 6.4 IMD to the registry
 function specOf(uint16 traitId) external view returns (Spec memory);
 
 // shared facts
@@ -70,9 +70,11 @@ function sharedFact(uint16 factId) external view returns (bytes32 requestId, byt
 
 // sponsor pool (CONCEPT 4; catalog chain traits only)
 function sponsor(uint256 amount) external;
-function upgradeSponsored(uint256 idmdTokenId, uint16[] calldata traitIds) external; // IDMD holder, own wallet, one call per token id ever
-function claimSponsored(uint16 traitId) external;                                   // from day 30, member, own wallet, once per pair
+function upgradeSponsored(uint256 idmdTokenId, uint16[] calldata traitIds) external; // IDMD holder AND list member, exactly one id, nine per token ever
+function claimSponsored(uint16 traitId) external;                                   // list member, own wallet, from launch
 function poolUsed(address claimant, uint16 traitId) external view returns (bool);
+function lastPoolDay(address wallet) external view returns (uint64);                 // UTC day of last pool request; shared across both paths
+function idmdSponsored(uint256 idmdTokenId) external view returns (uint8);           // successful pool requests, 0..9, follows the IDMD token
 function deployedAt() external view returns (uint64);
 function pool() external view returns (uint256);                                     // = IMD.balanceOf(this)
 
@@ -89,6 +91,16 @@ traitId, bytes32 requestId, bytes32 oracleRequestId)`, `Missed(bytes32 requestId
 `SharedFactStored(uint16 indexed factId, bytes32 requestId, uint16 length)`, `Sponsored(address indexed from, uint256
 amount)`, `PoolSpent(address indexed claimant, uint16 indexed traitId, bytes32 requestId)`, and ERC-4906
 `MetadataUpdate`.
+
+Both pool paths share **one catalog chain request per wallet per UTC day** (`block.timestamp / 1 days`), from
+launch with no 30-day wait. `poolUsed` limits each `(wallet, traitId)` to one request ever, so the nine eligible
+traits give **nine per wallet over its lifetime**, across both paths and all IDMD tokens. IDMD holders must also
+be list members; `upgradeSponsored` allows nine requests per token over its lifetime, including after transfer.
+An empty array reverts `NoTraits`, more than one id reverts `TooManyTraits`, a same-day request for another trait
+reverts `PoolDailyLimit(wallet)`, and an exhausted token reverts `IdmdSponsorExhausted(tokenId)`. A reverted
+transaction consumes no allowance; a submitted request consumes its day and lifetime allowance even if the
+oracle later misses, fails or never answers. Paid `upgrade` and `requestSharedFact` have no daily or sponsored
+lifetime limit. The 6.4 IMD spec fee plus a first request at the 0.5 IMD oracle price totals 6.9 IMD (excluding gas).
 
 Function and event names in this summary are the working names of the interface and did not change in the rename
 (only display strings did). Types, arities and the behaviour described in `CONCEPT.md` are the
@@ -217,11 +229,11 @@ Everything in "What the builder delivers" is in the tree, with these deviations,
   the limit is EIP-3860: with both helpers' creation code embedded, the registry's init code was 56,723 bytes
   (> 49,152). `Renderer` and `Composer` take no constructor arguments and hold no storage, so the launch is three
   static deployments with the helpers referenced backward (`script/Deploy.s.sol` does exactly that; the registry
-  constructor requires `curator.isSettled()` and stores every address in ordinary storage).
+  constructor requires `curator.isSettled()` and a nonzero Intake IMD quote and stores every address in ordinary storage).
 - **`src/Composer.sol`** holds the five templates, the body and canonical-document serialisers, the catalog oracle
   traits as `Spec`s (`catalogSpec`), the spec guards (`validateSpec`), the catalog name table (`traitName`), catalog enumeration (`traitsOf`)
   and the unchanged direct-read predicates (`hasDirectTrait`). The registry alone was 41,717 bytes of runtime;
-  it is now 23,055 after the rename, with 1,521 bytes of EIP-170 headroom. Composer is 23,377 bytes after the rename
+  it is now 23,364 after the Registry rules update, with 1,212 bytes of EIP-170 headroom. Composer remains 23,377 bytes after the rename
   (down from 23,455; 1,199 bytes of headroom, and the rename had to keep at least 600) and Renderer is 11,712 bytes;
   `test/Rename.t.sol` pins the Composer budget.
   The registry calls the composer
@@ -232,7 +244,7 @@ Everything in "What the builder delivers" is in the tree, with these deviations,
   200,000 stipend, delivered through the mock Intake's real `call(stipend, ...)`.
 - **Added views:** `pendingRequest(requestId)`, `cardOf(tokenId)` (the renderer's input), `attestationDigest(a)`,
   `questionHashOf(bytes canonicalDocument)` (the keccak of the canonical document of `INTEGRATION.md` section 4,
-  check 7, not of the body `composeBody` returns), `sharedPending(factId)`, `idmdSponsorUsed(id)`. `traitClass` and
+  check 7, not of the body `composeBody` returns), `sharedPending(factId)`, `idmdSponsored(id)`, `lastPoolDay(wallet)`. `traitClass` and
   `specOf` revert for an unknown id; `hasTrait` never does.
 - **`template/offsets` live in the code as ASCII hex**, not packed bytes: the launch's opcode scan reads every
   non-PUSH byte of the runtime, and a packed offset `0x0cf2` would read as `CALLCODE`. The template blob is ASCII.
@@ -252,15 +264,19 @@ Everything in "What the builder delivers" is in the tree, with these deviations,
 | `attester` | `0x5598Aa9146215Bc13eb26f2c692Ad1461Fd32982` |
 | `renderer`, `composer` | the two helper deployments of the same commit |
 
-Deployment must target a chain where the configured Curator answers `isSettled() == true`; an unset, reverting
-or unsettled Curator makes construction revert. This is a passive view read and moves no funds. The deployer
+Deployment must target a chain where the configured Curator answers `isSettled() == true` and
+`IIntake(intake).priceOf(ACTION, imd)` is nonzero; an unset, reverting or unsettled Curator or an unavailable or
+zero-price Intake/asset pair makes construction revert (`"Intake price"` for a zero quote). Both checks are passive
+view reads and move no funds. The quote check confirms a configured action/asset price, not the identity or future
+availability of the dependency. The daily counter assumes a deployment after Unix day zero (Ethereum mainnet in
+2026); its zero default then never equals the current UTC day. The deployer
 must verify the seven constructor addresses and both helpers' runtime code against the reviewed build; none can
 be changed later. This assignment deploys nothing.
 
 There is no owner and nothing to operate: no setter, pause, upgrade, fee switch, `receive` or `fallback`. The
 accepted ways the registry can stop working are listed in `INTEGRATION.md` section 1 (Intake price, callback gas or
 retirement; attester rotation; a changed attestation struct or canonical document); each needs a successor contract.
-Pool money is an irrevocable donation. Users approve the registry for IMD (0.1 mint, 1 per spec, `k x priceOf` per
+Pool money is an irrevocable donation. Users approve the registry for IMD (0.1 mint, 6.4 per spec, `k x priceOf` per
 upgrade, read at call time and capped by `maxPrice`).
 
 ## License

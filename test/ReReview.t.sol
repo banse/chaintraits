@@ -171,7 +171,7 @@ contract ReReviewTest is Base {
     function test_unusedFixedValIsRefusedAndAnEmptyFilterIsNotSerialised() public {
         Spec memory s = t1Spec(address(0xCAFE), "Filterless");
         s.fixedVal = 1;
-        fund(alice, 1 ether);
+        fund(alice, registry.SPEC_FEE());
         vm.prank(alice);
         vm.expectRevert(abi.encodeWithSelector(Composer.BadSpec.selector, "fixedVal"));
         registry.registerSpec(s);
@@ -211,7 +211,7 @@ contract ReReviewTest is Base {
         assertEq(register(alice, t1Spec(address(0xCAFE), "Last")), 65534, "the last community id");
         assertEq(registry.nextSpecId(), 65535);
         Spec memory s = t1Spec(address(0xCAFE), "One too many");
-        fund(alice, 1 ether);
+        fund(alice, registry.SPEC_FEE());
         vm.prank(alice);
         vm.expectRevert(stdError.arithmeticError);
         registry.registerSpec(s);

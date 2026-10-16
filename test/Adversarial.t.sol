@@ -377,41 +377,42 @@ contract AdversarialTest is Base {
         registry.upgrade(ids, price);
     }
 
-    function test_upgradeSponsoredDrawsAllNineAndRefusesDuplicates() public {
+    function test_upgradeSponsoredDrawsAllNineOverNineDaysAndRefusesDuplicates() public {
         imd.mint(address(registry), 4.5 ether);
         idmd.setOwner(3, alice);
-        uint16[] memory nine = new uint16[](9);
+        curator.set(alice, 1, true, 1, 1, 1);
         uint16[9] memory chain = [701, 801, 901, 1001, 1101, 1102, 1103, 1104, 1105];
-        for (uint256 i; i < 9; ++i) {
-            nine[i] = chain[i];
-        }
         idmd.setOwner(4, alice);
         uint16[] memory dup = new uint16[](2);
         dup[0] = 701;
         dup[1] = 701;
-        // the second 701 trips the pool's once-per-pair guard (set by the first) before the pending guard
+        // Batches, including duplicates, are refused without consuming any pool allowance.
         vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(Registry.PoolAlreadyUsed.selector, alice, 701));
+        vm.expectRevert(Registry.TooManyTraits.selector);
         registry.upgradeSponsored(4, dup);
-        assertFalse(registry.idmdSponsorUsed(4), "a reverted call does not spend the token id");
+        assertEq(registry.idmdSponsored(4), 0, "reverted calls do not spend token allowance");
         assertFalse(registry.poolUsed(alice, 701));
-        vm.prank(alice);
-        registry.upgradeSponsored(3, nine);
+        uint16[] memory one = new uint16[](1);
+        for (uint256 i; i < 9; ++i) {
+            vm.warp(T0 + i * 1 days);
+            one[0] = chain[i];
+            vm.prank(alice);
+            registry.upgradeSponsored(3, one);
+            assertEq(registry.idmdSponsored(3), i + 1);
+        }
         assertEq(registry.pool(), 0);
         for (uint256 i; i < 9; ++i) {
             assertTrue(registry.poolUsed(alice, chain[i]));
             assertTrue(registry.pendingOf(alice, chain[i]) != 0);
         }
         // claimSponsored while pending: the pair is taken, whatever the funding
-        curator.set(alice, 1, true, 1, 1, 1);
-        vm.warp(T0 + 30 days);
+        vm.warp(T0 + 9 days);
         imd.mint(address(registry), 1 ether);
         vm.prank(alice);
         vm.expectRevert(abi.encodeWithSelector(Registry.PoolAlreadyUsed.selector, alice, 701));
         registry.claimSponsored(701);
         // and a second IDMD cannot draw the same pairs
         vm.prank(alice);
-        uint16[] memory one = new uint16[](1);
         one[0] = 801;
         vm.expectRevert(abi.encodeWithSelector(Registry.PoolAlreadyUsed.selector, alice, 801));
         registry.upgradeSponsored(4, one);
@@ -420,7 +421,6 @@ contract AdversarialTest is Base {
     function test_claimSponsoredWhilePendingOrVerifiedReverts() public {
         imd.mint(address(registry), 5 ether);
         curator.set(alice, 1, true, 1, 1, 1);
-        vm.warp(T0 + 30 days);
         bytes32 rid = ask(alice, 701); // claimant-paid pending
         vm.prank(alice);
         vm.expectRevert(abi.encodeWithSelector(Registry.AlreadyPending.selector, alice, 701));
@@ -436,7 +436,6 @@ contract AdversarialTest is Base {
     function test_abandonedPoolRequestKeepsPoolUsedAndLateCallbackIsIgnored() public {
         imd.mint(address(registry), 1 ether);
         curator.set(alice, 1, true, 1, 1, 1);
-        vm.warp(T0 + 30 days);
         vm.prank(alice);
         registry.claimSponsored(701);
         bytes32 rid = registry.pendingOf(alice, 701);

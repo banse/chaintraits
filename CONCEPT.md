@@ -71,8 +71,9 @@ attach to the claimant; the card renders them when minted). `composeBody(traitId
 returns the exact body and its `questionHash`, so a front end or a third party can preview and quote a request for
 free before paying.
 
-**Register a spec.** `registerSpec(Spec)` by anyone, 1 IMD into the registry; guards in `CATALOG.md` section 5; emits
+**Register a spec.** `registerSpec(Spec)` by anyone, 6.4 IMD into the registry; guards in `CATALOG.md` section 5; emits
 `SpecRegistered(id, registrant)`. From then on `upgrade` accepts the new id for every wallet, paid by the claimant.
+At the 0.5 IMD oracle price, registration plus the first claim costs 6.9 IMD, excluding gas.
 
 **Shared facts.** `requestSharedFact(factId, maxPrice)` by anyone for any T3 id (1201 or a registered T3 spec), one
 price, no claimant; at most one pending request per fact id, and refused once the fact is stored. The callback checks
@@ -89,12 +90,22 @@ and in the attestation the plane serves at `/oracle/requests/<oracleRequestId>/a
 and any plain transfer. It is spent only on the **catalog's chain traits** (701, 801, 901, 1001, 1101 to 1105), only
 for the caller's own wallet, and only once per `(wallet, traitId)` ever (`poolUsed`), whatever the outcome:
 
-- `upgradeSponsored(idmdTokenId, traitIds[])`: the holder of IDMD `idmdTokenId` (checked by `ownerOf`) draws chain
-  catalog upgrades for `msg.sender`; **one call per IDMD token id ever**, k at most 9, reverts if the pool cannot
-  cover k x `priceOf`.
-- `claimSponsored(traitId)`: from `deployedAt + 30 days` (timestamps), any Curator member (`firstHourOf(msg.sender)
+- `upgradeSponsored(idmdTokenId, traitIds[])`: the holder of IDMD `idmdTokenId` (checked by `ownerOf`) must also be
+  a list member (`firstHourOf(msg.sender).hasJoined`). Exactly one catalog chain id per call; **nine requests per
+  IDMD token over its lifetime**, tracked by `idmdSponsored` even across transfers; reverts if the pool cannot
+  cover `priceOf`.
+- `claimSponsored(traitId)`: from launch, with no 30-day wait, any Curator member (`firstHourOf(msg.sender)
   .hasJoined`) draws one pool-funded request for one catalog chain trait of their own; reverts when `poolUsed`, when
   the trait is verified or pending, or when the pool is below `priceOf`.
+
+Both paths share **one pool-funded request per wallet per UTC day**, computed as `block.timestamp / 1 days` and
+stored in the public `uint64 lastPoolDay(wallet)`. The zero default is unused on the launch chain in 2026. A request
+for another trait on the same day reverts `PoolDailyLimit(wallet)`; switching paths or IDMD tokens cannot bypass it.
+The once-per-pair rule across nine eligible ids means **nine per wallet over its lifetime**, across both paths.
+Empty sponsored arrays revert `NoTraits`, arrays longer than one revert `TooManyTraits`, and the tenth IDMD-funded
+request reverts `IdmdSponsorExhausted(tokenId)`. A transaction that reverts rolls back every allowance; an accepted
+request consumes them even if the eventual callback fails or the request is abandoned. Paid `upgrade` and
+`requestSharedFact` neither consume nor check these limits.
 
 Community specs, panel traits and shared facts are never paid by the pool; a claimant pays for those. **This is the
 economic policy, stated:** the pool is an irrevocable donation that any member may draw once per catalog trait for
@@ -135,7 +146,7 @@ Three contracts: `Registry`, `Renderer` and `Composer`; the registry's construct
 
 | contract | role | constructor |
 |---|---|---|
-| `Registry` (`ERC721("Sworn", "SWORN")`) | ERC-721 + IERC4906; catalog table; `mintCard`, `upgrade`, `hasTrait`; Intake consumer (`onResult`, `onFailure`); specs; shared facts; sponsor pool | seven static addresses `(curator, idmd, imd, intake, attester, renderer, composer)` stored in storage (no `immutable`); the renderer and the composer are deployed first and passed in as static addresses (the registry creates no contract: with both helpers embedded its init code exceeded EIP-3860, see README "What was built, and where it deviates from the brief"); records `deployedAt = block.timestamp`; requires the passive view `curator.isSettled()` to be true |
+| `Registry` (`ERC721("Sworn", "SWORN")`) | ERC-721 + IERC4906; catalog table; `mintCard`, `upgrade`, `hasTrait`; Intake consumer (`onResult`, `onFailure`); specs; shared facts; sponsor pool | seven static addresses `(curator, idmd, imd, intake, attester, renderer, composer)` stored in storage (no `immutable`); the renderer and the composer are deployed first and passed in as static addresses (the registry creates no contract: with both helpers embedded its init code exceeded EIP-3860, see README "What was built, and where it deviates from the brief"); records `deployedAt = block.timestamp`; requires the passive views `curator.isSettled()` to be true and `intake.priceOf(ACTION, imd)` to be nonzero |
 | `Renderer` | template `bytes constant` + offsets as constants + splice + Base64 | none |
 | `Composer` | the five templates, body and canonical-document serialisers, catalog specs, spec guards, name table, catalog enumeration and direct-read predicates; views only, never called inside `onResult` | none |
 | interfaces | `IWhitelistCurator` (in `src/interfaces/`), `IIntake` (v2: `requestWithFailure`), `IOracleConsumer` (`onResult`, `onFailure`) | |
@@ -180,8 +191,9 @@ section 4). `hasTrait(wallet, unknownId)` returns false, never reverts; `hasTrai
    decodes to the golden bytes; a hostile spec name cannot break the JSON or the SVG (escaping tests).
 9. The registry's IMD balance never decreases except through `requestWithFailure` on `claimSponsored` or
    `upgradeSponsored`; a claimant-paid request leaves the balance unchanged; `abandon` releases a pending pair only
-   after 14 days; `claimSponsored` only from day 30, only for a member, only once per pair; `upgradeSponsored` at most
-   one call per IDMD token id; the pool funds only the nine catalog chain traits, never a panel, shared or community
+   after 14 days; both pool paths open at launch, only for list members, once per wallet per UTC day and once per
+   pair ever (nine per wallet); `upgradeSponsored` requires IDMD ownership, exactly one trait per call and at most
+   nine requests per IDMD token over its lifetime; the pool funds only the nine catalog chain traits, never a panel, shared or community
    trait; one pending request per pair and per fact id; `sharedFact` holds a hash and a length, never a list.
 10. Curator-derived direct-read traits (families 1 to 5) for a non-member are all false (`firstHourOf` returns
     `(0, false)`): a non-member never renders as an hour-0 Zero-Shot. 601 is independent of membership.

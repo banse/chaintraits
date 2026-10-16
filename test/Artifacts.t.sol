@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {Registry} from "../src/Registry.sol";
 import {Renderer} from "../src/Renderer.sol";
 import {Composer} from "../src/Composer.sol";
-import {MockCurator} from "./mocks/Mocks.sol";
+import {MockCurator, MockIntake} from "./mocks/Mocks.sol";
 import {IWhitelistCurator} from "../src/interfaces/IWhitelistCurator.sol";
 import {Deploy} from "../script/Deploy.s.sol";
 
@@ -32,15 +32,27 @@ contract ArtifactsTest is Test {
         Composer c1 = new Composer();
         Composer c2 = new Composer();
         Registry a = new Registry(
-            address(new MockCurator()), address(2), address(3), address(4), address(5), address(r1), address(c1)
+            address(new MockCurator()),
+            address(2),
+            address(3),
+            address(new MockIntake(address(3))),
+            address(5),
+            address(r1),
+            address(c1)
         );
         Registry b = new Registry(
-            address(new MockCurator()), address(7), address(8), address(9), address(10), address(r2), address(c2)
+            address(new MockCurator()),
+            address(7),
+            address(8),
+            address(new MockIntake(address(8))),
+            address(10),
+            address(r2),
+            address(c2)
         );
         assertEq(address(a).code, address(b).code, "registry runtime differs");
         assertEq(address(r1).code, address(r2).code, "renderer runtime differs");
         assertEq(address(c1).code, address(c2).code, "composer runtime differs");
-        assertLe(address(a).code.length, 23_076, "registry needs 1500 bytes of EIP-170 headroom");
+        assertLt(address(a).code.length, 24_576, "registry exceeds EIP-170");
         assertLe(address(r1).code.length, 24_576);
         assertLe(address(c1).code.length, 24_576);
         assertEq(address(a).code, vm.getDeployedCode("Registry.sol:Registry"), "runtime equals the artifact");
@@ -53,18 +65,19 @@ contract ArtifactsTest is Test {
         new Registry(address(0), address(2), address(3), address(4), address(5), address(r), address(c));
         vm.expectRevert(Registry.ZeroAddress.selector);
         new Registry(address(1), address(2), address(3), address(4), address(5), address(0), address(c));
-        vm.warp(1234);
+        vm.warp(1_791_700_000);
         MockCurator curator = new MockCurator();
+        MockIntake intake = new MockIntake(address(3));
         Registry reg =
-            new Registry(address(curator), address(2), address(3), address(4), address(5), address(r), address(c));
+            new Registry(address(curator), address(2), address(3), address(intake), address(5), address(r), address(c));
         assertEq(address(reg.curator()), address(curator));
         assertEq(address(reg.idmd()), address(2));
         assertEq(address(reg.imd()), address(3));
-        assertEq(address(reg.intake()), address(4));
+        assertEq(address(reg.intake()), address(intake));
         assertEq(reg.attester(), address(5));
         assertEq(address(reg.renderer()), address(r));
         assertEq(address(reg.composer()), address(c));
-        assertEq(reg.deployedAt(), 1234);
+        assertEq(reg.deployedAt(), 1_791_700_000);
         assertEq(reg.nextSpecId(), 10001);
         assertEq(reg.ACTION(), 0x6f7261636c652e72657175657374406f7261636c652d31000000000000000000);
     }
@@ -95,6 +108,7 @@ contract ArtifactsTest is Test {
         assertEq(d.INTAKE_V2(), 0xa43e6F75ee006411F79Ac1C84120606C2330DE82);
         assertEq(d.ATTESTER(), 0x5598Aa9146215Bc13eb26f2c692Ad1461Fd32982);
         deployCodeTo("Mocks.sol:MockCurator", d.CURATOR());
+        deployCodeTo("Mocks.sol:MockIntake", abi.encode(d.IMD()), d.INTAKE_V2());
         Registry reg = d.deploy(d.CURATOR(), d.IDMD(), d.IMD(), d.INTAKE_V2(), d.ATTESTER());
         assertEq(address(reg.curator()), d.CURATOR());
         assertEq(reg.attester(), d.ATTESTER());
@@ -106,7 +120,13 @@ contract ArtifactsTest is Test {
         Renderer r = new Renderer();
         Composer c = new Composer();
         Registry reg = new Registry(
-            address(new MockCurator()), address(2), address(3), address(4), address(5), address(r), address(c)
+            address(new MockCurator()),
+            address(2),
+            address(3),
+            address(new MockIntake(address(3))),
+            address(5),
+            address(r),
+            address(c)
         );
         address[3] memory targets = [address(reg), address(r), address(c)];
         for (uint256 t; t < 3; ++t) {

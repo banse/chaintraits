@@ -143,7 +143,7 @@ trait in section 3 names its template there (T1, T3, T5).
 
 ## 5. Spec registration (community traits)
 
-`registerSpec(Spec)` by anyone, 1 IMD into the registry, returns the new id (10001 upward), emits
+`registerSpec(Spec)` by anyone, 6.4 IMD into the registry, returns the new id (10001 upward), emits
 `SpecRegistered(id, registrant)`. The spec is immutable. Fields:
 
 | field | type | guard |
@@ -202,17 +202,30 @@ unaffected.
 refused once stored; `applySharedFact(factId, list)` gas only; `sponsor(amount)` any amount; `abandon(requestId)`
 after 14 days. The pool is the registry's IMD balance (`pool()`), spent only through:
 
-- `upgradeSponsored(idmdTokenId, traitIds[])` by the IDMD holder for their own wallet: **one call per IDMD token id
-  ever**, k at most 9 catalog chain traits (701, 801, 901, 1001, 1101 to 1105), reverts if the pool cannot cover
-  k x `priceOf`;
-- `claimSponsored(traitId)` from day 30 (`deployedAt + 30 days`, timestamps), by a Curator member for their own wallet,
+- `upgradeSponsored(idmdTokenId, traitIds[])` by the IDMD holder who is also a list member, for their own wallet:
+  **exactly one** catalog chain trait (701, 801, 901, 1001, 1101 to 1105), **nine requests per IDMD token over its
+  lifetime** (`uint8 idmdSponsored(tokenId)`), including across transfers; reverts if the pool cannot cover `priceOf`;
+- `claimSponsored(traitId)` from launch (no 30-day wait), by a Curator member for their own wallet,
   one catalog chain trait per call, once per `(wallet, traitId)` ever (`poolUsed`, set whatever the outcome), refused
   while the pair is pending or verified or while the pool is below `priceOf`.
+
+Both paths share **one catalog chain request per wallet per UTC day**, with `uint64 lastPoolDay(wallet)` storing
+`block.timestamp / 1 days`. Zero means unused on the launch chain in 2026. `PoolDailyLimit(wallet)` refuses another
+trait on the same day. `poolUsed` bounds each wallet to **nine requests over its lifetime**, across both paths and
+all IDMD tokens. `IdmdSponsorExhausted(tokenId)` refuses a tenth IDMD-funded request; `NoTraits` rejects empty
+arrays and `TooManyTraits` rejects arrays longer than one. Reverted transactions consume no allowance; submitted
+requests retain their usage after a miss, failure or abandonment. Paid upgrades and shared-fact requests are
+unrestricted by these pool limits. A spec costs 6.4 IMD; with a first claim at 0.5 IMD, the total is 6.9 IMD plus gas.
 
 Panel traits, shared facts and community specs are never paid by the pool. No owner, no upgrade, no pause, no token;
 pool money is an irrevocable donation (`CONCEPT.md` section 4 states the policy).
 
 ## 7. Name table (filled by the entrant on 2026-10-16)
+
+The pool covers Uptime, Holdout, Final Token, Hotfix and the five PID ids below. IDMD holders who are list members
+draw one catalog chain request per day, nine per token and nine per wallet over a lifetime; every list member
+likewise has one per day from launch, with no 30-day wait. Both paths share the UTC-day and per-wallet limits
+specified in section 6. Community spec registration costs 6.4 IMD; community requests are paid by their claimant.
 
 | id | working name | final name |
 |---|---|---|

@@ -190,7 +190,7 @@ contract ReviewChangesTest is Base {
             s.kind = kind;
             if (kind == 2) s.sumArg = "value";
             s.fixedVal = value;
-            fund(C1A1, 1 ether);
+            fund(C1A1, registry.SPEC_FEE());
             uint256 poolBefore = registry.pool();
             uint256 balanceBefore = imd.balanceOf(C1A1);
             uint16 nextId = registry.nextSpecId();

@@ -26,7 +26,7 @@ import {Renderer} from "./Renderer.sol";
 /// @dev    No owner, pause, upgrade, fee switch, `receive`, `fallback`, `immutable` or `tx.origin`.
 ///         The five external addresses are ordinary storage so a clean rebuild equals the deployed
 ///         runtime code byte for byte (`bytecode_hash = "none"`). The constructor passively checks that
-///         the Curator is settled before accepting its direct-read traits as final.
+///         the Curator is settled and the Intake quotes a nonzero IMD price for the oracle action.
 contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     using SafeERC20 for IERC20;
 
@@ -57,9 +57,8 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
 
     bytes32 public constant ACTION = bytes32("oracle.request@oracle-1");
     uint256 public constant MINT_FEE = 0.1 ether;
-    uint256 public constant SPEC_FEE = 1 ether;
+    uint256 public constant SPEC_FEE = 6.4 ether;
     uint256 internal constant ABANDON_AFTER = 14 days;
-    uint256 internal constant POOL_OPENS_AFTER = 30 days;
     uint256 internal constant MAX_SPONSORED = 9;
     uint256 internal constant MAX_COMMUNITY_IN_METADATA = 32;
     uint16 internal constant FIRST_SPEC_ID = 10001;
@@ -109,7 +108,8 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     uint16 public nextSpecId;
 
     mapping(address => mapping(uint16 => bool)) public poolUsed;
-    mapping(uint256 => bool) public idmdSponsorUsed;
+    mapping(uint256 => uint8) public idmdSponsored;
+    mapping(address => uint64) public lastPoolDay;
 
     // ------------------------------------------------------------------ events
 
@@ -145,7 +145,8 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     error NotInList();
     error PoolTooSmall(uint256 pool, uint256 needed);
     error PoolAlreadyUsed(address claimant, uint16 traitId);
-    error IdmdAlreadyUsed(uint256 idmdTokenId);
+    error IdmdSponsorExhausted(uint256 idmdTokenId);
+    error PoolDailyLimit(address wallet);
     error NotIdmdHolder(uint256 idmdTokenId);
     error NotMember(address wallet);
     error NoCard(uint256 tokenId);
@@ -162,7 +163,7 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     /// @dev The renderer and the composer are taken as addresses, not deployed here: with both creation
     ///      codes embedded, the registry's init code exceeded EIP-3860's 49,152 bytes. Three deployments
     ///      (renderer, composer, registry) use static arguments stored in ordinary storage. The only
-    ///      external constructor call is the passive Curator settlement check.
+    ///      external constructor calls are passive Curator settlement and Intake price checks.
     constructor(
         address curator_,
         address idmd_,
@@ -178,6 +179,7 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
         ) revert ZeroAddress();
         curator = IWhitelistCurator(curator_);
         require(curator.isSettled(), "Curator not settled");
+        require(IIntake(intake_).priceOf(ACTION, imd_) != 0, "Intake price");
         idmd = IIDMD(idmd_);
         imd = IERC20(imd_);
         intake = IIntake(intake_);
@@ -595,7 +597,7 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
 
     // ------------------------------------------------------------------ community specs
 
-    /// @notice Registers an immutable community spec: 1 IMD into the registry, ids from 10001.
+    /// @notice Registers an immutable community spec: 6.4 IMD into the registry, ids from 10001.
     function registerSpec(Spec calldata spec) external nonReentrant returns (uint16 traitId) {
         composer.validateSpec(spec, block.number);
         imd.safeTransferFrom(msg.sender, address(this), SPEC_FEE);
@@ -657,27 +659,26 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
         emit Sponsored(msg.sender, amount);
     }
 
-    /// @notice The holder of an IDMD draws up to nine catalog chain upgrades for their own wallet from
-    ///         the pool; one call per IDMD token id ever.
+    /// @notice An IDMD holder who is a Curator member draws one catalog chain request for their own
+    ///         wallet per UTC day across both pool paths; at most nine requests per IDMD token ever.
     function upgradeSponsored(uint256 idmdTokenId, uint16[] calldata traitIds) external nonReentrant {
         uint256 k = traitIds.length;
         if (k == 0) revert NoTraits();
-        if (k > MAX_SPONSORED) revert TooManyTraits();
-        if (idmdSponsorUsed[idmdTokenId]) revert IdmdAlreadyUsed(idmdTokenId);
+        if (k != 1) revert TooManyTraits();
+        if (idmdSponsored[idmdTokenId] >= MAX_SPONSORED) revert IdmdSponsorExhausted(idmdTokenId);
         if (idmd.ownerOf(idmdTokenId) != msg.sender) revert NotIdmdHolder(idmdTokenId);
-        idmdSponsorUsed[idmdTokenId] = true;
+        (, bool joined) = curator.firstHourOf(msg.sender);
+        if (!joined) revert NotMember(msg.sender);
+        idmdSponsored[idmdTokenId]++;
         uint256 price = intake.priceOf(ACTION, address(imd));
         uint256 balance = pool();
-        if (balance < price * k) revert PoolTooSmall(balance, price * k);
-        for (uint256 i; i < k; ++i) {
-            _fromPool(traitIds[i], price);
-        }
+        if (balance < price) revert PoolTooSmall(balance, price);
+        _fromPool(traitIds[0], price);
     }
 
-    /// @notice From day 30, any Curator member draws one pool-funded request for one catalog chain
-    ///         trait of their own, once per (wallet, traitId) ever.
+    /// @notice From launch, any Curator member draws one catalog chain request for their own wallet
+    ///         per UTC day across both pool paths, once per (wallet, traitId) ever.
     function claimSponsored(uint16 traitId) external nonReentrant {
-        if (block.timestamp < uint256(deployedAt) + POOL_OPENS_AFTER) revert TooEarly();
         (, bool joined) = curator.firstHourOf(msg.sender);
         if (!joined) revert NotMember(msg.sender);
         uint256 price = intake.priceOf(ACTION, address(imd));
@@ -689,6 +690,9 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     function _fromPool(uint16 traitId, uint256 price) internal {
         if (!_isCatalogChain(traitId)) revert NotACatalogChainTrait(traitId);
         if (poolUsed[msg.sender][traitId]) revert PoolAlreadyUsed(msg.sender, traitId);
+        uint64 day = uint64(block.timestamp / 1 days);
+        if (lastPoolDay[msg.sender] == day) revert PoolDailyLimit(msg.sender);
+        lastPoolDay[msg.sender] = day;
         poolUsed[msg.sender][traitId] = true;
         bytes32 requestId = _request(msg.sender, traitId, price);
         emit PoolSpent(msg.sender, traitId, requestId);

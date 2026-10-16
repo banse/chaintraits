@@ -28,6 +28,9 @@ contract FullHandler is Base {
     mapping(address => mapping(uint16 => bool)) public ghostVerified;
     mapping(address => mapping(uint16 => bool)) public ghostPoolUsed;
     mapping(address => uint256) public ghostCommunityCount;
+    mapping(address => uint64) public ghostLastPoolDay;
+    mapping(address => uint256) public ghostPoolRequests;
+    mapping(uint256 => uint8) public ghostIdmdSponsored;
     mapping(bytes32 => bool) public ridConsumed; // a request id that has been completed or abandoned
     mapping(bytes32 => bool) public ridMarked; // a request id that marked a trait or a fact
     mapping(uint16 => bytes32) public specHash;
@@ -115,51 +118,50 @@ contract FullHandler is Base {
         openRequests.push(rid);
     }
 
-    function upgradeSponsored(uint256 seed, uint256 which, uint8 k) external {
+    function upgradeSponsored(uint256 seed, uint256 which) external {
         address a = _actor(seed);
         uint256 tokenId = (seed % 4) + 1;
-        if (idmd.ownerOf(tokenId) != a || registry.idmdSponsorUsed(tokenId)) return;
-        k = uint8(bound(k, 1, 3));
-        uint16[] memory ids = new uint16[](k);
-        uint256 n;
-        for (uint256 i; i < catalogChain.length && n < k; ++i) {
+        if (idmd.ownerOf(tokenId) != a || registry.idmdSponsored(tokenId) >= 9) return;
+        (, bool joined) = curator.firstHourOf(a);
+        if (!joined || registry.lastPoolDay(a) == block.timestamp / 1 days) return;
+        if (registry.pool() < PRICE) return;
+        uint16[] memory chosen = new uint16[](1);
+        for (uint256 i; i < catalogChain.length; ++i) {
             uint16 id = catalogChain[(which % catalogChain.length + i) % catalogChain.length];
             if (registry.poolUsed(a, id) || registry.pendingOf(a, id) != 0 || ghostVerified[a][id]) continue;
-            bool dup;
-            for (uint256 j; j < n; ++j) {
-                if (ids[j] == id) dup = true;
-            }
-            if (dup) continue;
-            ids[n++] = id;
+            chosen[0] = id;
+            vm.prank(a);
+            registry.upgradeSponsored(tokenId, chosen);
+            ghostIdmdSponsored[tokenId]++;
+            _recordPoolRequest(a, id);
+            return;
         }
-        if (n == 0) return;
-        if (registry.pool() < PRICE * n) return;
-        uint16[] memory chosen = new uint16[](n);
-        for (uint256 i; i < n; ++i) {
-            chosen[i] = ids[i];
-        }
-        vm.prank(a);
-        registry.upgradeSponsored(tokenId, chosen);
-        poolSpent += PRICE * n;
-        for (uint256 i; i < n; ++i) {
-            ghostPoolUsed[a][chosen[i]] = true;
-            openRequests.push(registry.pendingOf(a, chosen[i]));
-        }
+    }
+
+    function advanceTime(uint32 elapsed) external {
+        vm.warp(vm.getBlockTimestamp() + bound(elapsed, 1, 3 days));
+    }
+
+    function _recordPoolRequest(address a, uint16 id) internal {
+        uint64 day = uint64(block.timestamp / 1 days);
+        assertGt(day, ghostLastPoolDay[a], "only one request per wallet per UTC day");
+        ghostLastPoolDay[a] = day;
+        ghostPoolRequests[a]++;
+        poolSpent += PRICE;
+        ghostPoolUsed[a][id] = true;
+        openRequests.push(registry.pendingOf(a, id));
     }
 
     function claimSponsored(uint256 seed, uint256 which) external {
         address a = _actor(seed);
         uint16 id = catalogChain[which % catalogChain.length];
-        if (block.timestamp < T0 + 30 days) vm.warp(T0 + 30 days);
         (, bool joined) = curator.firstHourOf(a);
-        if (!joined) return;
+        if (!joined || registry.lastPoolDay(a) == block.timestamp / 1 days) return;
         if (registry.poolUsed(a, id) || registry.pool() < PRICE) return;
         if (registry.pendingOf(a, id) != 0 || ghostVerified[a][id]) return;
         vm.prank(a);
         registry.claimSponsored(id);
-        poolSpent += PRICE;
-        ghostPoolUsed[a][id] = true;
-        openRequests.push(registry.pendingOf(a, id));
+        _recordPoolRequest(a, id);
     }
 
     function registerSpec(uint256 seed, uint8 kind) external {
@@ -182,7 +184,7 @@ contract FullHandler is Base {
         if (kind == 5) s.toBlock = B_DEPLOY;
         if (kind == 5) s.fromBlock = B_DEPLOY;
         uint16 id = register(a, s);
-        poolIn += 1 ether;
+        poolIn += registry.SPEC_FEE();
         specIds.push(id);
         specHash[id] = keccak256(abi.encode(registry.specOf(id)));
     }
@@ -384,7 +386,7 @@ contract InvariantsExtendedTest is Test {
         h = new FullHandler();
         registry = h.theRegistry();
         targetContract(address(h));
-        bytes4[] memory sel = new bytes4[](16);
+        bytes4[] memory sel = new bytes4[](17);
         sel[0] = FullHandler.mintCard.selector;
         sel[1] = FullHandler.transfer.selector;
         sel[2] = FullHandler.sponsor.selector;
@@ -401,16 +403,17 @@ contract InvariantsExtendedTest is Test {
         sel[13] = FullHandler.abandonLate.selector;
         sel[14] = FullHandler.applyShared.selector;
         sel[15] = FullHandler.replayConsumed.selector;
+        sel[16] = FullHandler.advanceTime.selector;
         targetSelector(FuzzSelector({addr: address(h), selectors: sel}));
     }
 
     function test_handlerSponsoredSelectionAcceptsMaxSeed() public {
         h.sponsor(2, 3 ether);
         // This shrunk invariant input used to overflow in the handler before reaching the registry.
-        h.upgradeSponsored(12_242_742, type(uint256).max, 57);
-        assertEq(h.openCount(), 3);
-        assertEq(h.poolSpent(), 1.5 ether);
-        assertTrue(registry.idmdSponsorUsed(3));
+        h.upgradeSponsored(12_242_742, type(uint256).max);
+        assertEq(h.openCount(), 1);
+        assertEq(h.poolSpent(), 0.5 ether);
+        assertEq(registry.idmdSponsored(3), 1);
         assertEq(registry.pool(), h.poolIn() - h.poolSpent());
     }
 
@@ -431,6 +434,18 @@ contract InvariantsExtendedTest is Test {
     /// @dev Invariant 9: the balance is fees plus donations minus pool-funded requests, exactly.
     function invariant_poolIsFeesPlusDonationsMinusSponsoredRequests() public view {
         assertEq(registry.pool(), h.poolIn() - h.poolSpent());
+    }
+
+    function invariant_poolDailyAndLifetimeLimits() public view {
+        for (uint256 i; i < h.actorCount(); ++i) {
+            address a = h.actorAt(i);
+            assertEq(registry.lastPoolDay(a), h.ghostLastPoolDay(a));
+            assertLe(h.ghostPoolRequests(a), 9, "nine per wallet over both pool paths");
+        }
+        for (uint256 tokenId = 1; tokenId <= 4; ++tokenId) {
+            assertEq(registry.idmdSponsored(tokenId), h.ghostIdmdSponsored(tokenId));
+            assertLe(registry.idmdSponsored(tokenId), 9, "nine per IDMD token");
+        }
     }
 
     /// @dev Invariants 3 and 4: a pair is marked exactly when the handler delivered a passing

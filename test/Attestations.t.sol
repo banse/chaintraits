@@ -7,7 +7,7 @@ import {OracleAttestation} from "../src/interfaces/IOracleConsumer.sol";
 import {Registry} from "../src/Registry.sol";
 import {Renderer} from "../src/Renderer.sol";
 import {Composer} from "../src/Composer.sol";
-import {MockCurator} from "./mocks/Mocks.sol";
+import {MockCurator, MockIntake} from "./mocks/Mocks.sol";
 
 /// @notice Signature recovery over the five served mainnet attestations: each recovers the attester
 ///         under its own domain (the registry's digest, deployed at that domain's `verifyingContract`)
@@ -78,7 +78,7 @@ contract AttestationsTest is Test {
                 address(new MockCurator()),
                 address(0xC1),
                 address(0xC2),
-                address(0xC3),
+                address(new MockIntake(address(0xC2))),
                 ATTESTER,
                 address(renderer),
                 address(composer)

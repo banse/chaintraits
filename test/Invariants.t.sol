@@ -68,7 +68,7 @@ contract Handler is Base {
     function claimSponsored(uint256 seed, uint8 which) external {
         address a = _actor(seed);
         uint16 traitId = which % 2 == 0 ? 901 : 1001;
-        vm.warp(T0 + 31 days);
+        vm.warp(vm.getBlockTimestamp() + 1 days);
         if (registry.poolUsed(a, traitId) || registry.pool() < PRICE) return;
         if (registry.pendingOf(a, traitId) != 0) return;
         (bytes32 rid,,,) = registry.verified(a, traitId);

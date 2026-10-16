@@ -5,7 +5,7 @@ import {Base} from "./Base.t.sol";
 import {Registry} from "../src/Registry.sol";
 import {OracleAttestation} from "../src/interfaces/IOracleConsumer.sol";
 import {Spec} from "../src/Types.sol";
-import {ReentrantIMD} from "./mocks/Mocks.sol";
+import {ReentrantIMD, MockIntake} from "./mocks/Mocks.sol";
 import {IERC4906} from "@openzeppelin/contracts/interfaces/IERC4906.sol";
 
 /// @notice CONCEPT.md section 6: cards (1, 2), credentials (3), the callback checks (4, 5), tiers (6),
@@ -449,7 +449,7 @@ contract RegistryTest is Base {
         uint16 b = register(bob, t1Spec(address(0xCAFE), "Second"));
         assertEq(a, 10001);
         assertEq(b, 10002);
-        assertEq(imd.balanceOf(address(registry)), 2 ether, "fees stay in the registry");
+        assertEq(imd.balanceOf(address(registry)), 12.8 ether, "fees stay in the registry");
         assertEq(registry.specOf(a).name, "First");
         assertEq(registry.traitName(b), "Second");
         (bytes memory body1,) = registry.composeBody(a, alice);
@@ -632,11 +632,11 @@ contract RegistryTest is Base {
         ask(alice, 701);
         assertEq(registry.pool(), 2.5 ether, "claimant-paid request: unchanged");
 
-        // upgradeSponsored: IDMD holder, own wallet, once per token id, catalog chain traits only
+        // upgradeSponsored: list member holding IDMD, own wallet, one catalog chain trait per day
         idmd.setOwner(7, bob);
-        uint16[] memory ids = new uint16[](2);
+        curator.set(bob, 5, true, 1, 1, 1);
+        uint16[] memory ids = new uint16[](1);
         ids[0] = 801;
-        ids[1] = 901;
         vm.prank(alice);
         vm.expectRevert(abi.encodeWithSelector(Registry.NotIdmdHolder.selector, 7));
         registry.upgradeSponsored(7, ids);
@@ -644,12 +644,20 @@ contract RegistryTest is Base {
         vm.expectEmit(true, true, false, false);
         emit Registry.PoolSpent(bob, 801, bytes32(0));
         registry.upgradeSponsored(7, ids);
-        assertEq(registry.pool(), 1.5 ether);
-        assertTrue(registry.poolUsed(bob, 801) && registry.poolUsed(bob, 901));
+        assertEq(registry.pool(), 2 ether);
+        assertEq(registry.idmdSponsored(7), 1);
+        assertTrue(registry.poolUsed(bob, 801));
         assertEq(registry.pendingOf(bob, 801) != 0, true);
+        ids[0] = 901;
         vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(Registry.IdmdAlreadyUsed.selector, 7));
+        vm.expectRevert(abi.encodeWithSelector(Registry.PoolDailyLimit.selector, bob));
         registry.upgradeSponsored(7, ids);
+        vm.warp(T0 + 1 days);
+        vm.prank(bob);
+        registry.upgradeSponsored(7, ids);
+        assertEq(registry.idmdSponsored(7), 2);
+        assertEq(registry.pool(), 1.5 ether);
+        assertTrue(registry.poolUsed(bob, 901));
         idmd.setOwner(8, bob);
         ids[0] = 1301;
         vm.prank(bob);
@@ -671,15 +679,12 @@ contract RegistryTest is Base {
         vm.prank(bob);
         vm.expectRevert(Registry.TooManyTraits.selector);
         registry.upgradeSponsored(8, ten);
-        uint16[] memory four = new uint16[](4);
-        four[0] = 1101;
-        four[1] = 1102;
-        four[2] = 1103;
-        four[3] = 1104;
+        ids[0] = 1101;
+        intake.setPrice(2 ether);
         vm.prank(bob);
         vm.expectRevert(abi.encodeWithSelector(Registry.PoolTooSmall.selector, 1.5 ether, 2 ether));
-        registry.upgradeSponsored(8, four);
-        assertFalse(registry.idmdSponsorUsed(8), "a reverted call does not spend the token id");
+        registry.upgradeSponsored(8, ids);
+        assertEq(registry.idmdSponsored(8), 0, "reverted calls do not spend token allowance");
         assertEq(registry.pool(), 1.5 ether);
     }
 
@@ -688,10 +693,6 @@ contract RegistryTest is Base {
         vm.prank(bob);
         registry.sponsor(1 ether);
         curator.set(alice, 5, true, 1, 1, 1);
-        vm.prank(alice);
-        vm.expectRevert(Registry.TooEarly.selector);
-        registry.claimSponsored(701);
-        vm.warp(T0 + 30 days);
         vm.prank(bob);
         vm.expectRevert(abi.encodeWithSelector(Registry.NotMember.selector, bob));
         registry.claimSponsored(701);
@@ -714,6 +715,7 @@ contract RegistryTest is Base {
         registry.claimSponsored(701);
         ask(alice, 701);
         // pool below price
+        vm.warp(T0 + 1 days);
         vm.prank(alice);
         registry.claimSponsored(801);
         assertEq(registry.pool(), 0);
@@ -734,8 +736,15 @@ contract RegistryTest is Base {
 
     function test_reentrantTokenCannotReenterMint() public {
         ReentrantIMD evil = new ReentrantIMD();
+        MockIntake evilIntake = new MockIntake(address(evil));
         Registry r = new Registry(
-            CURATOR_ADDR, address(idmd), address(evil), address(intake), attester, address(renderer), address(composer)
+            CURATOR_ADDR,
+            address(idmd),
+            address(evil),
+            address(evilIntake),
+            attester,
+            address(renderer),
+            address(composer)
         );
         evil.mint(alice, 1 ether);
         vm.prank(alice);

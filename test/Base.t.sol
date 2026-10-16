@@ -145,7 +145,7 @@ abstract contract Base is Test {
     }
 
     function register(address who, Spec memory s) internal returns (uint16 id) {
-        fund(who, 1 ether);
+        fund(who, registry.SPEC_FEE());
         vm.prank(who);
         id = registry.registerSpec(s);
     }
