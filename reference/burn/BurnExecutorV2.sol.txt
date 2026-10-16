@@ -1,0 +1,314 @@
+// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+import {Ownable} from "solady/auth/Ownable.sol";
+import {ReentrancyGuard} from "solady/utils/ReentrancyGuard.sol";
+import {SafeTransferLib} from "solady/utils/SafeTransferLib.sol";
+
+struct SendParam {
+    uint32 dstEid;
+    bytes32 to;
+    uint256 amountLD;
+    uint256 minAmountLD;
+    bytes extraOptions;
+    bytes composeMsg;
+    bytes oftCmd;
+}
+
+struct MessagingFee {
+    uint256 nativeFee;
+    uint256 lzTokenFee;
+}
+
+struct OFTLimit {
+    uint256 minAmountLD;
+    uint256 maxAmountLD;
+}
+
+struct OFTFeeDetail {
+    int256 feeAmountLD;
+    string description;
+}
+
+struct MessagingReceipt {
+    bytes32 guid;
+    uint64 nonce;
+    MessagingFee fee;
+}
+
+struct OFTReceipt {
+    uint256 amountSentLD;
+    uint256 amountReceivedLD;
+}
+
+interface IOFT {
+    function quoteOFT(SendParam calldata sendParam)
+        external
+        view
+        returns (OFTLimit memory limit, OFTFeeDetail[] memory oftFeeDetails, OFTReceipt memory receipt);
+
+    function quoteSend(SendParam calldata sendParam, bool payInLzToken) external view returns (MessagingFee memory fee);
+
+    function send(SendParam calldata sendParam, MessagingFee calldata fee, address refundAddress)
+        external
+        payable
+        returns (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt);
+}
+
+interface IERC20BalanceOf {
+    function balanceOf(address owner) external view returns (uint256);
+}
+
+/// @notice Holds sold tokens until anyone bridges them to the Base burn receiver.
+/// @dev Bridging is permissionless because the only reachable destination is the owner-configured
+/// burn receiver: a caller can choose the batch size and pays the LayerZero fee, but cannot choose
+/// where the tokens go. Every amount is resolved on-chain against the live balance and the OFT's
+/// own limits, so a stale or oversized request is clamped instead of reverting.
+contract BurnExecutor is Ownable, ReentrancyGuard {
+    address public constant IMD_TOKEN = 0xD34a99Bc0f67aE1bbd63C660e6d0b0dd03E263B7;
+    address public constant DEFAULT_BASE_BURN_RECEIVER = 0x4b118f0C63d09f09cB35fC6e8024A6c96493EaDA;
+    uint32 public constant BASE_MAINNET_EID = 30184;
+
+    error InvalidBridgeRecipient();
+    error InvalidBridgeAmount();
+    error InvalidBridgeConfig();
+    error InsufficientMessageFee(uint256 required, uint256 provided);
+    error BelowOftMinimum(uint256 amount, uint256 oftMinimum);
+    error BelowMinBridgeAmount(uint256 amount, uint256 minimum);
+
+    event BridgeConfigUpdated(
+        address indexed token, address indexed oft, uint32 indexed dstEid, address baseBurnReceiver, bytes extraOptions
+    );
+    event MinBridgeAmountUpdated(uint256 minBridgeAmount);
+    event TokensBridgedForBurn(
+        address indexed oft, uint32 indexed dstEid, bytes32 indexed to, uint256 amount, uint256 minAmount, bytes32 guid
+    );
+    event TokenRescued(address indexed token, address indexed to, uint256 amount);
+    event ETHRescued(address indexed to, uint256 amount);
+
+    address public token;
+    address public oft;
+    uint32 public dstEid;
+    address public baseBurnReceiver;
+    bytes public extraOptions;
+
+    /// @notice Smallest batch a permissionless caller may bridge, in local decimals. Zero disables the floor.
+    uint256 public minBridgeAmount;
+
+    constructor(address owner_, address token_, address oft_, uint32 dstEid_, address baseBurnReceiver_) {
+        _initializeOwner(owner_);
+        _setBridgeConfig(token_, oft_, dstEid_, baseBurnReceiver_, "");
+    }
+
+    function setBridgeConfig(
+        address token_,
+        address oft_,
+        uint32 dstEid_,
+        address baseBurnReceiver_,
+        bytes calldata extraOptions_
+    ) external onlyOwner {
+        _setBridgeConfig(token_, oft_, dstEid_, baseBurnReceiver_, extraOptions_);
+    }
+
+    function setBaseBurnReceiver(address baseBurnReceiver_) external onlyOwner {
+        _setBridgeConfig(token, oft, dstEid, baseBurnReceiver_, extraOptions);
+    }
+
+    function setExtraOptions(bytes calldata extraOptions_) external onlyOwner {
+        _setBridgeConfig(token, oft, dstEid, baseBurnReceiver, extraOptions_);
+    }
+
+    function setMinBridgeAmount(uint256 minBridgeAmount_) external onlyOwner {
+        minBridgeAmount = minBridgeAmount_;
+        emit MinBridgeAmountUpdated(minBridgeAmount_);
+    }
+
+    function tokenBalance() public view returns (uint256) {
+        return IERC20BalanceOf(token).balanceOf(address(this));
+    }
+
+    /// @notice Resolves `requested` into the exact parameters a bridge call would use right now.
+    /// @dev Reverts when nothing is bridgeable. `previewBridge` wraps this for callers that prefer
+    /// a zero over a revert.
+    function resolveSendParam(uint256 requested) public view returns (SendParam memory sendParam) {
+        if (baseBurnReceiver == address(0)) revert InvalidBridgeRecipient();
+        if (requested == 0) revert InvalidBridgeAmount();
+
+        uint256 available = tokenBalance();
+        uint256 amount = requested < available ? requested : available;
+        if (amount == 0) revert InvalidBridgeAmount();
+
+        sendParam = SendParam({
+            dstEid: dstEid,
+            to: bytes32(uint256(uint160(baseBurnReceiver))),
+            amountLD: 0,
+            minAmountLD: 0,
+            extraOptions: extraOptions,
+            composeMsg: "",
+            oftCmd: ""
+        });
+
+        // Probe the OFT with a zero amount first. A zero can never trip a cap, a rate limiter, or a
+        // per-message maximum, so it reports the current limits even on OFTs whose quote reverts for
+        // an oversized request. Rate-limited or capped OFTs accept less than the full balance; take
+        // what fits instead of failing.
+        (bool probed, OFTLimit memory limit,) = _tryQuoteOFT(sendParam);
+        if (probed && amount > limit.maxAmountLD) amount = limit.maxAmountLD;
+        if (amount == 0) revert InvalidBridgeAmount();
+
+        sendParam.amountLD = amount;
+        (,, OFTReceipt memory receipt) = IOFT(oft).quoteOFT(sendParam);
+
+        // Shared-decimal dust is stripped by the OFT and stays here for the next batch.
+        if (receipt.amountSentLD == 0 || receipt.amountReceivedLD == 0) revert InvalidBridgeAmount();
+        if (receipt.amountSentLD < limit.minAmountLD) revert BelowOftMinimum(receipt.amountSentLD, limit.minAmountLD);
+
+        uint256 floorAmount = minBridgeAmount;
+        if (receipt.amountSentLD < floorAmount) revert BelowMinBridgeAmount(receipt.amountSentLD, floorAmount);
+
+        sendParam.amountLD = receipt.amountSentLD;
+        sendParam.minAmountLD = receipt.amountReceivedLD;
+    }
+
+    function _tryQuoteOFT(SendParam memory sendParam)
+        internal
+        view
+        returns (bool ok, OFTLimit memory limit, OFTReceipt memory receipt)
+    {
+        try IOFT(oft).quoteOFT(sendParam) returns (
+            OFTLimit memory limit_, OFTFeeDetail[] memory, OFTReceipt memory receipt_
+        ) {
+            return (true, limit_, receipt_);
+        } catch {
+            return (false, limit, receipt);
+        }
+    }
+
+    /// @notice Non-reverting view of what a bridge of `requested` would move and cost.
+    /// @return amountToSend Tokens debited here, already clamped to the balance, OFT limits, and dust.
+    /// @return minAmountToReceive Tokens credited to the Base burn receiver.
+    /// @return nativeFee Wei the call must be funded with. All three are zero when nothing is bridgeable.
+    function previewBridge(uint256 requested)
+        public
+        view
+        returns (uint256 amountToSend, uint256 minAmountToReceive, uint256 nativeFee)
+    {
+        try this.resolveSendParam(requested) returns (SendParam memory sendParam) {
+            try IOFT(oft).quoteSend(sendParam, false) returns (MessagingFee memory fee) {
+                return (sendParam.amountLD, sendParam.minAmountLD, fee.nativeFee);
+            } catch {
+                return (0, 0, 0);
+            }
+        } catch {
+            return (0, 0, 0);
+        }
+    }
+
+    /// @notice Non-reverting preview of bridging everything currently held.
+    function previewBridge()
+        external
+        view
+        returns (uint256 amountToSend, uint256 minAmountToReceive, uint256 nativeFee)
+    {
+        return previewBridge(type(uint256).max);
+    }
+
+    function quoteBridgeFee(uint256 requested) public view returns (MessagingFee memory fee) {
+        return IOFT(oft).quoteSend(resolveSendParam(requested), false);
+    }
+
+    function quoteBridgeFee() external view returns (MessagingFee memory fee) {
+        return quoteBridgeFee(type(uint256).max);
+    }
+
+    /// @notice Bridges `requested` tokens (clamped to what is actually sendable) to the Base burn receiver.
+    /// @dev Callable by anyone. Overpaying is safe: the surplus is returned to `refundTo`.
+    function bridgeToBaseBurnReceiver(uint256 requested, address refundTo)
+        public
+        payable
+        nonReentrant
+        returns (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt)
+    {
+        if (refundTo == address(0)) refundTo = msg.sender;
+
+        SendParam memory sendParam = resolveSendParam(requested);
+        MessagingFee memory fee = IOFT(oft).quoteSend(sendParam, false);
+        if (msg.value < fee.nativeFee) revert InsufficientMessageFee(fee.nativeFee, msg.value);
+
+        address oft_ = oft;
+        address token_ = token;
+        SafeTransferLib.safeApproveWithRetry(token_, oft_, sendParam.amountLD);
+        (msgReceipt, oftReceipt) = IOFT(oft_).send{value: fee.nativeFee}(sendParam, fee, refundTo);
+        SafeTransferLib.safeApproveWithRetry(token_, oft_, 0);
+
+        emit TokensBridgedForBurn(
+            oft_, sendParam.dstEid, sendParam.to, oftReceipt.amountSentLD, oftReceipt.amountReceivedLD, msgReceipt.guid
+        );
+
+        uint256 surplus = msg.value - fee.nativeFee;
+        if (surplus != 0) SafeTransferLib.forceSafeTransferETH(refundTo, surplus);
+    }
+
+    function bridgeToBaseBurnReceiver(uint256 requested)
+        external
+        payable
+        returns (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt)
+    {
+        return bridgeToBaseBurnReceiver(requested, msg.sender);
+    }
+
+    /// @notice Bridges everything currently sendable.
+    function bridgeToBaseBurnReceiver()
+        external
+        payable
+        returns (MessagingReceipt memory msgReceipt, OFTReceipt memory oftReceipt)
+    {
+        return bridgeToBaseBurnReceiver(type(uint256).max, msg.sender);
+    }
+
+    /// @notice Recovers native ETH force-sent to this contract. Fee surplus is refunded in-call, so
+    /// a normal bridge never leaves ETH here.
+    function rescueETH(address to, uint256 amount) external onlyOwner {
+        if (to == address(0)) revert InvalidBridgeRecipient();
+        if (amount == 0) revert InvalidBridgeAmount();
+
+        SafeTransferLib.forceSafeTransferETH(to, amount);
+        emit ETHRescued(to, amount);
+    }
+
+    function rescueToken(address to, uint256 amount) external onlyOwner {
+        _rescueToken(token, to, amount);
+    }
+
+    function rescueToken(address token_, address to, uint256 amount) external onlyOwner {
+        _rescueToken(token_, to, amount);
+    }
+
+    function _rescueToken(address token_, address to, uint256 amount) internal {
+        if (to == address(0)) revert InvalidBridgeRecipient();
+        if (amount == 0) revert InvalidBridgeAmount();
+
+        SafeTransferLib.safeTransfer(token_, to, amount);
+        emit TokenRescued(token_, to, amount);
+    }
+
+    function _setBridgeConfig(
+        address token_,
+        address oft_,
+        uint32 dstEid_,
+        address baseBurnReceiver_,
+        bytes memory extraOptions_
+    ) internal {
+        if (token_ == address(0) || oft_ == address(0) || dstEid_ == 0) {
+            revert InvalidBridgeConfig();
+        }
+
+        token = token_;
+        oft = oft_;
+        dstEid = dstEid_;
+        baseBurnReceiver = baseBurnReceiver_;
+        extraOptions = extraOptions_;
+
+        emit BridgeConfigUpdated(token_, oft_, dstEid_, baseBurnReceiver_, extraOptions_);
+    }
+}

@@ -21,6 +21,7 @@ panels (section 3).
 | **IMD Intake v2** (pay and ask in one transaction; the one the registry uses) | `0xa43e6f75ee006411f79ac1c84120606c2330de82` |
 | IMD Intake v1 (legacy; `/health.intake.chains[].legacyIntakes`; still priced and still completed) | `0x1397434cd35e8a9c8ac312a61d3a285eb31dea56` |
 | oracle attester (signs attestations) | `0x5598aa9146215bc13eb26f2c692ad1461fd32982` |
+| IMD BurnExecutor V2 (free-claim bridge) | `0xe29386719C155B6847aD5a4E97C6674f10ffc750` |
 | Intake writer (calls `complete`) | `0x3d3c0df7c1a17d384545e9d7c8228897bd9625cb` |
 
 Intake v2 was deployed through CREATE2 at the same address on every chain the plane serves; `/health` lists it as
@@ -28,15 +29,18 @@ Intake v2 was deployed through CREATE2 at the same address on every chain the pl
 getter of version 1 is here unchanged"; `requestWithFailure`, `failureSelectorOf` and `FailureHookSet` are new. Both
 addresses return `priceOf` 0.5 IMD, `callbackGas` 200,000 and the same writer (read 2026-10-12 00:30 UTC).
 
-The launch is three contracts, `Renderer`, `Composer` and `Registry`. The registry takes seven constructor arguments,
-`(curator, idmd, imd, intake, attester, renderer, composer)`: the five external addresses above and the two helpers,
+The launch is three contracts, `Renderer`, `Composer` and `Registry`. The registry takes eight constructor arguments,
+`(curator, idmd, imd, intake, attester, renderer, composer, burnExecutor)`: the original five external addresses,
+the burn executor and the two helpers,
 deployed first from the same commit and passed in as static addresses (README, "What was built, and where it deviates
 from the brief": with both helpers embedded the registry's init code exceeded EIP-3860). The launch pipeline allows
 only static address, uint, bool and bytes32 arguments, at most 16; "passive" means the constructor stores its
 arguments and may read views (it requires `curator.isSettled()`), but creates no contract, moves no funds and takes
-no external callback.
+no external callback. The burn executor is not called by the constructor. `burnExecutor_ == address(0)` is
+explicitly permitted and disables the burn rule, as used by the Sepolia rehearsal. All seven other addresses
+retain their zero-address checks. The registry has no setter for any dependency.
 The writer is not a constructor argument: the registry trusts the Intake as `msg.sender` of the callback and the
-attester as the signer, never the writer. **Store the seven addresses in ordinary storage, not `immutable`:** immutables
+attester as the signer, never the writer. **Store the eight addresses in ordinary storage, not `immutable`:** immutables
 are patched into the runtime code at deployment, and the launch check compares the deployed runtime code with a clean
 rebuild byte for byte. The same holds for the renderer (`bytes constant`, never an SSTORE2 pointer in an immutable)
 and for the EIP-712 domain (section 4: computed at verification time, never OpenZeppelin's `EIP712` base, which holds
@@ -290,6 +294,92 @@ and rejects unknown names.
   through `requestWithFailure` on a pool-funded path (`claimSponsored`, `upgradeSponsored`), and a claimant-paid
   request pulls and forwards in one transaction, so the balance after equals the balance before. Pool money is an
   irrevocable donation: nobody can withdraw it, and a remainder below `priceOf` stays until someone adds to it.
+
+## 5b. BurnExecutor V2 on sponsored claims
+
+`upgradeSponsored` and `claimSponsored` are the only payable registry entry points. All paid IMD paths remain
+non-payable. `IBurnExecutor` declares the three selectors the integration uses or exposes for quoting:
+
+```solidity
+function tokenBalance() external view returns (uint256);
+function previewBridge() external view
+    returns (uint256 amountToSend, uint256 minAmountToReceive, uint256 nativeFee);
+function bridgeToBaseBurnReceiver(uint256 requested, address refundTo) external payable;
+```
+
+The deployed bridge function also returns receipt structs; the registry intentionally ignores them. Its selector
+and argument encoding are unchanged by omitting return types from this narrow interface. `tokenBalance()` is a
+client-facing view of raw holdings. The registry bases the threshold on the **bridgeable amount from the whole
+balance preview**, which accounts for OFT limits and dust, not on raw `tokenBalance()`.
+
+All existing pool checks, allowance effects and the Intake request occur first. The registry then tries the
+preview with **200,000 gas**. It does not copy revert data into events. If the preview returns at least
+`BURN_MIN = 69 ether` (69 IMD, 18 decimals) and `nativeFee <= BURN_FEE_CAP = 0.005 ether`, it requires
+`msg.value >= nativeFee` or reverts `BurnFeeRequired(nativeFee)`. On that revert, the earlier Intake request,
+IMD payment and both pool allowance counters roll back too.
+
+With sufficient ETH the registry tries `bridgeToBaseBurnReceiver(amountToSend, msg.sender)`, forwarding **all
+`msg.value`** with **`BURN_GAS = 800_000` as the CALL gas argument**. Nonzero value adds the EVM's 2,300-gas stipend;
+EIP-150 may reduce forwarding if the outer transaction has insufficient gas. The executor quotes again, pays
+LayerZero, and force-sends surplus to `refundTo`. A successful registry call emits
+`BurnTriggered(claimant, amountToSend, nativeFee)`. Those fields are the registry's preview, not a promise that
+Base delivery has completed. Inspect the executor's `TokensBridgedForBurn` and the OFT receipt for actual send
+amounts and the LayerZero GUID.
+
+| outcome | event | native ETH handling | oracle request |
+|---|---|---|---|
+| executor unset | none | return all `msg.value` | pending |
+| preview reverts, including exhausted preview gas | `BurnSkipped(claimant, 1)` | return all `msg.value` | pending |
+| preview amount below 69 IMD (including zero) | none | return all `msg.value` | pending |
+| amount due, quote above 0.005 ETH | `BurnSkipped(claimant, 3)` | return all `msg.value` | pending |
+| amount due, quote within cap, attached ETH below quote | `BurnFeeRequired(nativeFee)` revert | entire transaction rolls back | not created |
+| bridge reverts, including exhausted call gas | `BurnSkipped(claimant, 2)` | return all `msg.value` | pending |
+| bridge succeeds | `BurnTriggered(claimant, amount, nativeFee)` | executor spends fee and force-refunds surplus; registry refunds nothing | pending |
+
+A **registry refund** is a plain `msg.sender.call{value: msg.value}("")`, performed only for a nonzero amount.
+Failure reverts `BurnRefundFailed()` and the whole transaction. A nonpayable contract therefore works with no
+value on a no-burn path and with an exact fee on a successful burn; executor surplus refunds are also
+unrejectable. It cannot reject a nonzero registry refund and still complete that claim. Both sponsored entry
+points retain `nonReentrant`, covering the bridge and refund interactions. The executor's refund helper may try
+a call before forcing the transfer, and the OFT/LayerZero dependencies may also call the claimant: no
+no-callback guarantee is made.
+
+The registry's native balance after an accepted free claim equals its balance before. It forwards or returns
+only this call's `msg.value`, never its full balance, and does not require an initially empty balance. ETH
+force-sent during execution is outside this accounting invariant. There is no `receive` or `fallback` and no ETH
+withdrawal mechanism; an unsolicited pre-existing balance is not swept.
+
+### Dependencies, deployment and operation
+
+The registry remains ownerless and non-upgradeable. Its eighth constructor argument is stored as
+`IBurnExecutor public burnExecutor`, without an immutable or setter. `Deploy.BURN_EXECUTOR` is the mainnet V2
+address above. `run()` passes zero on Sepolia (chain 11155111); the testable
+`deploy(curator, idmd, imd, intake, attester, burnExecutor)` also accepts an explicit zero for a rehearsal with
+operator-supplied dependencies. The constructor does not query or mutate the executor.
+
+**The external dependencies are owner-configurable.** The executor's owner can call `setBridgeConfig` to change
+the token, OFT, destination endpoint id, Base receiver and options; `setBaseBurnReceiver`, `setExtraOptions` and
+`setMinBridgeAmount` change individual settings. It can rescue tokens and ETH. The OFT owner/configuration
+authorities control peers and LayerZero configuration; the configured destination receiver is not fixed by
+this registry. A registry deployment does not confer ownership of any of these contracts. The operator must
+verify these settings and their owners before launch, then monitor configuration events, quotes, zero previews,
+skip rates, executor token balances, receipts and eventual Base burns. Do not infer current destination or
+ownership from a constant in the executor's source. There is no new token or executor deployment in this step.
+
+**Caps bound cost, not liveness.** At block **26,202,203**, hash
+`0x21d8ce848d55043d0539b2c88ca2c5dd6c0e9072137ae295a5906bc0cabae2bd`, the uncapped preview quotes
+`454939975000000000000` IMD units and `219261761563315` wei. With the registry's 200,000-gas cap the executor
+catches an internal OFT quote failure and returns zeros. That is a below-threshold skip without `BurnSkipped`,
+not proof that no IMD is waiting. The fork regression pins this behavior and proves the claim/refund completes.
+Separate fork assertions execute the real bridge and OFT with the 800,000 CALL gas argument, exact fees and
+surplus force-refunds to a nonpayable recipient. They do not mock or replace the executor, OFT or LayerZero code,
+and do not execute the asynchronous Base delivery. A failing executor never blocks a claim merely because the
+bridge failed: the registry skips it; the caller still must satisfy the fee and refund requirements above.
+The Base burn is asynchronous and depends on LayerZero delivery and the configured receiver.
+
+Verified executor source, ABI and provenance are in `reference/burn/` as reference data, not build dependencies.
+The source was retrieved from [Sourcify](https://sourcify.dev/server/v2/contract/1/0xe29386719C155B6847aD5a4E97C6674f10ffc750?fields=all)
+and its reported onchain runtime matched `eth_getCode`; this is not an independent security audit.
 
 ## 6. The Curator's views the registry reads (all `view`, all frozen since the Curator settled)
 

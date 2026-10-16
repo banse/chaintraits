@@ -194,12 +194,26 @@ contract ReReviewTest is Base {
         WritingCurator w = new WritingCurator();
         vm.expectRevert();
         new Registry(
-            address(w), address(idmd), address(imd), address(intake), attester, address(renderer), address(composer)
+            address(w),
+            address(idmd),
+            address(imd),
+            address(intake),
+            attester,
+            address(renderer),
+            address(composer),
+            address(0)
         );
         assertEq(w.reads(), 0, "a static call cannot change the Curator");
         // The settled mock at the real address deploys, and the registry is fully usable.
         Registry r = new Registry(
-            CURATOR_ADDR, address(idmd), address(imd), address(intake), attester, address(renderer), address(composer)
+            CURATOR_ADDR,
+            address(idmd),
+            address(imd),
+            address(intake),
+            attester,
+            address(renderer),
+            address(composer),
+            address(0)
         );
         assertEq(address(r.curator()), CURATOR_ADDR);
     }

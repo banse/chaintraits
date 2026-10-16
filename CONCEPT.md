@@ -107,6 +107,26 @@ request reverts `IdmdSponsorExhausted(tokenId)`. A transaction that reverts roll
 request consumes them even if the eventual callback fails or the request is abandoned. Paid `upgrade` and
 `requestSharedFact` neither consume nor check these limits.
 
+**Burn on a free claim.** Both pool entry points are payable. After the existing checks and oracle request,
+`previewBridge()` reads BurnExecutor V2's whole bridgeable balance with a 200,000-gas cap. At least 69 IMD and a
+quote at most 0.005 ETH requires the caller to attach the quote (`BurnFeeRequired(nativeFee)` otherwise). The
+registry calls `bridgeToBaseBurnReceiver(amount, msg.sender)` with all attached ETH and an 800,000 CALL gas
+argument (2,300 stipend on top for nonzero value). The executor pays the fee and force-refunds the surplus. This
+uses IMD already held by the executor, not an extra charge against the pool or claimant.
+
+Reverting preview (skip code 1), reverting bridge (2), quote above cap (3), amount below 69 IMD, or an unset
+executor all let the oracle request proceed. The registry returns `msg.value` on a skip, with a plain call only
+for a nonzero amount and with success required; it never returns it a second time after executor success.
+Insufficient fee or a rejected nonzero registry refund rolls the transaction back. A nonpayable contract claimant
+can therefore send nothing when no burn is due or the exact fee when it is, and can receive a forced surplus
+refund from a successful executor. Its rejection of a registry refund still reverts its own claim.
+
+The caps bound cost, not liveness: the deployed executor can return zero when its internal quote fails (as the
+200,000-gas pinned mainnet test demonstrates), and an executor/bridge revert does not block the oracle request.
+`BurnTriggered` records a bridge submission; the Base burn is asynchronous. The registry's executor address is
+fixed, but the executor, OFT and destination configuration remain dependencies controlled by their respective
+owners; those dependencies may call the claimant. `INTEGRATION.md` section 5b describes operation and monitoring.
+
 Community specs, panel traits and shared facts are never paid by the pool; a claimant pays for those. **This is the
 economic policy, stated:** the pool is an irrevocable donation that any member may draw once per catalog trait for
 themselves. Draining it needs member wallets and mainnet gas for every 0.5 IMD burnt (at most nine requests per
@@ -142,14 +162,14 @@ in the registry can withdraw or migrate pool money; a successor contract starts 
 
 ## 6. Contracts
 
-Three contracts: `Registry`, `Renderer` and `Composer`; the registry's constructor takes seven arguments.
+Three contracts: `Registry`, `Renderer` and `Composer`; the registry's constructor takes eight arguments.
 
 | contract | role | constructor |
 |---|---|---|
-| `Registry` (`ERC721("Sworn", "SWORN")`) | ERC-721 + IERC4906; catalog table; `mintCard`, `upgrade`, `hasTrait`; Intake consumer (`onResult`, `onFailure`); specs; shared facts; sponsor pool | seven static addresses `(curator, idmd, imd, intake, attester, renderer, composer)` stored in storage (no `immutable`); the renderer and the composer are deployed first and passed in as static addresses (the registry creates no contract: with both helpers embedded its init code exceeded EIP-3860, see README "What was built, and where it deviates from the brief"); records `deployedAt = block.timestamp`; requires the passive views `curator.isSettled()` to be true and `intake.priceOf(ACTION, imd)` to be nonzero |
+| `Registry` (`ERC721("Sworn", "SWORN")`) | ERC-721 + IERC4906; catalog table; `mintCard`, `upgrade`, `hasTrait`; Intake consumer (`onResult`, `onFailure`); specs; shared facts; sponsor pool | eight static addresses `(curator, idmd, imd, intake, attester, renderer, composer, burnExecutor)` stored in storage (no `immutable`); the renderer and the composer are deployed first and passed in as static addresses (the registry creates no contract: with both helpers embedded its init code exceeded EIP-3860, see README "What was built, and where it deviates from the brief"); records `deployedAt = block.timestamp`; zero `burnExecutor` disables the rule for the Sepolia rehearsal and is exempt from the zero-address check; requires the passive views `curator.isSettled()` to be true and `intake.priceOf(ACTION, imd)` to be nonzero |
 | `Renderer` | template `bytes constant` + offsets as constants + splice + Base64 | none |
 | `Composer` | the five templates, body and canonical-document serialisers, catalog specs, spec guards, name table, catalog enumeration and direct-read predicates; views only, never called inside `onResult` | none |
-| interfaces | `IWhitelistCurator` (in `src/interfaces/`), `IIntake` (v2: `requestWithFailure`), `IOracleConsumer` (`onResult`, `onFailure`) | |
+| interfaces | `IWhitelistCurator` (in `src/interfaces/`), `IIntake` (v2: `requestWithFailure`), `IOracleConsumer` (`onResult`, `onFailure`), `IBurnExecutor` (`tokenBalance`, `previewBridge`, `bridgeToBaseBurnReceiver`) | |
 
 Ownerless, no upgrade, no pause, no fee switch, no `receive`, no `fallback`, no `immutable`, no `tx.origin`. Solidity
 0.8.24, Foundry, OpenZeppelin from `lib/` (ERC721, ECDSA.tryRecover, MessageHashUtils, ReentrancyGuard; **not** the
@@ -198,6 +218,11 @@ section 4). `hasTrait(wallet, unknownId)` returns false, never reverts; `hasTrai
 10. Curator-derived direct-read traits (families 1 to 5) for a non-member are all false (`firstHourOf` returns
     `(0, false)`): a non-member never renders as an hour-0 Zero-Shot. 601 is independent of membership.
 11. Any address can call `hasTrait` and `tokenURI` for any wallet; no function depends on `tx.origin`.
+
+12. After each accepted free claim the registry's ETH balance equals its balance before. Only `msg.value` can be
+    forwarded or refunded; pre-existing ETH is not a precondition and cannot be spent. Unsolicited ETH during a
+    call is outside this invariant. Failed bridge attempts preserve the oracle request and return all attached
+    ETH if the caller accepts the refund; successful attempts leave refunds to the executor.
 
 Harness discipline (not a product invariant): invariant handlers guard expected reverts (a second `mintCard`, a
 duplicate pending pair), because `fail_on_revert = true` is kept.

@@ -13,6 +13,7 @@ import {MessageHashUtils} from "@openzeppelin/contracts/utils/cryptography/Messa
 import {IWhitelistCurator} from "./interfaces/IWhitelistCurator.sol";
 import {IIDMD} from "./interfaces/IIDMD.sol";
 import {IIntake} from "./interfaces/IIntake.sol";
+import {IBurnExecutor} from "./interfaces/IBurnExecutor.sol";
 import {IOracleConsumer, OracleAttestation} from "./interfaces/IOracleConsumer.sol";
 import {Spec, OracleMeta, Card} from "./Types.sol";
 import {Composer} from "./Composer.sol";
@@ -24,7 +25,7 @@ import {Renderer} from "./Renderer.sol";
 ///         IDMD `balanceOf`; oracle traits are stored per (claimant, traitId) after an attestation
 ///         signed by the IMD oracle passes every check of INTEGRATION.md section 4 inside `onResult`.
 /// @dev    No owner, pause, upgrade, fee switch, `receive`, `fallback`, `immutable` or `tx.origin`.
-///         The five external addresses are ordinary storage so a clean rebuild equals the deployed
+///         All eight dependency addresses are ordinary storage so a clean rebuild equals the deployed
 ///         runtime code byte for byte (`bytecode_hash = "none"`). The constructor passively checks that
 ///         the Curator is settled and the Intake quotes a nonzero IMD price for the oracle action.
 contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
@@ -58,6 +59,9 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     bytes32 public constant ACTION = bytes32("oracle.request@oracle-1");
     uint256 public constant MINT_FEE = 0.1 ether;
     uint256 public constant SPEC_FEE = 6.4 ether;
+    uint256 public constant BURN_MIN = 69 ether;
+    uint256 public constant BURN_FEE_CAP = 0.005 ether;
+    uint256 internal constant BURN_GAS = 800_000;
     uint256 internal constant ABANDON_AFTER = 14 days;
     uint256 internal constant MAX_SPONSORED = 9;
     uint256 internal constant MAX_COMMUNITY_IN_METADATA = 32;
@@ -110,6 +114,7 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     mapping(address => mapping(uint16 => bool)) public poolUsed;
     mapping(uint256 => uint8) public idmdSponsored;
     mapping(address => uint64) public lastPoolDay;
+    IBurnExecutor public burnExecutor;
 
     // ------------------------------------------------------------------ events
 
@@ -123,6 +128,8 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     event SharedFactStored(uint16 indexed factId, bytes32 requestId, uint16 length);
     event Sponsored(address indexed from, uint256 amount);
     event PoolSpent(address indexed claimant, uint16 indexed traitId, bytes32 requestId);
+    event BurnTriggered(address indexed claimant, uint256 amount, uint256 nativeFee);
+    event BurnSkipped(address indexed claimant, uint8 code);
 
     // ------------------------------------------------------------------ errors
 
@@ -150,6 +157,8 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     error NotIdmdHolder(uint256 idmdTokenId);
     error NotMember(address wallet);
     error NoCard(uint256 tokenId);
+    error BurnFeeRequired(uint256 nativeFee);
+    error BurnRefundFailed();
 
     // ------------------------------------------------------------------ constructor
 
@@ -160,6 +169,7 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     /// @param attester_ oracle attester 0x5598aa9146215bc13eb26f2c692ad1461fd32982
     /// @param renderer_ the `Renderer` (no constructor arguments, no storage), deployed first
     /// @param composer_ the `Composer` (no constructor arguments, no storage), deployed first
+    /// @param burnExecutor_ IMD BurnExecutor V2; zero disables the burn rule (Sepolia rehearsal)
     /// @dev The renderer and the composer are taken as addresses, not deployed here: with both creation
     ///      codes embedded, the registry's init code exceeded EIP-3860's 49,152 bytes. Three deployments
     ///      (renderer, composer, registry) use static arguments stored in ordinary storage. The only
@@ -171,7 +181,8 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
         address intake_,
         address attester_,
         address renderer_,
-        address composer_
+        address composer_,
+        address burnExecutor_
     ) ERC721("Sworn", "SWORN") {
         if (
             curator_ == address(0) || idmd_ == address(0) || imd_ == address(0) || intake_ == address(0)
@@ -186,6 +197,7 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
         attester = attester_;
         renderer = Renderer(renderer_);
         composer = Composer(composer_);
+        burnExecutor = IBurnExecutor(burnExecutor_);
         deployedAt = uint64(block.timestamp);
         nextSpecId = FIRST_SPEC_ID;
     }
@@ -661,33 +673,33 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
 
     /// @notice An IDMD holder who is a Curator member draws one catalog chain request for their own
     ///         wallet per UTC day across both pool paths; at most nine requests per IDMD token ever.
-    function upgradeSponsored(uint256 idmdTokenId, uint16[] calldata traitIds) external nonReentrant {
+    function upgradeSponsored(uint256 idmdTokenId, uint16[] calldata traitIds) external payable nonReentrant {
         uint256 k = traitIds.length;
         if (k == 0) revert NoTraits();
         if (k != 1) revert TooManyTraits();
         if (idmdSponsored[idmdTokenId] >= MAX_SPONSORED) revert IdmdSponsorExhausted(idmdTokenId);
         if (idmd.ownerOf(idmdTokenId) != msg.sender) revert NotIdmdHolder(idmdTokenId);
-        (, bool joined) = curator.firstHourOf(msg.sender);
-        if (!joined) revert NotMember(msg.sender);
+        _requireMember();
         idmdSponsored[idmdTokenId]++;
-        uint256 price = intake.priceOf(ACTION, address(imd));
-        uint256 balance = pool();
-        if (balance < price) revert PoolTooSmall(balance, price);
-        _fromPool(traitIds[0], price);
+        _fromPool(traitIds[0]);
     }
 
     /// @notice From launch, any Curator member draws one catalog chain request for their own wallet
     ///         per UTC day across both pool paths, once per (wallet, traitId) ever.
-    function claimSponsored(uint16 traitId) external nonReentrant {
+    function claimSponsored(uint16 traitId) external payable nonReentrant {
+        _requireMember();
+        _fromPool(traitId);
+    }
+
+    function _requireMember() internal view {
         (, bool joined) = curator.firstHourOf(msg.sender);
         if (!joined) revert NotMember(msg.sender);
+    }
+
+    function _fromPool(uint16 traitId) internal {
         uint256 price = intake.priceOf(ACTION, address(imd));
         uint256 balance = pool();
         if (balance < price) revert PoolTooSmall(balance, price);
-        _fromPool(traitId, price);
-    }
-
-    function _fromPool(uint16 traitId, uint256 price) internal {
         if (!_isCatalogChain(traitId)) revert NotACatalogChainTrait(traitId);
         if (poolUsed[msg.sender][traitId]) revert PoolAlreadyUsed(msg.sender, traitId);
         uint64 day = uint64(block.timestamp / 1 days);
@@ -695,6 +707,36 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
         lastPoolDay[msg.sender] = day;
         poolUsed[msg.sender][traitId] = true;
         bytes32 requestId = _request(msg.sender, traitId, price);
+        _burnOrRefund();
         emit PoolSpent(msg.sender, traitId, requestId);
+    }
+
+    /// @dev Best effort after the oracle request. A successful executor force-refunds the claimant;
+    ///      otherwise only this call's msg.value is returned, never a pre-existing ETH balance.
+    function _burnOrRefund() internal {
+        if (address(burnExecutor) != address(0)) {
+            try burnExecutor.previewBridge{gas: 200_000}() returns (uint256 amount, uint256, uint256 fee) {
+                if (amount >= BURN_MIN) {
+                    if (fee > BURN_FEE_CAP) {
+                        emit BurnSkipped(msg.sender, 3);
+                    } else {
+                        if (msg.value < fee) revert BurnFeeRequired(fee);
+                        // BURN_GAS is the CALL argument; nonzero value adds the EVM's 2,300 stipend.
+                        try burnExecutor.bridgeToBaseBurnReceiver{value: msg.value, gas: BURN_GAS}(amount, msg.sender) {
+                            emit BurnTriggered(msg.sender, amount, fee);
+                            return;
+                        } catch {
+                            emit BurnSkipped(msg.sender, 2);
+                        }
+                    }
+                }
+            } catch {
+                emit BurnSkipped(msg.sender, 1);
+            }
+        }
+        if (msg.value != 0) {
+            (bool refunded,) = msg.sender.call{value: msg.value}("");
+            if (!refunded) revert BurnRefundFailed();
+        }
     }
 }

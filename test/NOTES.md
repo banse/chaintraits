@@ -1,3 +1,81 @@
+# Step 3: sponsored-claim burn rule (2026-10-16)
+
+Only the burn-rule assignment is implemented here. Registry adds the eighth ordinary-storage constructor
+argument, the two constants/getters, payable sponsored entry points, bounded preview/bridge calls, burn events
+and native refunds. The original pool-check order is preserved by sharing the member check and moving the
+shared price/balance check into `_fromPool`. Paid paths have no behavior change. All existing test deployments
+pass an explicit zero executor unless exercising this rule. Deploy uses the specified mainnet executor and zero
+for Sepolia. No contract was deployed and no live transaction was sent.
+
+## Size and ABI evidence
+
+Measured using the unchanged foundry.toml: solc 0.8.24, optimizer 200, no via-IR, Cancun, no CBOR metadata.
+
+| build | Registry runtime bytes | EIP-170 headroom |
+|---|---:|---:|
+| accepted step-2 baseline | 23,364 | 1,212 |
+| step 3 after local pool factoring | 24,495 | 81 |
+| final local validation after test/documentation corrections | 24,495 | 81 |
+
+The naive duplicated-pool implementation exceeded the limit; factoring the existing checks restored room without
+removing behavior or introducing a deployed helper. The later independent review step must remeasure after its
+own corrections using these same settings. Composer (23,377 bytes) and Renderer (11,712) have identical creation
+and runtime bytes to the starting tree. All three artifacts have empty immutableReferences. ABI comparison retains
+every original entry except the requested constructor extension and the two sponsored mutability changes; new
+entries are `burnExecutor`, `BURN_MIN`, `BURN_FEE_CAP`, `BurnTriggered`, `BurnSkipped`, `BurnFeeRequired` and
+`BurnRefundFailed`. No build configuration, dependency, catalog, composer, renderer, card struct or generated
+metadata fixture changed.
+
+## Coverage and operational limits
+
+`BurnRule.t.sol` covers both pool paths with below-threshold/disabled refunds, threshold and cap boundaries,
+no/insufficient/exact/excess native fees, full-value forwarding, executor forced refunds, preview/bridge reverts,
+out-of-gas and large revert data, failure event codes, pending-request preservation, rollback of Intake payment
+and all allowances, bounded gas including the value stipend, nonpayable claimants, rejected plain refunds,
+executor/refund reentrancy, and unchanged paid non-payability. A mock checks that pending/allowance effects exist
+before preview. Existing Registry-rules tests continue to pin eligibility and counter ordering.
+
+`BurnInvariant.t.sol` runs 256 campaigns of depth 64 with fail_on_revert enabled. Each randomized call checks
+native balance before/after, exact fees paid, claimant refunds, pool/Intake conservation and rollback of rejected
+claims. The registry begins with ETH already present: it is neither a precondition nor available for refunds.
+Unsolicited ETH during the call is outside the stated invariant. The mock's test-only force-refund helper uses
+selfdestruct during its creation transaction; the compiler's deprecation warning applies to that helper, not
+Registry runtime.
+
+`BurnRule.fork.t.sol` runs against mainnet block **26,202,203**, block hash
+`0x21d8ce848d55043d0539b2c88ca2c5dd6c0e9072137ae295a5906bc0cabae2bd` (chain, number and parent checked by the test).
+It executes the deployed executor, IMD OFT, Intake and LayerZero code. The uncapped executor quote is
+454939975000000000000 token units and 219261761563315 wei. Its preview under **200,000 gas returns zeros** after
+catching an internal OFT quote failure, even though tokens are waiting. The regression explicitly asserts that a
+sponsored claim skips, refunds attached ETH, and keeps its oracle request pending. A nonpayable claimant with no
+value also succeeds (only its membership is mocked). Separate direct executor calls use the **800,000 CALL gas
+argument** and prove real OFT sends, exact-fee success, forced surplus refunds to a nonpayable recipient, no native
+retention, zero allowance after send, and only shared-decimal token dust left. These tests do not assert a
+successful sponsored bridge at that snapshot or prove asynchronous Base delivery. Caps bound cost, not liveness.
+
+The verified executor source and ABI are pinned as non-build reference files in `reference/burn/`, with provenance
+and source hash. The Sourcify reported onchain runtime was compared to RPC eth_getCode. No new dependency is
+required by the build. README, CONCEPT, INTEGRATION and DISCLOSURE distinguish the fixed ownerless Registry from
+the external executor/OFT/destination configuration authorities, and document fee/refund failure conditions and
+asynchronous Base burns. This is local implementation validation, not the separate independent review in step 6.
+
+## Commands
+
+```sh
+forge build --sizes
+FOUNDRY_FUZZ_SEED=0xbd9dd51f488abc7266bb0e9bbdb8f77e5594905fe92f55e8fb0a4983dd2701a6 forge test
+forge fmt --check
+forge test --match-contract BurnRuleForkTest --fork-url https://ethereum-rpc.publicnode.com --fork-block-number 26202203 -vv
+```
+
+Final validation: `forge build --sizes`, `forge fmt --check` and the diff whitespace check passed. The full suite
+with the supplied seed passed **145 tests, 0 failures, 15 opt-in fork skips**. The four new pinned fork tests
+passed separately. The default suite requires no network; those tests skip without an active
+CLI fork, and read no environment variables. Existing MainnetForkTest remains opt-in via its prior RPC setting.
+Slither and Mythril were not run. Nothing here changes the separate review step's obligations.
+
+---
+
 # Test notes: tests and docs follow-up (i) to (q)
 
 Continues the review follow-up below (contract changes (a) to (h)). This step changes tests and documents only:

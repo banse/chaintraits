@@ -744,7 +744,8 @@ contract RegistryTest is Base {
             address(evilIntake),
             attester,
             address(renderer),
-            address(composer)
+            address(composer),
+            address(0)
         );
         evil.mint(alice, 1 ether);
         vm.prank(alice);

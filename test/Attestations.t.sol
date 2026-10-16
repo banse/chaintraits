@@ -81,7 +81,8 @@ contract AttestationsTest is Test {
                 address(new MockIntake(address(0xC2))),
                 ATTESTER,
                 address(renderer),
-                address(composer)
+                address(composer),
+                address(0)
             ),
             where
         );

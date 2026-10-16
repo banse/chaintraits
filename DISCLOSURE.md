@@ -20,3 +20,22 @@
   6.9 IMD, excluding gas. Construction checks the Curator's settlement and the Intake's nonzero action/IMD quote
   by passive view reads. The deployer must verify the configured addresses and helper code; these checks do not
   guarantee future Intake availability or prices, and the Registry has no administrator to repair dependencies.
+
+- Free claims also attempt the IMD burn rule through BurnExecutor V2
+  (`0xe29386719C155B6847aD5a4E97C6674f10ffc750`), using its own waiting IMD. At least 69 IMD and a quote no greater
+  than 0.005 ETH requires the claimant to provide the native fee. The executor pays LayerZero and force-refunds
+  surplus; paid upgrades are unchanged. A failing executor never blocks a claim solely because a preview or
+  bridge reverted: the registry skips it and returns attached ETH. Insufficient fee and a claimant rejecting a
+  nonzero registry refund still revert the claimant's transaction, including its oracle request and allowances.
+- The 200,000 preview cap and 800,000 CALL gas argument (plus value stipend) bound cost, not burn liveness. At the
+  pinned mainnet block 26,202,203 the executor catches an internal quote failure under the preview cap and returns
+  zero, so the registry skips despite IMD waiting. The tests record that outcome and separately exercise the real
+  executor/OFT exact-fee and forced-surplus paths. There is no guarantee that every free claim burns tokens.
+- The registry's eighth argument is fixed ordinary storage; zero disables the burn rule for Sepolia. The
+  executor's owner can change its token, OFT, destination, options and minimum, and can rescue funds. The OFT and
+  LayerZero have configuration authorities too. These are owner-configurable external dependencies, not registry
+  administration. They may call the claimant; the registry retains its reentrancy guard and makes no promise
+  that all dependency callbacks are impossible.
+- A successful `BurnTriggered` records an Ethereum bridge submission. **The Base burn is asynchronous** and still
+  depends on message delivery and the configured receiver. Operators must monitor dependency configuration and
+  eventual delivery/burns. The fork tests exercise the source-chain send and refunds, not Base execution.

@@ -23,7 +23,9 @@ contract RegistryRulesTest is Base {
     address internal bob = address(0xB0B);
 
     function _deploy(address asset, address intake_) internal returns (Registry) {
-        return new Registry(CURATOR_ADDR, address(idmd), asset, intake_, attester, address(renderer), address(composer));
+        return new Registry(
+            CURATOR_ADDR, address(idmd), asset, intake_, attester, address(renderer), address(composer), address(0)
+        );
     }
 
     function _member(address wallet) internal {

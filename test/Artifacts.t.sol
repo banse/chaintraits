@@ -38,7 +38,8 @@ contract ArtifactsTest is Test {
             address(new MockIntake(address(3))),
             address(5),
             address(r1),
-            address(c1)
+            address(c1),
+            address(0)
         );
         Registry b = new Registry(
             address(new MockCurator()),
@@ -47,7 +48,8 @@ contract ArtifactsTest is Test {
             address(new MockIntake(address(8))),
             address(10),
             address(r2),
-            address(c2)
+            address(c2),
+            address(0)
         );
         assertEq(address(a).code, address(b).code, "registry runtime differs");
         assertEq(address(r1).code, address(r2).code, "renderer runtime differs");
@@ -62,14 +64,15 @@ contract ArtifactsTest is Test {
         Renderer r = new Renderer();
         Composer c = new Composer();
         vm.expectRevert(Registry.ZeroAddress.selector);
-        new Registry(address(0), address(2), address(3), address(4), address(5), address(r), address(c));
+        new Registry(address(0), address(2), address(3), address(4), address(5), address(r), address(c), address(0));
         vm.expectRevert(Registry.ZeroAddress.selector);
-        new Registry(address(1), address(2), address(3), address(4), address(5), address(0), address(c));
+        new Registry(address(1), address(2), address(3), address(4), address(5), address(0), address(c), address(0));
         vm.warp(1_791_700_000);
         MockCurator curator = new MockCurator();
         MockIntake intake = new MockIntake(address(3));
-        Registry reg =
-            new Registry(address(curator), address(2), address(3), address(intake), address(5), address(r), address(c));
+        Registry reg = new Registry(
+            address(curator), address(2), address(3), address(intake), address(5), address(r), address(c), address(0)
+        );
         assertEq(address(reg.curator()), address(curator));
         assertEq(address(reg.idmd()), address(2));
         assertEq(address(reg.imd()), address(3));
@@ -77,6 +80,7 @@ contract ArtifactsTest is Test {
         assertEq(reg.attester(), address(5));
         assertEq(address(reg.renderer()), address(r));
         assertEq(address(reg.composer()), address(c));
+        assertEq(address(reg.burnExecutor()), address(0), "zero explicitly disables the burn rule");
         assertEq(reg.deployedAt(), 1_791_700_000);
         assertEq(reg.nextSpecId(), 10001);
         assertEq(reg.ACTION(), 0x6f7261636c652e72657175657374406f7261636c652d31000000000000000000);
@@ -89,14 +93,25 @@ contract ArtifactsTest is Test {
         bytes memory settlementRead = abi.encodeCall(IWhitelistCurator.isSettled, ());
         vm.mockCall(address(curator), settlementRead, abi.encode(false));
         vm.expectRevert("Curator not settled");
-        new Registry(address(curator), address(2), address(3), address(4), address(5), address(r), address(c));
+        new Registry(
+            address(curator), address(2), address(3), address(4), address(5), address(r), address(c), address(0)
+        );
         vm.mockCallRevert(address(curator), settlementRead, "unavailable");
         vm.expectRevert(bytes("unavailable"));
-        new Registry(address(curator), address(2), address(3), address(4), address(5), address(r), address(c));
+        new Registry(
+            address(curator), address(2), address(3), address(4), address(5), address(r), address(c), address(0)
+        );
         vm.clearMockedCalls();
         vm.expectRevert();
         new Registry(
-            makeAddr("no curator code"), address(2), address(3), address(4), address(5), address(r), address(c)
+            makeAddr("no curator code"),
+            address(2),
+            address(3),
+            address(4),
+            address(5),
+            address(r),
+            address(c),
+            address(0)
         );
     }
 
@@ -107,13 +122,25 @@ contract ArtifactsTest is Test {
         assertEq(d.IMD(), 0xD34a99Bc0f67aE1bbd63C660e6d0b0dd03E263B7);
         assertEq(d.INTAKE_V2(), 0xa43e6F75ee006411F79Ac1C84120606C2330DE82);
         assertEq(d.ATTESTER(), 0x5598Aa9146215Bc13eb26f2c692Ad1461Fd32982);
+        assertEq(d.BURN_EXECUTOR(), 0xe29386719C155B6847aD5a4E97C6674f10ffc750);
         deployCodeTo("Mocks.sol:MockCurator", d.CURATOR());
         deployCodeTo("Mocks.sol:MockIntake", abi.encode(d.IMD()), d.INTAKE_V2());
-        Registry reg = d.deploy(d.CURATOR(), d.IDMD(), d.IMD(), d.INTAKE_V2(), d.ATTESTER());
+        Registry reg = d.deploy(d.CURATOR(), d.IDMD(), d.IMD(), d.INTAKE_V2(), d.ATTESTER(), d.BURN_EXECUTOR());
         assertEq(address(reg.curator()), d.CURATOR());
         assertEq(reg.attester(), d.ATTESTER());
+        assertEq(address(reg.burnExecutor()), d.BURN_EXECUTOR());
         assertTrue(address(reg.renderer()).code.length > 0);
         assertTrue(address(reg.composer()).code.length > 0);
+    }
+
+    function test_sepoliaRehearsalPassesZeroBurnExecutor() public {
+        vm.chainId(11155111);
+        Deploy d = new Deploy();
+        MockCurator curator = new MockCurator();
+        MockIntake intake = new MockIntake(d.IMD());
+        Registry reg = d.deploy(address(curator), d.IDMD(), d.IMD(), address(intake), d.ATTESTER(), address(0));
+        assertEq(address(reg.burnExecutor()), address(0));
+        assertEq(address(reg).code, vm.getDeployedCode("Registry.sol:Registry"));
     }
 
     function test_noForbiddenOpcodesInRuntime() public {
@@ -126,7 +153,8 @@ contract ArtifactsTest is Test {
             address(new MockIntake(address(3))),
             address(5),
             address(r),
-            address(c)
+            address(c),
+            address(0)
         );
         address[3] memory targets = [address(reg), address(r), address(c)];
         for (uint256 t; t < 3; ++t) {

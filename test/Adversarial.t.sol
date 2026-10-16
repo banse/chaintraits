@@ -743,7 +743,8 @@ contract AdversarialTest is Base {
             address(evilIntake),
             attester,
             address(renderer),
-            address(composer)
+            address(composer),
+            address(0)
         );
         evil.mint(alice, 100 ether);
         vm.prank(alice);

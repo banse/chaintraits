@@ -54,7 +54,8 @@ abstract contract Base is Test {
                 address(intake),
                 attester,
                 address(renderer),
-                address(composer)
+                address(composer),
+                address(0)
             ),
             REGISTRY_ADDR
         );

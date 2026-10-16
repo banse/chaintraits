@@ -18,7 +18,7 @@ last sentence of `INTEGRATION.md` check 7 (the golden test hashes the canonical 
 
 ## Read in this order
 
-1. `CONCEPT.md`: what it is, the card model, flows, rendering, the contracts and the eleven invariants.
+1. `CONCEPT.md`: what it is, the card model, flows, rendering, the contracts and the invariants.
 2. `CATALOG.md`: the frozen v1 catalog: 25 trait slots, ids, rules, canonical block windows, populations, the
    callback acceptance rule per class, spec registration, the pool rules, the name table.
 3. `TEMPLATES.md`: the five question templates and the request body; `templates/fixtures/` holds the exact bodies,
@@ -70,13 +70,16 @@ function sharedFact(uint16 factId) external view returns (bytes32 requestId, byt
 
 // sponsor pool (CONCEPT 4; catalog chain traits only)
 function sponsor(uint256 amount) external;
-function upgradeSponsored(uint256 idmdTokenId, uint16[] calldata traitIds) external; // IDMD holder AND list member, exactly one id, nine per token ever
-function claimSponsored(uint16 traitId) external;                                   // list member, own wallet, from launch
+function upgradeSponsored(uint256 idmdTokenId, uint16[] calldata traitIds) external payable; // IDMD holder AND list member, exactly one id, nine per token ever
+function claimSponsored(uint16 traitId) external payable;                                   // list member, own wallet, from launch
 function poolUsed(address claimant, uint16 traitId) external view returns (bool);
 function lastPoolDay(address wallet) external view returns (uint64);                 // UTC day of last pool request; shared across both paths
 function idmdSponsored(uint256 idmdTokenId) external view returns (uint8);           // successful pool requests, 0..9, follows the IDMD token
 function deployedAt() external view returns (uint64);
 function pool() external view returns (uint256);                                     // = IMD.balanceOf(this)
+function burnExecutor() external view returns (IBurnExecutor);                       // fixed at construction; zero disables
+function BURN_MIN() external view returns (uint256);                                 // 69 ether (IMD, 18 decimals)
+function BURN_FEE_CAP() external view returns (uint256);                             // 0.005 ether (native ETH)
 
 // catalog
 function traitName(uint16 traitId) external view returns (string memory);
@@ -90,7 +93,8 @@ traitId, bytes32 requestId, bytes32 oracleRequestId)`, `Missed(bytes32 requestId
 `Abandoned(bytes32 requestId)`, `SpecRegistered(uint16 indexed traitId, address indexed registrant)`,
 `SharedFactStored(uint16 indexed factId, bytes32 requestId, uint16 length)`, `Sponsored(address indexed from, uint256
 amount)`, `PoolSpent(address indexed claimant, uint16 indexed traitId, bytes32 requestId)`, and ERC-4906
-`MetadataUpdate`.
+`MetadataUpdate`. The burn rule adds `BurnTriggered(address indexed claimant, uint256 amount, uint256 nativeFee)`
+and `BurnSkipped(address indexed claimant, uint8 code)` (1 preview reverted, 2 bridge reverted, 3 quote over cap).
 
 Both pool paths share **one catalog chain request per wallet per UTC day** (`block.timestamp / 1 days`), from
 launch with no 30-day wait. `poolUsed` limits each `(wallet, traitId)` to one request ever, so the nine eligible
@@ -106,13 +110,49 @@ Function and event names in this summary are the working names of the interface 
 (only display strings did). Types, arities and the behaviour described in `CONCEPT.md` are the
 contract; a builder who finds a reason to change one writes it in the submission's notes rather than silently.
 
+## Free claims and the burn rule
+
+Both sponsored entry points are payable. They still buy one oracle request with pool IMD, then attempt to bridge
+IMD already held by BurnExecutor V2 at `0xe29386719C155B6847aD5a4E97C6674f10ffc750` to its configured Base burn
+receiver. The claimant supplies only the native LayerZero fee; the registry does not transfer pool IMD to the
+executor. Paid upgrades and shared-fact requests remain non-payable and do not run this rule.
+
+After all eligibility checks and the oracle request, the registry calls `previewBridge()` with 200,000 gas. If the
+quoted amount is at least **69 IMD** and the native fee is at most **0.005 ETH**, the caller must attach at least
+that fee or the whole transaction reverts `BurnFeeRequired(nativeFee)` (all pool allowances and the oracle request
+roll back). The registry forwards **all `msg.value`** to `bridgeToBaseBurnReceiver(amount, msg.sender)` with a
+CALL gas argument of **800,000**, plus the EVM's 2,300 stipend for nonzero value. On success the executor pays the
+fee and force-refunds surplus directly to the claimant; the registry refunds nothing.
+
+A reverting preview skips with code 1; a reverting bridge skips with code 2 and leaves the oracle request pending;
+a quote over the cap skips with code 3. Below-threshold and disabled-executor skips emit no burn event. On every
+skip the registry returns all attached ETH by a plain call, only when nonzero, and requires success. Thus a
+nonpayable contract can claim with no ETH when no fee is due, or with the exact fee (and even surplus) when the
+executor succeeds, but cannot reject a nonzero registry refund. `BurnRefundFailed()` rolls back such a transaction.
+The registry's ETH balance after each accepted free claim equals its balance before; pre-existing ETH is neither
+a precondition nor spent. There is still no `receive` or `fallback`.
+
+**Caps bound cost, not liveness.** At pinned mainnet block **26,202,203**, the real executor's uncapped preview
+quotes a burn, but its quote under 200,000 gas catches an OFT failure and returns `(0,0,0)`. The sponsored claim then
+succeeds without bridging and refunds attached ETH. The fork tests pin this behavior and separately exercise the
+real executor/OFT bridge with the 800,000-gas argument, exact fees and forced surplus refunds to a nonpayable
+recipient. A successful Ethereum bridge submission is not proof of the later, asynchronous Base burn.
+
+The registry has no administrator; `burnExecutor` is its eighth constructor argument, fixed in ordinary storage.
+The **executor's owner** can change its token, OFT, destination, options and minimum batch, and rescue funds; the
+OFT and LayerZero have their own configuration authorities. Integrators must monitor those dependencies and
+message delivery. Neither the registry nor these tests promise that executor dependencies cannot call the
+claimant. See `INTEGRATION.md` section 5b and `DISCLOSURE.md`.
+
 ## Build
 
 ```sh
 git clone --recursive <this repository>
 forge build
 forge test                       # hermetic: no RPC, no ffi
+forge fmt --check
 CHAINTRAITS_FORK_RPC=<mainnet archive RPC URL> forge test --match-path 'test/fork/*'   # the fork tests, block 26,170,000
+forge test --match-contract BurnRuleForkTest --fork-url <mainnet archive RPC URL> --fork-block-number 26202203
 python3 tools/gen_template.py --check    # the template blob, offsets and goldens are byte-exact
 ```
 
@@ -124,7 +164,9 @@ IDMD, IMD and Intake v2, with the registry deployed on top and a request complet
 real stipend). Run them by setting `CHAINTRAITS_FORK_RPC` to an Ethereum mainnet RPC URL that serves that block
 (archive state), for example `CHAINTRAITS_FORK_RPC=https://ethereum-rpc.publicnode.com forge test --match-path
 'test/fork/*' -vv`. They only read the variable; without it they skip, so plain `forge test` stays hermetic and needs
-no network.
+no network. The new `test/fork/BurnRule.fork.t.sol` uses the CLI fork arguments above, reads no environment
+variables, checks the chain/block/parent hash, and skips when there is no active fork. Run it separately from the
+older fork suite because the block pins differ. Burn unit/fuzz and stateful invariant tests run without a network.
 
 `foundry.toml` pins solc 0.8.24, `bytecode_hash = "none"` and `cbor_metadata = false`: a clean rebuild of a commit
 is byte-identical, which is how the deployed runtime code is checked against the reviewed source after launch. That
@@ -135,7 +177,7 @@ at `cab19933` (both as in the record NFT this mirrors).
 
 ## What the builder delivers
 
-- `src/Registry.sol` (working name), `src/Renderer.sol`, `src/interfaces/{IIntake,IOracleConsumer}.sol`, the
+- `src/Registry.sol` (working name), `src/Renderer.sol`, `src/interfaces/{IIntake,IOracleConsumer,IBurnExecutor}.sol`, the
   catalog as constants (ids, rules, windows from `CATALOG.md` sections 1 to 3), the name table, the template
   composer for the five templates **and the canonical question document plus its keccak** (`INTEGRATION.md` section
   4, check 7), the `Spec` struct of `CATALOG.md` section 5, no `immutable` anywhere.
@@ -153,7 +195,7 @@ at `cab19933` (both as in the record NFT this mirrors).
 - A README section **"How to verify a card"**: how a third party reruns a trait's recipe against public RPCs from the
   metadata alone, fetches the served attestation by `oracleRequestId`, and compares the deployed runtime code with a
   rebuild.
-- `script/Deploy.s.sol` that deploys renderer and registry with the five static addresses, plus the same shape as a
+- `script/Deploy.s.sol` that deploys renderer, composer and registry with six external addresses, plus the same shape as a
   launch-pipeline input (constructor arguments only).
 
 ## How to verify a card
@@ -217,15 +259,16 @@ returns the digest; `cast wallet verify` or any EIP-712 library reproduces it). 
 `cast code <registry> --rpc-url <rpc>` must equal `out/Registry.sol/Registry.json` `.deployedBytecode.object`
 byte for byte (likewise `Renderer` and `Composer`). `foundry.toml` pins solc 0.8.24, `bytecode_hash = "none"`,
 `cbor_metadata = false`, and no contract has an `immutable`, so the comparison is exact. Then read the five addresses
-(`curator()`, `idmd()`, `imd()`, `intake()`, `attester()`) and the two helpers (`renderer()`, `composer()`) from the
+(`curator()`, `idmd()`, `imd()`, `intake()`, `attester()`), `burnExecutor()` and the two helpers (`renderer()`, `composer()`) from the
 deployed registry and compare them with `INTEGRATION.md` section 1 and the launch record.
 
 ## What was built, and where it deviates from the brief
 
 Everything in "What the builder delivers" is in the tree, with these deviations, each with its reason:
 
-- **Three contracts, seven constructor arguments.** `Registry(curator, idmd, imd, intake, attester, renderer,
-  composer)`. The brief allowed a sixth address if the pipeline refuses a constructor that creates a contract; here
+- **Three contracts, eight constructor arguments.** `Registry(curator, idmd, imd, intake, attester, renderer,
+  composer, burnExecutor)`. The burn rule adds the eighth; zero explicitly disables it for the Sepolia rehearsal.
+  The brief allowed a sixth address if the pipeline refuses a constructor that creates a contract; here
   the limit is EIP-3860: with both helpers' creation code embedded, the registry's init code was 56,723 bytes
   (> 49,152). `Renderer` and `Composer` take no constructor arguments and hold no storage, so the launch is three
   static deployments with the helpers referenced backward (`script/Deploy.s.sol` does exactly that; the registry
@@ -233,7 +276,9 @@ Everything in "What the builder delivers" is in the tree, with these deviations,
 - **`src/Composer.sol`** holds the five templates, the body and canonical-document serialisers, the catalog oracle
   traits as `Spec`s (`catalogSpec`), the spec guards (`validateSpec`), the catalog name table (`traitName`), catalog enumeration (`traitsOf`)
   and the unchanged direct-read predicates (`hasDirectTrait`). The registry alone was 41,717 bytes of runtime;
-  it is now 23,364 after the Registry rules update, with 1,212 bytes of EIP-170 headroom. Composer remains 23,377 bytes after the rename
+  it was 23,364 after the Registry rules update and is **24,495 after the burn rule**, with **81 bytes** of EIP-170
+  headroom. Local factoring shares the membership and pool checks without changing their order. Composer remains
+  23,377 bytes after the rename
   (down from 23,455; 1,199 bytes of headroom, and the rename had to keep at least 600) and Renderer is 11,712 bytes;
   `test/Rename.t.sol` pins the Composer budget.
   The registry calls the composer
@@ -263,6 +308,7 @@ Everything in "What the builder delivers" is in the tree, with these deviations,
 | `intake` | `0xa43e6F75ee006411F79Ac1C84120606C2330DE82` (Intake v2) |
 | `attester` | `0x5598Aa9146215Bc13eb26f2c692Ad1461Fd32982` |
 | `renderer`, `composer` | the two helper deployments of the same commit |
+| `burnExecutor` (eighth) | `0xe29386719C155B6847aD5a4E97C6674f10ffc750`; `address(0)` disables the rule on Sepolia |
 
 Deployment must target a chain where the configured Curator answers `isSettled() == true` and
 `IIntake(intake).priceOf(ACTION, imd)` is nonzero; an unset, reverting or unsettled Curator or an unavailable or
@@ -270,12 +316,21 @@ zero-price Intake/asset pair makes construction revert (`"Intake price"` for a z
 view reads and move no funds. The quote check confirms a configured action/asset price, not the identity or future
 availability of the dependency. The daily counter assumes a deployment after Unix day zero (Ethereum mainnet in
 2026); its zero default then never equals the current UTC day. The deployer
-must verify the seven constructor addresses and both helpers' runtime code against the reviewed build; none can
+must verify the eight constructor addresses and both helpers' runtime code against the reviewed build; none can
 be changed later. This assignment deploys nothing.
 
-There is no owner and nothing to operate: no setter, pause, upgrade, fee switch, `receive` or `fallback`. The
+The registry has no owner: no setter, pause, upgrade, fee switch, `receive` or `fallback`. The
 accepted ways the registry can stop working are listed in `INTEGRATION.md` section 1 (Intake price, callback gas or
 retirement; attester rotation; a changed attestation struct or canonical document); each needs a successor contract.
+For mainnet, `Deploy.BURN_EXECUTOR` is the address above; `run()` passes it. On chain 11155111 it passes
+`address(0)`. For a Sepolia rehearsal with its own dependencies, call the tested six-argument
+`deploy(curator, idmd, imd, intake, attester, address(0))`; those five rehearsal addresses must be supplied by the
+rehearsal operator, not assumed from mainnet. No executor setter or new owner role is added to the registry.
+Before launch the operator verifies the executor's current `token`, `oft`, `dstEid`, `baseBurnReceiver`,
+`extraOptions`, `minBridgeAmount` and ownership, and the OFT peer/LayerZero configuration. After launch they monitor
+`BurnTriggered`/`BurnSkipped`, zero previews, quotes, delivery and Base burns; they cannot repair the registry.
+The executor and OFT owners remain responsible for their configurations and bridge operation.
+
 Pool money is an irrevocable donation. Users approve the registry for IMD (0.1 mint, 6.4 per spec, `k x priceOf` per
 upgrade, read at call time and capped by `maxPrice`).
 

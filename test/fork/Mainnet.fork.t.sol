@@ -66,7 +66,8 @@ contract MainnetForkTest is Test {
         attester = vm.addr(ATTESTER_KEY);
         Renderer renderer = new Renderer();
         Composer composer = new Composer();
-        registry = new Registry(CURATOR, IDMD, IMD, INTAKE_V2, attester, address(renderer), address(composer));
+        registry =
+            new Registry(CURATOR, IDMD, IMD, INTAKE_V2, attester, address(renderer), address(composer), address(0));
     }
 
     modifier onFork() {
@@ -247,7 +248,14 @@ contract MainnetForkTest is Test {
         OracleAttestation memory a = _attestationFor(rid, 801, abi.encode(uint256(1)));
         // signed with the right key but for a registry at another address
         Registry other = new Registry(
-            CURATOR, IDMD, IMD, INTAKE_V2, attester, address(registry.renderer()), address(registry.composer())
+            CURATOR,
+            IDMD,
+            IMD,
+            INTAKE_V2,
+            attester,
+            address(registry.renderer()),
+            address(registry.composer()),
+            address(0)
         );
         (uint8 v, bytes32 r, bytes32 s) = vm.sign(ATTESTER_KEY, other.attestationDigest(a));
         vm.prank(WRITER);
