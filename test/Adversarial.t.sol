@@ -433,15 +433,31 @@ contract AdversarialTest is Base {
         assertEq(registry.pool(), 5 ether);
     }
 
-    function test_abandonedPoolRequestKeepsPoolUsedAndLateCallbackIsIgnored() public {
+    function test_fuzz_abandonedPoolRequestKeepsPoolUsedAndLateCallbackIsIgnored(bool throughIdmd) public {
         imd.mint(address(registry), 1 ether);
         curator.set(alice, 1, true, 1, 1, 1);
-        vm.prank(alice);
-        registry.claimSponsored(701);
+        idmd.setOwner(7, alice);
+        if (throughIdmd) {
+            uint16[] memory ids = new uint16[](1);
+            ids[0] = 701;
+            vm.prank(alice);
+            registry.upgradeSponsored(7, ids);
+        } else {
+            vm.prank(alice);
+            registry.claimSponsored(701);
+        }
         bytes32 rid = registry.pendingOf(alice, 701);
         vm.warp(block.timestamp + 14 days);
+        vm.prank(bob);
+        vm.expectRevert(Registry.NotClaimant.selector);
         registry.abandon(rid);
+        assertEq(registry.pendingOf(alice, 701), rid);
+        vm.prank(alice);
+        registry.abandon(rid);
+        assertEq(registry.pendingOf(alice, 701), bytes32(0));
         assertTrue(registry.poolUsed(alice, 701));
+        assertEq(registry.lastPoolDay(alice), T0 / 1 days);
+        assertEq(registry.idmdSponsored(7), throughIdmd ? 1 : 0);
         assertEq(registry.pool(), 0.5 ether, "abandon returns nothing to the pool");
         OracleAttestation memory a;
         vm.expectEmit(false, false, false, true);
@@ -459,6 +475,7 @@ contract AdversarialTest is Base {
         vm.expectRevert(Registry.TooEarly.selector);
         registry.abandon(rid);
         vm.warp(block.timestamp + 14 days);
+        vm.prank(alice); // anyone, even though Bob paid for the shared fact
         registry.abandon(rid);
         assertEq(registry.sharedPending(1201), bytes32(0));
         vm.prank(bob);

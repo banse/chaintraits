@@ -49,6 +49,31 @@ contract RegistryRulesTest is Base {
         _deploy(address(imd), address(intake));
     }
 
+    function test_constructorRejectsPartiallyCodedDependencyFloor() public {
+        address bare = makeAddr("empty dependency");
+        address[4] memory coded = [CURATOR_ADDR, address(idmd), address(imd), address(intake)];
+        for (uint256 i; i < coded.length; ++i) {
+            address[4] memory args = [bare, bare, bare, bare];
+            args[i] = coded[i];
+            // With only IDMD coded the Curator call has no return data; otherwise IDMD fails first.
+            if (i == 1) vm.expectRevert(bytes(""));
+            else vm.expectRevert(Registry.DependencyHasNoCode.selector);
+            new Registry(args[0], args[1], args[2], args[3], attester, address(renderer), address(composer), address(0));
+        }
+    }
+
+    function test_constructorRejectsEachSingleMistypedDependency() public {
+        address bare = makeAddr("mistyped dependency");
+        for (uint256 i; i < 4; ++i) {
+            address[4] memory args = [CURATOR_ADDR, address(idmd), address(imd), address(intake)];
+            args[i] = bare;
+            if (i == 1) vm.expectRevert(Registry.DependencyHasNoCode.selector);
+            else if (i == 2) vm.expectRevert("Intake price");
+            else vm.expectRevert(bytes(""));
+            new Registry(args[0], args[1], args[2], args[3], attester, address(renderer), address(composer), address(0));
+        }
+    }
+
     function test_constructorRejectsWrongAsset() public {
         MockIMD wrongAsset = new MockIMD();
         vm.expectRevert("Intake price");

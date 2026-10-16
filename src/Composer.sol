@@ -318,7 +318,7 @@ contract Composer {
     /// @param catalogNonce true for trait 1301, whose T5 parenthesis names the Curator deploy block.
     function compose(Spec memory s, address claimant, address consumer, bool catalogNonce, address curator)
         external
-        pure
+        view
         returns (bytes memory body, bytes32 questionHash)
     {
         Question memory q = question(s, claimant, catalogNonce, curator);
@@ -538,7 +538,7 @@ contract Composer {
     // ------------------------------------------------------------------ serialisation
 
     /// @notice The request body: sorted keys, two-space indent, no trailing newline.
-    function encodeBody(Question memory q, address consumer) internal pure returns (bytes memory) {
+    function encodeBody(Question memory q, address consumer) internal view returns (bytes memory) {
         (uint16 panelSize, uint16 quorum) = q.panel ? (PANEL_PANEL, PANEL_QUORUM) : (CHAIN_PANEL, CHAIN_QUORUM);
         bytes memory defs;
         for (uint256 i; i < q.keys.length; ++i) {
@@ -552,7 +552,9 @@ contract Composer {
             bytes.concat(
                 '{\n  "answerType": "',
                 bytes(q.answerType),
-                '",\n  "chainId": 1,\n  "consumer": {\n    "chainId": 1,\n    "verifyingContract": "',
+                '",\n  "chainId": 1,\n  "consumer": {\n    "chainId": ',
+                bytes(Strings.toString(block.chainid)),
+                ',\n    "verifyingContract": "',
                 bytes(Strings.toHexString(consumer)),
                 '"\n  },\n  "definitions": {\n',
                 defs,

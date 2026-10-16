@@ -355,6 +355,39 @@ contract RegistryTest is Base {
         _expectMiss(rid, 701, 2, a, sepolia);
     }
 
+    function test_mainnetQuestionAcceptedUnderSepoliaConsumerDomain() public {
+        vm.chainId(11155111);
+        bytes32 rid = ask(alice, 701);
+        OracleAttestation memory a = attestationFor(rid, word(1));
+        assertEq(a.chainId, 1);
+        bytes32 sepoliaDigest = registry.attestationDigest(a);
+        bytes memory sig = sign(a);
+        vm.chainId(1);
+        assertTrue(registry.attestationDigest(a) != sepoliaDigest, "signature domain binds the consumer chain");
+        vm.chainId(11155111);
+        assertTrue(deliver(rid, a, sig), "delivered under the 200,000 gas stipend");
+        assertTrue(registry.hasTrait(alice, 701));
+        assertEq(registry.pendingOf(alice, 701), bytes32(0));
+    }
+
+    function test_sepoliaQuestionMissesWithReasonThreeUnderSepoliaDomain() public {
+        vm.chainId(11155111);
+        bytes32 rid = ask(alice, 701);
+        OracleAttestation memory a = attestationFor(rid, word(1));
+        a.chainId = 11155111;
+        _expectMiss(rid, 701, 3, a, sign(a));
+    }
+
+    function test_mainnetSignatureCannotAnswerSepoliaConsumer() public {
+        vm.chainId(11155111);
+        bytes32 rid = ask(alice, 701);
+        OracleAttestation memory a = attestationFor(rid, word(1));
+        vm.chainId(1);
+        bytes memory sig = sign(a);
+        vm.chainId(11155111);
+        _expectMiss(rid, 701, 2, a, sig);
+    }
+
     function _structHash(OracleAttestation memory a) internal pure returns (bytes32) {
         bytes32 th = keccak256(
             "OracleAttestation(bytes32 requestId,uint256 chainId,bytes32 questionHash,uint8 answerType,bytes answer,uint256 figure,uint64 fromBlock,uint64 toBlock,bytes32 blockHash,bytes32 panelJobId,uint16 panelSize,uint16 quorum,uint16 agreed,uint64 issuedAt,uint64 expiresAt)"
@@ -396,7 +429,11 @@ contract RegistryTest is Base {
         vm.expectRevert(Registry.TooEarly.selector);
         registry.abandon(rid);
         vm.warp(block.timestamp + 1);
-        vm.prank(bob); // anyone
+        vm.prank(bob);
+        vm.expectRevert(Registry.NotClaimant.selector);
+        registry.abandon(rid);
+        assertEq(registry.pendingOf(alice, 701), rid);
+        vm.prank(alice);
         vm.expectEmit(false, false, false, true);
         emit Registry.Abandoned(rid);
         registry.abandon(rid);
@@ -411,6 +448,19 @@ contract RegistryTest is Base {
         assertTrue(deliver(rid, a));
         assertEq(registry.pendingOf(alice, 701), rid2);
         assertTrue(deliver(rid2, a));
+        assertTrue(registry.hasTrait(alice, 701));
+    }
+
+    function test_strangerCannotDiscardLateValidAnswer() public {
+        bytes32 rid = ask(alice, 701);
+        OracleAttestation memory a = attestationFor(rid, word(1));
+        bytes memory sig = sign(a);
+        vm.warp(T0 + 14 days);
+        vm.prank(bob);
+        vm.expectRevert(Registry.NotClaimant.selector);
+        registry.abandon(rid);
+        assertEq(registry.pendingOf(alice, 701), rid);
+        assertTrue(deliver(rid, a, sig));
         assertTrue(registry.hasTrait(alice, 701));
     }
 

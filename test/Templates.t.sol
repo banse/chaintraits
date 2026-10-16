@@ -27,6 +27,7 @@ contract TemplatesTest is Base {
 
     function setUp() public override {
         super.setUp();
+        vm.chainId(1); // the committed body fixtures use the mainnet consumer domain
         Spec memory s2;
         s2.kind = 2;
         s2.target = CURATOR_ADDR;
@@ -98,6 +99,27 @@ contract TemplatesTest is Base {
             string memory doc = vm.parseJsonString(j, string.concat(path, ".canonicalDocument"));
             assertEq(qh, want, NAMES[i]);
             assertEq(registry.questionHashOf(bytes(doc)), want, NAMES[i]);
+        }
+    }
+
+    function test_sepoliaChangesOnlyConsumerChainAcrossAllTenBodies() public {
+        for (uint256 i; i < 10; ++i) {
+            vm.chainId(1);
+            (bytes memory mainnet, bytes32 mainnetHash) = registry.composeBody(_idOf(i), C1A1);
+            vm.chainId(11155111);
+            (bytes memory sepolia, bytes32 sepoliaHash) = registry.composeBody(_idOf(i), C1A1);
+            assertEq(vm.parseJsonUint(string(sepolia), ".consumer.chainId"), 11155111);
+            assertEq(vm.parseJsonUint(string(sepolia), ".chainId"), 1);
+            assertEq(vm.parseJsonAddress(string(sepolia), ".consumer.verifyingContract"), address(registry));
+            assertEq(sepoliaHash, mainnetHash, NAMES[i]);
+            assertEq(mainnet, _fixture(NAMES[i]), NAMES[i]);
+            assertEq(
+                string(sepolia),
+                vm.replace(
+                    string(mainnet), '"consumer": {\n    "chainId": 1,', '"consumer": {\n    "chainId": 11155111,'
+                ),
+                NAMES[i]
+            );
         }
     }
 

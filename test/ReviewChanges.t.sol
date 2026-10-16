@@ -127,6 +127,7 @@ contract ReviewChangesTest is Base {
         bytes32 rid = ask(C1A1, 701);
         OracleAttestation memory a = attestationFor(rid, new bytes(262_144));
         vm.warp(T0 + 14 days);
+        vm.prank(C1A1);
         registry.abandon(rid);
         bytes32 successor = ask(C1A1, 701);
         vm.expectEmit(false, false, false, true, address(registry));

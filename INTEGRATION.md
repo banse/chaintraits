@@ -29,16 +29,30 @@ Intake v2 was deployed through CREATE2 at the same address on every chain the pl
 getter of version 1 is here unchanged"; `requestWithFailure`, `failureSelectorOf` and `FailureHookSet` are new. Both
 addresses return `priceOf` 0.5 IMD, `callbackGas` 200,000 and the same writer (read 2026-10-12 00:30 UTC).
 
+On Sepolia (11155111), `Deploy.deployForChain()` uses Curator
+`0x0919ba50b206C3F31D516De818b1fBc7dA21653D`, IDMD `0x2C3013c90a1Bb65573aae9a7C64fafB82697E4e4`,
+TestIMD `0x44a1Cd38474FB1748400E7DEb5F8D786ccE3F89A` and BurnExecutor V1
+`0x097A19e0f021BBA5072701132625ad2401043A2E`, with the same Intake v2 and attester as above. Every other chain
+selects the mainnet constants. `run()` calls this function; no environment or caller-dependent choice is involved.
+The Sepolia V1 has code but its `previewBridge()` reverts, so the burn rule skips with code 1 there.
+
 The launch is three contracts, `Renderer`, `Composer` and `Registry`. The registry takes eight constructor arguments,
 `(curator, idmd, imd, intake, attester, renderer, composer, burnExecutor)`: the original five external addresses,
 the burn executor and the two helpers,
 deployed first from the same commit and passed in as static addresses (README, "What was built, and where it deviates
 from the brief": with both helpers embedded the registry's init code exceeded EIP-3860). The launch pipeline allows
 only static address, uint, bool and bytes32 arguments, at most 16; "passive" means the constructor stores its
-arguments and may read views (it requires `curator.isSettled()`), but creates no contract, moves no funds and takes
-no external callback. The burn executor is not called by the constructor. `burnExecutor_ == address(0)` is
-explicitly permitted and disables the burn rule, as used by the Sepolia rehearsal. All seven other addresses
-retain their zero-address checks. The registry has no setter for any dependency.
+arguments and may read views, but creates no contract, moves no funds and takes no external callback.
+The seven nonzero-address checks always apply. Dependency checks are skipped **only when all four of Curator,
+IDMD, IMD and Intake lack code**. This empty-chain floor also skips the executor code check and makes no external
+call, so the pipeline's factory probe can deploy the three creation codes with their actual launch arguments.
+If any of those four has code, IDMD must have code (`DependencyHasNoCode()`), the Curator must answer
+`isSettled() == true` (`"Curator not settled"`), the Intake must quote a nonzero `priceOf(ACTION, imd)`
+(`"Intake price"`), and a nonzero executor must have code (`ExecutorHasNoCode()`). Unavailable Curator or Intake
+calls also revert. The executor is never called by the constructor. Zero still disables the burn rule at the
+contract level, but the mainnet and Sepolia launch sets both use nonzero executors; the launch manifest rejects
+zero. The deployer must verify the addresses, helper code and operational dependencies before launch: a floor
+probe is not that verification. The registry has no setter for any dependency.
 The writer is not a constructor argument: the registry trusts the Intake as `msg.sender` of the callback and the
 attester as the signer, never the writer. **Store the eight addresses in ordinary storage, not `immutable`:** immutables
 are patched into the runtime code at deployment, and the launch check compares the deployed runtime code with a clean
@@ -84,8 +98,9 @@ function failureSelectorOf(bytes32 requestId) external view returns (bytes4);
   `request` reverts `ActionNotSold`. Read `priceOf` at call time and pay exactly that: the registry must never
   hard-code 0.5 IMD, and the claimant's `upgrade` charges `k * priceOf(...)`.
 - `body` is the UTF-8 JSON of `TEMPLATES.md`, at most `MAX_BODY_BYTES` = 16,384 bytes. **It carries
-  `"consumer": {"chainId": 1, "verifyingContract": "<the registry, lowercase hex>"}`**: that field, not the callback
-  target, becomes the attestation's `verifyingContract` (section 4).
+  `"consumer": {"chainId": <deployment chainId>, "verifyingContract": "<the registry, lowercase hex>"}`**:
+  `consumer.chainId` is `block.chainid` (11155111 on Sepolia), and that field supplies the EIP-712 domain
+  (section 4). The top-level question `chainId` stays 1: every question is about Ethereum mainnet.
 - `asset` is the IMD token; the Intake pulls `amount` with `transferFrom`, so the registry approves the Intake for
   the amount before calling. The claimant approves the registry; the registry pulls, then forwards.
 - `requestId = keccak256(abi.encode(block.chainid, address(intake), ++nonce))` is returned and emitted in
@@ -145,7 +160,10 @@ an immediate paid retry. An unknown request still returns reason 1 without inspe
 
 ## 4. The attestation
 
-EIP-712, domain `{ name: "IdentityMD Oracle", version: "2", chainId: 1, verifyingContract: <consumer> }`.
+EIP-712, domain `{ name: "IdentityMD Oracle", version: "2", chainId: <deployment chainId>, verifyingContract: <consumer> }`.
+The body supplies `consumer.chainId = block.chainid`; the signed message's `chainId` and the top-level body
+`chainId` are both 1, the question's Ethereum mainnet evidence chain. These are separate checks: a mainnet
+question signed under the Sepolia consumer domain is valid on Sepolia, while `a.chainId == 11155111` is reason 3.
 
 **`verifyingContract` is the body's `consumer.verifyingContract`**, measured on two third-party requests: for one the
 consumer equals the callback target, for the other it is a different contract (a `SwarmFeed`), and the attester signed
@@ -206,7 +224,7 @@ runtime bytes).
 2. Before any dynamic copy or hash: `signature.length == 65` (otherwise reason 2); then
    `a.answer.length <= 2112` (64 ABI-encoded addresses) and, for the pending bool/uint256 kind,
    `a.answer.length == 32` (otherwise reason 9). The expected kind comes from the pending trait, not the untrusted
-   `a.answerType`. Only then check `a.chainId == block.chainid`, followed by the recovered signer == attester.
+   `a.answerType`. Only then check `a.chainId == QUESTION_CHAIN_ID` (1), followed by the recovered signer == attester.
 3. `a.answerType` equals the template's type; `a.agreed >= a.quorum`, `a.quorum >= the template's quorum` (3 for
    chain, 7 for panel), `a.panelSize >= the template's panel size`.
 4. `a.fromBlock` and `a.toBlock` equal the pending request's window (the trait's canonical window or the spec's).
@@ -219,6 +237,8 @@ runtime bytes).
    and `evidence` only when it is `"panel"` (the default `"chain"` is omitted), serialised as RFC 8785 canonical JSON:
    keys sorted, no whitespace, integers as decimal digits, strings escaped only for `"`, `\` and control characters.
    `panelSize`, `quorum`, `validForSeconds`, `consumer` and the pinned `toBlockHash` are **not** in the document.
+   Changing the consumer chain therefore does not change the question hash; on chain 1 every body byte remains
+   identical to the mainnet fixtures.
    Measured on 14 free quotes (ten fixtures with their vendored quotes in `reference/plane/quotes/`, four probes) and
    on the x402 pilot, whose quote hash equals its attested hash. The registry computes the document from the same
    parameters it composes the body from, at request time, and stores the hash in the pending record; the callback
@@ -261,14 +281,18 @@ questionHash)`; for a shared-fact request `claimant == address(0)` and `traitId`
 | `onResult`, any other reason 2 to 10 | Intake | clear | nothing | `Missed` |
 | `onResult` or `onFailure`, `requestId` unknown (abandoned, consumed, never ours) | Intake | nothing | nothing | `Missed(reason 1)` |
 | `onFailure` (status 1 or 2) | Intake | clear | nothing; the pair may be requested again | `NoVerdict` |
-| `abandon(requestId)` at `requestedAt + 14 days` or later | anyone | clear | nothing | `Abandoned` |
-| `abandon` earlier | anyone | revert | | |
+| `abandon(requestId)` at `requestedAt + 14 days` or later, personal (paid or sponsored) | stored claimant only | clear | nothing | `Abandoned` |
+| `abandon(requestId)` at `requestedAt + 14 days` or later, shared (`claimant == 0`) | anyone | clear | nothing | `Abandoned` |
+| `abandon` of a personal request after the deadline by a stranger | anyone but its claimant | revert `NotClaimant()` | | |
+| `abandon` earlier | anyone | revert `TooEarly()` | | |
 | late callback for an abandoned request | Intake | as the unknown-id row: the successor request's reverse index is untouched, because the index is cleared only when it equals the stale id | | `Missed(reason 1)` |
 | not called back, not abandoned | | stays pending; at most one pending request per pair, so a new `upgrade` for the pair reverts | | |
 
 A miss never blocks a claimant-paid retry. The pool's once-per-pair rule is about pool money (`poolUsed`), set when
 the pool funds a request, whatever the outcome (`CONCEPT.md` section 4). Pool-funded requests are made by the claimant
-for the claimant, so a third party cannot create a miss in someone else's name.
+for the claimant, so a third party cannot create a miss in someone else's name or discard a late answer by
+abandoning it. Abandoning returns no price and restores neither the daily allowance nor `poolUsed` or the IDMD
+counter. A valid late callback still settles a request that its claimant has left pending.
 
 Measured traps that shaped these rules: panel members mis-convert decimal block numbers (hence hex in every text);
 `rpc.flashbots.net` and `cloudflare-eth.com` answer `null` for mined transactions (hence "null is not evidence" in
@@ -362,14 +386,14 @@ withdrawal mechanism; an unsolicited pre-existing balance is not swept.
 
 The registry remains ownerless and non-upgradeable. Its eighth constructor argument is stored as
 `IBurnExecutor public burnExecutor`, without an immutable or setter. `Deploy.BURN_EXECUTOR` is the mainnet V2
-address above. `run()` passes zero on Sepolia (chain 11155111); the testable
-`deploy(curator, idmd, imd, intake, attester, burnExecutor)` also accepts an explicit zero for a rehearsal with
-operator-supplied dependencies. The constructor never calls the executor, but it reverts `ExecutorHasNoCode()`
-for a nonzero executor address without code: the three preview return words are decoded outside the registry's
+address above. `run()` calls `deployForChain()`, selecting the nonzero Sepolia V1 on chain 11155111 and the
+mainnet constants on every other chain (section 1). The six-argument `deploy` still accepts an explicit zero to
+disable the rule, though the launch manifest does not. The constructor never calls the executor. Outside the
+all-four-empty dependency floor it reverts `ExecutorHasNoCode()` for a nonzero executor address without code: the three preview return words are decoded outside the registry's
 `try`/`catch`, so an executor that returns no data would revert `claimSponsored` and `upgradeSponsored` for every
 wallet for ever, and an ownerless registry cannot repair that. Residual: a coded executor that returns fewer than
 three words still reverts a claim; no low-level call is added for it. The offline deploy-script test installs a
-mock at the mainnet executor address before deploying.
+mock at both executor constants with `deployCodeTo` before checking the script's chain selections.
 
 **The external dependencies are owner-configurable.** The executor's owner can call `setBridgeConfig` to change
 the token, OFT, destination endpoint id, Base receiver and options; `setBaseBurnReceiver`, `setExtraOptions` and
@@ -410,7 +434,7 @@ and its reported onchain runtime matched `eth_getCode`; this is not an independe
 | `txCountOf(address)` | `uint256` deposits | 301 to 303 |
 | `contributedBy(address)` | `uint256` wei, the largest single send (`highWater`) | 401 to 404 |
 | `pointsOf(address)` | `uint256` points (1000 x sqrt(weight in ETH)) | 501 to 503 |
-| `isSettled()` | `bool`, true since hour 66 | sanity check in the constructor, nothing else |
+| `isSettled()` | `bool`, true since hour 66 | sanity check in the constructor outside the all-four-empty floor, nothing else |
 
 Never read `contributors(address)` for the hour: its fourth word is `firstHour + 1`. IDMD: `balanceOf(address)` for
 the Armed trait (601, live; guard `address(0)`, whose `balanceOf` reverts in OpenZeppelin), `ownerOf(uint256)` for

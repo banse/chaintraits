@@ -293,8 +293,9 @@ contract FullHandler is Base {
     function abandonLate(uint256 seed) external {
         (bytes32 rid,,) = _pick(seed);
         if (rid == 0) return;
-        (,, uint64 at,) = registry.pendingRequest(rid);
+        (address claimant,, uint64 at,) = registry.pendingRequest(rid);
         if (block.timestamp < uint256(at) + 14 days) vm.warp(uint256(at) + 14 days);
+        if (claimant != address(0)) vm.prank(claimant);
         registry.abandon(rid);
         _removeOpen(rid);
         ridConsumed[rid] = true;

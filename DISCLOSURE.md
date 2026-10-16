@@ -17,9 +17,15 @@
   token's nine-request counter. Each accepted request spends its allowance regardless of the oracle outcome.
   Paid upgrades and shared-fact requests have no pool daily or lifetime limit.
 - Spec registration costs 6.4 IMD into the pool; at the 0.5 IMD oracle price, a spec plus its first claim costs
-  6.9 IMD, excluding gas. Construction checks the Curator's settlement and the Intake's nonzero action/IMD quote
-  by passive view reads. The deployer must verify the configured addresses and helper code; these checks do not
-  guarantee future Intake availability or prices, and the Registry has no administrator to repair dependencies.
+  6.9 IMD, excluding gas. Construction checks IDMD code, the Curator's settlement and the Intake's nonzero
+  action/IMD quote by passive view reads, and code at a nonzero executor. Those dependency checks are skipped
+  only when all four of Curator, IDMD, IMD and Intake lack code: the pipeline's empty-chain floor. The seven
+  nonzero-address checks still apply. A successful floor probe does not establish operational readiness.
+  The deployer must verify the configured addresses and helper code; these checks do not guarantee future
+  Intake availability or prices, and the Registry has no administrator to repair dependencies.
+- After 14 days, a personal pending request may be abandoned only by its stored claimant, including sponsored
+  requests; a shared fact may be abandoned by anyone. The price and sponsored allowances are never returned.
+  Every oracle question remains about Ethereum mainnet (chainId 1); the consumer domain uses the deployment chain.
 
 - Free claims also attempt the IMD burn rule through BurnExecutor V2
   (`0xe29386719C155B6847aD5a4E97C6674f10ffc750`), using its own waiting IMD. At least 69 IMD and a quote no greater
@@ -36,12 +42,14 @@
   claim burns tokens.
 - A claimant should attach exactly the fee quoted by `previewBridge()` in the same block: the executor re-quotes
   when it bridges and keeps the whole attachment if its quote rose; only the part above its own quote comes back.
-- The constructor rejects a nonzero executor address without code (`ExecutorHasNoCode()`): the preview's three
+- Outside the all-four-empty floor, the constructor rejects a nonzero executor address without code
+  (`ExecutorHasNoCode()`): the preview's three
   return words are decoded outside the registry's `try`/`catch`, and an executor returning nothing would revert
   every sponsored claim for ever in a registry nobody can repair. A coded executor that returns fewer than three
   words still reverts a claim; that residual is accepted rather than adding a low-level call.
-- The registry's eighth argument is fixed ordinary storage; zero disables the burn rule for Sepolia. The
-  executor's owner can change its token, OFT, destination, options and minimum, and can rescue funds. The OFT and
+- The registry's eighth argument is fixed ordinary storage; zero still disables the burn rule at contract level,
+  but both launch sets use nonzero executors. Sepolia uses V1 `0x097A19e0f021BBA5072701132625ad2401043A2E`, whose
+  reverting preview skips with code 1; the launch manifest rejects zero. The executor's owner can change its token, OFT, destination, options and minimum, and can rescue funds. The OFT and
   LayerZero have configuration authorities too. These are owner-configurable external dependencies, not registry
   administration. They may call the claimant; the registry retains its reentrancy guard and makes no promise
   that all dependency callbacks are impossible.

@@ -1,3 +1,107 @@
+# Launch corrections: empty floor, abandon, question chain and Sepolia (2026-10-16)
+
+Four changes, with the compiler, dependencies, Renderer, Types, generator, goldens, template fixtures and
+opt-in fork tests unchanged. No deployment, transaction or publication was made by this assignment.
+
+The constructor keeps the seven nonzero-address checks and stores all eight arguments. It skips dependency
+checks only when **all four of Curator, IDMD, IMD and Intake lack code**. On that empty-chain floor it makes no
+external call and skips the executor code check too. Otherwise it checks IDMD code (`DependencyHasNoCode()`),
+Curator settlement, the Intake's nonzero action/IMD price, then code at a nonzero executor (`ExecutorHasNoCode()`).
+The floor is for the launch pipeline's factory probe; the deployer must still verify the configured dependencies
+and both helpers before operational launch. A coded executor returning fewer than three words still reverts a
+sponsored claim; its owner and the bridge dependencies retain the configuration powers and asynchronous-delivery
+residuals documented in DISCLOSURE.md. Nothing in the burn rule changed.
+
+After 14 days, a personal pending pair may be abandoned only by its stored claimant (`NotClaimant()` for a
+stranger), including either sponsored path. Anyone may abandon a shared fact (claimant zero). `TooEarly()` still
+precedes the claimant check. Clearing, spent prices, daily/lifetime allowances and stale callbacks are unchanged;
+a valid late answer still settles a pair left pending.
+
+The question's chain is always Ethereum mainnet: `QUESTION_CHAIN_ID = 1` in the Registry and top-level
+`chainId: 1` in the body and canonical question document. `consumer.chainId` is the deployment chain, emitted by
+OpenZeppelin `Strings.toString(block.chainid)`; Composer's `compose` and internal `encodeBody` are views, with no
+external selector change. The EIP-712 domain uses the consumer chain. The question text, windows, definitions and
+canonical hash stay unchanged, and all ten mainnet bodies are byte-exact against the existing fixtures.
+
+`run()` now calls the directly testable `deployForChain()`. On 11155111 it selects the specified Sepolia Curator,
+IDMD, TestIMD and V1 executor `0x097A19e0f021BBA5072701132625ad2401043A2E`, with the same Intake and attester;
+every other chain selects the mainnet constants. The Sepolia executor has code but its preview reverts, so the
+burn rule skips with code 1. Both launch sets use nonzero executors; the manifest rejects zero. Explicit `deploy`
+still accepts zero to disable the rule at contract level. README and INTEGRATION list every parameter. The three
+new lowercase Sepolia dependency literals are written in Solidity's required checksum case, without changing
+any address value. No additional production change or build-setting exception was needed.
+
+| runtime (solc 0.8.24, optimizer 200, Cancun, existing foundry.toml) | before | after | EIP-170 headroom |
+|---|---:|---:|---:|
+| Registry | 24,495 B | 24,561 B | 15 B |
+| Composer | 23,377 B | 23,402 B | 1,174 B |
+| Renderer | 21,570 B | 21,570 B (byte-equal) | 3,006 B |
+
+## New and adapted tests
+
+- `Floor.t.sol`: `test_mainnetEmptyChainFloor`, `test_sepoliaEmptyChainFloor`. An ordinary probe contract deploys
+  raw creation code by CREATE2 in Renderer, Composer, Registry order, using predicted helper addresses and the
+  Registry creation code followed by `abi.encode` of all eight arguments. Both parameter sets have no dependency
+  or executor code. All three runtimes are nonempty and at most 24,576 B, and an opcode walk skips PUSH data and
+  refuses CALLCODE, DELEGATECALL and SELFDESTRUCT. `owner()` and `admin()` are absent on all three; eight Registry
+  getters, Sworn/SWORN and `nextSpecId == 10001` match.
+- `Artifacts.t.sol`: `test_twoDeploymentsHaveIdenticalRuntimeCode`,
+  `test_constructorRejectsZeroAddressesAndStoresTheRest`, `test_constructorRejectsUnsettledOrUnavailableCurator`
+  and `test_noForbiddenOpcodesInRuntime` now use a coded IDMD mock. The former code-less Curator rejection is
+  `test_constructorAcceptsUnavailableCuratorOnEmptyFloor`. The two script tests are now
+  `test_deployScriptUsesMainnetConstantsOnEveryOtherChain` (1, 4663, 31337) and
+  `test_deployScriptUsesSepoliaConstantsAndNonzeroExecutor` (11155111); they install mocks at both executor
+  constants using `deployCodeTo` and check all selected dependencies and the two deployed helpers.
+- `RegistryRules.t.sol`: `test_constructorRejectsPartiallyCodedDependencyFloor` tries each of the four dependencies
+  as the only coded address; `test_constructorRejectsEachSingleMistypedDependency` removes each one in turn from
+  an otherwise coded setup and pins the matching revert. Existing zero-price, wrong-asset, unavailable-Intake and
+  passive-read tests still pass, as do the unsettled/unavailable Curator and `BurnRule.t.sol` executor tests.
+- `Registry.t.sol`: `test_abandonOnlyAfterFourteenDaysAndStaleCallbackLeavesSuccessor` now rejects Bob with
+  `NotClaimant()` and abandons as Alice. `test_strangerCannotDiscardLateValidAnswer` proves a stranger's failed
+  abandon leaves a 14-day-old, valid signed answer deliverable. New chain tests are
+  `test_mainnetQuestionAcceptedUnderSepoliaConsumerDomain`,
+  `test_sepoliaQuestionMissesWithReasonThreeUnderSepoliaDomain` and
+  `test_mainnetSignatureCannotAnswerSepoliaConsumer`; callbacks still run under the 200,000-gas stipend.
+- `Adversarial.t.sol`: `test_fuzz_abandonedPoolRequestKeepsPoolUsedAndLateCallbackIsIgnored` covers both sponsored
+  entry points, rejects a stranger, abandons as the claimant and pins the retained day, pair, IDMD counter and
+  pool balance. `test_abandonedSharedFactCanBeRequestedAgainAndTheLateAnswerIsIgnored` explicitly abandons as
+  someone other than the payer and retains the successor/late-callback assertions.
+- `ReReview.t.sol` `test_sameSignedEvidenceSatisfiesAnotherRequestWithTheSameQuestion` and `ReviewChanges.t.sol`
+  `test_unknownRequestStillPrecedesDynamicSizeChecks` abandon as their stored claimant. `InvariantsExtended.t.sol`
+  `FullHandler.abandonLate` reads and pranks the stored claimant, leaving shared-fact cleanup public.
+- `Templates.t.sol` pins chain 1 in setup. `test_sepoliaChangesOnlyConsumerChainAcrossAllTenBodies` checks
+  consumer chain 11155111, question chain 1, the same consumer address and hash, and byte equality after replacing
+  only the consumer chain field. Existing fixture and plane-hash tests remain unchanged.
+- `Attestations.t.sol` `_registryAt` uses a coded IDMD mock so the served-signature and protocol-vector digest tests still
+  reach their original assertions. None of their vectors, domains or signatures changed.
+
+## Checks
+
+```sh
+forge build --offline
+FOUNDRY_FUZZ_SEED=0x92530be9de645ff13afd9b69b7f771c7cb2e0a674c25f4e493ff0fdd0a334df6 forge test --offline
+forge fmt --check
+python3 tools/gen_template.py --check
+python3 -m unittest discover -s tools
+```
+
+| check | result |
+|---|---|
+| `forge build --offline` | pass, pinned solc 0.8.24; existing compiler/lint warnings remain |
+| `forge test --offline`, seed above | 174 passed, 0 failed, 17 opt-in fork skips |
+| `forge fmt --check` | pass |
+| generator `--check` | 28 artifacts byte-equal |
+| Python unittest discovery | 18 passed |
+
+Initial targeted testing found two attestation fixtures without IDMD code; the mock adaptation above repaired
+both before the full seeded suite passed. No fork RPC, new environment reads, FFI, network installation, live
+quote or deployment was needed. The opt-in fork sources remain byte-equal and were skipped, not rerun live.
+No new question text was introduced. Protected-file hashes and the Renderer runtime hash match the starting tree.
+The earlier sections below record prior assignments; their unconditional constructor checks and zero-executor
+Sepolia rehearsal describe the earlier behavior, superseded by this section.
+
+---
+
 # Burn-rule corrections: preview gas and executor code check (2026-10-16)
 
 Two corrections to `src/Registry.sol` found by the independent verification of the burn rule, plus one test gap.

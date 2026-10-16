@@ -26,8 +26,8 @@ import {Renderer} from "./Renderer.sol";
 ///         signed by the IMD oracle passes every check of INTEGRATION.md section 4 inside `onResult`.
 /// @dev    No owner, pause, upgrade, fee switch, `receive`, `fallback`, `immutable` or `tx.origin`.
 ///         All eight dependency addresses are ordinary storage so a clean rebuild equals the deployed
-///         runtime code byte for byte (`bytecode_hash = "none"`). The constructor passively checks that
-///         the Curator is settled and the Intake quotes a nonzero IMD price for the oracle action.
+///         runtime code byte for byte (`bytecode_hash = "none"`). Except on the empty dependency floor,
+///         the constructor checks IDMD code, Curator settlement, Intake price and nonzero executor code.
 contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     using SafeERC20 for IERC20;
 
@@ -66,6 +66,7 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     ///      272,000 gas at the CALL (cold mainnet trace at block 26,202,203: 264,408); 600,000 is 2.2x that.
     uint256 internal constant PREVIEW_GAS = 600_000;
     uint256 internal constant ABANDON_AFTER = 14 days;
+    uint256 internal constant QUESTION_CHAIN_ID = 1;
     uint256 internal constant MAX_SPONSORED = 9;
     uint256 internal constant MAX_COMMUNITY_IN_METADATA = 32;
     uint16 internal constant FIRST_SPEC_ID = 10001;
@@ -149,6 +150,7 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     error PriceAboveMax(uint256 price, uint256 maxPrice);
     error NotPending(bytes32 requestId);
     error TooEarly();
+    error NotClaimant();
     error FactAlreadyStored(uint16 factId);
     error FactNotStored(uint16 factId);
     error ListMismatch();
@@ -163,6 +165,7 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     error BurnFeeRequired(uint256 nativeFee);
     error BurnRefundFailed();
     error ExecutorHasNoCode();
+    error DependencyHasNoCode();
 
     // ------------------------------------------------------------------ constructor
 
@@ -173,14 +176,15 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     /// @param attester_ oracle attester 0x5598aa9146215bc13eb26f2c692ad1461fd32982
     /// @param renderer_ the `Renderer` (no constructor arguments, no storage), deployed first
     /// @param composer_ the `Composer` (no constructor arguments, no storage), deployed first
-    /// @param burnExecutor_ IMD BurnExecutor V2; zero disables the burn rule (Sepolia rehearsal). A nonzero
-    ///        address must have code: the preview's three return words are decoded outside the try/catch,
-    ///        so an executor without code would revert every sponsored claim for ever.
+    /// @param burnExecutor_ IMD BurnExecutor; zero disables the burn rule. Outside the empty floor, a
+    ///        nonzero address must have code: the preview's three return words are decoded outside the
+    ///        try/catch, so an executor without code would revert every sponsored claim for ever.
     /// @dev The renderer and the composer are taken as addresses, not deployed here: with both creation
     ///      codes embedded, the registry's init code exceeded EIP-3860's 49,152 bytes. Three deployments
     ///      (renderer, composer, registry) use static arguments stored in ordinary storage. The only
-    ///      external constructor calls are passive Curator settlement and Intake price checks; the
-    ///      executor is only checked for code, never called.
+    ///      external constructor calls are passive Curator settlement and Intake price checks; IDMD
+    ///      and a nonzero executor are checked for code. These checks are skipped only when Curator,
+    ///      IDMD, IMD and Intake all lack code, for the launch pipeline's empty-chain floor.
     constructor(
         address curator_,
         address idmd_,
@@ -195,10 +199,15 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
             curator_ == address(0) || idmd_ == address(0) || imd_ == address(0) || intake_ == address(0)
                 || attester_ == address(0) || renderer_ == address(0) || composer_ == address(0)
         ) revert ZeroAddress();
-        if (burnExecutor_ != address(0) && burnExecutor_.code.length == 0) revert ExecutorHasNoCode();
         curator = IWhitelistCurator(curator_);
-        require(curator.isSettled(), "Curator not settled");
-        require(IIntake(intake_).priceOf(ACTION, imd_) != 0, "Intake price");
+        bool floor =
+            curator_.code.length == 0 && idmd_.code.length == 0 && imd_.code.length == 0 && intake_.code.length == 0;
+        if (!floor) {
+            if (idmd_.code.length == 0) revert DependencyHasNoCode();
+            require(curator.isSettled(), "Curator not settled");
+            require(IIntake(intake_).priceOf(ACTION, imd_) != 0, "Intake price");
+            if (burnExecutor_ != address(0) && burnExecutor_.code.length == 0) revert ExecutorHasNoCode();
+        }
         idmd = IIDMD(idmd_);
         imd = IERC20(imd_);
         intake = IIntake(intake_);
@@ -408,10 +417,12 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     }
 
     /// @notice Releases a pending pair the plane never completed, 14 days after the request.
+    ///         Only its claimant may abandon a personal pair; anyone may abandon a shared fact.
     function abandon(bytes32 requestId) external {
         Pending memory p = _pending[requestId];
         if (p.requestedAt == 0) revert NotPending(requestId);
         if (block.timestamp < uint256(p.requestedAt) + ABANDON_AFTER) revert TooEarly();
+        if (p.claimant != address(0) && msg.sender != p.claimant) revert NotClaimant();
         _clear(requestId, p);
         emit Abandoned(requestId);
     }
@@ -537,7 +548,7 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     ) internal view returns (uint8) {
         if (signature.length != 65) return 2;
         if (a.answer.length > 2112 || (kind != 3 && a.answer.length != 32)) return 9;
-        if (a.chainId != block.chainid) return 3;
+        if (a.chainId != QUESTION_CHAIN_ID) return 3;
         bytes32 r;
         bytes32 s;
         uint8 v;

@@ -47,7 +47,7 @@ function hasTrait(address wallet, uint16 traitId) external view returns (bool); 
 function traitsOf(address wallet) external view returns (uint16[] memory);        // the 25 catalog ids that are true (all tiers), no specs
 function verifiedSpecsOf(address wallet) external view returns (uint16[] memory);  // every verified community spec id
 function upgrade(uint16[] calldata traitIds, uint256 maxPrice) external;           // k oracle requests, k x priceOf, priceOf <= maxPrice
-function abandon(bytes32 requestId) external;                                      // after 14 days
+function abandon(bytes32 requestId) external;                                      // after 14 days: claimant; anyone for shared facts
 function verified(address claimant, uint16 traitId) external view
     returns (bytes32 requestId, bytes32 oracleRequestId, uint64 fromBlock, uint64 toBlock);
 function pendingOf(address claimant, uint16 traitId) external view returns (bytes32 requestId);
@@ -106,6 +106,15 @@ transaction consumes no allowance; a submitted request consumes its day and life
 oracle later misses, fails or never answers. Paid `upgrade` and `requestSharedFact` have no daily or sponsored
 lifetime limit. The 6.4 IMD spec fee plus a first request at the 0.5 IMD oracle price totals 6.9 IMD (excluding gas).
 
+After 14 days, only the stored claimant may abandon a personal pending request, including a sponsored one;
+a stranger gets `NotClaimant()`. A shared fact has no claimant and anyone may abandon it. Abandoning clears the
+pending pair, returns no price and restores no sponsored allowance; a late callback for that id leaves a successor
+request untouched. A valid late answer can still settle a request that has not been abandoned.
+
+Every oracle question is about Ethereum mainnet (`chainId: 1`). The body's `consumer.chainId` and the EIP-712
+signing domain use the deployment chain (11155111 on Sepolia); the canonical question hash excludes `consumer`.
+Mainnet bodies remain byte-identical to the committed fixtures.
+
 Function and event names in this summary are the working names of the interface and did not change in the rename
 (only display strings did). Types, arities and the behaviour described in `CONCEPT.md` are the
 contract; a builder who finds a reason to change one writes it in the submission's notes rather than silently.
@@ -150,7 +159,8 @@ only shared-decimal dust left in the executor, the surplus back from the executo
 unchanged, and the same claim without the fee reverting `BurnFeeRequired(fee)` with no oracle request. The rule
 stays best effort: this is the behaviour at one block, not a promise of future liveness.
 
-**Residuals, stated.** The constructor rejects a nonzero `burnExecutor` without code (`ExecutorHasNoCode()`),
+**Residuals, stated.** Outside the empty dependency floor described below, the constructor rejects a nonzero
+`burnExecutor` without code (`ExecutorHasNoCode()`),
 because the preview's three return words are decoded outside the `try`/`catch`, and an executor that cannot be
 decoded would revert every sponsored claim for ever in a registry nobody can repair. A coded executor that returns
 fewer than three words still reverts a claim; no low-level call is added for it. The executor's owner can change
@@ -299,7 +309,7 @@ keccak256(canonical document)`, where the document is the body of step 1 reduced
 check 7 describes (`questionHashOf(bytes canonicalDocument)` recomputes the keccak onchain; pass it the canonical
 document, **not** the body: the body's keccak is a different value; `reference/plane/questionHashes.json` has ten
 worked examples), that `fromBlock`/`toBlock` equal step 1, that `agreed >= quorum`, and recover the signer of the
-EIP-712 digest under domain `{IdentityMD Oracle, 2, 1, <registry address>}` (`attestationDigest(a)` on the registry
+EIP-712 digest under domain `{IdentityMD Oracle, 2, <deployment chainId>, <registry address>}` (`attestationDigest(a)` on the registry
 returns the digest; `cast wallet verify` or any EIP-712 library reproduces it). The signer must be
 `0x5598aa9146215bc13eb26f2c692ad1461fd32982`.
 
@@ -315,19 +325,22 @@ deployed registry and compare them with `INTEGRATION.md` section 1 and the launc
 Everything in "What the builder delivers" is in the tree, with these deviations, each with its reason:
 
 - **Three contracts, eight constructor arguments.** `Registry(curator, idmd, imd, intake, attester, renderer,
-  composer, burnExecutor)`. The burn rule adds the eighth; zero explicitly disables it for the Sepolia rehearsal.
+  composer, burnExecutor)`. The burn rule adds the eighth; zero still disables it, but both launch parameter sets
+  use nonzero executors.
   The brief allowed a sixth address if the pipeline refuses a constructor that creates a contract; here
   the limit is EIP-3860: with both helpers' creation code embedded, the registry's init code was 56,723 bytes
   (> 49,152). `Renderer` and `Composer` take no constructor arguments and hold no storage, so the launch is three
   static deployments with the helpers referenced backward (`script/Deploy.s.sol` does exactly that; the registry
-  constructor requires `curator.isSettled()` and a nonzero Intake IMD quote and stores every address in ordinary storage).
+  constructor stores every address in ordinary storage). Unless all four of Curator, IDMD, IMD and Intake lack
+  code, it requires IDMD code, `curator.isSettled()`, a nonzero Intake IMD quote and code at a nonzero executor.
+  Only that all-four-empty floor skips the checks, allowing the pipeline's empty-chain deployment probe.
 - **`src/Composer.sol`** holds the five templates, the body and canonical-document serialisers, the catalog oracle
   traits as `Spec`s (`catalogSpec`), the spec guards (`validateSpec`), the catalog name table (`traitName`), catalog enumeration (`traitsOf`)
   and the unchanged direct-read predicates (`hasDirectTrait`). The registry alone was 41,717 bytes of runtime;
-  it was 23,364 after the Registry rules update and is **24,495 after the burn rule**, with **81 bytes** of EIP-170
-  headroom. Local factoring shares the membership and pool checks without changing their order. Composer remains
-  23,377 bytes after the rename
-  (down from 23,455; 1,199 bytes of headroom, and the rename had to keep at least 600) and Renderer is 21,570 bytes
+  it was 23,364 after the Registry rules update, 24,495 after the burn rule and is **24,561 after the launch
+  corrections**, with **15 bytes** of EIP-170 headroom. Local factoring shares the membership and pool checks
+  without changing their order. Composer is **23,402 bytes**, up from 23,377 (1,174 bytes of headroom), and
+  Renderer is unchanged at 21,570 bytes
   with the hive card (3,006 bytes of headroom; it was 11,712 with the text grid); `test/Rename.t.sol` pins the
   Composer budget and `test/Artifacts.t.sol` the EIP-170 limit of all three.
   The registry calls the composer
@@ -359,13 +372,28 @@ Everything in "What the builder delivers" is in the tree, with these deviations,
 | `intake` | `0xa43e6F75ee006411F79Ac1C84120606C2330DE82` (Intake v2) |
 | `attester` | `0x5598Aa9146215Bc13eb26f2c692Ad1461Fd32982` |
 | `renderer`, `composer` | the two helper deployments of the same commit |
-| `burnExecutor` (eighth) | `0xe29386719C155B6847aD5a4E97C6674f10ffc750`; `address(0)` disables the rule on Sepolia |
+| `burnExecutor` (eighth) | `0xe29386719C155B6847aD5a4E97C6674f10ffc750` (BurnExecutor V2) |
 
-Deployment must target a chain where the configured Curator answers `isSettled() == true` and
-`IIntake(intake).priceOf(ACTION, imd)` is nonzero; an unset, reverting or unsettled Curator or an unavailable or
-zero-price Intake/asset pair makes construction revert (`"Intake price"` for a zero quote). Both checks are passive
-view reads and move no funds. The quote check confirms a configured action/asset price, not the identity or future
-availability of the dependency. The daily counter assumes a deployment after Unix day zero (Ethereum mainnet in
+`run()` uses `deployForChain()`: chain 11155111 selects these Sepolia overrides; every other chain selects the
+mainnet constants above. Intake and attester are the same in both sets; helpers are deployed from the same build.
+
+| argument | Sepolia value (11155111) |
+|---|---|
+| `curator` | `0x0919ba50b206C3F31D516De818b1fBc7dA21653D` |
+| `idmd` | `0x2C3013c90a1Bb65573aae9a7C64fafB82697E4e4` |
+| `imd` | `0x44a1Cd38474FB1748400E7DEb5F8D786ccE3F89A` (TestIMD) |
+| `burnExecutor` | `0x097A19e0f021BBA5072701132625ad2401043A2E` (BurnExecutor V1) |
+
+The constructor keeps the seven nonzero-address checks. It skips dependency checks **only when all four of
+Curator, IDMD, IMD and Intake lack code**: the launch pipeline's empty-chain floor. On that floor it makes no
+external call and also skips the executor code check; the factory can deploy Renderer, Composer and Registry in
+order using the real arguments. This proves deployability, not operational readiness.
+
+Otherwise IDMD must have code (`DependencyHasNoCode()`); the Curator must answer `isSettled() == true`
+(`"Curator not settled"`); `IIntake(intake).priceOf(ACTION, imd)` must be nonzero (`"Intake price"`); and a nonzero
+executor must have code (`ExecutorHasNoCode()`). Unavailable Curator or Intake calls revert construction. The two
+view reads move no funds; the quote check confirms a configured action/asset price, not dependency identity or
+future availability. The daily counter assumes a deployment after Unix day zero (Ethereum mainnet in
 2026); its zero default then never equals the current UTC day. The deployer
 must verify the eight constructor addresses and both helpers' runtime code against the reviewed build; none can
 be changed later. This assignment deploys nothing.
@@ -373,12 +401,11 @@ be changed later. This assignment deploys nothing.
 The registry has no owner: no setter, pause, upgrade, fee switch, `receive` or `fallback`. The
 accepted ways the registry can stop working are listed in `INTEGRATION.md` section 1 (Intake price, callback gas or
 retirement; attester rotation; a changed attestation struct or canonical document); each needs a successor contract.
-For mainnet, `Deploy.BURN_EXECUTOR` is the address above; `run()` passes it. On chain 11155111 it passes
-`address(0)`. For a Sepolia rehearsal with its own dependencies, call the tested six-argument
-`deploy(curator, idmd, imd, intake, attester, address(0))`; those five rehearsal addresses must be supplied by the
-rehearsal operator, not assumed from mainnet. A nonzero executor must have code on the launch chain at
-construction (`ExecutorHasNoCode()` otherwise); the constructor only reads `extcodesize`, it never calls the
-executor. No executor setter or new owner role is added to the registry.
+The Sepolia executor is a coded V1 whose `previewBridge()` reverts, so free claims there skip the burn with
+code 1. The launch script never selects a zero executor (the launch manifest rejects one). The six-argument
+`deploy(curator, idmd, imd, intake, attester, burnExecutor)` remains available for explicit configurations; zero
+still disables the rule at the contract level. The constructor never calls the executor and checks its code
+outside the all-four-empty floor. No executor setter or new owner role is added to the registry.
 Before launch the operator verifies the executor's current `token`, `oft`, `dstEid`, `baseBurnReceiver`,
 `extraOptions`, `minBridgeAmount` and ownership, and the OFT peer/LayerZero configuration. After launch they monitor
 `BurnTriggered`/`BurnSkipped`, zero previews, quotes, delivery and Base burns; they cannot repair the registry.

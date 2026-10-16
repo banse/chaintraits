@@ -113,7 +113,7 @@ and, in `onResult(requestId, attestation, signature)`, verifies in this order: `
 `requestId` is pending; signature length == 65 (reason 2); answer length <= 2112 and exactly 32 for bool/uint256
 kinds (reason 9), before any dynamic copy or hash; `chainId` == 1; signer == attester
 (`0x5598aa9146215bc13eb26f2c692ad1461fd32982`, constructor argument) under the domain with
-`verifyingContract` == the registry; `answerType` (uint8) == the template's code;
+`verifyingContract` == the registry and domain `chainId` == the deployment chain; `answerType` (uint8) == the template's code;
 `agreed >= quorum >= the template's quorum` and `panelSize >= the template's`; window == the pending request's window;
 expiry; **`questionHash` == the hash the registry computed when it composed the body**; and the answer against the
 rule below (decoded defensively: `INTEGRATION.md` section 4). The attestation's `requestId` is the plane's own id and
@@ -133,8 +133,9 @@ Oracle defaults: chain evidence `panelSize` 5, `quorum` 3 (the deployer reruns t
 panel only has to agree on a recipe); panel evidence `panelSize` 11, `quorum` 7 (as in both pilots);
 `validForSeconds` 2,592,000 (30 days); `chainId` 1; blocks in hex in every text; `head` 32 for T3. A `disagreed`,
 `not_answerable` or refused request reaches `onFailure` (Intake v2) and is "no verdict", never false; a request the
-plane never completes is released by `abandon(requestId)` (callable by anyone) after 14 days (`block.timestamp`, from
-the request's stored `requestedAt`); the price paid is spent either way.
+plane never completes is released by `abandon(requestId)` after 14 days (`block.timestamp`, from the request's
+stored `requestedAt`): a personal request, paid or sponsored, by its claimant only (`NotClaimant()` for a stranger);
+a shared fact by anyone. The price paid is spent either way, and sponsored allowances stay consumed.
 
 ## Templates
 

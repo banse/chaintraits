@@ -14,11 +14,13 @@ T5's wording changed in round 2 (account nonce only, see below); the previous wo
 `templates/fixtures/*.json` (sorted keys, two-space indent); the registry's golden tests must reproduce them byte for
 byte from the stored parameters, with the fixture's synthetic claimant `0x…c1a1` and the fixture's synthetic consumer
 `0x000000000000000000000000000000000000c0de` (the test deploys the registry at that address with forge-std's
-`deployCodeTo`; in production the consumer is `address(this)`). A template that fails a later check is fixed in this
+`deployCodeTo` and pins `vm.chainId(1)`; in production the consumer is `address(this)` on the deployment chain). A template that fails a later check is fixed in this
 file first.
 
 **Byte-exact rule.** The text below, with every placeholder replaced, must equal the fixture files under
-`templates/fixtures/` byte for byte (minus the file's trailing newline, which is not part of the body). In the
+`templates/fixtures/` byte for byte on chain 1 (minus the file's trailing newline, which is not part of the body).
+On another deployment chain only `consumer.chainId` changes; the question text, definitions, windows and top-level
+`chainId: 1` stay the same for the same spec and claimant. In the
 texts, backticks around a placeholder are markdown and are NOT emitted, with ONE exception: the event or function
 item (`<EVENT>`, `<FN>`) is wrapped in literal backticks in the body, exactly as the fixtures show
 (`` count the `event HourSaved(...)` events ``). Nothing else carries backticks. The composer emits the fixture's
@@ -141,7 +143,7 @@ their fixed values:
 | `validForSeconds` | 2592000 |
 | `head` | T3 only: the list length the registry reads, at most 32 |
 | `definitions` | an object of ASCII strings, each at most 512 characters, keys as each template lists |
-| `consumer` | `{"chainId": 1, "verifyingContract": "<the registry's address, lowercase hex>"}`: the EIP-712 domain the attester signs for (`INTEGRATION.md` section 4); the fixtures use `0x000000000000000000000000000000000000c0de` |
+| `consumer` | `{"chainId": <deployment chainId>, "verifyingContract": "<the registry's address, lowercase hex>"}`: the EIP-712 domain the attester signs for (`INTEGRATION.md` section 4); `block.chainid`, emitted as decimal by `Strings.toString` (11155111 on Sepolia); fixtures retain chain 1 and `0x000000000000000000000000000000000000c0de` |
 
 The plane pins `toBlockHash` itself when it admits the request; the registry never puts a block hash in a body
 except the constant one in trait 1301. Serialisation for the golden tests: keys sorted, two-space indent, as in
@@ -152,3 +154,5 @@ the fixtures. (The Intake accepts any byte-exact JSON; the sorted form only make
 when it is `panel`, serialised as RFC 8785 canonical JSON (sorted keys, no whitespace). The registry computes it when
 it composes a body and the callback compares it with the attestation (`INTEGRATION.md` section 4, check 7);
 `reference/plane/questionHashes.json` holds the plane's value and the canonical document for every fixture.
+`consumer` is excluded, so changing its chain does not change the canonical question hash. Composer's `compose`
+and internal `encodeBody` are views; the external selector of `compose` is unchanged.

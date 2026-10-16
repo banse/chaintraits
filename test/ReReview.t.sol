@@ -239,6 +239,7 @@ contract ReReviewTest is Base {
         OracleAttestation memory a = attestationFor(r1, word(1));
         bytes memory sig = sign(a);
         vm.warp(block.timestamp + 14 days);
+        vm.prank(alice);
         registry.abandon(r1);
         bytes32 r2 = ask(alice, 701);
         (,,, bytes32 q2) = registry.pendingRequest(r2);
