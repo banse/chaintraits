@@ -27,7 +27,9 @@ panels (section 3).
 Intake v2 was deployed through CREATE2 at the same address on every chain the plane serves; `/health` lists it as
 `intake` for chains 1, 4663 and 11155111 with v1 under `legacyIntakes`. Its source says "every function, event and
 getter of version 1 is here unchanged"; `requestWithFailure`, `failureSelectorOf` and `FailureHookSet` are new. Both
-addresses return `priceOf` 0.5 IMD, `callbackGas` 200,000 and the same writer (read 2026-10-12 00:30 UTC).
+mainnet addresses return `priceOf` 0.5 IMD, `callbackGas` 200,000 and the same writer (read 2026-10-12 00:30 UTC).
+Sepolia Intake v2's `callbackGas` is 1,000,000; the unit tests still prove delivery with mainnet's stricter
+200,000 stipend. The Intake owner can change these values; read them before launch and monitor them afterwards.
 
 On Sepolia (11155111), `Deploy.deployForChain()` uses Curator
 `0x0919ba50b206C3F31D516De818b1fBc7dA21653D`, IDMD `0x2C3013c90a1Bb65573aae9a7C64fafB82697E4e4`,
@@ -35,6 +37,26 @@ TestIMD `0x44a1Cd38474FB1748400E7DEb5F8D786ccE3F89A` and BurnExecutor V1
 `0x097A19e0f021BBA5072701132625ad2401043A2E`, with the same Intake v2 and attester as above. Every other chain
 selects the mainnet constants. `run()` calls this function; no environment or caller-dependent choice is involved.
 The Sepolia V1 has code but its `previewBridge()` reverts, so the burn rule skips with code 1 there.
+
+Two evidence choices never follow the deployment chain:
+
+- Catalog oracle questions always name `Composer.MAINNET_CURATOR`,
+  `0xcB0b0531e86A9aC36Fa865cA8e3dbccF047FDA91`, including the deploy-block parenthesis of trait 1301.
+  `specOf` returns that target for catalog oracle traits except 1301, whose T5 target stays zero.
+- Community windows use mainnet height `H`: `block.number` on chain 1, otherwise
+  `Composer.mainnetHeightBound()`. T1 to T4 require `fromBlock <= toBlock`, at least 7,200 inclusive blocks and
+  `toBlock < H`; T5 requires `fromBlock == toBlock` and `toBlock + 7200 <= H`. Off mainnet the bound is
+  15,537,395 through timestamp 1,663,224,191, then
+  `15,537,395 + (block.timestamp - 1,663,224,191) / 12`, rounded down. The anchor is the second proof-of-stake
+  block, slot 4,700,014. With 12-second slots and a correct clock this is never below real mainnet height;
+  skipped slots make it about 0.3% higher. It is an upper bound, not a mainnet head oracle.
+
+On 2026-10-16 the off-mainnet bound ran about **76,400 blocks (10.6 days)** above mainnet's head. An unmined
+window can register, and paid requests for it are not refunded. Integrators must check the real mainnet head
+and the window's age before registration or payment; this ownerless registry cannot tighten the bound later.
+The `curator` constructor argument still feeds the constructor's settlement check (outside the empty dependency
+floor), direct reads 101 to 503 and the sponsored membership check; 601 reads IDMD. Those reads use the
+deployment chain's dependencies, while the body consumer and EIP-712 domain also use the deployment chain.
 
 The launch is three contracts, `Renderer`, `Composer` and `Registry`. The registry takes eight constructor arguments,
 `(curator, idmd, imd, intake, attester, renderer, composer, burnExecutor)`: the original five external addresses,
@@ -67,7 +89,11 @@ The registry is ownerless, so none of these has a remedy inside it; each needs a
 - The Intake's owner can `setPrice(action, IMD, 0)`: `request` then reverts `ActionNotSold` and every `upgrade`
   reverts. It can `setCallbackGas` below what `onResult` needs: every callback then fails and no oracle trait can ever
   be verified. It can `setWriter`, `setPayTo`, `setSigner`. The plane can retire v2 for a v3 as it retired v1.
-- The attester `0x5598…` is a constant; if the plane rotates the key, every later attestation is a miss.
+- The attester `0x5598…` is fixed at construction; if the plane rotates the key, every later attestation is a miss.
+  `claimSponsored` and `upgradeSponsored` keep spending the current Intake price of pool money per request on
+  answers that cannot verify. Their daily and lifetime limits still apply, but neither a miss nor a key rotation
+  refunds the price or restores an allowance. Operators must monitor the attester and stop directing users to
+  these requests after a rotation; there is no registry pause or setter.
 - The plane may change the attestation struct or the action version string. It did change the struct once before
   2026-10-10 (an earlier record shows a shape without the three panel fields); every completion measured since (five,
   on both Intakes, `reference/intake/completions.json`) carries the 15-field shape, and the registry accepts only that.
@@ -117,8 +143,8 @@ function complete(bytes32 requestId, uint8 status, bytes32 resultHash, string ca
 ```
 
 `status` 0 = a result, 1 = refused, 2 = ended without a result (a panel that disagreed, `not_answerable`). The Intake
-sends `bytes.concat(selector, args)` to `callback.target` with a fixed gas stipend of **`callbackGas()` = 200,000**
-(read it; it is settable by the Intake's owner), no value, and records `delivered` without reverting the writer's
+sends `bytes.concat(selector, args)` to `callback.target` with a gas stipend of **`callbackGas()` = 200,000 on
+mainnet, 1,000,000 on Sepolia** (read it; it is settable by the Intake's owner), no value, and records `delivered` without reverting the writer's
 transaction. A callback that reverts or runs out of gas is simply `delivered == false`: the request is still
 `completed` and will never be retried.
 

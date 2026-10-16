@@ -6,7 +6,16 @@ import {Registry} from "../src/Registry.sol";
 
 /// @notice The launch factory supplies creation code, then constructor arguments, to CREATE2.
 contract FloorProbe {
-    function deploy(bytes memory initCode, bytes32 salt) external returns (address deployed) {
+    function deployAll(bytes memory rendererCode, bytes memory composerCode, bytes memory registryCode)
+        external
+        returns (address renderer, address composer, address registry)
+    {
+        renderer = _deploy(rendererCode, bytes32("Renderer"));
+        composer = _deploy(composerCode, bytes32("Composer"));
+        registry = _deploy(registryCode, bytes32("Registry"));
+    }
+
+    function _deploy(bytes memory initCode, bytes32 salt) internal returns (address deployed) {
         assembly ("memory-safe") {
             deployed := create2(0, add(initCode, 32), mload(initCode), salt)
             if iszero(deployed) {
@@ -62,10 +71,26 @@ contract FloorTest is Test {
             abi.encode(args[0], args[1], args[2], args[3], args[4], args[5], args[6], args[7])
         );
         address predictedRegistry = _predict(address(probe), bytes32("Registry"), registryCode);
-        assertEq(probe.deploy(rendererCode, bytes32("Renderer")), args[5]);
-        assertEq(probe.deploy(composerCode, bytes32("Composer")), args[6]);
-        address deployed = probe.deploy(registryCode, bytes32("Registry"));
+        assertLe(rendererCode.length, 49_152, "Renderer init code exceeds EIP-3860");
+        assertLe(composerCode.length, 49_152, "Composer init code exceeds EIP-3860");
+        assertLe(registryCode.length, 49_152, "Registry init code exceeds EIP-3860");
+        uint64 nonceBefore = vm.getNonce(address(probe));
+        // A funded probe proves that construction leaves its ETH untouched.
+        vm.deal(address(probe), 1 ether);
+        (address deployedRenderer, address deployedComposer, address deployed) =
+            probe.deployAll(rendererCode, composerCode, registryCode);
+        assertEq(vm.getNonce(address(probe)), nonceBefore + 3, "factory must create exactly three contracts");
+        assertEq(address(probe).balance, 1 ether, "factory sent ETH");
+        assertEq(deployedRenderer, args[5]);
+        assertEq(deployedComposer, args[6]);
         assertEq(deployed, predictedRegistry);
+        for (uint256 i; i < args.length; ++i) {
+            assertEq(args[i].balance, 0, "dependency received ETH");
+        }
+        assertEq(deployed.balance, 0, "Registry received ETH");
+        assertEq(vm.getNonce(deployedRenderer), 1, "Renderer constructor created a contract");
+        assertEq(vm.getNonce(deployedComposer), 1, "Composer constructor created a contract");
+        assertEq(vm.getNonce(deployed), 1, "Registry constructor created a contract");
         _runtime(args[5]);
         _runtime(args[6]);
         _runtime(deployed);

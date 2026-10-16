@@ -35,6 +35,11 @@ contract Composer {
     /// @notice The hash of the Curator deploy block, the only block hash a body ever carries (trait 1301).
     bytes32 internal constant B_DEPLOY_HASH = 0x43ac0aadac9b134a5e4555d28323431664fd77d74cd6a28cb4ca65e34ba72256;
 
+    address public constant MAINNET_CURATOR = 0xcB0b0531e86A9aC36Fa865cA8e3dbccF047FDA91;
+    uint256 internal constant MERGE_BLOCK = 15_537_395;
+    uint256 internal constant MERGE_TIME = 1_663_224_191;
+    uint256 internal constant SLOT_SECONDS = 12;
+
     uint16 internal constant CHAIN_PANEL = 5;
     uint16 internal constant CHAIN_QUORUM = 3;
     uint16 internal constant PANEL_PANEL = 11;
@@ -68,8 +73,8 @@ contract Composer {
     error NotACatalogOracleTrait(uint16 traitId);
 
     /// @notice A catalog oracle trait (701 to 1301) expressed as a Spec (CATALOG.md section 3).
-    function catalogSpec(uint16 traitId, address curator) external pure returns (Spec memory s) {
-        s.target = curator;
+    function catalogSpec(uint16 traitId, address) external pure returns (Spec memory s) {
+        s.target = MAINNET_CURATOR;
         s.threshold = 1;
         s.fromBlock = B_DEPLOY;
         s.toBlock = B_END;
@@ -230,7 +235,8 @@ contract Composer {
     }
 
     /// @notice The guards of CATALOG.md section 5; reverts `BadSpec(field)` on the first failing field.
-    function validateSpec(Spec calldata s, uint256 blockNumber) external pure {
+    function validateSpec(Spec calldata s, uint256 blockNumber) external view {
+        if (block.chainid != 1) blockNumber = mainnetHeightBound();
         if (s.kind < 1 || s.kind > 5) revert BadSpec("kind");
         bytes memory item = bytes(s.item);
         if (s.kind == 5) {
@@ -290,6 +296,11 @@ contract Composer {
         }
     }
 
+    function mainnetHeightBound() public view returns (uint256) {
+        if (block.timestamp <= MERGE_TIME) return MERGE_BLOCK;
+        return MERGE_BLOCK + (block.timestamp - MERGE_TIME) / SLOT_SECONDS;
+    }
+
     /// @dev `[A-Za-z0-9_]`, plus ` ,()[]` when `item` is true.
     function _charset(bytes memory b, bool item) internal pure returns (bool) {
         for (uint256 i; i < b.length; ++i) {
@@ -316,12 +327,12 @@ contract Composer {
 
     /// @notice Composes the body and the plane's `questionHash` for a spec and a claimant.
     /// @param catalogNonce true for trait 1301, whose T5 parenthesis names the Curator deploy block.
-    function compose(Spec memory s, address claimant, address consumer, bool catalogNonce, address curator)
+    function compose(Spec memory s, address claimant, address consumer, bool catalogNonce, address)
         external
         view
         returns (bytes memory body, bytes32 questionHash)
     {
-        Question memory q = question(s, claimant, catalogNonce, curator);
+        Question memory q = question(s, claimant, catalogNonce);
         if (bytes(q.question).length > MAX_QUESTION) revert QuestionTooLong(bytes(q.question).length);
         for (uint256 i; i < q.values.length; ++i) {
             if (bytes(q.values[i]).length > MAX_DEFINITION) revert DefinitionTooLong(bytes(q.values[i]).length);
@@ -332,11 +343,7 @@ contract Composer {
 
     // ------------------------------------------------------------------ the five templates
 
-    function question(Spec memory s, address claimant, bool catalogNonce, address curator)
-        internal
-        pure
-        returns (Question memory q)
-    {
+    function question(Spec memory s, address claimant, bool catalogNonce) internal pure returns (Question memory q) {
         string memory a = Strings.toHexString(claimant);
         string memory c = Strings.toHexString(s.target);
         string memory from = hexMin(s.fromBlock);
@@ -473,7 +480,7 @@ contract Composer {
                     ", block hash ",
                     Strings.toHexString(uint256(B_DEPLOY_HASH), 32),
                     "; the block in which the WhitelistCurator contract ",
-                    Strings.toHexString(curator),
+                    Strings.toHexString(MAINNET_CURATOR),
                     " was deployed)"
                 )
                 : string.concat("(hex ", to, "; the last block of the spec's window)");

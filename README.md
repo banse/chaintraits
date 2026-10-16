@@ -23,7 +23,7 @@ last sentence of `INTEGRATION.md` check 7 (the golden test hashes the canonical 
    callback acceptance rule per class, spec registration, the pool rules, the name table.
 3. `TEMPLATES.md`: the five question templates and the request body; `templates/fixtures/` holds the exact bodies,
    all ten checked and quoted by the plane.
-4. `INTEGRATION.md`: Intake v2 (`requestWithFailure`, `complete`, the 200,000-gas callback, the failure hook), the
+4. `INTEGRATION.md`: Intake v2 (`requestWithFailure`, `complete`, the 200,000-gas mainnet callback, the failure hook), the
    EIP-712 attestation struct and how it binds (`consumer`, `questionHash`), addresses, the Curator's views and their
    traps, the transition table.
 5. `reference/`: vendored evidence (both Intakes' verified sources, ABIs, five served attestations including two for
@@ -114,6 +114,25 @@ request untouched. A valid late answer can still settle a request that has not b
 Every oracle question is about Ethereum mainnet (`chainId: 1`). The body's `consumer.chainId` and the EIP-712
 signing domain use the deployment chain (11155111 on Sepolia); the canonical question hash excludes `consumer`.
 Mainnet bodies remain byte-identical to the committed fixtures.
+
+Two things never follow the deployment chain. Catalog oracle questions name
+`Composer.MAINNET_CURATOR = 0xcB0b0531e86A9aC36Fa865cA8e3dbccF047FDA91`, including trait 1301's parenthesis;
+`specOf` uses that target for catalog oracle traits except 1301, whose T5 target remains zero. Community windows
+are bounded by mainnet height `H`: `block.number` on chain 1, otherwise `Composer.mainnetHeightBound()`.
+T1 to T4 require an ordered window of at least 7,200 blocks and `toBlock < H`; T5 requires
+`fromBlock == toBlock` and `toBlock + 7200 <= H`. Off mainnet the bound is 15,537,395 through timestamp
+1,663,224,191, then `15,537,395 + (block.timestamp - 1,663,224,191) / 12` (integer division). It allows one
+block per 12-second slot since the second proof-of-stake block, slot 4,700,014. With 12-second slots and a
+correct clock it is never below real mainnet height; skipped slots make it about 0.3% higher, not an exact head.
+On 2026-10-16 it ran about **76,400 blocks (10.6 days)** above mainnet's head. An unmined window can therefore
+register off mainnet, and its paid requests are not refunded. Clients should check the actual mainnet head and
+the window's age before registering or paying for a request.
+
+The registry's `curator` constructor argument still supplies the constructor's settlement check (outside the
+empty dependency floor), direct reads 101 to 503, and the sponsored membership check. Trait 601 reads IDMD.
+On Sepolia those operations use the Sepolia dependencies. Intake's `callbackGas` is **1,000,000 on Sepolia**
+and **200,000 on mainnet**; the unit tests prove delivery under the stricter 200,000 stipend. Both values are
+settable by the external Intake owner and must be checked before launch and monitored afterwards.
 
 Function and event names in this summary are the working names of the interface and did not change in the rename
 (only display strings did). Types, arities and the behaviour described in `CONCEPT.md` are the
@@ -339,7 +358,8 @@ Everything in "What the builder delivers" is in the tree, with these deviations,
   and the unchanged direct-read predicates (`hasDirectTrait`). The registry alone was 41,717 bytes of runtime;
   it was 23,364 after the Registry rules update, 24,495 after the burn rule and is **24,561 after the launch
   corrections**, with **15 bytes** of EIP-170 headroom. Local factoring shares the membership and pool checks
-  without changing their order. Composer is **23,402 bytes**, up from 23,377 (1,174 bytes of headroom), and
+  without changing their order. Composer is **23,655 bytes** after the mainnet-evidence correction
+  (**921 bytes of headroom**), and
   Renderer is unchanged at 21,570 bytes
   with the hive card (3,006 bytes of headroom; it was 11,712 with the text grid); `test/Rename.t.sol` pins the
   Composer budget and `test/Artifacts.t.sol` the EIP-170 limit of all three.

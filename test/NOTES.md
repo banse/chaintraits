@@ -1,3 +1,90 @@
+# Mainnet evidence on a Sepolia consumer (2026-10-17)
+
+Ports the two accepted launch-1953 corrections from the assignment's explicit change list. The
+[reference repository at commit 94369920d76bf7bfc0bb8aa1b3138b40246f3ae0](https://github.com/identity-md-launches/launch-1953-launch-sworn-registry-symbol/tree/94369920d76bf7bfc0bb8aa1b3138b40246f3ae0)
+was unreachable: both the raw-content and API endpoints were blocked by the network sandbox. The fallback
+implementation nevertheless produces all three required runtime hashes exactly. No deployment or publication
+was performed. Only Composer, the two specified test files and the four specified documents change; Registry,
+Renderer, Types, script, dependencies, compiler configuration, generator, goldens and template fixtures remain
+byte-equal to the starting tree.
+
+Catalog oracle specs now target `Composer.MAINNET_CURATOR` regardless of the registry's `curator` argument;
+1301 keeps its zero T5 target and names the mainnet Curator in its question's parenthesis. `catalogSpec`'s second
+argument and `compose`'s fifth argument remain in their external selectors but are unnamed and unused.
+The deployment Curator still supplies the constructor's settlement check, direct reads 101 to 503 and sponsored
+membership checks; 601 reads IDMD. The consumer chain and EIP-712 domain still follow the deployment chain.
+
+`validateSpec` retains every guard, replacing its supplied height only off mainnet with
+`mainnetHeightBound()`: 15,537,395 through timestamp 1,663,224,191, then one additional block per elapsed
+12-second slot. On chain 1, the registry still supplies its exact `block.number`. With 12-second slots and a
+correct clock the bound is never below the real mainnet head; skipped slots make it about 0.3% higher. It was
+about 76,400 blocks (10.6 days) above the head on 2026-10-16, so an unmined window can register off mainnet and
+its paid requests are not refunded. README and INTEGRATION describe the client checks and operational
+responsibilities, the Sepolia/mainnet callback stipends (1,000,000/200,000), and the continued pool spending
+after an attester rotation.
+
+**Anchor erratum:** 15,537,395 is the **second proof-of-stake block (slot 4,700,014)**. This is the terminology
+correction for the accepted reference's comments at `src/Composer.sol:40` / `:43` and
+`test/SepoliaRehearsal.t.sol:166` / `:179`; the constant names `MERGE_BLOCK` and `MERGE_TIME` do not change that
+fact. This fallback does not reproduce those reference comments or their line numbers. No original Composer
+comment was edited, and no bytecode change is needed for this erratum.
+
+## Regression coverage
+
+`SepoliaRehearsal.t.sol` adds eight tests, with chain 11155111 and a Curator mock at the specified Sepolia
+address. They cover the game window and deploy-block T5 registering as 10001/10002 with both fees pulled;
+rejected future, too-young, short and reversed windows without fees or id advancement; accepted exact boundary
+windows; chain 1's unchanged height guards; all five supplied timestamp/height pairs with at most 100,000 blocks
+of slack; the anchor and slot boundary; fuzzed monotonicity and the pre-anchor floor; seven catalog fixtures
+equal except for `consumer.chainId`, including the plane's question hashes and ignored curator arguments;
+all catalog targets and absence of the Sepolia address in question bodies; all direct Curator predicates plus
+the IDMD predicate; and a paid 701 request verified end to end through the mock Intake under 200,000 gas.
+
+`Floor.t.sol` retains its prior assertions. `FloorProbe.deployAll` creates Renderer, Composer and Registry in
+one call. Both empty-chain parameter sets assert that the factory nonce increases by exactly three, each
+init code is at most 49,152 bytes, each deployed contract has nonce one, and a funded factory retains its ETH
+while all recipients remain unfunded. Existing runtime limits, forbidden-opcode checks, absent owner/admin,
+predicted addresses and constructor-state assertions still pass.
+
+## Runtime and source identity
+
+Built with the unchanged solc 0.8.24 configuration (optimizer 200, Cancun, no metadata hash):
+
+| contract | runtime bytes | runtime keccak256 |
+|---|---:|---|
+| Composer | 23,655 | `0x79359a04f91e52693816feb7a9d90b4c75e44abb838f9061e8eee209f6ca417e` |
+| Registry | 24,561 | `0x9c88410fb6463610043b3adeea1ab857096e83ca8e0aea4f73f63433fbfb42d2` |
+| Renderer | 21,570 | `0x1fb854135321f70bb61cefbd688f8375179cdb7c4fb2af2009583786f7d47efb` |
+
+All three match the assignment's expected runtime hashes and sizes; Composer has 921 bytes of EIP-170 headroom.
+The fallback source files are not byte-equal to the supplied reference SHA-256 values. Local SHA-256 values:
+
+| file | SHA-256 | equals supplied reference hash |
+|---|---|---|
+| `src/Composer.sol` | `bea2e23a774e4e1a02b43bbf219da37caada8b5f70e1a0d3be64619bb780afc4` | no |
+| `test/SepoliaRehearsal.t.sol` | `4772eca39996e6066da68830ca43f4a696e15b096a72cfb5be97398ed1079bd8` | no |
+| `test/Floor.t.sol` | `d2dc0de34e04fe4f08593b7ad53c99fb5be80c85307f14f63ee7e9fc269d1def` | no |
+
+## Checks
+
+Fuzz seed: `0xb9300d51a124316294780636a4ca9f515f5d5a4eef21a13d291e267e9a3a01d2`.
+
+| check | result |
+|---|---|
+| `forge build --offline` | pass with pinned solc 0.8.24; compiler/lint warnings remain |
+| `forge fmt --check` | pass |
+| targeted Sepolia and floor tests, seed above | 10 passed, 0 failed |
+| `forge test --offline`, seed above | 182 passed, 0 failed, 17 opt-in fork skips |
+| `python3 tools/gen_template.py --check` | could not run: Python's system shim exits 1 because Xcode Command Line Tools are unavailable |
+| `python3 -m unittest discover -s tools` | same runtime failure before test discovery; no Python tests ran |
+
+The starting suite contains 174 passing tests; these eight new tests bring it to 182, rather than the brief's
+stated 188. No unrelated Sepolia tests were copied or added to change that count. The generator and its 28
+artifacts are unchanged, but this assignment does not claim a successful generator check or 18 Python test
+passes. The earlier dated entries below report earlier jobs and their checks, not this run.
+
+---
+
 # Launch corrections: empty floor, abandon, question chain and Sepolia (2026-10-16)
 
 Four changes, with the compiler, dependencies, Renderer, Types, generator, goldens, template fixtures and
