@@ -1,0 +1,62 @@
+{
+  "version": 1,
+  "launchId": "4ba572fe-2cf9-462f-9851-52975b8b5cea",
+  "chainId": 1,
+  "repoUrl": "https://github.com/identity-md-launches/launch-2147-launch-sworn-registry-symbol",
+  "sourceCommit": "b86d7aea5bd2d67e38c6868148168fabf3c83b3d",
+  "attestationHash": "f85a2c2307f0d50c8cd0c880b4e41fff2a7f521401b1b576cc7122a1ac5bebe8",
+  "manifest": {
+    "kind": "evm_contracts",
+    "contracts": [
+      {
+        "contract": "Renderer",
+        "constructorArgs": []
+      },
+      {
+        "contract": "Composer",
+        "constructorArgs": []
+      },
+      {
+        "contract": "Registry",
+        "constructorArgs": [
+          "0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91",
+          "0x0000ec93127baa929e58e97dd0095a2bfb38ec1d",
+          "0xd34a99bc0f67ae1bbd63c660e6d0b0dd03e263b7",
+          "0xa43e6f75ee006411f79ac1c84120606c2330de82",
+          "0x5598aa9146215bc13eb26f2c692ad1461fd32982",
+          "$contract:Renderer",
+          "$contract:Composer",
+          "0xe29386719C155B6847aD5a4E97C6674f10ffc750"
+        ]
+      }
+    ],
+    "notes": "Ethereum mainnet (chain ID 1): deploy only Renderer, Composer, then the Sworn registry (symbol SWORN). All three contracts are ownerless; there are no owner arguments or initialization calls. Registry arguments are curator, idmd, imd, intake, attester, renderer, composer and burnExecutor, in that order, with the approved fixed addresses and references to the two preceding deployments. The nonzero BurnExecutor V2 enables the accepted best-effort burn rule: sponsored callers must read a current quote and supply the fee when the preview meets the 69 IMD minimum and 0.005 ETH cap. V2 can return zero for a gas-starved inner quote, allowing the call to skip the burn without an event; the documented BurnSkipped(1) expectation for that case is an accepted documentation erratum. BurnTriggered records source-chain bridge submission, not completed Base delivery. Accepted executable source, constructor behavior, libraries and build settings are unchanged; the only adaptation is this manifest."
+  },
+  "contracts": [
+    {
+      "name": "Renderer",
+      "address": "0xea9185cc6dffe42a8c059b099c50cb21021439ad",
+      "txHash": "0xe647fe252afa7fac3fbbf56e1c3ad64de2093337c29d199a2280c25dc4704c24",
+      "blockNumber": 26217644,
+      "creationCodeHash": "3d3adf0fdb7e1ac928d0339e6ed7c52e18d1e970224f43cd6a17842aeb5aa21a",
+      "abiHash": "ff2f9c0fd5354f0a0431cd740506b287640ff3a611675ffc2803317de04aa09e"
+    },
+    {
+      "name": "Composer",
+      "address": "0x06bf2168dd115fa37bd1637fa1f50adb29a3029d",
+      "txHash": "0xe647fe252afa7fac3fbbf56e1c3ad64de2093337c29d199a2280c25dc4704c24",
+      "blockNumber": 26217644,
+      "creationCodeHash": "04101aab592f39adfa01247ac81cec49d42879fca1a008f659cdd83d7a69c0ba",
+      "abiHash": "380e8f3258110a8e65660bc749924b444984fc68f88736cdf6ca4abf2fd3d361"
+    },
+    {
+      "name": "Registry",
+      "address": "0x39bec7648259d5a128c29b24951eabcd4d1f95a6",
+      "txHash": "0xe647fe252afa7fac3fbbf56e1c3ad64de2093337c29d199a2280c25dc4704c24",
+      "blockNumber": 26217644,
+      "creationCodeHash": "49a95ac3c031145b618c6d920ca8bff77d7e067480c18cc3f60fdd9e2dd3b233",
+      "abiHash": "5f96e03a53e314363da9bf6b9fc79c8753dfc8c5f8b5e8f42e5f4f0ff8edc53b"
+    }
+  ],
+  "abiInstructions": "Build ABIs from this exact source commit; compare canonicalKeccak(abi) with abiHash. Verify deployed code on the stated chain before enabling transactions."
+}
