@@ -120,9 +120,10 @@ class GeneratorTest(unittest.TestCase):
 
     def test_hive_svg_element_order_for_each_state(self) -> None:
         top = (101, 201, 302, 0, 503, 0, 0, 801, 0, 0, 1105, 0, 0)
-        svg = gen.hive_svg(9, top, 14)
+        svg = gen.hive_svg(top, 14)
         self.assertTrue(svg.startswith(gen.SVG_OPEN))
-        self.assertTrue(svg.endswith("<text x='940' y='950' fill='#00cc33' font-size='20' text-anchor='end'>#9</text></svg>"))
+        self.assertTrue(svg.endswith("'/></svg>"))
+        self.assertNotIn("<text", svg)
         self.assertNotIn("\n", svg)
         self.assertNotIn('"', svg)
         # 13 outlines; per family: full cells 77 + k rings, part-filled cells 2 clips + 77 + k + k clipped rings,
@@ -138,7 +139,7 @@ class GeneratorTest(unittest.TestCase):
         self.assertNotIn("<path", svg, "no path up to 39 members")
         for number in NUMBER.findall(svg):
             self.assertRegex(number, r"^\d+\.\d$")
-        fill_line = gen.hive_svg(9, top, 40)
+        fill_line = gen.hive_svg(top, 40)
         self.assertIn("<path d='M", fill_line)
         self.assertEqual(fill_line.count("L"), 1 + fill_line.count("Lr"), "two steps end on the first edge")
 
@@ -147,14 +148,14 @@ class GeneratorTest(unittest.TestCase):
             for top_id in ids:
                 top = [0] * 13
                 top[i] = top_id
-                svg = gen.hive_svg(1, tuple(top), 0)
+                svg = gen.hive_svg(tuple(top), 0)
                 self.assertEqual(svg.count("<circle"), 1 if top_id in gen.RARE_IDS else 0, top_id)
-        self.assertEqual(gen.hive_svg(1, (0,) * 13, 0).count("<circle"), 0)
+        self.assertEqual(gen.hive_svg((0,) * 13, 0).count("<circle"), 0)
 
     def test_hive_svg_opacities_by_ring_count(self) -> None:
         top = (0,) * 5 + (601,) + (0,) * 7  # Armed, the centre slot, lit
         for count, expected in ((0, ("1.00",)), (1, ("0.35", "1.00")), (14, ("0.35", "0.68", "1.00")), (27, ("0.35", "0.57", "0.78", "1.00"))):
-            svg = gen.hive_svg(1, top, count)
+            svg = gen.hive_svg(top, count)
             self.assertEqual(tuple(re.findall(r"fill-opacity='([^']*)'", svg)), expected, count)
 
     def test_hive_strings_are_unique_and_each_used_string_is_precomputed(self) -> None:
@@ -174,7 +175,7 @@ class GeneratorTest(unittest.TestCase):
         precomputed = set(points)
         for top in gen.CASES["synthetic_honey"].top, gen.CASES["synthetic_fullhouse"].top, (0,) * 13:
             for count in (0, 5, 14, 39, 40, 8192):
-                svg = gen.hive_svg(1, top, count)
+                svg = gen.hive_svg(top, count)
                 for pts, _ in POLYGON.findall(svg):
                     self.assertIn(pts, precomputed)
                 for match in re.finditer(r"<circle (cx='[^']*' cy='[^']*')", svg):
@@ -216,7 +217,7 @@ class GeneratorTest(unittest.TestCase):
         for i, fragment in enumerate(self.hive.fragments):
             self.assertEqual(gen.percent_decode(fragments_blob[fcuts[i] : fcuts[i + 1]]), fragment.encode("ascii"))
         # a concatenation of fragments and points reproduces a golden image exactly
-        svg = gen.hive_svg(3, gen.CASES["synthetic_newcomer"].top, 0)
+        svg = gen.hive_svg(gen.CASES["synthetic_newcomer"].top, 0)
         encoded = gen.percent_encode(svg.encode("ascii"))
         for piece in (points_blob[cuts[0] : cuts[1]], fragments_blob[fcuts[0] : fcuts[1]]):
             self.assertIn(piece, encoded)
@@ -243,7 +244,7 @@ class GeneratorTest(unittest.TestCase):
                 for meta in metadata["oracle"]:
                     self.assertEqual(meta["minPanelSize"], 11 if meta["template"] == "T5" else 5)
                     self.assertEqual(meta["minQuorum"], 7 if meta["template"] == "T5" else 3)
-                self.assertEqual(svg, gen.hive_svg(data.tokenId, data.top, data.communityCount).encode("ascii"))
+                self.assertEqual(svg, gen.hive_svg(data.top, data.communityCount).encode("ascii"))
                 self.assertTrue(svg.startswith(b"<svg ") and svg.endswith(b"</svg>"))
                 self.assertNotIn(data.claimant.encode(), svg, "the hive shows no address")
                 self.assertEqual(metadata["image"], "data:image/svg+xml," + gen.percent_encode(svg))
@@ -277,17 +278,17 @@ class GeneratorTest(unittest.TestCase):
         self.assertEqual(cases["synthetic_fullhouse"].tokenId, 7)
         self.assertEqual(cases["synthetic_fullhouse"].communityCount, 5000)
         self.assertEqual(cases["synthetic_fullhouse"].traits, gen.CATALOG_IDS)
-        honey = gen.hive_svg(5, cases["synthetic_honey"].top, 39)
+        honey = gen.hive_svg(cases["synthetic_honey"].top, 39)
         self.assertEqual(honey.count("<clipPath id='a"), 4, "every multi-tier family is part-filled")
         self.assertEqual(honey.count("fill-opacity='0.57'"), 13, "three rings in every cell")
         self.assertNotIn("<path", honey)
         self.assertEqual(gen.cumulative_traits(gen.HONEY_TOP)[:8], (101, 201, 301, 302, 401, 402, 403, 501))
-        collector = gen.hive_svg(6, cases["synthetic_collector"].top, 70)
+        collector = gen.hive_svg(cases["synthetic_collector"].top, 70)
         self.assertEqual(len(re.search(r"<path d='M([^']*)'", collector).group(1).split("L")), 2, "nine steps: one edge")
-        fullhouse = gen.hive_svg(7, cases["synthetic_fullhouse"].top, 5000)
+        fullhouse = gen.hive_svg(cases["synthetic_fullhouse"].top, 5000)
         self.assertEqual(fullhouse.count("<circle"), 6)
         self.assertEqual(len(re.search(r"<path d='M([^']*)'", fullhouse).group(1).split("L")), 7, "58 steps: six segments")
-        outsider = gen.hive_svg(4, cases["synthetic_outsider"].top, 5)
+        outsider = gen.hive_svg(cases["synthetic_outsider"].top, 5)
         self.assertEqual(outsider.count("stroke='#151515'"), 13)
         self.assertEqual(outsider.count("stroke-width='3' stroke-linejoin='round'/>"), 5 + 1, "five ring outlines and V")
 

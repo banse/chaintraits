@@ -112,7 +112,8 @@ contract Renderer {
     /// @dev    Element order, per `tools/gen_template.py` `hive_svg`: the opening and background; for each
     ///         family in catalog order its outline, then its zones (clipped to the honey line when the
     ///         family is part-filled, with the rings outlined above the line), the rare dot, or the ring
-    ///         outlines of an empty cell; the outer ring; the community path; the token id.
+    ///         outlines of an empty cell; the outer ring; the community path. The token id is not drawn
+    ///         (it is the metadata name).
     function image(Card memory c) public pure returns (bytes memory) {
         Hive memory h =
             Hive(HiveData.POINTS, _unhex(HiveData.POINT_STARTS), HiveData.FRAGMENTS, _unhex(HiveData.FRAGMENT_STARTS));
@@ -140,8 +141,6 @@ contract Renderer {
             }
             _frag(b, h, HiveData.F_PATH_CLOSE);
         }
-        _frag(b, h, HiveData.F_TEXT_OPEN);
-        _put(b, bytes(Strings.toString(c.tokenId)));
         _frag(b, h, HiveData.F_SVG_CLOSE);
         return _finish(b);
     }

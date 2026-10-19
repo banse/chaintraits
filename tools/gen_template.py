@@ -234,7 +234,7 @@ SVG_OPEN = (
 )
 
 
-def hive_svg(token_id: int, top: tuple[int, ...], community_count: int) -> str:
+def hive_svg(top: tuple[int, ...], community_count: int) -> str:
     """The normative card image: one line, single quotes, numbers as f'{v:.1f}' unless literal."""
     if len(top) != 13:
         raise ValueError("top must hold one entry per family")
@@ -283,7 +283,6 @@ def hive_svg(token_id: int, top: tuple[int, ...], community_count: int) -> str:
             f"<path d='{D(path_points(steps))}' fill='none' stroke='#05751f' stroke-width='5' "
             "stroke-linecap='round' stroke-linejoin='round'/>"
         )
-    out.append(f"<text x='940' y='950' fill='#00cc33' font-size='20' text-anchor='end'>#{unsigned(token_id)}</text>")
     out.append("</svg>")
     return "".join(out)
 
@@ -316,8 +315,7 @@ FRAGMENTS: tuple[tuple[str, str], ...] = (
     ("PATH_OPEN", "<path d='M"),
     ("PATH_SEGMENT", "L"),
     ("PATH_CLOSE", "' fill='none' stroke='#05751f' stroke-width='5' stroke-linecap='round' stroke-linejoin='round'/>"),
-    ("TEXT_OPEN", "<text x='940' y='950' fill='#00cc33' font-size='20' text-anchor='end'>#"),
-    ("SVG_CLOSE", "</text></svg>"),
+    ("SVG_CLOSE", "</svg>"),
     ("COLOUR_DIRECT", "#00cc33"),
     ("COLOUR_CHAIN", "#00ff41"),
     ("COLOUR_SHARED", "#dbfee6"),
@@ -794,7 +792,7 @@ def card_values(data: CardData) -> tuple[str, ...]:
         raise ValueError("top must hold one entry per family")
     values = {
         "ID": unsigned(data.tokenId),
-        "IMAGE": percent_encode(hive_svg(data.tokenId, data.top, data.communityCount).encode("ascii")),
+        "IMAGE": percent_encode(hive_svg(data.top, data.communityCount).encode("ascii")),
         "CLAIMANT": data.claimant,
         "CC": unsigned(data.communityCount),
         "TRAITS": ",".join(unsigned(v) for v in data.traits),
@@ -832,7 +830,7 @@ def render_case(template: TemplateArtifacts, data: CardData) -> tuple[bytes, byt
     if not image.startswith(image_prefix):
         raise ValueError("image data URI prefix changed")
     svg = percent_decode(image[len(image_prefix) :])
-    if svg != hive_svg(data.tokenId, data.top, data.communityCount).encode("ascii"):
+    if svg != hive_svg(data.top, data.communityCount).encode("ascii"):
         raise ValueError("image round trip changed the SVG")
     uri = b"data:application/json;base64," + base64.b64encode(preimage)
     return preimage, svg, uri

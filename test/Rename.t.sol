@@ -184,9 +184,10 @@ contract RenameTest is Base {
             assertEq(vm.parseJsonString(metadata, key), families[i]);
         }
         assertEq(vm.parseJsonString(metadata, ".attributes[14].trait_type"), "community_count");
-        // the hive card prints only the token id; the family labels live in the attributes above
+        // the hive card prints no text at all: no token id, no family label; both live in the JSON
         string memory image = vm.parseJsonString(metadata, ".image");
-        assertTrue(vm.contains(image, string.concat("%3E%23", vm.toString(tokenId), "%3C/text%3E%3C/svg%3E")));
+        assertFalse(vm.contains(image, "%3Ctext"));
+        assertTrue(vm.contains(image, "'/%3E%3C/svg%3E"));
         assertFalse(vm.contains(image, "chaintraits"));
         assertFalse(vm.contains(image, "Pretrained"));
     }

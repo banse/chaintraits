@@ -580,3 +580,10 @@ Golden and byte-exact gates: `Goldens.t.sol` (three synthetic cards), `Templates
   `signer()`; it trusts the attester constructor argument, which is what the five served attestations recover to.
 - A claimant-paid request whose callback the plane never completes locks the pair for 14 days (`abandon`); a
   shared fact likewise locks the fact id. Accepted in the brief (CONCEPT.md section 4), exercised by the abandon tests.
+
+# CR-1: no token id on the image (2026-10-19)
+
+The owner's change request: the hive SVG no longer prints the token id (the `<text>` element and its `F_TEXT_OPEN`
+fragment are gone; `F_SVG_CLOSE` is `</svg>`). The id stays the metadata name. `tools/gen_template.py` `hive_svg` lost
+its `token_id` argument; `HiveData.sol` and all 24 goldens regenerated (`--check` clean); `RenameTest.test_metadataCarriesTheFinalFamilyNames`
+asserts that the image has no `<text>` element; `tools/test_gen_template.py` likewise. Offline suite: 188 passed, 17 fork tests skipped.

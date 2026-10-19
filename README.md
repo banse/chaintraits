@@ -227,7 +227,7 @@ specs add up to three concentric rings per cell (spec 1 to 13 the outer ring of 
 39 the inner one; the rings are tinted in a lit cell and outlined in a dark one). A white dot marks a rare top tier
 (202, 801, 901, 1001, 1101 to 1104, 1201; never 1105). A thin ring hexagon frames the hive; from the fortieth
 community spec on, a path runs around it that grows with the eighth power of `community_count`: 2 of 64 steps at 40,
-9 at 70, 58 at 5000 and the full ring from 8192 on. The token id is printed at the bottom right. The hive shows no
+9 at 70, 58 at 5000 and the full ring from 8192 on. The token id is not printed on the image (it is the metadata name). The hive shows no
 address and no family label: those stay in the JSON attributes, which the image change did not touch (every key and
 byte of the metadata other than the `image` value is as before).
 
