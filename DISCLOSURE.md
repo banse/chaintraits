@@ -57,6 +57,34 @@
   depends on message delivery and the configured receiver. Operators must monitor dependency configuration and
   eventual delivery/burns. The fork tests exercise the source-chain send and refunds, not Base execution.
 
+## Known issues of v1 (from the One Dollar Audit of 2026-10-19)
+
+**2026-10-19: v1 stays deployed as it is.** No contract has an owner, a setter or an upgrade path, so each item below
+is a fact of the live registry until a v2 is deployed. Whether a v2 follows is decided in issue #1 (open); the fix
+issues are written for it. Addresses and provenance: `DEPLOYMENTS.md`; the full report, the swarm's launch audit and
+the disposition of every finding: `audits/`.
+
+- **A sponsor-pool claim pays whatever the Intake quotes, with no cap (H-1, issue #6).** `claimSponsored` and
+  `upgradeSponsored` take no `maxPrice`; if the Intake's price rose to the pool's size, one routine claim would spend
+  the whole sponsor pool. Before a pool claim, compare `priceOf` with `pool()`; the site shows both and warns when the
+  price exceeds an eighth of the pool.
+- **Trait 601 "Armed" is a live read, not a fact at mint (M-2, issue #8).** It reflects whether the minting wallet
+  holds an IDMD seat at the moment of reading; every other direct trait reads the settled Curator. Selling the seat
+  turns 601 off without a `MetadataUpdate`, and one seat can light it on any number of wallets in turn.
+- **The card transfers, its facts do not (M-3, issue #9).** Traits are facts about the wallet that minted the card
+  (`claimantOf`); a buyer receives the picture, never the facts, and only the minting wallet can add traits to it.
+  The rendered card does not say so yet.
+- **A shared-fact request can be abandoned by anyone after 14 days (M-4, issue #10)** while the oracle may deliver for
+  30. A late but valid answer is then lost and nothing is refunded.
+- **`tokenURI` of a fully decorated card can cost about 19M gas (M-5, issue #11)**, above the `eth_call` gas cap of
+  several public RPCs. Read it over an RPC with a high call-gas limit, or use the site's build-time render.
+- **`NoVerdict` is Intake-attributed (L-5, issue #15).** The failure callback carries a signature the registry never
+  verifies, so a failure status says what the Intake relayed, not what the attester signed.
+
+Also known: a claim whose caller forwards too little gas skips the IMD burn silently, without an event (M-1, issue #7);
+community spec ids are sequential and end for good after 55,534 registrations (L-7 and the launch audit, issue #16);
+read a new spec's id from `SpecRegistered` and check `specOf` before paying for it.
+
 ## Audits
 
 The reviews of this code and the disposition of every finding are in `audits/README.md`; the One Dollar Audit of the
