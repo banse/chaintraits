@@ -56,3 +56,9 @@
 - A successful `BurnTriggered` records an Ethereum bridge submission. **The Base burn is asynchronous** and still
   depends on message delivery and the configured receiver. Operators must monitor dependency configuration and
   eventual delivery/burns. The fork tests exercise the source-chain send and refunds, not Base execution.
+
+## Audits
+
+The reviews of this code and the disposition of every finding are in `audits/README.md`; the One Dollar Audit of the
+deployed v1 Registry (2026-10-19: 1 high, 5 medium, 7 low) is `audits/2026-10-19-onedollaraudit-1033.md`. v1 stays
+deployed as it is; the fixes go into a v2 redeploy, tracked in the issues.

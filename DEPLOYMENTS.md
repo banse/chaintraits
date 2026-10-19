@@ -25,8 +25,9 @@
   Constants: `SPEC_FEE` 6.4 IMD, `MINT_FEE` 0.1 IMD, `BURN_MIN` 69 IMD, `BURN_FEE_CAP` 0.005 ETH, `nextSpecId` 10001 at launch.
 - **Explorer verification (checked 2026-10-19 12:30 UTC):** the Registry is verified on Sourcify (full match,
   2026-10-18 16:32 UTC, https://sourcify.dev/server/v2/contract/1/0x39bec7648259d5a128c29b24951eabcd4d1f95a6) and on
-  Blockscout (https://eth.blockscout.com/address/0x39bec7648259d5a128c29b24951eabcd4d1f95a6). Composer and Renderer are
-  **not** verified on Sourcify or Blockscout yet; Etherscan was not queried (needs an API key). Until they are submitted,
+  Blockscout (https://eth.blockscout.com/address/0x39bec7648259d5a128c29b24951eabcd4d1f95a6). The Registry is also
+  verified on Etherscan (the One Dollar Audit of 2026-10-19 read its source from Etherscan's verified-source API).
+  Composer and Renderer are **not** verified on Sourcify or Blockscout yet (Etherscan not queried for them). Until they are submitted,
   the gate record above is the proof that their bytecode is this commit's.
 - **Name:** this repository was `banse/chaintraits` until 2026-10-19; the launch record cites that name and the commit
   above. The old URL redirects here.
