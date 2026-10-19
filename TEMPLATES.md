@@ -88,12 +88,18 @@ answered right by all four seats within 15 s. The negative case is kept in
 `templates/fixtures/negative/1201-grouped-by-data-field.json`. The v1 text above is composed on-chain by
 `Composer.canonical` and cannot change; **v2 and every community spec written by hand use this wording instead:**
 
-> question: "… grouped by the **indexed `<ARG>` argument (topic 1 of the log), never by a data field** …"
+> question: "… grouped by the **indexed `<ARG>` argument (topic `<K>` of the log), never by a data field** …"
 >
 > definitions.method: "eth_getLogs over exactly the pinned window; group by the indexed `<ARG>` argument (the log's
-> topic 1, an address: left-pad 12 zero bytes), never by a data word; sum `<SUMARG>` in raw units; sort descending
+> topic `<K>`, an address: left-pad 12 zero bytes), never by a data word; sum `<SUMARG>` in raw units; sort descending
 > by sum and break ties by lowercase address ascending; include positions beyond `<N>`, agreement is on the first
 > `<N>`. An entry that is not an address (12 leading zero bytes) is a wrong answer."
+
+`<K>` is the argument's position among the event's **indexed** parameters, 1-based, read from the `item` signature:
+`contributor` in `Deposited(address indexed contributor, …)` is topic 1 (the 1201 text), `to` in
+`Transfer(address indexed from, address indexed to, uint256 value)` is topic 2. v2's Composer derives it (V2.md item
+18, after the cross audit of 2026-10-19 found a fixed "topic 1" wrong for a second indexed address); the grouping key
+must be an `address`-typed indexed parameter.
 
 With 5 / 3 and that error rate a ranked question passes about one attempt in two or three, each attempt at the full
 price; issue #18 raises the kind-3 panel to 11 / 7 in v2 (`INTEGRATION.md` section 4 says what the consumer checks).
