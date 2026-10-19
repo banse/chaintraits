@@ -309,7 +309,7 @@ are on the site and in `DISCLOSURE.md`.
 | Info: `_burnOrRefund` forwards the whole `msg.value` | #17 | accepted | v2 documents the executor's refund or forwards `fee` only. |
 | Info: `questionHash` is many-to-one over trait ids | – | accepted as designed | `CONCEPT.md` invariant 4: the same signed evidence may satisfy another request with an identical canonical question; the audit found no exploit path. |
 | Info: `catalogSpec` discards its `curator` argument | #14 | accepted | see L-6. |
-| Info: `onResult` clears the pending record before `_check` | #17 | accepted | v2 decides: verify first, then clear, with a `Missed` reason, or document the order. |
+| Info: `onResult` clears the pending record before `_check` | #17 | accepted | v2 keeps the order and documents it (V2.md item 7): the Intake completes a request once, so a retained pending record could not receive a redelivery; `Missed` carries the reason. |
 | Info: `forceApprove` is a set, not an increment | – | accepted as designed | Verified 2026-10-19 against `reference/IntakeV2.sol`: `request` pulls the fee in the same call (`_collect`, `safeTransferFrom`), so every iteration's approval is consumed before the next; v2 adds a NatSpec line (V2.md 13b). |
 | Info: chain-evidence window accepts `toBlock = block.number - 1` | #21 | accepted | v2 requires a 64-block finality margin for chain-evidence specs, or documents that the plane waits for finality. |
 | Info: `mainnetHeightBound` over-estimates off-mainnet | – | accepted as designed | Not reachable on the mainnet deployment; no off-mainnet deployment is planned. |
