@@ -78,6 +78,26 @@ Spec fields: as T1 plus `<SUMARG>`. No v1 trait uses it; wave-two families (dege
 Spec fields: `<C>`, `<EVENT>`, `<ARG>` (groupBy), `<SUMARG>`, `<N>` (head, at most 32), window. v1 trait 1201 uses it:
 `Deposited`, groupBy `contributor`, sum `weightAdded`, head 32, `W_LIFE`.
 
+**Measured on mainnet (2026-10-18, three paid attempts of the 1201 question at panel 5 / quorum 3) and the wording
+for v2 and for community specs.** Attempts one and two (`cb72b826`, `4ee4290d`) ended with two right and two wrong
+answers each: the wrong ones, byte-identical across two seats and both attempts, listed 32 *amount words*
+(`0x…016345785d8a0000` = 0.1 ETH) instead of contributors, so the seats' `log-rank` recipe had grouped the logs by a
+data field although its declared `groupBy` was `contributor`; a third wrong answer came from a truncated
+`eth_getLogs`. The third attempt (`03ccc51e`), whose `definitions.method` spelled the sort and tie rule out, was
+answered right by all four seats within 15 s. The negative case is kept in
+`templates/fixtures/negative/1201-grouped-by-data-field.json`. The v1 text above is composed on-chain by
+`Composer.canonical` and cannot change; **v2 and every community spec written by hand use this wording instead:**
+
+> question: "… grouped by the **indexed `<ARG>` argument (topic 1 of the log), never by a data field** …"
+>
+> definitions.method: "eth_getLogs over exactly the pinned window; group by the indexed `<ARG>` argument (the log's
+> topic 1, an address: left-pad 12 zero bytes), never by a data word; sum `<SUMARG>` in raw units; sort descending
+> by sum and break ties by lowercase address ascending; include positions beyond `<N>`, agreement is on the first
+> `<N>`. An entry that is not an address (12 leading zero bytes) is a wrong answer."
+
+With 5 / 3 and that error rate a ranked question passes about one attempt in two or three, each attempt at the full
+price; issue #18 raises the kind-3 panel to 11 / 7 in v2 (`INTEGRATION.md` section 4 says what the consumer checks).
+
 ### T4 call-compare (`evidence: chain`, `answerType: bool`)
 
 > question: "At the last block of the request's pinned window (toBlock `<TO>`) on Ethereum mainnet, does the view

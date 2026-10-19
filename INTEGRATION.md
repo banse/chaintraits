@@ -253,6 +253,17 @@ runtime bytes).
    `a.answerType`. Only then check `a.chainId == QUESTION_CHAIN_ID` (1), followed by the recovered signer == attester.
 3. `a.answerType` equals the template's type; `a.agreed >= a.quorum`, `a.quorum >= the template's quorum` (3 for
    chain, 7 for panel), `a.panelSize >= the template's panel size`.
+
+   **The plane can attest below its own quorum, and the consumer then pays for nothing.** Measured 2026-10-18 on two
+   paid T3 requests of this registry (plane ids `cb72b826`, `4ee4290d`, panel 5 / quorum 3): four seats answered, two
+   right and two wrong, and instead of ending the request with `onFailure` status 2 the plane signed an attestation
+   whose own fields read `agreed 2`, `quorum 3`. Both attestations carried the plane's own computed (right) list as
+   the answer, although in `4ee4290d` the two seats that agreed with each other had agreed on the wrong list. The
+   registry's check `a.agreed >= a.quorum` rejected both (`Missed`, reason 5), 0.5 IMD each, gone. The third attempt
+   (`03ccc51e`, `agreed 4`) was stored. Keep this check in every consumer; it is the only thing between a
+   below-quorum panel and a permanent, write-once fact. Expect a ranked shared fact to take one to three attempts at
+   5 / 3, each at the full price, until the kind-3 panel is raised (issue #18) and the question text names the
+   indexed argument explicitly (`TEMPLATES.md`, T3).
 4. `a.fromBlock` and `a.toBlock` equal the pending request's window (the trait's canonical window or the spec's).
 5. `block.timestamp <= a.expiresAt` and `a.issuedAt <= block.timestamp + 1 hours` (the plane's clock may run ahead of
    block time; a stricter lower bound would turn clock skew into an unrecoverable miss).

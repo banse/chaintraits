@@ -1,0 +1,58 @@
+{
+  "_what": "A measured WRONG answer to the v1 trait 1201 question (T3 log-rank, templates/fixtures/1201-top-32.json): the 32 entries are not addresses but amount words (0x\u2026016345785d8a0000 = 0.1 ETH, 0x\u202600b1a2bc2ec50000 = 0.05 ETH). Two of four panel seats returned this list on two consecutive attempts; their declared recipe named groupBy `contributor`, the output grouped the logs by a data field. Keep as a negative case: a T3 answer whose entries have 12 leading zero bytes is not a list of contributors.",
+  "_source": "api.imd.fun/oracle/requests/4ee4290d-e208-40cc-ae22-f70dc3540a45 (agreement.answer: the two agreeing seats, agreed 2 of quorum 3, 2026-10-18 07:08 UTC; the attested answer was the plane's own computed list) and cb72b826-02aa-4d72-ac4b-1a6f8c0fd203 (one member, 07:01 UTC); the right list is agreement.answer of 03ccc51e-6097-4a2f-a6d9-d6b97f245ef5 (agreed 4, stored by the registry in block 26,217,890)",
+  "question": "Within the request's pinned block window (fromBlock 0x189378e to toBlock 0x18984a4, both inclusive) on Ethereum mainnet, sum the weightAdded argument of the `event Deposited(address indexed contributor, uint256 indexed hour, uint256 amount, uint256 creditedDelta, uint256 weightAdded, uint256 newWeight, uint256 txCount, uint256 hourTotal, uint256 earlyBps)` events emitted by the contract 0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91 grouped by the indexed contributor argument. Return the 32 keys with the largest sums, descending by sum, ties by address ascending (lowercase hex).",
+  "window": {
+    "toBlock": 25789604,
+    "fromBlock": 25769870,
+    "toBlockHash": "0x57852dbfd56daf8e7b4bf68c2e25f73dd583f99eac5b00c03a50603e4a2cef37"
+  },
+  "wrongAnswer": [
+    "0x000000000000000000000000016345785d8a0000",
+    "0x00000000000000000000000000b1a2bc2ec50000",
+    "0x000000000000000000000000063eb89da4ed0000",
+    "0x0000000000000000000000008963dd8c2c5e0000",
+    "0x0000000000000000000000008ac7230489e80000",
+    "0x0000000000000000000000000de0b6b3a7640000",
+    "0x0000000000000000000000000b5fc037143d1000",
+    "0x0000000000000000000000000b61597cde633000",
+    "0x000000000000000000000000f7380a9e0ccf0000",
+    "0x000000000000000000000000f777fd85a2c40000",
+    "0x0000000000000000000000000b60b5c75a53f000",
+    "0x000000000000000000000000f75f1f0f21568000",
+    "0x0000000000000000000000001774160bc6690000",
+    "0x0000000000000000000000000b5f456ef131a000",
+    "0x000000000000000000000000f7580411d7c98000",
+    "0x0000000000000000000000000b63e852eea03000",
+    "0x000000000000000000000000f75b91907c900000",
+    "0x000000000000000000000000f7264724d4ee8000",
+    "0x0000000000000000000000000b61fd3262727000",
+    "0x000000000000000000000000f74d5b95e9760000",
+    "0x000000000000000000000000f710f62cf8478000",
+    "0x0000000000000000000000000b6506d095bae000",
+    "0x0000000000000000000000000b5fe9247540e000",
+    "0x000000000000000000000000f730efa0c3420000",
+    "0x000000000000000000000000f750e9148e3c8000",
+    "0x000000000000000000000000f749ce1744af8000",
+    "0x00000000000000000000000000b5303ad38b8000",
+    "0x000000000000000000000000f71f2c278b618000",
+    "0x000000000000000000000000f78d4e7d7f6b0000",
+    "0x0000000000000000000000000b61ab57a06ad000",
+    "0x0000000000000000000000000b6558ab57c28000",
+    "0x0000000000000000000000000b63bf658d9c6000"
+  ],
+  "rightAnswerFirst3": [
+    "0x2fe4093c894749e596f458764c377bf4f1337b58",
+    "0xe781b28e02ed5fc4b989905cb6848d318f4735fd",
+    "0x383f42b5de515c564641f65f5da3bd8b4a35b4b4"
+  ],
+  "membersRecipe": {
+    "abs": false,
+    "kind": "log-rank",
+    "topN": 32,
+    "event": "event Deposited(address indexed contributor, uint256 indexed hour, uint256 amount, uint256 creditedDelta, uint256 weightAdded, uint256 newWeight, uint256 txCount, uint256 hourTotal, uint256 earlyBps)",
+    "sumArg": "weightAdded",
+    "address": "0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91",
+    "groupBy": "contributor"
+  }
+}
