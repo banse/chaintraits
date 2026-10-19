@@ -5,7 +5,9 @@ wallet, traits as facts about the wallet that minted it, every trait backed by e
 reads from the settled `WhitelistCurator` (THE LIST) are free; everything else is attested by the IMD swarm through
 the onchain Intake and verified in the registry's callback. `hasTrait(wallet, traitId)` needs no card.
 
-**Status: built (2026-10-12) from the round-2 brief.** `src/` holds `Registry`, `Renderer`, `Composer` and the
+**Status: v1 on Ethereum mainnet since 2026-10-18** (IMD swarm launch #2147, tag `v1-mainnet`; addresses, provenance and
+verification in `DEPLOYMENTS.md`). A v2 with the fixes from the One Dollar Audit is planned, tracked in this repository's
+issues; v1 stays deployed as it is. Built 2026-10-12 from the round-2 brief. `src/` holds `Registry`, `Renderer`, `Composer` and the
 interfaces; `test/` the hermetic suite; `script/Deploy.s.sol` the deployment. **Renamed 2026-10-16:** the product is
 Sworn, the collection `ERC721("Sworn", "SWORN")`, metadata names `Sworn #<tokenId>`, and the family display names
 are Spawned (101), Zero-Shot (201, 202), Hopper (3xx), Bullfrog (4xx), Benchmarked (5xx), Armed (601), Uptime (701),
@@ -15,6 +17,11 @@ Pretrained (1301); `CATALOG.md` section 7 maps them to the working names. The re
 touched no id, rule, window, threshold or address. The same change made `upgrade` refuse 1201 with `NotASharedFact`
 (as it does a community T3 id), fixed the T5 `target` guard row of `CATALOG.md` section 5 (must be zero) and the
 last sentence of `INTEGRATION.md` check 7 (the golden test hashes the canonical document, not the body).
+
+This repository was `banse/chaintraits` until 2026-10-19 (the working name); the launch record of #2147, the hackathon
+submission and the site cite that name at commit `59e9bf04`, which is the launched code, and the old URL redirects here.
+The product name was always Sworn in the contracts and metadata. The environment variables were renamed with the
+repository (`SWORN_FORK_RPC`, `SWORN_FONT`); Solidity identifiers did not change.
 
 ## Read in this order
 
@@ -198,7 +205,7 @@ git clone --recursive <this repository>
 forge build
 forge test                       # hermetic: no RPC, no ffi
 forge fmt --check
-CHAINTRAITS_FORK_RPC=<mainnet archive RPC URL> forge test --match-path 'test/fork/*'   # the fork tests, block 26,170,000
+SWORN_FORK_RPC=<mainnet archive RPC URL> forge test --match-path 'test/fork/*'   # the fork tests, block 26,170,000
 forge test --match-contract BurnRuleForkTest --fork-url <mainnet archive RPC URL> --fork-block-number 26202203
 python3 tools/gen_template.py --check    # the envelope blob, offsets, hive data and goldens are byte-exact
 ```
@@ -237,8 +244,8 @@ output equal to each of them byte for byte and pins the step table, the rare-dot
 
 The fork tests are in `test/fork/Mainnet.fork.t.sol` (eleven tests at the pinned block 26,170,000: the real Curator,
 IDMD, IMD and Intake v2, with the registry deployed on top and a request completed by the real `complete` under the
-real stipend). Run them by setting `CHAINTRAITS_FORK_RPC` to an Ethereum mainnet RPC URL that serves that block
-(archive state), for example `CHAINTRAITS_FORK_RPC=https://ethereum-rpc.publicnode.com forge test --match-path
+real stipend). Run them by setting `SWORN_FORK_RPC` to an Ethereum mainnet RPC URL that serves that block
+(archive state), for example `SWORN_FORK_RPC=https://ethereum-rpc.publicnode.com forge test --match-path
 'test/fork/*' -vv`. They only read the variable; without it they skip, so plain `forge test` stays hermetic and needs
 no network. The new `test/fork/BurnRule.fork.t.sol` uses the CLI fork arguments above, reads no environment
 variables, checks the chain/block/parent hash, and skips when there is no active fork. Run it separately from the
@@ -261,7 +268,7 @@ at `cab19933` (both as in the record NFT this mirrors).
   `src/TemplateData.sol` and `src/HiveData.sol`; goldens under `test/fixtures/` for synthetic wallets only (the
   convention `0x…c1a1`; never a real wallet).
 - Tests for every invariant in `CONCEPT.md` section 6: unit, fuzz, invariant; fork tests against the mainnet Curator
-  at a pinned recent block (skipped without `CHAINTRAITS_FORK_RPC`); golden tests that `tokenURI` bytes equal the
+  at a pinned recent block (skipped without `SWORN_FORK_RPC`); golden tests that `tokenURI` bytes equal the
   generator's; golden tests that the composed request bodies equal `templates/fixtures/*.json` byte for byte and that
   `questionHashOf` of each fixture's canonical document (not its body) equals `reference/plane/questionHashes.json` for all ten; a gas test that `onResult` stays under the
   Intake's callback stipend in the worst case; signature-recovery tests over the five served attestations in

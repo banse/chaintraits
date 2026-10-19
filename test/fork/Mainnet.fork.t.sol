@@ -15,7 +15,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 /// @notice Fork tests against Ethereum mainnet at a pinned block: the settled Curator, the IDMD
 ///         collection, the IMD token and Intake v2 as they are, with the registry deployed on top.
-///         They run only when `CHAINTRAITS_FORK_RPC` is set; the hermetic suite and the verifier
+///         They run only when `SWORN_FORK_RPC` is set; the hermetic suite and the verifier
 ///         (no network) skip them. Never `vm.setEnv`: the URL is read, never written.
 ///
 ///         What they prove that the mocks cannot: the Curator's views have the shapes the registry
@@ -58,7 +58,7 @@ contract MainnetForkTest is Test {
     bool internal forked;
 
     function setUp() public {
-        string memory url = vm.envOr("CHAINTRAITS_FORK_RPC", string(""));
+        string memory url = vm.envOr("SWORN_FORK_RPC", string(""));
         if (bytes(url).length == 0) return;
         vm.createSelectFork(url, FORK_BLOCK);
         forked = true;

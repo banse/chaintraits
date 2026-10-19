@@ -22,7 +22,7 @@ is only measured, so that nobody mistakes an assertion for a record.
 The generator in `tools/` (`gen_template.py`, `rasterize_goldens.py` and their tests) and the starting
 template in `template/` are also from list-record `722a8c9`. They are to be adapted, not kept as they are:
 the card of this registry is a grid of trait slots, not THE LIST's single record. `rasterize_goldens.py` reads its
-pinned font path from `CHAINTRAITS_FONT`.
+pinned font path from `SWORN_FONT`.
 
 ## Measured, not vendored
 

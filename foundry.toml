@@ -19,7 +19,7 @@ bytecode_hash = "none"
 cbor_metadata = false
 
 # Hermetic by default: no test can shell out and there is no default RPC. The fork tests take their
-# URL from CHAINTRAITS_FORK_RPC explicitly and skip when it is unset.
+# URL from SWORN_FORK_RPC explicitly and skip when it is unset.
 ffi = false
 
 fs_permissions = [
