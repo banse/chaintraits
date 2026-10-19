@@ -303,14 +303,14 @@ are on the site and in `DISCLOSURE.md`.
 | L-2 `upgradeSponsored` cap is vacuous | #13 | open | Owner decision: gate `claimSponsored` on IDMD too, or delete the IDMD path. |
 | L-3 no fee-on-transfer accounting, no `decimals()` assertion | #14 | accepted (decimals) / accepted as designed (fee-on-transfer) | v2 asserts `decimals() == 18`. IMD is a plain LayerZero OFT without transfer fees; the Registry is not meant for other tokens. |
 | L-4 zero price from the Intake is not rejected | #14 | accepted | v2: `ZeroPrice` revert in `_price` and `_fromPool`. |
-| L-5 `onFailure` signature declared, never verified | #15 | accepted | v2 verifies a failure envelope if the plane signs one, otherwise documents `NoVerdict` as Intake-attributed. Depends on the plane (issue #23). |
+| L-5 `onFailure` signature declared, never verified | #15 | accepted as designed | The plane documents no failure signature; v2 documents `NoVerdict` as Intake-attributed (V2.md 13a). Revisit when the plane publishes a failure envelope (issue #23). |
 | L-6 constructor bootstrap branch skips liveness checks; asymmetric check set | #14 | accepted | v2 checks `burnExecutor_`, `renderer_` and `composer_` code length outside the floor branch and asserts the curator argument equals `Composer.MAINNET_CURATOR` (or uses the argument). |
 | L-7 `nextSpecId` is `uint16`, registration reverts after 55,534 specs | #16 | accepted | v2 widens the counter and the id plumbing, or documents the cap in `CATALOG.md` section 5. Also found by the swarm's launch audit (below). |
 | Info: `_burnOrRefund` forwards the whole `msg.value` | #17 | accepted | v2 documents the executor's refund or forwards `fee` only. |
 | Info: `questionHash` is many-to-one over trait ids | – | accepted as designed | `CONCEPT.md` invariant 4: the same signed evidence may satisfy another request with an identical canonical question; the audit found no exploit path. |
 | Info: `catalogSpec` discards its `curator` argument | #14 | accepted | see L-6. |
 | Info: `onResult` clears the pending record before `_check` | #17 | accepted | v2 decides: verify first, then clear, with a `Missed` reason, or document the order. |
-| Info: `forceApprove` is a set, not an increment | – | noted | Unresolved single-agent lead in the audit; to be settled against the vendored Intake v2 source before v2 is briefed. |
+| Info: `forceApprove` is a set, not an increment | – | accepted as designed | Verified 2026-10-19 against `reference/IntakeV2.sol`: `request` pulls the fee in the same call (`_collect`, `safeTransferFrom`), so every iteration's approval is consumed before the next; v2 adds a NatSpec line (V2.md 13b). |
 | Info: chain-evidence window accepts `toBlock = block.number - 1` | #21 | accepted | v2 requires a 64-block finality margin for chain-evidence specs, or documents that the plane waits for finality. |
 | Info: `mainnetHeightBound` over-estimates off-mainnet | – | accepted as designed | Not reachable on the mainnet deployment; no off-mainnet deployment is planned. |
 | Info: UTC-day bucket is a calendar day | #17 | accepted | Documented in `CATALOG.md`; the lifetime total is unchanged. |
