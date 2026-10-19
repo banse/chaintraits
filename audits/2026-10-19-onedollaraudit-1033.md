@@ -295,12 +295,12 @@ are on the site and in `DISCLOSURE.md`.
 |---|---|---|---|
 | H-1 sponsor-pool draw has no price ceiling | #6 | accepted | v2: `maxPrice` on `claimSponsored` and `upgradeSponsored`, plus a hard ceiling independent of the caller (`price <= pool() / 8` and a constant cap). Interim: the site shows `priceOf` and `pool()` before a pool claim and warns when the price exceeds pool / 8. |
 | M-1 gas-starvable executor preview skips the burn silently | #7 | accepted | v2: `InsufficientGas` revert before the preview and a `BurnSkipped` event on every skipped path. |
-| M-2 trait 601 "Armed" is a live IDMD read | #8 | open | Owner decision between a snapshot at mint and an explicit live-trait class with `MetadataUpdate`. Interim: the site marks 601 as a live read. |
-| M-3 transferable card, facts bound to the minter | #9 | open | Owner decision between soulbound and freezing direct traits at mint; either way the card states it. Interim: a buyer note in `DISCLOSURE.md` and on the site's card page. |
+| M-2 trait 601 "Armed" is a live IDMD read | #8 | accepted (owner decision 2026-10-19) | v2: a snapshot at mint (V2.md item 14); the catalog and the site say "held an IDMD seat when the card was minted". |
+| M-3 transferable card, facts bound to the minter | #9 | accepted (owner decision 2026-10-19) | v2: transfers stay, direct traits are frozen at mint and the card states it (V2.md item 13); buyer note in `DISCLOSURE.md` and on the site. |
 | M-4 `abandon` on a shared fact has no owner check, 14 d < the oracle's 30 d | #10 | accepted | v2: record the payer for shared facts and restrict `abandon` to it, or at least `ABANDON_AFTER = VALID_FOR_SECONDS + 1 day`. |
 | M-5 `tokenURI` ~19M gas at full decoration | #11 | accepted | v2: the growable `Buf` pattern in the Renderer accumulators, target under 8M gas at the caps, pinned by a gas snapshot. |
 | L-1 pool limiters consumed before the answer, never restored | #12 | accepted | v2: clear `poolUsed` and `idmdSponsored` in `_clear`, or set them on verification. |
-| L-2 `upgradeSponsored` cap is vacuous | #13 | open | Owner decision: gate `claimSponsored` on IDMD too, or delete the IDMD path. |
+| L-2 `upgradeSponsored` cap is vacuous | #13 | accepted (owner decision 2026-10-19) | v2 deletes the IDMD pool path (V2.md item 4). |
 | L-3 no fee-on-transfer accounting, no `decimals()` assertion | #14 | accepted (decimals) / accepted as designed (fee-on-transfer) | v2 asserts `decimals() == 18`. IMD is a plain LayerZero OFT without transfer fees; the Registry is not meant for other tokens. |
 | L-4 zero price from the Intake is not rejected | #14 | accepted | v2: `ZeroPrice` revert in `_price` and `_fromPool`. |
 | L-5 `onFailure` signature declared, never verified | #15 | accepted as designed | The plane documents no failure signature; v2 documents `NoVerdict` as Intake-attributed (V2.md 13a). Revisit when the plane publishes a failure envelope (issue #23). |
