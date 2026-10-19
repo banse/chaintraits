@@ -23,12 +23,12 @@
   `intake` `0xa43e6f75ee006411f79ac1c84120606c2330de82` (Intake v2), `attester` `0x5598aa9146215bc13eb26f2c692ad1461fd32982`,
   `burnExecutor` `0xe29386719c155b6847ad5a4e97c6674f10ffc750`, `renderer` and `composer` as in the table.
   Constants: `SPEC_FEE` 6.4 IMD, `MINT_FEE` 0.1 IMD, `BURN_MIN` 69 IMD, `BURN_FEE_CAP` 0.005 ETH, `nextSpecId` 10001 at launch.
-- **Explorer verification (checked 2026-10-19 12:30 UTC):** the Registry is verified on Sourcify (full match,
-  2026-10-18 16:32 UTC, https://sourcify.dev/server/v2/contract/1/0x39bec7648259d5a128c29b24951eabcd4d1f95a6) and on
-  Blockscout (https://eth.blockscout.com/address/0x39bec7648259d5a128c29b24951eabcd4d1f95a6). The Registry is also
-  verified on Etherscan (the One Dollar Audit of 2026-10-19 read its source from Etherscan's verified-source API).
-  Composer and Renderer are **not** verified on Sourcify or Blockscout yet (Etherscan not queried for them). Until they are submitted,
-  the gate record above is the proof that their bytecode is this commit's.
+- **Explorer verification (state 2026-10-19 13:00 UTC):** all three contracts are verified on Sourcify with a full match of
+  creation and runtime code: Registry 2026-10-18 16:32 UTC, Composer 2026-10-19 12:24 UTC, Renderer 2026-10-19 12:55 UTC
+  (submitted by the entrant from a clean build of `v1-mainnet`, standard JSON input, solc 0.8.24+commit.e11b9ed9;
+  https://sourcify.dev/server/v2/contract/1/<address>). Blockscout shows the Registry and the Composer verified and
+  imports the Renderer's Sourcify match on its own schedule. Etherscan: the Registry is verified there (the One Dollar
+  Audit of 2026-10-19 read its source from Etherscan's verified-source API); Composer and Renderer were not queried.
 - **Name:** this repository was `banse/chaintraits` until 2026-10-19; the launch record cites that name and the commit
   above. The old URL redirects here.
 - **Known issues of v1:** see `DISCLOSURE.md` and the repository's issues (the One Dollar Audit of 2026-10-19 and its
