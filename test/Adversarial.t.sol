@@ -312,7 +312,7 @@ contract AdversarialTest is Base {
         OracleAttestation memory a = attestationFor(rid, word(1));
         intake.setCallbackGas(30_000);
         assertFalse(deliver(rid, a), "too little gas: the Intake records not delivered");
-        assertEq(registry.pendingOf(alice, 701), rid, "nothing changed; abandon after 14 days");
+        assertEq(registry.pendingOf(alice, 701), rid, "nothing changed; abandon after 31 days");
         assertFalse(registry.hasTrait(alice, 701));
     }
 
@@ -377,77 +377,28 @@ contract AdversarialTest is Base {
         registry.upgrade(ids, price);
     }
 
-    function test_upgradeSponsoredDrawsAllNineOverNineDaysAndRefusesDuplicates() public {
-        imd.mint(address(registry), 4.5 ether);
-        idmd.setOwner(3, alice);
-        curator.set(alice, 1, true, 1, 1, 1);
-        uint16[9] memory chain = [701, 801, 901, 1001, 1101, 1102, 1103, 1104, 1105];
-        idmd.setOwner(4, alice);
-        uint16[] memory dup = new uint16[](2);
-        dup[0] = 701;
-        dup[1] = 701;
-        // Batches, including duplicates, are refused without consuming any pool allowance.
-        vm.prank(alice);
-        vm.expectRevert(Registry.TooManyTraits.selector);
-        registry.upgradeSponsored(4, dup);
-        assertEq(registry.idmdSponsored(4), 0, "reverted calls do not spend token allowance");
-        assertFalse(registry.poolUsed(alice, 701));
-        uint16[] memory one = new uint16[](1);
-        for (uint256 i; i < 9; ++i) {
-            vm.warp(T0 + i * 1 days);
-            one[0] = chain[i];
-            vm.prank(alice);
-            registry.upgradeSponsored(3, one);
-            assertEq(registry.idmdSponsored(3), i + 1);
-        }
-        assertEq(registry.pool(), 0);
-        for (uint256 i; i < 9; ++i) {
-            assertTrue(registry.poolUsed(alice, chain[i]));
-            assertTrue(registry.pendingOf(alice, chain[i]) != 0);
-        }
-        // claimSponsored while pending: the pair is taken, whatever the funding
-        vm.warp(T0 + 9 days);
-        imd.mint(address(registry), 1 ether);
-        vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(Registry.PoolAlreadyUsed.selector, alice, 701));
-        registry.claimSponsored(701);
-        // and a second IDMD cannot draw the same pairs
-        vm.prank(alice);
-        one[0] = 801;
-        vm.expectRevert(abi.encodeWithSelector(Registry.PoolAlreadyUsed.selector, alice, 801));
-        registry.upgradeSponsored(4, one);
-    }
-
     function test_claimSponsoredWhilePendingOrVerifiedReverts() public {
         imd.mint(address(registry), 5 ether);
         curator.set(alice, 1, true, 1, 1, 1);
         bytes32 rid = ask(alice, 701); // claimant-paid pending
         vm.prank(alice);
         vm.expectRevert(abi.encodeWithSelector(Registry.AlreadyPending.selector, alice, 701));
-        registry.claimSponsored(701);
+        registry.claimSponsored(701, type(uint256).max);
         assertFalse(registry.poolUsed(alice, 701), "the revert leaves poolUsed clear");
         assertTrue(deliver(rid, attestationFor(rid, word(1))));
         vm.prank(alice);
         vm.expectRevert(abi.encodeWithSelector(Registry.AlreadyVerified.selector, alice, 701));
-        registry.claimSponsored(701);
+        registry.claimSponsored(701, type(uint256).max);
         assertEq(registry.pool(), 5 ether);
     }
 
-    function test_fuzz_abandonedPoolRequestKeepsPoolUsedAndLateCallbackIsIgnored(bool throughIdmd) public {
-        imd.mint(address(registry), 1 ether);
+    function test_abandonedPoolRequestReleasesTheReservationAndLateCallbackIsIgnored() public {
+        imd.mint(address(registry), 4 ether);
         curator.set(alice, 1, true, 1, 1, 1);
-        idmd.setOwner(7, alice);
-        if (throughIdmd) {
-            uint16[] memory ids = new uint16[](1);
-            ids[0] = 701;
-            vm.prank(alice);
-            registry.upgradeSponsored(7, ids);
-        } else {
-            vm.prank(alice);
-            registry.claimSponsored(701);
-        }
+        vm.prank(alice);
+        registry.claimSponsored(701, type(uint256).max);
         bytes32 rid = registry.pendingOf(alice, 701);
-        vm.warp(block.timestamp + 14 days);
+        vm.warp(block.timestamp + 31 days);
         vm.prank(bob);
         vm.expectRevert(Registry.NotClaimant.selector);
         registry.abandon(rid);
@@ -455,10 +406,9 @@ contract AdversarialTest is Base {
         vm.prank(alice);
         registry.abandon(rid);
         assertEq(registry.pendingOf(alice, 701), bytes32(0));
-        assertTrue(registry.poolUsed(alice, 701));
-        assertEq(registry.lastPoolDay(alice), T0 / 1 days);
-        assertEq(registry.idmdSponsored(7), throughIdmd ? 1 : 0);
-        assertEq(registry.pool(), 0.5 ether, "abandon returns nothing to the pool");
+        assertFalse(registry.poolUsed(alice, 701), "the trait reservation is released");
+        assertEq(registry.lastPoolDay(alice), T0 / 1 days, "the day stays consumed");
+        assertEq(registry.pool(), 3.5 ether, "abandon returns nothing to the pool");
         OracleAttestation memory a;
         vm.expectEmit(false, false, false, true);
         emit Registry.Missed(rid, 0, 1);
@@ -474,8 +424,11 @@ contract AdversarialTest is Base {
         bytes32 rid = intake.lastId();
         vm.expectRevert(Registry.TooEarly.selector);
         registry.abandon(rid);
-        vm.warp(block.timestamp + 14 days);
-        vm.prank(alice); // anyone, even though Bob paid for the shared fact
+        vm.warp(block.timestamp + 31 days);
+        vm.prank(alice); // a stranger may not: Bob paid for the shared fact
+        vm.expectRevert(Registry.NotClaimant.selector);
+        registry.abandon(rid);
+        vm.prank(bob);
         registry.abandon(rid);
         assertEq(registry.sharedPending(1201), bytes32(0));
         vm.prank(bob);
@@ -576,7 +529,7 @@ contract AdversarialTest is Base {
             s.item = string.concat(kind == 4 ? "function " : "event ", _repeat("a", kind == 4 ? 247 : 250));
             s.fromBlock = 1;
             s.toBlock = type(uint64).max / 2;
-            vm.roll(uint256(type(uint64).max / 2) + 1);
+            vm.roll(uint256(type(uint64).max / 2) + 64); // the finality margin
             s.threshold = kind == 3 ? bound(threshold, 1, 32) : bound(threshold, 1, type(uint256).max);
             if (kind <= 3) s.arg = _repeat("b", 32);
             if (kind <= 2) {
@@ -699,14 +652,14 @@ contract AdversarialTest is Base {
         assertEq(registry.tokenURI(id), u0, "time and blocks change nothing");
         idmd.setBalance(alice, 1);
         string memory u1 = registry.tokenURI(id);
-        assertTrue(keccak256(bytes(u1)) != keccak256(bytes(u0)), "601 is live");
+        assertEq(u1, u0, "601 is frozen at mint: a seat bought later changes nothing");
         idmd.setBalance(bob, 1);
         assertEq(registry.tokenURI(id), u1, "the holder's IDMD is not the claimant's");
         bytes32 rid = ask(alice, 701);
         assertEq(registry.tokenURI(id), u1, "a pending request draws nothing");
         assertTrue(deliver(rid, attestationFor(rid, word(1))));
         assertTrue(keccak256(bytes(registry.tokenURI(id))) != keccak256(bytes(u1)), "a verified trait is drawn");
-        Card memory c = registry.cardOf(id);
+        Card memory c = renderer.cardOf(address(registry), id);
         assertEq(c.oracle.length, 1);
         assertEq(c.oracle[0].traitId, 701);
         assertEq(c.oracle[0].requestId, rid);
@@ -720,7 +673,7 @@ contract AdversarialTest is Base {
             bytes32 rid = ask(alice, sid);
             assertTrue(deliver(rid, attestationFor(rid, word(1))));
         }
-        Card memory c = registry.cardOf(id);
+        Card memory c = renderer.cardOf(address(registry), id);
         assertEq(c.communityCount, 34);
         assertEq(c.community.length, 32);
         assertEq(c.oracle.length, 32);
@@ -807,7 +760,7 @@ contract AdversarialTest is Base {
         ids[0] = 701;
         payloads[0] = abi.encodeCall(r.upgrade, (ids, PRICE));
         payloads[1] = abi.encodeCall(r.sponsor, (1 ether));
-        payloads[2] = abi.encodeCall(r.registerSpec, (t1Spec(address(0xCAFE), "Evil")));
+        payloads[2] = abi.encodeCall(r.registerSpec, (t1Spec(address(0xCAFE), "Evil"), 0));
         payloads[3] = abi.encodeCall(r.requestSharedFact, (1201, PRICE));
         payloads[4] = abi.encodeCall(r.mintCard, ());
     }

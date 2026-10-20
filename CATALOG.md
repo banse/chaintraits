@@ -133,7 +133,7 @@ Oracle defaults: chain evidence `panelSize` 5, `quorum` 3 (the deployer reruns t
 panel only has to agree on a recipe); panel evidence `panelSize` 11, `quorum` 7 (as in both pilots);
 `validForSeconds` 2,592,000 (30 days); `chainId` 1; blocks in hex in every text; `head` 32 for T3. A `disagreed`,
 `not_answerable` or refused request reaches `onFailure` (Intake v2) and is "no verdict", never false; a request the
-plane never completes is released by `abandon(requestId)` after 14 days (`block.timestamp`, from the request's
+plane never completes is released by `abandon(requestId)` after 31 days (`block.timestamp`, from the request's
 stored `requestedAt`): a personal request, paid or sponsored, by its claimant only (`NotClaimant()` for a stranger);
 a shared fact by anyone. The price paid is spent either way, and sponsored allowances stay consumed.
 
@@ -157,7 +157,7 @@ trait in section 3 names its template there (T1, T3, T5).
 | `sumArg` | string | T2 and T3 only |
 | `op` | uint8 | T4 only: 1 `>=`, 2 `>`, 3 `<=`, 4 `<`, 5 `==` |
 | `threshold` | uint256 | T1, T2, T4, T5: `>= 1`; T3: head, 1 to 32 |
-| `fromBlock`, `toBlock` | uint64 | `fromBlock <= toBlock`, `toBlock - fromBlock + 1 >= 7200` and `toBlock < H` at registration (T5: `fromBlock == toBlock`, and `toBlock + 7200 <= H`); mainnet height `H` is `block.number` on chain 1, otherwise `Composer.mainnetHeightBound()` (the timestamp-derived upper bound and its caveat are documented in README and INTEGRATION) |
+| `fromBlock`, `toBlock` | uint64 | `fromBlock <= toBlock`, `toBlock - fromBlock + 1 >= 7200` and `toBlock <= H - 64` at registration (T5: `fromBlock == toBlock`, and `toBlock + 7200 <= H`); mainnet height `H` is `block.number` on chain 1, otherwise `Composer.mainnetHeightBound()` (the timestamp-derived upper bound and its caveat are documented in README and INTEGRATION) |
 | `name` | string | ASCII `[A-Za-z0-9 .-]`, 1 to 32 bytes; escaped by the renderer like every other spec string |
 | `evidence` | derived | chain for kinds 1 to 4, panel for 5 |
 

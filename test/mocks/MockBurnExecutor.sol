@@ -127,14 +127,8 @@ contract MockBurnExecutor is IBurnExecutor {
 
 /// @notice A contract claimant with no payable receiver or fallback; funds are provisioned by the tests.
 contract NonpayableBurnClaimant {
-    function claim(Registry registry, bool throughIdmd, uint16 traitId, uint256 value) external {
-        if (throughIdmd) {
-            uint16[] memory ids = new uint16[](1);
-            ids[0] = traitId;
-            registry.upgradeSponsored{value: value}(7, ids);
-        } else {
-            registry.claimSponsored{value: value}(traitId);
-        }
+    function claim(Registry registry, bool, uint16 traitId, uint256 value) external {
+        registry.claimSponsored{value: value}(traitId, type(uint256).max);
     }
 }
 
@@ -152,6 +146,7 @@ contract ReentrantBurnClaimant is NonpayableBurnClaimant {
 
     receive() external payable {
         refunds++;
-        (reentrySucceeded, reentryError) = address(target).call(abi.encodeCall(Registry.claimSponsored, (801)));
+        (reentrySucceeded, reentryError) =
+            address(target).call(abi.encodeCall(Registry.claimSponsored, (801, type(uint256).max)));
     }
 }

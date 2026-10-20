@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import {Base} from "./Base.t.sol";
 import {Card, OracleMeta, Spec} from "../src/Types.sol";
 import {Renderer} from "../src/Renderer.sol";
+import {TemplateData} from "../src/TemplateData.sol";
 import {OracleAttestation} from "../src/interfaces/IOracleConsumer.sol";
 
 /// @notice Invariant 8: `tokenURI` bytes equal the generator's goldens (`tools/gen_template.py`),
@@ -16,10 +17,10 @@ contract GoldensTest is Base {
 
     function test_templateArtifactsMatchTheCompiledConstants() public view {
         bytes memory blob = vm.parseBytes(vm.trim(vm.readFile("template/blob.hex")));
-        assertEq(renderer.template(), blob, "blob.hex");
+        assertEq(TemplateData.TEMPLATE, blob, "blob.hex");
         string[] memory parts = vm.split(vm.trim(vm.readFile("template/offsets.txt")), ",");
         assertEq(parts.length, 44, "22 slices");
-        bytes memory offs = renderer.offsets();
+        bytes memory offs = vm.parseBytes(string(TemplateData.OFFSETS));
         assertEq(offs.length, 88);
         uint256 cursor;
         for (uint256 i; i < 44; ++i) {
@@ -35,7 +36,7 @@ contract GoldensTest is Base {
         curator.set(C1A1, 0, true, 5, 1 ether, 1000);
         uint256 id = mint(C1A1);
         assertEq(id, 1);
-        _assertGolden("synthetic_direct", registry.tokenURI(1), registry.cardOf(1));
+        _assertGolden("synthetic_direct", registry.tokenURI(1), renderer.cardOf(address(registry), 1));
     }
 
     function test_goldenSyntheticOracle() public {
@@ -56,7 +57,7 @@ contract GoldensTest is Base {
         a = attestationFor(rid, word(1));
         a.requestId = ORACLE_2;
         assertTrue(deliver(rid, a));
-        _assertGolden("synthetic_oracle", registry.tokenURI(2), registry.cardOf(2));
+        _assertGolden("synthetic_oracle", registry.tokenURI(2), renderer.cardOf(address(registry), 2));
     }
 
     function test_goldenSyntheticWidthThroughTheRenderer() public view {

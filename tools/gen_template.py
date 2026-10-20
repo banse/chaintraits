@@ -48,9 +48,10 @@ HIVE_PATH = Path("src/HiveData.sol")
 DESCRIPTION = (
     "Sworn is an ownerless onchain registry of verifiable wallet feats. One card per wallet; every trait is a fact "
     "about the claimant wallet that minted the card, never about the holder. Direct-read traits are read "
-    "live from the settled WhitelistCurator and the IdentityMD collection; chain-proven, panel-attested "
+    "from the settled WhitelistCurator and the IdentityMD collection; chain-proven, panel-attested "
     "and shared-fact traits are attested by the IMD oracle through the Intake and verified in the "
-    "registry. Allowlists read hasTrait, never ownerOf."
+    "registry. Allowlists read hasTrait, never ownerOf. Facts about the wallet that minted it; direct traits "
+    "frozen at mint; transferable."
 )
 
 FAMILIES = (
@@ -766,19 +767,12 @@ def oracle_entry(meta: OracleMeta) -> str:
         + '","evidence":"' + ("panel" if s.kind == 5 else "chain")
         + '","fromBlock":' + unsigned(s.fromBlock)
         + ',"toBlock":' + unsigned(s.toBlock)
-        + ',"minPanelSize":' + ("11" if s.kind == 5 else "5")
-        + ',"minQuorum":' + ("7" if s.kind == 5 else "3")
+        + ',"minPanelSize":' + ("11" if s.kind in (3, 5) else "5")
+        + ',"minQuorum":' + ("7" if s.kind in (3, 5) else "3")
         + ',"requestId":"' + hex32(meta.requestId)
         + '","oracleRequestId":"' + hex32(meta.oracleRequestId)
         + '","target":"' + s.target
-        + '","item":"' + escape_json(s.item)
-        + '","arg":"' + escape_json(s.arg)
-        + '","fixedArg":"' + escape_json(s.fixedArg)
-        + '","fixedVal":' + unsigned(s.fixedVal)
-        + ',"sumArg":"' + escape_json(s.sumArg)
-        + '","op":' + unsigned(s.op)
-        + ',"threshold":' + unsigned(s.threshold)
-        + ',"name":"' + escape_json(s.name)
+        + '","name":"' + escape_json(s.name)
         + '"}'
     )
 

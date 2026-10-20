@@ -38,22 +38,15 @@ contract BurnRuleTest is Base {
         vm.deal(address(registry), 3 ether);
     }
 
-    function _claim(bool throughIdmd, uint16 traitId, uint256 value) internal {
+    function _claim(bool, uint16 traitId, uint256 value) internal {
         vm.prank(alice);
-        if (throughIdmd) {
-            uint16[] memory ids = new uint16[](1);
-            ids[0] = traitId;
-            registry.upgradeSponsored{value: value}(7, ids);
-        } else {
-            registry.claimSponsored{value: value}(traitId);
-        }
+        registry.claimSponsored{value: value}(traitId, type(uint256).max);
     }
 
-    function _pending(bool throughIdmd, uint16 traitId) internal view {
+    function _pending(bool, uint16 traitId) internal view {
         assertTrue(registry.pendingOf(alice, traitId) != 0, "oracle request remains pending");
         assertTrue(registry.poolUsed(alice, traitId));
         assertEq(registry.lastPoolDay(alice), T0 / 1 days);
-        assertEq(registry.idmdSponsored(7), throughIdmd ? 1 : 0);
         assertEq(registry.pool(), 10 ether - PRICE);
         assertEq(imd.balanceOf(address(intake)), PRICE);
         assertEq(address(registry).balance, 3 ether, "ETH balance is conserved");
@@ -63,7 +56,6 @@ contract BurnRuleTest is Base {
         assertEq(registry.pendingOf(alice, 701), bytes32(0));
         assertFalse(registry.poolUsed(alice, 701));
         assertEq(registry.lastPoolDay(alice), 0);
-        assertEq(registry.idmdSponsored(7), 0);
         assertEq(registry.pool(), 10 ether);
         assertEq(intake.nonce(), 0);
         assertEq(imd.balanceOf(address(intake)), 0);
@@ -128,7 +120,7 @@ contract BurnRuleTest is Base {
         executor.burnPreviewGas(600_001);
         uint256 attached = FEE + bound(surplus, 0, 1 ether);
         vm.expectEmit(true, false, false, true, address(registry));
-        emit Registry.BurnSkipped(alice, 1);
+        emit Registry.BurnSkipped(0, 1);
         _claim(throughIdmd, 701, attached);
         _pending(throughIdmd, 701);
         assertEq(executor.calls(), 0);
@@ -156,14 +148,19 @@ contract BurnRuleTest is Base {
         assertEq(address(registry).balance, 3 ether);
     }
 
-    function test_executorSurplusIsForcedOnARejectingRecipient() public {
+    function test_surplusFromARejectingRecipientRevertsBeforeTheBridge() public {
+        // The registry forwards exactly the fee and refunds the surplus itself, before the bridge call:
+        // a claimant that rejects the refund reverts the whole claim (no request, no pool draw).
         NonpayableBurnClaimant wallet = new NonpayableBurnClaimant();
         curator.set(address(wallet), 1, true, 1, 1, 1);
         vm.deal(address(wallet), 1 ether);
         executor.configure(69 ether, FEE, 0);
+        vm.expectRevert(Registry.BurnRefundFailed.selector);
         wallet.claim(registry, false, 701, 2 * FEE);
+        assertEq(registry.pendingOf(address(wallet), 701), bytes32(0));
+        assertEq(executor.calls(), 0);
+        wallet.claim(registry, false, 701, FEE);
         assertTrue(registry.pendingOf(address(wallet), 701) != 0);
-        assertEq(address(wallet).balance, 1 ether - FEE, "the plain call failed, the forced send landed");
         assertEq(address(executor).balance, FEE);
     }
 
@@ -186,26 +183,34 @@ contract BurnRuleTest is Base {
         assertEq(executor.calls(), 0);
     }
 
-    function testFuzz_dueWithoutEnoughFeeRevertsAtomically(bool throughIdmd, uint96 amount, uint96 value) public {
+    function testFuzz_dueWithoutEnoughFeeSkipsRefundsAndLeavesTheRequest(bool, uint96 amount, uint96 value) public {
         executor.configure(bound(amount, 69 ether, type(uint96).max), FEE, 0);
         uint256 attached = bound(value, 0, FEE - 1);
-        vm.expectRevert(abi.encodeWithSelector(Registry.BurnFeeRequired.selector, FEE));
-        _claim(throughIdmd, 701, attached);
-        _rolledBack();
-        // The same daily/lifetime allowance remains available on retry with the required fee.
-        _claim(throughIdmd, 701, FEE);
-        _pending(throughIdmd, 701);
+        vm.expectEmit(true, false, false, true, address(registry));
+        emit Registry.BurnSkipped(0, 4);
+        _claim(false, 701, attached);
+        _pending(false, 701);
+        assertEq(executor.calls(), 0, "the bridge is not called");
+        assertEq(alice.balance, 10 ether, "the attachment is refunded");
     }
 
-    function test_noFeeAtExactThresholdReverts() public {
-        vm.expectRevert(abi.encodeWithSelector(Registry.BurnFeeRequired.selector, FEE));
+    function test_noFeeAtExactThresholdSkipsWithReasonFour() public {
+        uint256 tokenId = mint(alice);
+        vm.expectEmit(true, false, false, true, address(registry));
+        emit Registry.BurnSkipped(tokenId, 4);
         _claim(false, 701, 0);
-        _rolledBack();
+        assertTrue(registry.pendingOf(alice, 701) != 0, "the oracle request stands");
+        assertEq(registry.pool(), 10 ether + registry.MINT_FEE() - PRICE);
     }
 
-    function testFuzz_dueForwardsWholeValueAndExecutorForceRefunds(bool throughIdmd, uint96 amount, uint96 surplus)
-        public
-    {
+    function test_claimInsideThePreviewGasWindowRevertsInsufficientGas() public {
+        vm.prank(alice);
+        vm.expectRevert(Registry.InsufficientGas.selector);
+        registry.claimSponsored{gas: 1_400_000}(701, type(uint256).max);
+        assertEq(registry.pendingOf(alice, 701), bytes32(0));
+    }
+
+    function testFuzz_dueForwardsTheFeeAndRefundsTheSurplus(bool throughIdmd, uint96 amount, uint96 surplus) public {
         uint256 quotedAmount = bound(amount, 69 ether, type(uint96).max);
         uint256 attached = FEE + bound(surplus, 0, 1 ether);
         executor.configure(quotedAmount, FEE, 0);
@@ -216,7 +221,7 @@ contract BurnRuleTest is Base {
         _pending(throughIdmd, 701);
         assertEq(executor.calls(), 1);
         assertEq(executor.lastRequested(), quotedAmount);
-        assertEq(executor.lastValue(), attached);
+        assertEq(executor.lastValue(), FEE, "exactly the fee is forwarded");
         assertEq(executor.lastCaller(), address(registry));
         assertEq(executor.lastRefundTo(), alice);
         assertEq(address(executor).balance, FEE);
@@ -243,7 +248,7 @@ contract BurnRuleTest is Base {
         executor.configure(69 ether, bound(fee, 0.005 ether + 1, type(uint96).max), 0);
         uint256 attached = bound(value, 0, 1 ether);
         vm.expectEmit(true, false, false, true, address(registry));
-        emit Registry.BurnSkipped(alice, 3);
+        emit Registry.BurnSkipped(0, 3);
         _claim(throughIdmd, 701, attached);
         _pending(throughIdmd, 701);
         assertEq(executor.calls(), 0);
@@ -255,7 +260,7 @@ contract BurnRuleTest is Base {
         uint256 attached = FEE + bound(surplus, 0, 1 ether);
         executor.configure(69 ether, FEE, failure);
         vm.expectEmit(true, false, false, true, address(registry));
-        emit Registry.BurnSkipped(alice, failure % 2 == 1 ? 1 : 2);
+        emit Registry.BurnSkipped(0, failure % 2 == 1 ? 1 : 5);
         _claim(throughIdmd, 701, attached);
         _pending(throughIdmd, 701);
         assertEq(executor.calls(), 0);
@@ -279,7 +284,7 @@ contract BurnRuleTest is Base {
     }
 
     function testFuzz_nonpayableContractWorksWithNoValueExactFeeAndSurplus(bool throughIdmd, uint8 which) public {
-        uint256 scenario = bound(which, 0, 2);
+        uint256 scenario = bound(which, 0, 1); // a surplus to a nonpayable claimant now reverts BurnRefundFailed
         NonpayableBurnClaimant wallet = new NonpayableBurnClaimant();
         curator.set(address(wallet), 1, true, 1, 1, 1);
         idmd.setOwner(7, address(wallet));
@@ -310,14 +315,13 @@ contract BurnRuleTest is Base {
         wallet.claim(registry, true, 701, FEE);
         assertEq(registry.pendingOf(address(wallet), 701), bytes32(0));
         assertFalse(registry.poolUsed(address(wallet), 701));
-        assertEq(registry.idmdSponsored(7), 0);
         assertEq(intake.nonce(), 0);
         assertEq(address(wallet).balance, 1 ether);
         assertEq(address(registry).balance, 3 ether);
     }
 
     function test_executorReentryIsGuarded() public {
-        executor.armReentry(abi.encodeCall(Registry.claimSponsored, (801)));
+        executor.armReentry(abi.encodeCall(Registry.claimSponsored, (801, type(uint256).max)));
         _claim(false, 701, FEE);
         _pending(false, 701);
         assertFalse(executor.reentrySucceeded());
@@ -365,7 +369,7 @@ contract BurnRuleTest is Base {
         payloads[1] = abi.encodeCall(Registry.requestSharedFact, (1201, PRICE));
         payloads[2] = abi.encodeCall(Registry.sponsor, (1));
         payloads[3] = abi.encodeCall(Registry.mintCard, ());
-        payloads[4] = abi.encodeCall(Registry.registerSpec, (t1Spec(CURATOR_ADDR, "Nonpayable")));
+        payloads[4] = abi.encodeCall(Registry.registerSpec, (t1Spec(CURATOR_ADDR, "Nonpayable"), 0));
         for (uint256 i; i < payloads.length; ++i) {
             uint256 snapshot = vm.snapshotState();
             vm.prank(alice);

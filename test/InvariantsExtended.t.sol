@@ -9,7 +9,7 @@ import {Spec} from "../src/Types.sol";
 
 /// @notice A wider random walk over the registry (CONCEPT.md section 6, invariants 1, 2, 3, 4, 7, 9):
 ///         paid and pool-funded upgrades, true, false, tampered and failed completions, abandons
-///         after 14 days, spec registration, shared facts and their application, plain donations and
+///         after 31 days, spec registration, shared facts and their application, plain donations and
 ///         transfers. Ghost state records what the handler itself delivered, so the invariants can
 ///         say that a trait is marked exactly when a passing attestation was delivered for that pair,
 ///         that pool money leaves only through pool-funded requests, and that no request is consumed
@@ -36,6 +36,7 @@ contract FullHandler is Base {
     mapping(uint16 => bytes32) public specHash;
     mapping(uint16 => bool) public ghostFactStored;
     mapping(uint16 => address[]) internal factList;
+    mapping(uint16 => address) public sharedPayer;
 
     constructor() {
         setUp();
@@ -118,26 +119,6 @@ contract FullHandler is Base {
         openRequests.push(rid);
     }
 
-    function upgradeSponsored(uint256 seed, uint256 which) external {
-        address a = _actor(seed);
-        uint256 tokenId = (seed % 4) + 1;
-        if (idmd.ownerOf(tokenId) != a || registry.idmdSponsored(tokenId) >= 9) return;
-        (, bool joined) = curator.firstHourOf(a);
-        if (!joined || registry.lastPoolDay(a) == block.timestamp / 1 days) return;
-        if (registry.pool() < PRICE) return;
-        uint16[] memory chosen = new uint16[](1);
-        for (uint256 i; i < catalogChain.length; ++i) {
-            uint16 id = catalogChain[(which % catalogChain.length + i) % catalogChain.length];
-            if (registry.poolUsed(a, id) || registry.pendingOf(a, id) != 0 || ghostVerified[a][id]) continue;
-            chosen[0] = id;
-            vm.prank(a);
-            registry.upgradeSponsored(tokenId, chosen);
-            ghostIdmdSponsored[tokenId]++;
-            _recordPoolRequest(a, id);
-            return;
-        }
-    }
-
     function advanceTime(uint32 elapsed) external {
         vm.warp(vm.getBlockTimestamp() + bound(elapsed, 1, 3 days));
     }
@@ -157,10 +138,10 @@ contract FullHandler is Base {
         uint16 id = catalogChain[which % catalogChain.length];
         (, bool joined) = curator.firstHourOf(a);
         if (!joined || registry.lastPoolDay(a) == block.timestamp / 1 days) return;
-        if (registry.poolUsed(a, id) || registry.pool() < PRICE) return;
+        if (registry.poolUsed(a, id) || registry.pool() < 8 * PRICE || registry.sponsoredVerified(a) >= 9) return;
         if (registry.pendingOf(a, id) != 0 || ghostVerified[a][id]) return;
         vm.prank(a);
-        registry.claimSponsored(id);
+        registry.claimSponsored(id, PRICE);
         _recordPoolRequest(a, id);
     }
 
@@ -201,6 +182,7 @@ contract FullHandler is Base {
         fund(a, PRICE);
         vm.prank(a);
         registry.requestSharedFact(id, PRICE);
+        sharedPayer[id] = a;
         openRequests.push(intake.lastId());
     }
 
@@ -293,9 +275,9 @@ contract FullHandler is Base {
     function abandonLate(uint256 seed) external {
         (bytes32 rid,,) = _pick(seed);
         if (rid == 0) return;
-        (address claimant,, uint64 at,) = registry.pendingRequest(rid);
-        if (block.timestamp < uint256(at) + 14 days) vm.warp(uint256(at) + 14 days);
-        if (claimant != address(0)) vm.prank(claimant);
+        (address claimant, uint16 t, uint64 at,) = registry.pendingRequest(rid);
+        if (block.timestamp < uint256(at) + 31 days) vm.warp(uint256(at) + 31 days);
+        vm.prank(claimant != address(0) ? claimant : sharedPayer[t]);
         registry.abandon(rid);
         _removeOpen(rid);
         ridConsumed[rid] = true;
@@ -387,34 +369,33 @@ contract InvariantsExtendedTest is Test {
         h = new FullHandler();
         registry = h.theRegistry();
         targetContract(address(h));
-        bytes4[] memory sel = new bytes4[](17);
+        bytes4[] memory sel = new bytes4[](16);
         sel[0] = FullHandler.mintCard.selector;
         sel[1] = FullHandler.transfer.selector;
         sel[2] = FullHandler.sponsor.selector;
         sel[3] = FullHandler.donate.selector;
         sel[4] = FullHandler.upgradePaid.selector;
-        sel[5] = FullHandler.upgradeSponsored.selector;
-        sel[6] = FullHandler.claimSponsored.selector;
-        sel[7] = FullHandler.registerSpec.selector;
-        sel[8] = FullHandler.requestSharedFact.selector;
-        sel[9] = FullHandler.deliverTrue.selector;
-        sel[10] = FullHandler.deliverFalse.selector;
-        sel[11] = FullHandler.deliverTampered.selector;
-        sel[12] = FullHandler.failRequest.selector;
-        sel[13] = FullHandler.abandonLate.selector;
-        sel[14] = FullHandler.applyShared.selector;
-        sel[15] = FullHandler.replayConsumed.selector;
-        sel[16] = FullHandler.advanceTime.selector;
+        sel[5] = FullHandler.claimSponsored.selector;
+        sel[6] = FullHandler.registerSpec.selector;
+        sel[7] = FullHandler.requestSharedFact.selector;
+        sel[8] = FullHandler.deliverTrue.selector;
+        sel[9] = FullHandler.deliverFalse.selector;
+        sel[10] = FullHandler.deliverTampered.selector;
+        sel[11] = FullHandler.failRequest.selector;
+        sel[12] = FullHandler.abandonLate.selector;
+        sel[13] = FullHandler.applyShared.selector;
+        sel[14] = FullHandler.replayConsumed.selector;
+        sel[15] = FullHandler.advanceTime.selector;
         targetSelector(FuzzSelector({addr: address(h), selectors: sel}));
     }
 
     function test_handlerSponsoredSelectionAcceptsMaxSeed() public {
-        h.sponsor(2, 3 ether);
-        // This shrunk invariant input used to overflow in the handler before reaching the registry.
-        h.upgradeSponsored(12_242_742, type(uint256).max);
+        h.sponsor(2, 2 ether);
+        h.sponsor(2, 2 ether);
+        h.sponsor(2, 2 ether);
+        h.claimSponsored(12_242_742, type(uint256).max);
         assertEq(h.openCount(), 1);
         assertEq(h.poolSpent(), 0.5 ether);
-        assertEq(registry.idmdSponsored(3), 1);
         assertEq(registry.pool(), h.poolIn() - h.poolSpent());
     }
 
@@ -443,10 +424,6 @@ contract InvariantsExtendedTest is Test {
             assertEq(registry.lastPoolDay(a), h.ghostLastPoolDay(a));
             assertLe(h.ghostPoolRequests(a), 9, "nine per wallet over both pool paths");
         }
-        for (uint256 tokenId = 1; tokenId <= 4; ++tokenId) {
-            assertEq(registry.idmdSponsored(tokenId), h.ghostIdmdSponsored(tokenId));
-            assertLe(registry.idmdSponsored(tokenId), 9, "nine per IDMD token");
-        }
     }
 
     /// @dev Invariants 3 and 4: a pair is marked exactly when the handler delivered a passing
@@ -471,8 +448,8 @@ contract InvariantsExtendedTest is Test {
                     assertEq(pc, c);
                     assertEq(pt, t);
                 }
-                if (t <= 1301 && t != 1201 && t != 1301) {
-                    assertTrue(!h.ghostPoolUsed(c, t) || registry.poolUsed(c, t), "poolUsed never resets");
+                if (t <= 1301 && t != 1201 && t != 1301 && registry.poolUsed(c, t)) {
+                    assertTrue(h.ghostPoolUsed(c, t), "a reservation only comes from a pool draw");
                 }
             }
             assertEq(registry.verifiedSpecsOf(c).length, community, "community index has no duplicates");

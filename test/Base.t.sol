@@ -90,7 +90,7 @@ abstract contract Base is Test {
     function attestationFor(bytes32 requestId, bytes memory answer) internal view returns (OracleAttestation memory a) {
         (, uint16 traitId,, bytes32 qh) = registry.pendingRequest(requestId);
         Spec memory s = registry.specOf(traitId);
-        bool panel = s.kind == 5;
+        bool panel = s.kind == 5 || s.kind == 3;
         a.requestId = bytes32(uint256(uint128(uint256(keccak256(abi.encode("uuid", requestId))))) << 128);
         a.chainId = 1;
         a.questionHash = qh;
@@ -148,7 +148,7 @@ abstract contract Base is Test {
     function register(address who, Spec memory s) internal returns (uint16 id) {
         fund(who, registry.SPEC_FEE());
         vm.prank(who);
-        id = registry.registerSpec(s);
+        id = registry.registerSpec(s, 0);
     }
 
     function isVerified(address c, uint16 t) internal view returns (bool) {

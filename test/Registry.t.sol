@@ -71,13 +71,15 @@ contract RegistryTest is Base {
         curator.set(alice, 0, true, 10, 800 ether, 10_000);
         idmd.setBalance(alice, 1);
         uint16[] memory t = registry.traitsOf(alice);
-        assertEq(t.length, 14);
+        assertEq(t.length, 13, "601 needs a card");
         assertTrue(registry.hasTrait(alice, 101) && registry.hasTrait(alice, 201) && registry.hasTrait(alice, 202));
         assertTrue(registry.hasTrait(alice, 303) && registry.hasTrait(alice, 404) && registry.hasTrait(alice, 503));
-        assertTrue(registry.hasTrait(alice, 601));
+        assertFalse(registry.hasTrait(alice, 601), "601 is a snapshot at mint: false without a card");
         assertFalse(registry.hasTrait(alice, 701));
+        mint(alice);
+        assertTrue(registry.hasTrait(alice, 601), "frozen at mint");
         idmd.setBalance(alice, 0);
-        assertFalse(registry.hasTrait(alice, 601), "601 is live");
+        assertTrue(registry.hasTrait(alice, 601), "the seat left, the trait stays");
         assertFalse(registry.hasTrait(alice, 9999), "unknown id");
         assertFalse(registry.hasTrait(address(0), 101), "zero address");
         assertFalse(registry.hasTrait(address(0), 601), "zero address, 601");
@@ -111,7 +113,7 @@ contract RegistryTest is Base {
             }
             assertFalse(registry.hasTrait(alice, 202));
         }
-        assertEq(registry.hasTrait(alice, 601), bal >= 1);
+        assertFalse(registry.hasTrait(alice, 601), "no card, no Armed");
         assertEq(registry.hasTrait(alice, 202), joined && hour == 0);
         assertEq(registry.hasTrait(alice, 201), joined && hour <= 1);
         assertEq(registry.hasTrait(alice, 302), txs >= 5);
@@ -425,7 +427,7 @@ contract RegistryTest is Base {
         bytes32 rid = ask(alice, 701);
         vm.expectRevert(Registry.TooEarly.selector);
         registry.abandon(rid);
-        vm.warp(block.timestamp + 14 days - 1);
+        vm.warp(block.timestamp + 31 days - 1);
         vm.expectRevert(Registry.TooEarly.selector);
         registry.abandon(rid);
         vm.warp(block.timestamp + 1);
@@ -454,8 +456,9 @@ contract RegistryTest is Base {
     function test_strangerCannotDiscardLateValidAnswer() public {
         bytes32 rid = ask(alice, 701);
         OracleAttestation memory a = attestationFor(rid, word(1));
+        a.expiresAt += 2 days; // outlives the 31-day abandon window
         bytes memory sig = sign(a);
-        vm.warp(T0 + 14 days);
+        vm.warp(T0 + 31 days);
         vm.prank(bob);
         vm.expectRevert(Registry.NotClaimant.selector);
         registry.abandon(rid);
@@ -469,7 +472,7 @@ contract RegistryTest is Base {
         // a 12-field tuple does not decode as the 15-field struct: the Intake records delivered == false
         bytes memory args = abi.encode(rid, bytes32(0), uint256(1), bytes32(0), uint8(3), bytes(""), uint256(0));
         assertFalse(intake.complete(rid, 0, args));
-        assertEq(registry.pendingOf(alice, 701), rid, "still pending; abandon after 14 days");
+        assertEq(registry.pendingOf(alice, 701), rid, "still pending; abandon after 31 days");
     }
 
     function test_onResultGasWorstCase() public {
@@ -560,13 +563,13 @@ contract RegistryTest is Base {
         s.fromBlock = uint64(block.number - 7200);
         s.toBlock = s.fromBlock;
         vm.prank(alice);
-        assertEq(registry.registerSpec(s), 10001);
+        assertEq(registry.registerSpec(s, 0), 10001);
     }
 
     function _badSpec(Spec memory s) internal {
         vm.prank(alice);
         vm.expectRevert();
-        registry.registerSpec(s);
+        registry.registerSpec(s, 0);
     }
 
     // ------------------------------------------------------------------ shared facts
@@ -669,118 +672,6 @@ contract RegistryTest is Base {
     }
 
     // ------------------------------------------------------------------ 9: the pool
-
-    function test_poolIsTheBalanceAndOnlyLeavesThroughSponsoredRequests() public {
-        mint(alice);
-        fund(bob, 5 ether);
-        vm.prank(bob);
-        vm.expectEmit(true, false, false, true);
-        emit Registry.Sponsored(bob, 2 ether);
-        registry.sponsor(2 ether);
-        imd.mint(address(registry), 0.4 ether); // a plain transfer counts too
-        assertEq(registry.pool(), 2.5 ether);
-        ask(alice, 701);
-        assertEq(registry.pool(), 2.5 ether, "claimant-paid request: unchanged");
-
-        // upgradeSponsored: list member holding IDMD, own wallet, one catalog chain trait per day
-        idmd.setOwner(7, bob);
-        curator.set(bob, 5, true, 1, 1, 1);
-        uint16[] memory ids = new uint16[](1);
-        ids[0] = 801;
-        vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(Registry.NotIdmdHolder.selector, 7));
-        registry.upgradeSponsored(7, ids);
-        vm.prank(bob);
-        vm.expectEmit(true, true, false, false);
-        emit Registry.PoolSpent(bob, 801, bytes32(0));
-        registry.upgradeSponsored(7, ids);
-        assertEq(registry.pool(), 2 ether);
-        assertEq(registry.idmdSponsored(7), 1);
-        assertTrue(registry.poolUsed(bob, 801));
-        assertEq(registry.pendingOf(bob, 801) != 0, true);
-        ids[0] = 901;
-        vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(Registry.PoolDailyLimit.selector, bob));
-        registry.upgradeSponsored(7, ids);
-        vm.warp(T0 + 1 days);
-        vm.prank(bob);
-        registry.upgradeSponsored(7, ids);
-        assertEq(registry.idmdSponsored(7), 2);
-        assertEq(registry.pool(), 1.5 ether);
-        assertTrue(registry.poolUsed(bob, 901));
-        idmd.setOwner(8, bob);
-        ids[0] = 1301;
-        vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(Registry.NotACatalogChainTrait.selector, 1301));
-        registry.upgradeSponsored(8, ids);
-        ids[0] = 1201;
-        vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(Registry.NotACatalogChainTrait.selector, 1201));
-        registry.upgradeSponsored(8, ids);
-        ids[0] = 10001;
-        vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(Registry.NotACatalogChainTrait.selector, 10001));
-        registry.upgradeSponsored(8, ids);
-        ids[0] = 801; // pool already used for this pair, whatever the outcome
-        vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(Registry.PoolAlreadyUsed.selector, bob, 801));
-        registry.upgradeSponsored(8, ids);
-        uint16[] memory ten = new uint16[](10);
-        vm.prank(bob);
-        vm.expectRevert(Registry.TooManyTraits.selector);
-        registry.upgradeSponsored(8, ten);
-        ids[0] = 1101;
-        intake.setPrice(2 ether);
-        vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(Registry.PoolTooSmall.selector, 1.5 ether, 2 ether));
-        registry.upgradeSponsored(8, ids);
-        assertEq(registry.idmdSponsored(8), 0, "reverted calls do not spend token allowance");
-        assertEq(registry.pool(), 1.5 ether);
-    }
-
-    function test_claimSponsoredRules() public {
-        fund(bob, 5 ether);
-        vm.prank(bob);
-        registry.sponsor(1 ether);
-        curator.set(alice, 5, true, 1, 1, 1);
-        vm.prank(bob);
-        vm.expectRevert(abi.encodeWithSelector(Registry.NotMember.selector, bob));
-        registry.claimSponsored(701);
-        vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(Registry.NotACatalogChainTrait.selector, 1301));
-        registry.claimSponsored(1301);
-        vm.prank(alice);
-        registry.claimSponsored(701);
-        assertEq(registry.pool(), 0.5 ether);
-        assertTrue(registry.poolUsed(alice, 701));
-        bytes32 rid = registry.pendingOf(alice, 701);
-        vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(Registry.PoolAlreadyUsed.selector, alice, 701));
-        registry.claimSponsored(701);
-        // a miss does not give the pool money back for the pair, but a claimant-paid retry works
-        assertTrue(deliver(rid, attestationFor(rid, word(0))));
-        assertFalse(registry.hasTrait(alice, 701));
-        vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(Registry.PoolAlreadyUsed.selector, alice, 701));
-        registry.claimSponsored(701);
-        ask(alice, 701);
-        // pool below price
-        vm.warp(T0 + 1 days);
-        vm.prank(alice);
-        registry.claimSponsored(801);
-        assertEq(registry.pool(), 0);
-        vm.prank(alice);
-        vm.expectRevert(abi.encodeWithSelector(Registry.PoolTooSmall.selector, 0, PRICE));
-        registry.claimSponsored(901);
-        // a verified pair cannot be claimed
-        rid = registry.pendingOf(alice, 801);
-        assertTrue(deliver(rid, attestationFor(rid, word(1))));
-        vm.prank(bob);
-        registry.sponsor(1 ether);
-        vm.prank(alice);
-        vm.expectRevert();
-        registry.claimSponsored(801);
-    }
 
     // ------------------------------------------------------------------ reentrancy, 11
 

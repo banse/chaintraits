@@ -126,7 +126,7 @@ contract ReviewChangesTest is Base {
     function test_unknownRequestStillPrecedesDynamicSizeChecks() public {
         bytes32 rid = ask(C1A1, 701);
         OracleAttestation memory a = attestationFor(rid, new bytes(262_144));
-        vm.warp(T0 + 14 days);
+        vm.warp(T0 + 31 days);
         vm.prank(C1A1);
         registry.abandon(rid);
         bytes32 successor = ask(C1A1, 701);
@@ -138,6 +138,7 @@ contract ReviewChangesTest is Base {
 
     function test_fuzz_ordinalShowsLowestVerifiedId(uint8 mask) public {
         mask = uint8(bound(mask, 0, 31));
+        curator.set(C1A1, 0, true, 10, 800 ether, 10000); // direct traits are frozen at mint
         uint256 tokenId = mint(C1A1);
         uint16 expected;
         // Acquire descending, so rendering cannot accidentally rely on verification order.
@@ -148,8 +149,7 @@ contract ReviewChangesTest is Base {
             assertTrue(deliver(rid, attestationFor(rid, word(1))));
             expected = id;
         }
-        curator.set(C1A1, 0, true, 10, 800 ether, 10000);
-        Card memory c = registry.cardOf(tokenId);
+        Card memory c = renderer.cardOf(address(registry), tokenId);
         assertEq(c.top[10], expected);
         assertEq(c.top[1], 202, "true tier families still show their highest tier");
         assertEq(c.top[2], 303);
@@ -177,7 +177,7 @@ contract ReviewChangesTest is Base {
             a.agreed = 22;
             assertTrue(deliver(rid, a));
             string memory prefix = string.concat(".oracle[", vm.toString(i), "]");
-            string memory metadata = string(renderer.preimage(registry.cardOf(tokenId)));
+            string memory metadata = string(renderer.preimage(renderer.cardOf(address(registry), tokenId)));
             assertEq(vm.parseJsonUint(metadata, string.concat(prefix, ".minPanelSize")), i == 0 ? 5 : 11);
             assertEq(vm.parseJsonUint(metadata, string.concat(prefix, ".minQuorum")), i == 0 ? 3 : 7);
             assertFalse(vm.keyExistsJson(metadata, string.concat(prefix, ".panelSize")));
@@ -199,7 +199,7 @@ contract ReviewChangesTest is Base {
             uint16 nextId = registry.nextSpecId();
             vm.prank(C1A1);
             vm.expectRevert(abi.encodeWithSelector(Composer.BadSpec.selector, "fixedVal"));
-            registry.registerSpec(s);
+            registry.registerSpec(s, 0);
             assertEq(registry.pool(), poolBefore);
             assertEq(imd.balanceOf(C1A1), balanceBefore);
             assertEq(registry.nextSpecId(), nextId);

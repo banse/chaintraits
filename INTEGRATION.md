@@ -45,7 +45,7 @@ Two evidence choices never follow the deployment chain:
   `specOf` returns that target for catalog oracle traits except 1301, whose T5 target stays zero.
 - Community windows use mainnet height `H`: `block.number` on chain 1, otherwise
   `Composer.mainnetHeightBound()`. T1 to T4 require `fromBlock <= toBlock`, at least 7,200 inclusive blocks and
-  `toBlock < H`; T5 requires `fromBlock == toBlock` and `toBlock + 7200 <= H`. Off mainnet the bound is
+  `toBlock <= H - 64`; T5 requires `fromBlock == toBlock` and `toBlock + 7200 <= H`. Off mainnet the bound is
   15,537,395 through timestamp 1,663,224,191, then
   `15,537,395 + (block.timestamp - 1,663,224,191) / 12`, rounded down. The anchor is the second proof-of-stake
   block, slot 4,700,014. With 12-second slots and a correct clock this is never below real mainnet height;
@@ -177,7 +177,7 @@ transaction. A callback that reverts or runs out of gas is simply `delivered == 
   Solidity's decoder before the function body runs; the Intake records that as `delivered == false`. The promise is
   therefore scoped to envelopes that decode, and the tests exercise the two cases separately.
 - A request the plane never completes (three of the first seven Ethereum requests stayed `admitted`) stays pending
-  until `abandon(requestId)` after 14 days.
+  until `abandon(requestId)` after 31 days.
 
 The registry checks `msg.sender == intake` first in both functions. For a pending result, it bounds both dynamic
 fields directly in calldata before copying signature bytes or hashing the answer. Even an ABI-valid 262,144-byte

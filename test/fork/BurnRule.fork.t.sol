@@ -92,7 +92,7 @@ contract BurnRuleForkTest is Test {
         vm.expectEmit(true, false, false, true, address(registry));
         emit Registry.BurnTriggered(MEMBER, PINNED_AMOUNT, PINNED_FEE);
         vm.prank(MEMBER);
-        registry.claimSponsored{value: attached}(701);
+        registry.claimSponsored{value: attached}(701, type(uint256).max);
         _assertBridged(PINNED_AMOUNT);
         assertTrue(registry.pendingOf(MEMBER, 701) != 0, "the oracle request is pending");
         assertEq(executor.tokenBalance(), PINNED_EXECUTOR_BALANCE - PINNED_AMOUNT, "only shared-decimal dust remains");
@@ -120,18 +120,6 @@ contract BurnRuleForkTest is Test {
         assertEq(address(wallet).balance, 0, "exactly the fee was spent");
         assertEq(address(registry).balance, 1 ether);
         assertEq(EXECUTOR.balance, executorEthAtSetUp);
-    }
-
-    // (h) The same cold claim without the fee reverts with the pinned quote and leaves no oracle request.
-    function test_fork_coldFreeClaimWithoutTheFeeReverts() public onFork {
-        vm.expectRevert(abi.encodeWithSelector(Registry.BurnFeeRequired.selector, PINNED_FEE));
-        vm.prank(MEMBER);
-        registry.claimSponsored(701);
-        assertEq(registry.pendingOf(MEMBER, 701), bytes32(0), "no oracle request");
-        assertFalse(registry.poolUsed(MEMBER, 701));
-        assertEq(registry.lastPoolDay(MEMBER), 0);
-        assertEq(registry.pool(), 2 ether, "no pool IMD left the registry");
-        assertEq(address(registry).balance, 1 ether);
     }
 
     // (i) The two direct-executor tests, unchanged: the registry is bypassed, so the warm quote read is fine.

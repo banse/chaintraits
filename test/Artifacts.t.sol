@@ -5,7 +5,7 @@ import {Test} from "forge-std/Test.sol";
 import {Registry} from "../src/Registry.sol";
 import {Renderer} from "../src/Renderer.sol";
 import {Composer} from "../src/Composer.sol";
-import {MockCurator, MockIDMD, MockIntake} from "./mocks/Mocks.sol";
+import {MockCurator, MockIDMD, MockIMD, MockIntake} from "./mocks/Mocks.sol";
 import {IWhitelistCurator} from "../src/interfaces/IWhitelistCurator.sol";
 import {Deploy} from "../script/Deploy.s.sol";
 
@@ -37,21 +37,23 @@ contract ArtifactsTest is Test {
         Renderer r2 = new Renderer();
         Composer c1 = new Composer();
         Composer c2 = new Composer();
+        MockIMD imdMock = new MockIMD();
         Registry a = new Registry(
             address(new MockCurator()),
             address(idmd),
-            address(3),
-            address(new MockIntake(address(3))),
+            address(imdMock),
+            address(new MockIntake(address(imdMock))),
             address(5),
             address(r1),
             address(c1),
             address(0)
         );
+        MockIMD imdMock2 = new MockIMD();
         Registry b = new Registry(
             address(new MockCurator()),
             address(new MockIDMD()),
-            address(8),
-            address(new MockIntake(address(8))),
+            address(imdMock2),
+            address(new MockIntake(address(imdMock2))),
             address(10),
             address(r2),
             address(c2),
@@ -69,25 +71,32 @@ contract ArtifactsTest is Test {
     function test_constructorRejectsZeroAddressesAndStoresTheRest() public {
         Renderer r = new Renderer();
         Composer c = new Composer();
+        MockIMD imd = new MockIMD();
         vm.expectRevert(Registry.ZeroAddress.selector);
         new Registry(address(0), address(idmd), address(3), address(4), address(5), address(r), address(c), address(0));
         vm.expectRevert(Registry.ZeroAddress.selector);
         new Registry(address(1), address(idmd), address(3), address(4), address(5), address(0), address(c), address(0));
         vm.warp(1_791_700_000);
         MockCurator curator = new MockCurator();
-        MockIntake intake = new MockIntake(address(3));
+        MockIntake intake = new MockIntake(address(imd));
         Registry reg = new Registry(
-            address(curator), address(idmd), address(3), address(intake), address(5), address(r), address(c), address(0)
+            address(curator),
+            address(idmd),
+            address(imd),
+            address(intake),
+            address(5),
+            address(r),
+            address(c),
+            address(0)
         );
         assertEq(address(reg.curator()), address(curator));
         assertEq(address(reg.idmd()), address(idmd));
-        assertEq(address(reg.imd()), address(3));
+        assertEq(address(reg.imd()), address(imd));
         assertEq(address(reg.intake()), address(intake));
         assertEq(reg.attester(), address(5));
         assertEq(address(reg.renderer()), address(r));
         assertEq(address(reg.composer()), address(c));
         assertEq(address(reg.burnExecutor()), address(0), "zero explicitly disables the burn rule");
-        assertEq(reg.deployedAt(), 1_791_700_000);
         assertEq(reg.nextSpecId(), 10001);
         assertEq(reg.ACTION(), 0x6f7261636c652e72657175657374406f7261636c652d31000000000000000000);
     }
@@ -183,11 +192,12 @@ contract ArtifactsTest is Test {
     function test_noForbiddenOpcodesInRuntime() public {
         Renderer r = new Renderer();
         Composer c = new Composer();
+        MockIMD imdMock = new MockIMD();
         Registry reg = new Registry(
             address(new MockCurator()),
             address(idmd),
-            address(3),
-            address(new MockIntake(address(3))),
+            address(imdMock),
+            address(new MockIntake(address(imdMock))),
             address(5),
             address(r),
             address(c),

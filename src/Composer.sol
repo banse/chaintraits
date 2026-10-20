@@ -45,6 +45,8 @@ contract Composer {
     uint16 internal constant PANEL_PANEL = 11;
     uint16 internal constant PANEL_QUORUM = 7;
     uint256 internal constant VALID_FOR_SECONDS = 2_592_000;
+    /// @dev Blocks a kind 1 to 4 window must end behind the head at registration (two epochs).
+    uint256 internal constant FINALITY = 64;
     uint256 internal constant MAX_QUESTION = 1000;
     uint256 internal constant MAX_DEFINITION = 512;
 
@@ -72,9 +74,10 @@ contract Composer {
 
     error NotACatalogOracleTrait(uint16 traitId);
 
-    /// @notice A catalog oracle trait (701 to 1301) expressed as a Spec (CATALOG.md section 3).
-    function catalogSpec(uint16 traitId, address) external pure returns (Spec memory s) {
-        s.target = MAINNET_CURATOR;
+    /// @notice A catalog oracle trait (701 to 1301) expressed as a Spec (CATALOG.md section 3), its
+    ///         log questions targeting the registry's `curator` (the mainnet Curator on the launch).
+    function catalogSpec(uint16 traitId, address curator) external pure returns (Spec memory s) {
+        s.target = curator;
         s.threshold = 1;
         s.fromBlock = B_DEPLOY;
         s.toBlock = B_END;
@@ -129,9 +132,27 @@ contract Composer {
         }
     }
 
-    /// @notice The direct-read predicates used by Registry.hasTrait and catalog enumeration.
+    /// @notice The live direct-read predicates (the registry freezes them on a card at mint).
     function hasDirectTrait(address wallet, uint16 traitId, IWhitelistCurator curator, IIDMD idmd)
         external
+        view
+        returns (bool)
+    {
+        return _direct(wallet, traitId, curator, idmd);
+    }
+
+    /// @notice Every direct trait true for a wallet now, as the `frozenDirect` word a mint stores:
+    ///         bit `(family - 1) * 4 + tier - 1` per true direct id (101 is bit 0, 601 bit 20).
+    function directSnapshot(address wallet, IWhitelistCurator curator, IIDMD idmd) external view returns (uint32 bits) {
+        uint16[25] memory all = _catalog();
+        for (uint256 i; i < 14; ++i) {
+            uint16 id = all[i];
+            if (_direct(wallet, id, curator, idmd)) bits |= uint32(1 << ((id / 100 - 1) * 4 + id % 100 - 1));
+        }
+    }
+
+    function _direct(address wallet, uint16 traitId, IWhitelistCurator curator, IIDMD idmd)
+        internal
         view
         returns (bool)
     {
@@ -161,7 +182,21 @@ contract Composer {
     /// @notice Enumerates all true catalog ids in ascending order; community specs are excluded.
     /// @dev The registry supplies itself as the read source. Kept here for its EIP-170 headroom.
     function traitsOf(address registry, address wallet) external view returns (uint16[] memory ids) {
-        uint16[25] memory all = [
+        uint16[25] memory all = _catalog();
+        uint16[] memory tmp = new uint16[](25);
+        uint256 n;
+        for (uint256 i; i < 25; ++i) {
+            if (ICatalogRegistry(registry).hasTrait(wallet, all[i])) tmp[n++] = all[i];
+        }
+        ids = new uint16[](n);
+        for (uint256 i; i < n; ++i) {
+            ids[i] = tmp[i];
+        }
+    }
+
+    /// @dev The 25 catalog ids ascending; the first 14 are the direct ones.
+    function _catalog() internal pure returns (uint16[25] memory) {
+        return [
             101,
             201,
             202,
@@ -188,15 +223,6 @@ contract Composer {
             1201,
             1301
         ];
-        uint16[] memory tmp = new uint16[](25);
-        uint256 n;
-        for (uint256 i; i < 25; ++i) {
-            if (ICatalogRegistry(registry).hasTrait(wallet, all[i])) tmp[n++] = all[i];
-        }
-        ids = new uint16[](n);
-        for (uint256 i; i < n; ++i) {
-            ids[i] = tmp[i];
-        }
     }
 
     // ------------------------------------------------------------------ names and spec guards
@@ -282,7 +308,11 @@ contract Composer {
         if (s.kind == 5) {
             if (s.fromBlock != s.toBlock || uint256(s.toBlock) + 7200 > blockNumber) revert BadSpec("window");
         } else {
-            if (s.toBlock < s.fromBlock || uint256(s.toBlock) - s.fromBlock + 1 < 7200 || s.toBlock >= blockNumber) {
+            // Finality margin: the window's last block is at least FINALITY blocks behind the head.
+            if (
+                s.toBlock < s.fromBlock || uint256(s.toBlock) - s.fromBlock + 1 < 7200
+                    || uint256(s.toBlock) + FINALITY > blockNumber
+            ) {
                 revert BadSpec("window");
             }
         }
@@ -321,8 +351,9 @@ contract Composer {
         return 0;
     }
 
+    /// @notice Kinds 1, 2 and 4 ask 5 / 3; kind 3 (a ranked list) and kind 5 (panel evidence) 11 / 7.
     function panelOf(uint8 kind) public pure returns (uint16 panelSize, uint16 quorum) {
-        return kind == 5 ? (PANEL_PANEL, PANEL_QUORUM) : (CHAIN_PANEL, CHAIN_QUORUM);
+        return kind == 3 || kind == 5 ? (PANEL_PANEL, PANEL_QUORUM) : (CHAIN_PANEL, CHAIN_QUORUM);
     }
 
     /// @notice Composes the body and the plane's `questionHash` for a spec and a claimant.
@@ -546,7 +577,8 @@ contract Composer {
 
     /// @notice The request body: sorted keys, two-space indent, no trailing newline.
     function encodeBody(Question memory q, address consumer) internal view returns (bytes memory) {
-        (uint16 panelSize, uint16 quorum) = q.panel ? (PANEL_PANEL, PANEL_QUORUM) : (CHAIN_PANEL, CHAIN_QUORUM);
+        (uint16 panelSize, uint16 quorum) =
+            q.panel || q.head != 0 ? (PANEL_PANEL, PANEL_QUORUM) : (CHAIN_PANEL, CHAIN_QUORUM);
         bytes memory defs;
         for (uint256 i; i < q.keys.length; ++i) {
             defs = bytes.concat(

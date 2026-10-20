@@ -43,8 +43,8 @@ contract ReReviewTest is Base {
     }
 
     function _list64() internal pure returns (address[] memory list) {
-        list = new address[](64);
-        for (uint256 i; i < 64; ++i) {
+        list = new address[](32);
+        for (uint256 i; i < 32; ++i) {
             list[i] = address(uint160(0x5000 + i));
         }
     }
@@ -71,7 +71,7 @@ contract ReReviewTest is Base {
         (bytes32 stored, bytes32 hash, uint16 n) = registry.sharedFact(1201);
         assertEq(stored, rid);
         assertEq(hash, keccak256(abi.encode(_list64())));
-        assertEq(n, 64);
+        assertEq(n, 32);
         emit log_named_uint("cold onResult gas, 64-address shared fact (catalog 1201)", used);
     }
 
@@ -79,7 +79,7 @@ contract ReReviewTest is Base {
         Spec memory s = t1Spec(address(0xCAFE), "Top sixty four");
         s.kind = 3;
         s.sumArg = "value";
-        s.threshold = 32; // the head is at most 32; the list still carries 64 addresses
+        s.threshold = 32; // the head is at most 32; the list carries exactly 32 addresses
         uint16 id = register(bob, s);
         fund(bob, PRICE);
         vm.prank(bob);
@@ -88,7 +88,7 @@ contract ReReviewTest is Base {
         uint256 used = _coldDeliver(rid, attestationFor(rid, abi.encode(_list64())));
         (bytes32 stored,, uint16 n) = registry.sharedFact(id);
         assertEq(stored, rid);
-        assertEq(n, 64);
+        assertEq(n, 32);
         emit log_named_uint("cold onResult gas, 64-address shared fact (community T3)", used);
     }
 
@@ -132,15 +132,17 @@ contract ReReviewTest is Base {
         uint256 tokenId = mint(alice);
         bytes32 rid = ask(alice, 1104);
         assertTrue(deliver(rid, attestationFor(rid, word(1))));
-        assertEq(registry.cardOf(tokenId).top[10], 1104);
+        assertEq(renderer.cardOf(address(registry), tokenId).top[10], 1104);
         string memory before = registry.tokenURI(tokenId);
         rid = ask(alice, 1102);
         assertTrue(deliver(rid, attestationFor(rid, word(1))));
-        assertEq(registry.cardOf(tokenId).top[10], 1102, "the lowest verified ordinal is shown");
+        assertEq(renderer.cardOf(address(registry), tokenId).top[10], 1102, "the lowest verified ordinal is shown");
         assertTrue(keccak256(bytes(registry.tokenURI(tokenId))) != keccak256(bytes(before)));
         rid = ask(alice, 1105);
         assertTrue(deliver(rid, attestationFor(rid, word(1))));
-        assertEq(registry.cardOf(tokenId).top[10], 1102, "a higher ordinal never replaces a lower one");
+        assertEq(
+            renderer.cardOf(address(registry), tokenId).top[10], 1102, "a higher ordinal never replaces a lower one"
+        );
     }
 
     // ------------------------------------------------------------------ (c) community attributes
@@ -149,14 +151,14 @@ contract ReReviewTest is Base {
         uint256 tokenId = mint(alice);
         uint16 first = register(bob, t1Spec(address(0xCAFE), "First spec"));
         uint16 second = register(bob, t1Spec(address(0xBEEF), "Second-spec.v2"));
-        string memory metadata = string(renderer.preimage(registry.cardOf(tokenId)));
+        string memory metadata = string(renderer.preimage(renderer.cardOf(address(registry), tokenId)));
         assertFalse(vm.contains(metadata, '"trait_type":"Community 1'), "no community attribute without one");
         assertEq(vm.parseJsonUint(metadata, ".attributes[14].value"), 0);
         assertFalse(vm.keyExistsJson(metadata, ".attributes[15]"));
 
         bytes32 rid = ask(alice, second);
         assertTrue(deliver(rid, attestationFor(rid, word(1))));
-        metadata = string(renderer.preimage(registry.cardOf(tokenId)));
+        metadata = string(renderer.preimage(renderer.cardOf(address(registry), tokenId)));
         assertEq(vm.parseJsonUint(metadata, ".attributes[14].value"), 1);
         assertEq(
             vm.parseJsonString(metadata, ".attributes[15].trait_type"), string.concat("Community ", vm.toString(second))
@@ -174,7 +176,7 @@ contract ReReviewTest is Base {
         fund(alice, registry.SPEC_FEE());
         vm.prank(alice);
         vm.expectRevert(abi.encodeWithSelector(Composer.BadSpec.selector, "fixedVal"));
-        registry.registerSpec(s);
+        registry.registerSpec(s, 0);
         s.fixedVal = 0;
         uint16 id = register(alice, s);
         (bytes memory raw,) = registry.composeBody(id, alice);
@@ -228,7 +230,7 @@ contract ReReviewTest is Base {
         fund(alice, registry.SPEC_FEE());
         vm.prank(alice);
         vm.expectRevert(stdError.arithmeticError);
-        registry.registerSpec(s);
+        registry.registerSpec(s, 0);
         assertEq(registry.specOf(65534).name, "Last");
     }
 
@@ -237,8 +239,9 @@ contract ReReviewTest is Base {
     function test_sameSignedEvidenceSatisfiesAnotherRequestWithTheSameQuestion() public {
         bytes32 r1 = ask(alice, 701);
         OracleAttestation memory a = attestationFor(r1, word(1));
+        a.expiresAt += 2 days; // outlives the 31-day abandon window
         bytes memory sig = sign(a);
-        vm.warp(block.timestamp + 14 days);
+        vm.warp(block.timestamp + 31 days);
         vm.prank(alice);
         registry.abandon(r1);
         bytes32 r2 = ask(alice, 701);

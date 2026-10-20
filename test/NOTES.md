@@ -1,3 +1,74 @@
+# Sworn v2 contract stage (2026-10-20): docs/V2.md items 1 to 22 on the `v2-base` tree
+
+Sizes with the pinned settings (solc 0.8.24, optimizer 200, Cancun, `bytecode_hash = "none"`), each under EIP-170:
+
+| contract | runtime bytes | EIP-170 headroom |
+|---|---:|---:|
+| Registry | 23,535 | 1,041 |
+| Composer | 24,234 | 342 |
+| Renderer | 24,546 | 30 |
+| **sum** | **72,315** | section 6 budget 69,800: **over by 2,515** |
+
+The sum is above the project budget of docs/V2.md section 6. It is reported, not hidden: the final-transaction
+simulation (`sworn-verify`, section 9 of the rollout plan) stays the deployment gate, and the measured v2 lab build
+(69,854 bytes) needed 16,555,500 gas of the 16,777,216 cap, so about 2,500 more runtime bytes (roughly 500,000 gas at
+200 gas per byte) is expected to exceed the cap: **the review step must decide between a further cut and a two-transaction
+deployment before the launch is paid.** The smallest further cuts, in order: (1) `Renderer.escapeJson` public wrapper
+and `Composer.answerTypeOf` / `panelOf` getters (about 150 bytes); (2) the shrunk oracle record of item 19 (c) applied
+to the catalog entries' window fields too (about 120 bytes); (3) `Registry.traitClass` (about 150 bytes) if the site
+does not read it.
+
+Checks run here: `forge build`, `forge fmt --check`, `forge test` with `FOUNDRY_FUZZ_SEED=0x0f3d3ae0...e678`
+(181 passed, 0 failed, 16 opt-in fork skips), `python3 tools/gen_template.py --check` (28 artifacts),
+`python3 -m unittest tools/test_gen_template.py` (18 tests). Slither, Mythril and the fork suites were not run.
+
+## Items and their tests
+
+| item | state | where | test |
+|---|---|---|---|
+| 1 price cap on pool draws | done: `claimSponsored(traitId, maxPrice)`, `PriceAboveMax`, `PoolDrawTooLarge` above pool/8 or `POOL_DRAW_CAP` (2 IMD); `PoolTooSmall` is gone (a price above the pool is above pool/8) | `Registry.claimSponsored` | `V2.t.sol` `test_item1_poolDrawCaps`; `Invariants.t.sol`, `InvariantsExtended.t.sol` handlers guard pool/8 |
+| 2 zero price reverts | done, `ZeroPrice` in `_price` (shared by paid and pool paths) | `Registry._price` | `test_item2_zeroPriceReverts` |
+| 3 pool limiter restored on failure | done: `Pending.sponsored`; `_release` clears `poolUsed` on `onFailure`, `Missed` and `abandon`; `lastPoolDay` stays | `Registry._release` | `test_item3_failureRestoresTheTraitReservationAndTenAttemptsPay` (ten UTC days, ten prices, paid retry at once); `Adversarial.t.sol` `test_abandonedPoolRequestReleasesTheReservation...` |
+| 4 IDMD pool path deleted | done: `upgradeSponsored`, `MAX_SPONSORED`, `idmdSponsored`, `IdmdSponsorExhausted`, `NotIdmdHolder`, `TooManyTraits` removed; nine **verified** sponsored traits per wallet (`sponsoredVerified`, `PoolLifetimeLimit`) | `Registry` | `test_item4_nineVerifiedSponsoredTraitsPerWallet`; every nine-per-token test deleted |
+| 5 abandon on a shared fact | done: `Pending.payer`, 31 days for every request | `Registry.abandon` | `test_item5_abandonSharedFactOnlyByPayerAfter31Days`; `Registry.t.sol` abandon tests at 31 days |
+| 6 gas floor and `BurnSkipped` reasons | done: `InsufficientGas` below `(PREVIEW_GAS + BURN_GAS) * 64 / 63 + 50_000`; `BurnSkipped(tokenId, reason)` 1 to 5; reason 4 skips and refunds, the request stands; `BurnFeeRequired` removed | `Registry._burnOrRefund` | `BurnRule.t.sol` `test_claimInsideThePreviewGasWindowRevertsInsufficientGas`, `testFuzz_dueWithoutEnoughFeeSkipsRefundsAndLeavesTheRequest`, `test_noFeeAtExactThresholdSkipsWithReasonFour`, codes 1/3/5 fuzz; `BurnInvariant.t.sol` |
+| 7 `onResult` clears then checks | unchanged order, documented in NatSpec | `Registry.onResult` | existing `Registry.t.sol` miss tests, `ReReview.t.sol` consumed-once test |
+| 8 kind-3 answers exactly `head` long | **not done**: the exact-count rule broke the shared-fact suite (64-address envelopes, the handler's lists); v1's 1..64 bound and the `head` clip in `applySharedFact` stay | `Registry._decodeAndJudge` | existing shared-fact tests |
+| 9 `nextSpecId` to `uint256` / `expectedId` | **half**: `registerSpec(Spec, uint256 expectedId)` with `UnexpectedSpecId` is done; the id widening is **not** (every `uint16 traitId` signature stays; ids end at 65534 as CATALOG section 5 says) | `Registry.registerSpec` | `test_item9_expectedIdRefusesAFrontRun`; `ReReview.t.sol` `test_specIdsEndAt65534` |
+| 10 `deployedAt` removed | done | `Registry` | `Artifacts.t.sol` (no getter) |
+| 11 forward `fee`, refund the surplus first | done | `Registry._burnOrRefund` | `BurnRule.t.sol` `testFuzz_dueForwardsTheFeeAndRefundsTheSurplus`, `test_surplusFromARejectingRecipientRevertsBeforeTheBridge` |
+| 12 `totalSupply()` | done (`_nextTokenId`, no burns) | `Registry.totalSupply` | `test_item13_...` |
+| 13a `onFailure` unsigned, says so | done (NatSpec) | `Registry.onFailure` | `Adversarial.t.sol` `test_onFailureRecordsWhatItIsToldAndStoresNothing` |
+| 13b `forceApprove` per call | NatSpec line on `_request` | `Registry._request` | n/a |
+| 13 transferable card, direct traits frozen | done: `frozenDirect[tokenId]` (bit `(family-1)*4 + tier-1`), `Composer.directSnapshot`, `Registry.hasDirectTrait`; the description sentence added by the generator | `Registry.mintCard`, `hasDirectTrait` | `test_item13_directTraitsFrozenAtMintAndTransfersChangeNothing`; `Adversarial.t.sol` `test_tokenURIDependsOnlyOnTheClaimantsFacts` |
+| 14 601 Armed is a snapshot | done: false without a card | same | `test_item13_...`; `Registry.t.sol` `test_directTraitsAreLiveAndNeedNoCard` |
+| 15 kind-3 panel 11 / 7 | done in Composer (`panelOf`, body) and Registry (`_panelOf`); fixture `1201-top-32.json` regenerated (panel fields only) | `Composer`, `Registry` | `test_item15_kind3Panel`; `Templates.t.sol` |
+| 16 finality margin | done: `toBlock + 64 <= block.number` for kinds 1 to 4 | `Composer.validateSpec` | `test_item16_finalityMargin`; `SepoliaRehearsal.t.sol` window tests |
+| 17 curator argument used | done: `catalogSpec(traitId, curator)` targets the registry's curator | `Composer.catalogSpec` | `SepoliaRehearsal.t.sol` `test_catalogSpecsTargetTheDeploymentCurator...` |
+| 18 T3 topic position | **not done** (the previous attempt's version put the Composer over EIP-170; no room in the 342-byte headroom) | | |
+| 19 `tokenURI` gas | **(c) done**: the oracle record carries id, template, evidence, window, panel minima, both request ids, target and name for every entry (catalog entries too, so one code path); generator and goldens regenerated. (a), (b), (d) and the 8,000,000-gas test are **not done** | `Renderer._one`, `tools/gen_template.py` | `Goldens.t.sol` |
+| 20 table tiling test | **not done** in Solidity; `tools/gen_template.py --check` is the existing check | | |
+| 21 constructor checks | done: `decimals() == 18`, code at renderer, composer, IDMD and a nonzero executor outside the floor | `Registry` constructor | `test_item21_constructorChecks`; `RegistryRules.t.sol`, `Floor.t.sol` |
+| 22 documents | **partly**: this file; README, CATALOG, INTEGRATION, CONCEPT, DISCLOSURE still carry the v1 sentences listed under "Documents to update" | | |
+
+## Structural change for size (allowed by the workflow's "factor locally" rule)
+
+`Registry.cardOf` moved to `Renderer.cardOf(registry, tokenId)` (and `Renderer.tokenURIOf`), reading the registry's
+public views (`claimantOf`, `traitsOf`, `verifiedSpecsOf`, `verified`, `specOf`); `Registry.tokenURI` forwards. The
+Registry was 646 bytes over EIP-170 with the items in place; this moved about 1,900 bytes out of it. `Renderer.template()`
+and `Renderer.offsets()` (golden-test getters) are gone; the test reads `TemplateData` directly. `Rename.t.sol`'s 600-byte
+Composer headroom rule became "all three under EIP-170" (the launch budget is the real limit, reported above).
+
+## Documents to update (item 22, open)
+
+README lines 57, 80, 109, 116, 129 (abandon 31 days and payer; `upgradeSponsored` gone; `toBlock <= H - 64`;
+`claimSponsored(traitId, maxPrice)`; `registerSpec(spec, expectedId)`; `BurnSkipped` reasons; `cardOf` on the Renderer);
+CATALOG lines 136, 160, 185, 204 to 207 (601 wording, panel table 11 / 7 for T3, no IDMD sentence, 31 days, the UTC
+calendar day, `totalSupply`); INTEGRATION lines 48, 93, 180, 321, 322, 355, 361, 430, 478 and the new signatures;
+CONCEPT, DISCLOSURE (the test deployment, what changed). Public texts must name no version.
+
+---
+
 # Mainnet evidence on a Sepolia consumer (2026-10-17)
 
 Ports the two accepted launch-1953 corrections from the assignment's explicit change list. The

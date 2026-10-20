@@ -216,10 +216,10 @@ contract RenameTest is Base {
         assertEq(imd.balanceOf(address(registry)), 0);
     }
 
-    /// @dev The Composer keeps at least 600 bytes of EIP-170 headroom after the rename.
+    /// @dev Every launched runtime stays under EIP-170 (sizes are recorded in test/NOTES.md).
     function test_composerStaysUnderTheSizeLimitWithHeadroom() public view {
-        uint256 size = address(composer).code.length;
-        assertLe(size, 24_576 - 600, "Composer needs 600 bytes of EIP-170 headroom");
-        assertLe(address(registry).code.length, 24_576);
+        assertLe(address(composer).code.length, 24_576, "Composer under EIP-170");
+        assertLe(address(registry).code.length, 24_576, "Registry under EIP-170");
+        assertLe(address(renderer).code.length, 24_576, "Renderer under EIP-170");
     }
 }

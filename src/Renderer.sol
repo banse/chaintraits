@@ -15,7 +15,17 @@ import {HiveData} from "./HiveData.sol";
 ///         card: thirteen hexagonal cells, one per family, built by selecting precomputed, pre-encoded
 ///         coordinate strings from `HiveData` (the generator's `hive_svg` is the normative drawing; there is
 ///         no trigonometry here). No constructor arguments, no immutables, no storage.
+/// @dev The registry reads a card is built from.
+interface ICardSource {
+    function claimantOf(uint256 tokenId) external view returns (address);
+    function traitsOf(address wallet) external view returns (uint16[] memory);
+    function verifiedSpecsOf(address wallet) external view returns (uint16[] memory);
+    function verified(address claimant, uint16 traitId) external view returns (bytes32, bytes32, uint64, uint64);
+    function specOf(uint16 traitId) external view returns (Spec memory);
+}
+
 contract Renderer {
+    uint256 internal constant MAX_COMMUNITY_IN_METADATA = 32;
     uint256 internal constant SLOTS = 21; // TemplateData.SLOTS; a literal because it sizes a memory array
     uint256 internal constant SLICES = 22;
     uint256 internal constant MAX_RINGS_SHOWN = 39;
@@ -34,16 +44,6 @@ contract Renderer {
         bytes fragmentStarts;
     }
 
-    /// @notice The template blob, for the golden tests.
-    function template() external pure returns (bytes memory) {
-        return TemplateData.TEMPLATE;
-    }
-
-    /// @notice The packed uint16 offsets (start, length per slice), for the golden tests.
-    function offsets() external pure returns (bytes memory) {
-        return _unhex(TemplateData.OFFSETS);
-    }
-
     /// @dev The generated tables are ASCII hex (so the code data holds no forbidden opcode byte);
     ///      decode one to packed bytes.
     function _unhex(bytes memory h) internal pure returns (bytes memory out) {
@@ -58,8 +58,61 @@ contract Renderer {
         return b >= 97 ? b - 87 : b - 48;
     }
 
-    function tokenURI(Card memory c) external pure returns (string memory) {
+    error NoCard(uint256 tokenId);
+
+    function tokenURI(Card memory c) public pure returns (string memory) {
         return string(abi.encodePacked("data:application/json;base64,", Base64.encode(preimage(c))));
+    }
+
+    /// @notice A registry card's metadata URI, read from the registry's public views.
+    function tokenURIOf(address registry, uint256 tokenId) external view returns (string memory) {
+        return tokenURI(cardOf(registry, tokenId));
+    }
+
+    /// @notice The renderer's input for a registry card, public so a reader can inspect the facts
+    ///         without decoding: the frozen direct traits and verified oracle traits of the minter.
+    function cardOf(address registry, uint256 tokenId) public view returns (Card memory c) {
+        ICardSource r = ICardSource(registry);
+        address claimant = r.claimantOf(tokenId);
+        if (claimant == address(0)) revert NoCard(tokenId);
+        c.tokenId = tokenId;
+        c.claimant = claimant;
+        c.traits = r.traitsOf(claimant);
+        for (uint256 i; i < c.traits.length; ++i) {
+            uint16 id = c.traits[i];
+            uint256 fam = id / 100;
+            // Ordinals are independent facts: retain the lowest verified id (the rarest).
+            // Other families show their highest tier as the sorted ids are visited.
+            if (fam != 11 || c.top[fam - 1] == 0) c.top[fam - 1] = id;
+        }
+        uint16[] memory specs = r.verifiedSpecsOf(claimant);
+        c.communityCount = specs.length;
+        uint256 shown = specs.length < MAX_COMMUNITY_IN_METADATA ? specs.length : MAX_COMMUNITY_IN_METADATA;
+        c.community = new uint16[](shown);
+        for (uint256 i; i < shown; ++i) {
+            c.community[i] = specs[i];
+        }
+        // oracle metadata: the true catalog oracle ids (every one is a verified entry), then the shown specs
+        uint256 n;
+        for (uint256 i; i < c.traits.length; ++i) {
+            if (c.traits[i] >= 701) n++;
+        }
+        c.oracle = new OracleMeta[](n + shown);
+        uint256 k;
+        for (uint256 i; i < c.traits.length; ++i) {
+            if (c.traits[i] >= 701) c.oracle[k++] = _meta(r, claimant, c.traits[i]);
+        }
+        for (uint256 i; i < shown; ++i) {
+            c.oracle[k++] = _meta(r, claimant, specs[i]);
+        }
+    }
+
+    function _meta(ICardSource r, address claimant, uint16 traitId) internal view returns (OracleMeta memory m) {
+        m.traitId = traitId;
+        (m.requestId, m.oracleRequestId,,) = r.verified(claimant, traitId);
+        m.spec = r.specOf(traitId);
+        // Kinds 1, 2 and 4 ask a 5 / 3 panel; kind 3 (a ranked list) and kind 5 (panel evidence) 11 / 7.
+        (m.panelSize, m.quorum) = m.spec.kind == 3 || m.spec.kind == 5 ? (11, 7) : (5, 3);
     }
 
     /// @notice The metadata JSON before Base64, public so a test can diff it against the golden.
@@ -344,6 +397,9 @@ contract Renderer {
         }
     }
 
+    /// @dev The oracle record: id, template, evidence, window, panel minima, the two request ids, the
+    ///      target and the name. The spec body (`item`, `arg`, `fixedArg`, `sumArg`, `fixedVal`, `op`,
+    ///      `threshold`) stays readable through `Registry.specOf(id)`.
     function _one(OracleMeta memory m) internal pure returns (bytes memory) {
         Spec memory s = m.spec;
         return bytes.concat(
@@ -361,30 +417,16 @@ contract Renderer {
                 ',"minPanelSize":',
                 bytes(Strings.toString(m.panelSize)),
                 ',"minQuorum":',
-                bytes(Strings.toString(m.quorum)),
+                bytes(Strings.toString(m.quorum))
+            ),
+            bytes.concat(
                 ',"requestId":"',
                 bytes(Strings.toHexString(uint256(m.requestId), 32)),
                 '","oracleRequestId":"',
-                bytes(Strings.toHexString(uint256(m.oracleRequestId), 32))
-            ),
-            bytes.concat(
+                bytes(Strings.toHexString(uint256(m.oracleRequestId), 32)),
                 '","target":"',
                 bytes(Strings.toHexString(s.target)),
-                '","item":"',
-                escapeJson(bytes(s.item)),
-                '","arg":"',
-                escapeJson(bytes(s.arg)),
-                '","fixedArg":"',
-                escapeJson(bytes(s.fixedArg)),
-                '","fixedVal":',
-                bytes(Strings.toString(s.fixedVal)),
-                ',"sumArg":"',
-                escapeJson(bytes(s.sumArg)),
-                '","op":',
-                bytes(Strings.toString(s.op)),
-                ',"threshold":',
-                bytes(Strings.toString(s.threshold)),
-                ',"name":"',
+                '","name":"',
                 escapeJson(bytes(s.name)),
                 '"}'
             )
