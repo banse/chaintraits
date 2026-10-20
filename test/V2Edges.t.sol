@@ -323,6 +323,43 @@ contract V2EdgesTest is Base {
         registry.tokenURI(0);
     }
 
+    /// @dev Item 8 makes a community T3 answer exactly `threshold` addresses long, so the spec's head is the
+    ///      length the callback walks under its 200,000 gas; it must stay within 1..32 or a registered spec
+    ///      could never be answered. A refused registration keeps the fee and the id.
+    /// forge-config: default.fuzz.runs = 256
+    function testFuzz_item8_kind3HeadRegistersExactlyWithinOneToThirtyTwo(uint256 head) public {
+        head = bound(head, 0, 1000);
+        Spec memory s;
+        s.kind = 3;
+        s.target = address(0x1234);
+        s.item = "event Transfer(address indexed from, address indexed to, uint256 value)";
+        s.arg = "to";
+        s.sumArg = "value";
+        s.threshold = head;
+        s.fromBlock = B_DEPLOY;
+        s.toBlock = B_END;
+        s.name = "Head";
+        uint256 fee = registry.SPEC_FEE();
+        fund(alice, fee);
+        bool ok = head >= 1 && head <= 32;
+        vm.prank(alice);
+        if (!ok) vm.expectRevert(abi.encodeWithSelector(Composer.BadSpec.selector, "threshold"));
+        registry.registerSpec(s, 0);
+        assertEq(registry.nextSpecId(), ok ? 10002 : 10001);
+        assertEq(imd.balanceOf(alice), ok ? 0 : fee);
+    }
+
+    /// @dev A complete 1201 answer (V2 item 8: exactly the head of 32 addresses) holding `first` and,
+    ///      unless zero, `second`; the rest are distinct wallets that never act in these tests.
+    function _headList(address first, address second) internal pure returns (address[] memory list) {
+        list = new address[](32);
+        for (uint256 i; i < 32; ++i) {
+            list[i] = address(uint160(0x5000 + i));
+        }
+        list[0] = first;
+        if (second != address(0)) list[31] = second;
+    }
+
     function test_item13_unsolicitedRecipientKeepsItsOwnPowers() public {
         imd.mint(address(registry), 100 ether);
         uint256 id = mint(alice);
@@ -338,9 +375,7 @@ contract V2EdgesTest is Base {
         assertTrue(deliver(rs, attestationFor(rs, word(1))));
         bytes32 rp = ask(bob, 801);
         assertTrue(deliver(rp, attestationFor(rp, word(1))));
-        address[] memory list = new address[](2);
-        list[0] = alice;
-        list[1] = bob;
+        address[] memory list = _headList(alice, bob);
         fund(carol, PRICE);
         vm.prank(carol);
         registry.requestSharedFact(1201, PRICE);
@@ -368,8 +403,7 @@ contract V2EdgesTest is Base {
         uint256 id = mint(alice);
         vm.prank(alice);
         registry.transferFrom(alice, bob, id);
-        address[] memory list = new address[](1);
-        list[0] = alice;
+        address[] memory list = _headList(alice, address(0));
         fund(carol, PRICE);
         vm.prank(carol);
         registry.requestSharedFact(1201, PRICE);
