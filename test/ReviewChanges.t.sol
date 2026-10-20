@@ -50,9 +50,9 @@ contract ReviewChangesTest is Base {
             bytes32 rid = ids[i] == 1201 ? _askShared() : ask(C1A1, ids[i]);
             OracleAttestation memory a = attestationFor(rid, new bytes(262_144));
             _miss(rid, ids[i], 9, a, sign(a));
-            // A paid retry can pass immediately, including a shared fact at the maximum 64 addresses.
+            // A paid retry can pass immediately, including a shared fact at its head of 32 addresses.
             rid = ids[i] == 1201 ? _askShared() : ask(C1A1, ids[i]);
-            bytes memory answer = ids[i] == 1201 ? abi.encode(new address[](64)) : word(1);
+            bytes memory answer = ids[i] == 1201 ? abi.encode(new address[](32)) : word(1);
             a = attestationFor(rid, answer);
             bytes memory sig = sign(a);
             vm.cool(address(registry));
@@ -60,7 +60,7 @@ contract ReviewChangesTest is Base {
             if (ids[i] == 1201) {
                 (bytes32 stored,, uint16 count) = registry.sharedFact(1201);
                 assertEq(stored, rid);
-                assertEq(count, 64);
+                assertEq(count, 32);
             } else {
                 assertTrue(registry.hasTrait(C1A1, ids[i]));
             }
@@ -149,14 +149,14 @@ contract ReviewChangesTest is Base {
             assertTrue(deliver(rid, attestationFor(rid, word(1))));
             expected = id;
         }
-        Card memory c = renderer.cardOf(address(registry), tokenId);
+        Card memory c = renderer.cardOfOn(address(registry), tokenId);
         assertEq(c.top[10], expected);
         assertEq(c.top[1], 202, "true tier families still show their highest tier");
         assertEq(c.top[2], 303);
         assertEq(c.top[3], 404);
         assertEq(c.top[4], 503);
         string memory value = expected == 0 ? "none" : vm.toString(expected);
-        string memory metadata = string(renderer.preimage(c));
+        string memory metadata = string(renderer.preimageOf(c));
         assertEq(vm.parseJsonString(metadata, ".attributes[11].trait_type"), "PID");
         assertEq(vm.parseJsonString(metadata, ".attributes[11].value"), value);
         // the hive shows the Ordinal cell lit for any ordinal, with the rare dot for 1101 to 1104 only;
@@ -177,7 +177,7 @@ contract ReviewChangesTest is Base {
             a.agreed = 22;
             assertTrue(deliver(rid, a));
             string memory prefix = string.concat(".oracle[", vm.toString(i), "]");
-            string memory metadata = string(renderer.preimage(renderer.cardOf(address(registry), tokenId)));
+            string memory metadata = string(renderer.preimageOf(renderer.cardOfOn(address(registry), tokenId)));
             assertEq(vm.parseJsonUint(metadata, string.concat(prefix, ".minPanelSize")), i == 0 ? 5 : 11);
             assertEq(vm.parseJsonUint(metadata, string.concat(prefix, ".minQuorum")), i == 0 ? 3 : 7);
             assertFalse(vm.keyExistsJson(metadata, string.concat(prefix, ".panelSize")));

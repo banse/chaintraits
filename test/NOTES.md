@@ -1,3 +1,57 @@
+# Review revision 3 (2026-10-20): size budget, items 8, 18 and 19
+
+Findings `c721f34b` (size), `5046dfe5` (item 18), `601e8733` (item 8), `fa949320` (item 19) and the advisory ones.
+Responses are in `.imd-responses.json`.
+
+## Sizes (solc 0.8.24, optimizer 200, Cancun, `bytecode_hash = "none"`)
+
+| contract | runtime bytes | EIP-170 headroom |
+|---|---:|---:|
+| Registry | 22,943 | 1,633 |
+| Composer | 23,621 | 955 |
+| Renderer | 23,092 | 1,484 |
+| **sum** | **69,656** | section 6 budget 69,800: **144 under** |
+
+`test/Revision3.t.sol` `test_threeRuntimesFitTheLaunchBudget` (the reviewer's proof, kept) pins the sum. What was cut
+(deleting over adding, no V2 item dropped, every public ABI still used by the site kept; `web/src/pages.tsx` reads
+none of the removed views):
+
+- Renderer: `tokenURI(Card)`, `preimage(Card)`, `image(Card)`, `escapeJson` and `cardOf` are internal (the Card ABI
+  decoder and encoder were a quarter of the runtime); `tokenURIOf(registry, tokenId)` and `traitName(id)` are the
+  external surface. `test/mocks/RendererHarness.sol` exposes the internal ones to the tests unchanged in substance.
+  The 25-name table moved here from the Composer as one packed constant with length bytes.
+- Composer: `answerTypeOf`, `panelOf`, `hasDirectTrait` (the registry tests the `directSnapshot` bit) and the name
+  table removed; `FIRST_DEPOSIT`, `HOUR_SAVED`, `MAINNET_CURATOR` internal; `compose` takes the trait id and builds a
+  catalog spec itself (the registry no longer decodes and re-encodes a catalog `Spec`); the T1/T2 `method` text is
+  one shared head and tail; `_charset` is one routine for arguments, items and names; the dead body-length guards
+  went (the door's bounds hold by construction: `item` <= 256, every other string <= 32, the longest template
+  text, T3, composes to 625 question and 398 definition bytes at the catalog spec and under 1000 / 512 at the
+  maximum, `test_fuzz_maximalSpecRegistersComposesAndFitsTheBody`).
+- Registry: `traitClass` and `questionHashOf` removed (the class is `specOf(id).kind`; the hash is `keccak256` of
+  the canonical document); `specOf` of a catalog id returns the Composer's encoding as it came.
+- `OracleMeta` carries only what the record prints (id, kind, window, target, both request ids, name).
+
+## Items
+
+| item | status | where | test |
+|---|---|---|---|
+| 8 kind-3 answers exactly `head` long | **done**: `_decodeAndJudge` requires the decoded array to have exactly `threshold` elements (32 for 1201, the spec's head for a community T3); a shorter or longer list is `Missed(.., 9)`, nothing is stored and the fact is re-requestable at once; `applySharedFact` scans the whole stored list | `Registry._decodeAndJudge`, `applySharedFact` | `Revision3.t.sol` `test_item8_*`; `Adversarial.t.sol` `test_fuzz_applySharedFactOnlyWithinTheHead` (now: every length but 32 misses); the 64-address envelopes of the older tests became 32-address ones |
+| 18 T3 topic position | **done**: `validateSpec` rejects a kind-3 `item` ending in `anonymous` with `BadSpec("item")` and a grouping key that is not an `address`-typed indexed parameter (absent, a data field, indexed of another type, no parameter list) with `BadSpec("arg")`; the composed T3 question and `definitions.method` carry the v2 wording of TEMPLATES.md with the topic position parsed from the signature (1-based among all indexed parameters) | `Composer._topicOf`, `_anonymous`, `validateSpec`, `question` | `Revision3.t.sol` `test_item18_*` (the reviewer's proof included); `templates/fixtures/1201-top-32.json` and the `1201-top-32` entry of `reference/plane/questionHashes.json` regenerated from the composed body (contributor = topic 1; the canonical document is RFC 8785 of the same text, hash `0x0145a631…3a30076`), `Templates.t.sol` green |
+| 19 `tokenURI` gas | **(a), (b), (c) done, target not met**: (a) `_oracle`, `_communityAttributes`, `_list` and the record builder write into the growable `Buf`; (b) `_meta` makes one `verified` call and picks kind, target, window and name out of `specOf`'s ABI words without decoding the spec body, `OracleMeta` carries nothing else; (c) the shrunk record. Measured cold at the maximum state of V2 item 19 (25 catalog traits, the 32-address shared answer, 32 verified T2 specs at the `validateSpec` maximum): **10,317,448 gas** (was 12,022,786), URI 40,737 bytes. Breakdown (`test/scratch` profile): `cardOf` 2.48M, preimage 5.44M, image 1.19M, Base64 about 2.4M. The smallest further cut is (d): an assembly Base64 encoder (OpenZeppelin's per-three-byte loop over the 30.5 KB preimage is 2.4M; a tabled encoder with the alphabet in one stack word is about a third of that), then a lean `oracleRecord` storage read in the Registry (the spec-body cold `SLOAD`s behind `specOf` are about 1.1M, but that view costs about 500 bytes and the size budget has 144); together they project under 8M | `Renderer._meta`, `_oracle`, `_one`, `_communityAttributes`, `_list` | `Revision3.t.sol` `test_item19_tokenURIAtTheMaximumStateIsMeasuredAndBounded` (the cold maximum-state regression, bound 11,000,000 until (d) lands, to be tightened to 8,000,000 then) |
+| 9 spec ids to `uint256` | **not done, by decision**: the `uint16` id plumbing stays (ids end at 65,534 as CATALOG section 5 says; 55,534 registrations at 6.4 IMD away); widening every signature, event and the Composer/Renderer interfaces adds bytes the launch budget does not have | | `ReReview.t.sol` `test_specIdsEndAt65534` pins the cap |
+| 20 table tiling test | done earlier (`V2Edges.t.sol` `test_item20_templateSlicesTileTheEnvelope`, `test_item20_hiveTablesTile`); the previous notes row was stale | | |
+| 22 documents | **done for the reported sentences**: `upgradeSponsored` and the 14-day rule removed from CATALOG.md and INTEGRATION.md; INTEGRATION's abandon table says 31 days and the payer; README's abandon paragraph and view list follow the ABI | | |
+
+Trust assumptions (finding `08756560`): attester, action id, Intake and executor are constructor-fixed by the ownerless
+brief; a signer rotation, a retired action, a shrunk callback gas or a changed Curator are documented limits, not
+defects, and no unprivileged party can exploit them (README "Trust assumptions", INTEGRATION.md section 6).
+
+Checks run here: `forge build --sizes`, `forge fmt --check`, `forge test` with
+`FOUNDRY_FUZZ_SEED=0x0f3d3ae040d5fe60f26dab4ef8dcca326854f10e7609839637a1fed897a2e678`, the two reviewer proofs
+under `test/scratch`, Slither high-only: 2 results, both `incorrect-exponentiation` on OpenZeppelin's intentional
+`^` in `lib/` (`Base64._encode`, `Math.mulDiv`), present in the accepted tree and outside the writable paths; none in
+`src/`. `python3 tools/gen_template.py --check` green (the metadata bytes are unchanged). Fork suites skipped (opt-in).
+
 # Sworn v2 contract stage (2026-10-20): docs/V2.md items 1 to 22 on the `v2-base` tree
 
 Sizes with the pinned settings (solc 0.8.24, optimizer 200, Cancun, `bytecode_hash = "none"`), each under EIP-170:

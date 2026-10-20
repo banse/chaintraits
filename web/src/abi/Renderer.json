@@ -1,1 +1,83 @@
-[{"type":"function","name":"escapeJson","inputs":[{"name":"s","type":"bytes","internalType":"bytes"}],"outputs":[{"name":"out","type":"bytes","internalType":"bytes"}],"stateMutability":"pure"},{"type":"function","name":"image","inputs":[{"name":"c","type":"tuple","internalType":"struct Card","components":[{"name":"tokenId","type":"uint256","internalType":"uint256"},{"name":"claimant","type":"address","internalType":"address"},{"name":"top","type":"uint16[13]","internalType":"uint16[13]"},{"name":"traits","type":"uint16[]","internalType":"uint16[]"},{"name":"community","type":"uint16[]","internalType":"uint16[]"},{"name":"communityCount","type":"uint256","internalType":"uint256"},{"name":"oracle","type":"tuple[]","internalType":"struct OracleMeta[]","components":[{"name":"traitId","type":"uint16","internalType":"uint16"},{"name":"panelSize","type":"uint16","internalType":"uint16"},{"name":"quorum","type":"uint16","internalType":"uint16"},{"name":"requestId","type":"bytes32","internalType":"bytes32"},{"name":"oracleRequestId","type":"bytes32","internalType":"bytes32"},{"name":"spec","type":"tuple","internalType":"struct Spec","components":[{"name":"kind","type":"uint8","internalType":"uint8"},{"name":"target","type":"address","internalType":"address"},{"name":"item","type":"string","internalType":"string"},{"name":"arg","type":"string","internalType":"string"},{"name":"fixedArg","type":"string","internalType":"string"},{"name":"fixedVal","type":"uint256","internalType":"uint256"},{"name":"sumArg","type":"string","internalType":"string"},{"name":"op","type":"uint8","internalType":"uint8"},{"name":"threshold","type":"uint256","internalType":"uint256"},{"name":"fromBlock","type":"uint64","internalType":"uint64"},{"name":"toBlock","type":"uint64","internalType":"uint64"},{"name":"name","type":"string","internalType":"string"}]}]}]}],"outputs":[{"name":"","type":"bytes","internalType":"bytes"}],"stateMutability":"pure"},{"type":"function","name":"offsets","inputs":[],"outputs":[{"name":"","type":"bytes","internalType":"bytes"}],"stateMutability":"pure"},{"type":"function","name":"preimage","inputs":[{"name":"c","type":"tuple","internalType":"struct Card","components":[{"name":"tokenId","type":"uint256","internalType":"uint256"},{"name":"claimant","type":"address","internalType":"address"},{"name":"top","type":"uint16[13]","internalType":"uint16[13]"},{"name":"traits","type":"uint16[]","internalType":"uint16[]"},{"name":"community","type":"uint16[]","internalType":"uint16[]"},{"name":"communityCount","type":"uint256","internalType":"uint256"},{"name":"oracle","type":"tuple[]","internalType":"struct OracleMeta[]","components":[{"name":"traitId","type":"uint16","internalType":"uint16"},{"name":"panelSize","type":"uint16","internalType":"uint16"},{"name":"quorum","type":"uint16","internalType":"uint16"},{"name":"requestId","type":"bytes32","internalType":"bytes32"},{"name":"oracleRequestId","type":"bytes32","internalType":"bytes32"},{"name":"spec","type":"tuple","internalType":"struct Spec","components":[{"name":"kind","type":"uint8","internalType":"uint8"},{"name":"target","type":"address","internalType":"address"},{"name":"item","type":"string","internalType":"string"},{"name":"arg","type":"string","internalType":"string"},{"name":"fixedArg","type":"string","internalType":"string"},{"name":"fixedVal","type":"uint256","internalType":"uint256"},{"name":"sumArg","type":"string","internalType":"string"},{"name":"op","type":"uint8","internalType":"uint8"},{"name":"threshold","type":"uint256","internalType":"uint256"},{"name":"fromBlock","type":"uint64","internalType":"uint64"},{"name":"toBlock","type":"uint64","internalType":"uint64"},{"name":"name","type":"string","internalType":"string"}]}]}]}],"outputs":[{"name":"out","type":"bytes","internalType":"bytes"}],"stateMutability":"pure"},{"type":"function","name":"template","inputs":[],"outputs":[{"name":"","type":"bytes","internalType":"bytes"}],"stateMutability":"pure"},{"type":"function","name":"tokenURI","inputs":[{"name":"c","type":"tuple","internalType":"struct Card","components":[{"name":"tokenId","type":"uint256","internalType":"uint256"},{"name":"claimant","type":"address","internalType":"address"},{"name":"top","type":"uint16[13]","internalType":"uint16[13]"},{"name":"traits","type":"uint16[]","internalType":"uint16[]"},{"name":"community","type":"uint16[]","internalType":"uint16[]"},{"name":"communityCount","type":"uint256","internalType":"uint256"},{"name":"oracle","type":"tuple[]","internalType":"struct OracleMeta[]","components":[{"name":"traitId","type":"uint16","internalType":"uint16"},{"name":"panelSize","type":"uint16","internalType":"uint16"},{"name":"quorum","type":"uint16","internalType":"uint16"},{"name":"requestId","type":"bytes32","internalType":"bytes32"},{"name":"oracleRequestId","type":"bytes32","internalType":"bytes32"},{"name":"spec","type":"tuple","internalType":"struct Spec","components":[{"name":"kind","type":"uint8","internalType":"uint8"},{"name":"target","type":"address","internalType":"address"},{"name":"item","type":"string","internalType":"string"},{"name":"arg","type":"string","internalType":"string"},{"name":"fixedArg","type":"string","internalType":"string"},{"name":"fixedVal","type":"uint256","internalType":"uint256"},{"name":"sumArg","type":"string","internalType":"string"},{"name":"op","type":"uint8","internalType":"uint8"},{"name":"threshold","type":"uint256","internalType":"uint256"},{"name":"fromBlock","type":"uint64","internalType":"uint64"},{"name":"toBlock","type":"uint64","internalType":"uint64"},{"name":"name","type":"string","internalType":"string"}]}]}]}],"outputs":[{"name":"","type":"string","internalType":"string"}],"stateMutability":"pure"},{"type":"error","name":"StringsInsufficientHexLength","inputs":[{"name":"value","type":"uint256","internalType":"uint256"},{"name":"length","type":"uint256","internalType":"uint256"}]}]
+[
+  {
+    "type": "function",
+    "name": "tokenURIOf",
+    "inputs": [
+      {
+        "name": "registry",
+        "type": "address",
+        "internalType": "address"
+      },
+      {
+        "name": "tokenId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "traitName",
+    "inputs": [
+      {
+        "name": "traitId",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "string",
+        "internalType": "string"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "error",
+    "name": "NoCard",
+    "inputs": [
+      {
+        "name": "tokenId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "StringsInsufficientHexLength",
+    "inputs": [
+      {
+        "name": "value",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "length",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "UnknownTrait",
+    "inputs": [
+      {
+        "name": "traitId",
+        "type": "uint16",
+        "internalType": "uint16"
+      }
+    ]
+  }
+]

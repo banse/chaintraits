@@ -5,6 +5,7 @@ import {Base} from "./Base.t.sol";
 import {Composer} from "../src/Composer.sol";
 import {Registry} from "../src/Registry.sol";
 import {Renderer} from "../src/Renderer.sol";
+import {RendererHarness} from "./mocks/RendererHarness.sol";
 import {Spec} from "../src/Types.sol";
 import {OracleAttestation} from "../src/interfaces/IOracleConsumer.sol";
 import {MockCurator, MockIDMD, MockIMD, MockIntake} from "./mocks/Mocks.sol";
@@ -23,7 +24,7 @@ contract SepoliaRehearsalTest is Base {
         idmd = new MockIDMD();
         imd = new MockIMD();
         intake = new MockIntake(address(imd));
-        renderer = new Renderer();
+        renderer = new RendererHarness();
         composer = new Composer();
         deployCodeTo(
             "Registry.sol:Registry",

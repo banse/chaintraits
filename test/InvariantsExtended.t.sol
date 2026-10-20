@@ -197,7 +197,9 @@ contract FullHandler is Base {
     function _answerFor(uint16 t, address c, bool truthful, uint256 seed) internal returns (bytes memory) {
         Spec memory s = registry.specOf(t);
         if (s.kind == 3) {
-            uint256 n = bound(seed, 1, 40);
+            // V2 item 8: a stored list is exactly `head` long; a truthful answer has that length
+            uint256 n = truthful ? s.threshold : bound(seed, 1, 40);
+            if (!truthful && n == s.threshold) n = s.threshold + 1;
             address[] memory list = new address[](n);
             for (uint256 i; i < n; ++i) {
                 list[i] = address(uint160(0x9000 + i));

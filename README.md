@@ -89,7 +89,6 @@ function BURN_FEE_CAP() external view returns (uint256);                        
 
 // catalog
 function traitName(uint16 traitId) external view returns (string memory);
-function traitClass(uint16 traitId) external view returns (uint8);                 // 0 direct, 1 chain, 2 panel, 3 shared
 ```
 
 Events: `CardMinted(address indexed claimant, uint256 indexed tokenId)`, `TraitRequested(address indexed claimant,
@@ -113,7 +112,7 @@ oracle later misses, fails or never answers. Paid `upgrade` and `requestSharedFa
 lifetime limit. The 6.4 IMD spec fee plus a first request at the 0.5 IMD oracle price totals 6.9 IMD (excluding gas).
 
 After 31 days, only the stored claimant may abandon a personal pending request, including a sponsored one;
-a stranger gets `NotClaimant()`. A shared fact has no claimant and anyone may abandon it. Abandoning clears the
+a stranger gets `NotClaimant()`. A shared fact has no claimant; only the wallet that paid it may abandon it. Abandoning clears the
 pending pair, returns no price and restores no sponsored allowance; a late callback for that id leaves a successor
 request untouched. A valid late answer can still settle a request that has not been abandoned.
 
@@ -269,7 +268,7 @@ at `cab19933` (both as in the record NFT this mirrors).
 - Tests for every invariant in `CONCEPT.md` section 6: unit, fuzz, invariant; fork tests against the mainnet Curator
   at a pinned recent block (skipped without `SWORN_FORK_RPC`); golden tests that `tokenURI` bytes equal the
   generator's; golden tests that the composed request bodies equal `templates/fixtures/*.json` byte for byte and that
-  `questionHashOf` of each fixture's canonical document (not its body) equals `reference/plane/questionHashes.json` for all ten; a gas test that `onResult` stays under the
+  the keccak of each fixture's canonical document (not its body) equals `reference/plane/questionHashes.json` for all ten; a gas test that `onResult` stays under the
   Intake's callback stipend in the worst case; signature-recovery tests over the five served attestations in
   `reference/attestations/` (three under the zero domain, two under their consumer's domain; the loader maps the JSON
   `answerType` name to its uint8 code); a test that both artifacts have empty `immutableReferences` and that two
@@ -375,10 +374,11 @@ Everything in "What the builder delivers" is in the tree, with these deviations,
   the trait's canonical window (or the spec's), so storing it would be redundant and cost a third cold slot in
   `onResult`. Worst case measured (community id appended, card to refresh, cold storage): 164,954 gas under the
   200,000 stipend, delivered through the mock Intake's real `call(stipend, ...)`.
-- **Added views:** `pendingRequest(requestId)`, `cardOf(tokenId)` (the renderer's input), `attestationDigest(a)`,
-  `questionHashOf(bytes canonicalDocument)` (the keccak of the canonical document of `INTEGRATION.md` section 4,
-  check 7, not of the body `composeBody` returns), `sharedPending(factId)`, `idmdSponsored(id)`, `lastPoolDay(wallet)`. `traitClass` and
-  `specOf` revert for an unknown id; `hasTrait` never does.
+- **Added views:** `pendingRequest(requestId)`, `attestationDigest(a)`, `sharedPending(factId)`,
+  `lastPoolDay(wallet)`. `specOf` reverts for an unknown id; `hasTrait` never does. (`cardOf`, `questionHashOf`
+  and `traitClass` were removed in the 2026-10-20 revision for the launch size budget: the plane's `questionHash`
+  is `keccak256` of the canonical document, a spec's class is its `kind`, and the renderer's input is rebuilt by
+  the test harness from the public reads.)
 - **`template/offsets` and the hive start tables live in the code as ASCII hex**, not packed bytes: the launch's
   opcode scan reads every non-PUSH byte of the runtime, and a packed offset `0x0cf2` would read as `CALLCODE`. The
   envelope blob and the hive strings are ASCII (percent-encoded).

@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import {Test} from "forge-std/Test.sol";
 import {Registry} from "../src/Registry.sol";
 import {Renderer} from "../src/Renderer.sol";
+import {RendererHarness} from "./mocks/RendererHarness.sol";
 import {Composer} from "../src/Composer.sol";
 import {OracleAttestation} from "../src/interfaces/IOracleConsumer.sol";
 import {Spec} from "../src/Types.sol";
@@ -28,7 +29,7 @@ abstract contract Base is Test {
     MockIDMD internal idmd;
     MockIMD internal imd;
     MockIntake internal intake;
-    Renderer internal renderer;
+    RendererHarness internal renderer;
     Composer internal composer;
     Registry internal registry;
     address internal attester;
@@ -43,7 +44,7 @@ abstract contract Base is Test {
         idmd = new MockIDMD();
         imd = new MockIMD();
         intake = new MockIntake(address(imd));
-        renderer = new Renderer();
+        renderer = new RendererHarness();
         composer = new Composer();
         deployCodeTo(
             "Registry.sol:Registry",

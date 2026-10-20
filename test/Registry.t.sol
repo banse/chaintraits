@@ -592,23 +592,23 @@ contract RegistryTest is Base {
         vm.expectRevert(abi.encodeWithSelector(Registry.AlreadyPending.selector, address(0), 1201));
         registry.requestSharedFact(1201, PRICE);
 
-        address[] memory list = _list(40);
+        address[] memory list = _list(32);
         list[3] = alice;
         OracleAttestation memory a = attestationFor(rid, abi.encode(list));
         vm.expectEmit(true, false, false, true);
-        emit Registry.SharedFactStored(1201, rid, 40);
+        emit Registry.SharedFactStored(1201, rid, 32);
         assertTrue(deliver(rid, a));
         (bytes32 sr, bytes32 sh, uint16 n) = registry.sharedFact(1201);
         assertEq(sr, rid);
         assertEq(sh, keccak256(abi.encode(list)));
-        assertEq(n, 40);
+        assertEq(n, 32);
         assertEq(registry.sharedPending(1201), bytes32(0));
         fund(bob, PRICE);
         vm.prank(bob);
         vm.expectRevert(abi.encodeWithSelector(Registry.FactAlreadyStored.selector, 1201));
         registry.requestSharedFact(1201, PRICE);
 
-        address[] memory wrong = _list(40);
+        address[] memory wrong = _list(32);
         vm.prank(alice);
         vm.expectRevert(Registry.ListMismatch.selector);
         registry.applySharedFact(1201, wrong);

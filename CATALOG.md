@@ -180,9 +180,10 @@ struct Spec {
 }
 ```
 
-`traitClass` of a spec: kinds 1, 2 and 4 are class 1 (chain), kind 3 is class 3 (shared), kind 5 is class 2 (panel).
+The class of a spec follows its kind: kinds 1, 2 and 4 are chain, kind 3 is shared, kind 5 is panel (the former
+`traitClass` view was removed for the launch size budget; `specOf(id).kind` says it).
 `upgrade` rejects T3 spec ids (shared facts go through `requestSharedFact`/`applySharedFact`, which accept any T3 id).
-**The pool never funds a community spec of any kind**: `claimSponsored` and `upgradeSponsored` accept the catalog's
+**The pool never funds a community spec of any kind**: `claimSponsored` accepts the catalog's
 nine chain traits only (section 6). The renderer escapes every spec string (`item`, `arg`, `fixedArg`, `sumArg`,
 `name`) in JSON and SVG, and the body composer rejects any byte outside the charsets above.
 
@@ -201,11 +202,9 @@ unaffected.
 `mintCard()` 0.1 IMD into the registry, once per wallet; `upgrade(traitIds[], maxPrice)` k x `priceOf` (reverts if
 `priceOf > maxPrice`); `requestSharedFact(factId, maxPrice)` one `priceOf` by anyone, at most one pending per fact id,
 refused once stored; `applySharedFact(factId, list)` gas only; `sponsor(amount)` any amount; `abandon(requestId)`
-after 14 days. The pool is the registry's IMD balance (`pool()`), spent only through:
+after 31 days (a personal pair by its claimant, a shared fact by its payer). The pool is the registry's IMD balance
+(`pool()`), spent only through:
 
-- `upgradeSponsored(idmdTokenId, traitIds[])` by the IDMD holder who is also a list member, for their own wallet:
-  **exactly one** catalog chain trait (701, 801, 901, 1001, 1101 to 1105), **nine requests per IDMD token over its
-  lifetime** (`uint8 idmdSponsored(tokenId)`), including across transfers; reverts if the pool cannot cover `priceOf`;
 - `claimSponsored(traitId)` from launch (no 30-day wait), by a Curator member for their own wallet,
   one catalog chain trait per call, once per `(wallet, traitId)` ever (`poolUsed`, set whatever the outcome), refused
   while the pair is pending or verified or while the pool is below `priceOf`.

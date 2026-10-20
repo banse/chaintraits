@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import {Base} from "./Base.t.sol";
 import {Registry} from "../src/Registry.sol";
 import {Composer} from "../src/Composer.sol";
+import {Renderer} from "../src/Renderer.sol";
 import {Spec} from "../src/Types.sol";
 import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
 
@@ -75,7 +76,7 @@ contract RenameTest is Base {
         ];
         for (uint256 i; i < 25; ++i) {
             assertEq(registry.traitName(ids[i]), names[i]);
-            assertEq(composer.traitName(ids[i]), names[i]);
+            assertEq(renderer.traitName(ids[i]), names[i]);
         }
     }
 
@@ -144,8 +145,8 @@ contract RenameTest is Base {
     }
 
     function test_unknownIdHasNoName() public {
-        vm.expectRevert(abi.encodeWithSelector(Composer.UnknownTrait.selector, 102));
-        composer.traitName(102);
+        vm.expectRevert(abi.encodeWithSelector(Renderer.UnknownTrait.selector, 102));
+        renderer.traitName(102);
         vm.expectRevert(abi.encodeWithSelector(Registry.NotAnOracleTrait.selector, 10001));
         registry.traitName(10001);
     }
@@ -217,9 +218,9 @@ contract RenameTest is Base {
     }
 
     /// @dev Every launched runtime stays under EIP-170 (sizes are recorded in test/NOTES.md).
-    function test_composerStaysUnderTheSizeLimitWithHeadroom() public view {
+    function test_composerStaysUnderTheSizeLimitWithHeadroom() public {
         assertLe(address(composer).code.length, 24_576, "Composer under EIP-170");
         assertLe(address(registry).code.length, 24_576, "Registry under EIP-170");
-        assertLe(address(renderer).code.length, 24_576, "Renderer under EIP-170");
+        assertLe(address(new Renderer()).code.length, 24_576, "Renderer under EIP-170");
     }
 }

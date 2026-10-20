@@ -6,12 +6,12 @@
     "verifyingContract": "0x000000000000000000000000000000000000c0de"
   },
   "definitions": {
-    "method": "eth_getLogs over exactly the pinned window, group by the indexed argument, sum in raw units, sort as stated; include a few positions beyond 32; agreement is on the first 32."
+    "method": "eth_getLogs over exactly the pinned window; group by the indexed contributor argument (the log's topic 1, an address: left-pad 12 zero bytes), never by a data word; sum weightAdded in raw units; sort descending by sum and break ties by lowercase address ascending; include positions beyond 32, agreement is on the first 32. An entry that is not an address (12 leading zero bytes) is a wrong answer."
   },
   "evidence": "chain",
   "head": 32,
   "panelSize": 11,
-  "question": "Within the request's pinned block window (fromBlock 0x189378e to toBlock 0x18984a4, both inclusive) on Ethereum mainnet, sum the weightAdded argument of the `event Deposited(address indexed contributor, uint256 indexed hour, uint256 amount, uint256 creditedDelta, uint256 weightAdded, uint256 newWeight, uint256 txCount, uint256 hourTotal, uint256 earlyBps)` events emitted by the contract 0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91 grouped by the indexed contributor argument. Return the 32 keys with the largest sums, descending by sum, ties by address ascending (lowercase hex).",
+  "question": "Within the request's pinned block window (fromBlock 0x189378e to toBlock 0x18984a4, both inclusive) on Ethereum mainnet, sum the weightAdded argument of the `event Deposited(address indexed contributor, uint256 indexed hour, uint256 amount, uint256 creditedDelta, uint256 weightAdded, uint256 newWeight, uint256 txCount, uint256 hourTotal, uint256 earlyBps)` events emitted by the contract 0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91 grouped by the indexed contributor argument (topic 1 of the log), never by a data field. Return the 32 keys with the largest sums, descending by sum, ties by address ascending (lowercase hex).",
   "quorum": 7,
   "v": 1,
   "validForSeconds": 2592000,

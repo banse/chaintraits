@@ -4,6 +4,7 @@ pragma solidity 0.8.24;
 import {Base} from "./Base.t.sol";
 import {Card, OracleMeta, Spec} from "../src/Types.sol";
 import {Renderer} from "../src/Renderer.sol";
+import {RendererHarness} from "./mocks/RendererHarness.sol";
 import {TemplateData} from "../src/TemplateData.sol";
 import {OracleAttestation} from "../src/interfaces/IOracleConsumer.sol";
 
@@ -36,7 +37,7 @@ contract GoldensTest is Base {
         curator.set(C1A1, 0, true, 5, 1 ether, 1000);
         uint256 id = mint(C1A1);
         assertEq(id, 1);
-        _assertGolden("synthetic_direct", registry.tokenURI(1), renderer.cardOf(address(registry), 1));
+        _assertGolden("synthetic_direct", registry.tokenURI(1), renderer.cardOfOn(address(registry), 1));
     }
 
     function test_goldenSyntheticOracle() public {
@@ -57,12 +58,12 @@ contract GoldensTest is Base {
         a = attestationFor(rid, word(1));
         a.requestId = ORACLE_2;
         assertTrue(deliver(rid, a));
-        _assertGolden("synthetic_oracle", registry.tokenURI(2), renderer.cardOf(address(registry), 2));
+        _assertGolden("synthetic_oracle", registry.tokenURI(2), renderer.cardOfOn(address(registry), 2));
     }
 
     function test_goldenSyntheticWidthThroughTheRenderer() public view {
         Card memory c = _widthCard();
-        _assertGolden("synthetic_width", renderer.tokenURI(c), c);
+        _assertGolden("synthetic_width", renderer.tokenURIOfCard(c), c);
     }
 
     function _widthCard() internal view returns (Card memory c) {
@@ -117,7 +118,8 @@ contract GoldensTest is Base {
         s.toBlock = B_END;
         s.name = 'a"b\\c<d>&e';
         for (uint256 i; i < 32; ++i) {
-            c.oracle[i] = OracleMeta(uint16(10001 + i), 5, 3, REQUEST_1, ORACLE_1, s);
+            c.oracle[i] =
+                OracleMeta(uint16(10001 + i), s.kind, s.fromBlock, s.toBlock, s.target, REQUEST_1, ORACLE_1, s.name);
         }
     }
 
@@ -129,18 +131,18 @@ contract GoldensTest is Base {
         uint16[] memory traits = new uint16[](1);
         traits[0] = 101;
         Card memory c = _card(3, address(uint160(0x3c1a1)), top, traits, 0, 0);
-        _assertGolden("synthetic_newcomer", renderer.tokenURI(c), c);
+        _assertGolden("synthetic_newcomer", renderer.tokenURIOfCard(c), c);
     }
 
     function test_goldenSyntheticOutsider() public view {
         uint16[13] memory top;
         Card memory c = _card(4, address(uint160(0x4c1a1)), top, new uint16[](0), 5, 5);
-        _assertGolden("synthetic_outsider", renderer.tokenURI(c), c);
+        _assertGolden("synthetic_outsider", renderer.tokenURIOfCard(c), c);
     }
 
     function test_goldenSyntheticHoney() public view {
         Card memory c = _honeyCard();
-        _assertGolden("synthetic_honey", renderer.tokenURI(c), c);
+        _assertGolden("synthetic_honey", renderer.tokenURIOfCard(c), c);
     }
 
     function _honeyCard() internal view returns (Card memory c) {
@@ -162,12 +164,12 @@ contract GoldensTest is Base {
         traits[0] = 101;
         traits[1] = 301;
         Card memory c = _card(6, address(uint160(0x6c1a1)), top, traits, 32, 70);
-        _assertGolden("synthetic_collector", renderer.tokenURI(c), c);
+        _assertGolden("synthetic_collector", renderer.tokenURIOfCard(c), c);
     }
 
     function test_goldenSyntheticFullhouse() public view {
         Card memory c = _fullhouseCard();
-        _assertGolden("synthetic_fullhouse", renderer.tokenURI(c), c);
+        _assertGolden("synthetic_fullhouse", renderer.tokenURIOfCard(c), c);
     }
 
     function _fullhouseCard() internal view returns (Card memory c) {
@@ -184,13 +186,13 @@ contract GoldensTest is Base {
         Card memory f = _fullhouseCard();
         Card memory h = _honeyCard();
         uint256 g = gasleft();
-        renderer.tokenURI(w);
+        renderer.tokenURIOfCard(w);
         uint256 gw = g - gasleft();
         g = gasleft();
-        renderer.tokenURI(f);
+        renderer.tokenURIOfCard(f);
         uint256 gf = g - gasleft();
         g = gasleft();
-        renderer.tokenURI(h);
+        renderer.tokenURIOfCard(h);
         uint256 gh = g - gasleft();
         emit log_named_uint("tokenURI gas synthetic_width", gw);
         emit log_named_uint("tokenURI gas synthetic_fullhouse", gf);
@@ -206,19 +208,19 @@ contract GoldensTest is Base {
         uint256 size = address(fresh).code.length;
         emit log_named_uint("Renderer runtime bytes", size);
         assertLt(size, 24_576, "Renderer exceeds EIP-170");
-        assertEq(address(fresh).code, address(renderer).code, "constructor-free, identical runtime");
+        assertEq(address(fresh).code, address(new Renderer()).code, "constructor-free, identical runtime");
     }
 
     /// @dev Failure side of the overflow rule: at and below 39 there is no path, a single tokenURI at the
     ///      uint256 maximum count neither reverts nor overflows (count ** 8 is never evaluated from 8192).
     function test_imageOverflowPathAbsentAtOrBelow39AndNeverOverflows() public view {
         uint16[13] memory top;
-        bytes memory none = renderer.image(_card(1, C1A1, top, new uint16[](0), 0, 39));
+        bytes memory none = renderer.imageOf(_card(1, C1A1, top, new uint16[](0), 0, 39));
         assertFalse(_contains(none, "%3Cpath%20d="), "no path at 39");
-        bytes memory some = renderer.image(_card(1, C1A1, top, new uint16[](0), 0, 40));
+        bytes memory some = renderer.imageOf(_card(1, C1A1, top, new uint16[](0), 0, 40));
         assertTrue(_contains(some, "%3Cpath%20d="), "path at 40");
-        bytes memory max = renderer.image(_card(1, C1A1, top, new uint16[](0), 0, type(uint256).max));
-        bytes memory at8192 = renderer.image(_card(1, C1A1, top, new uint16[](0), 0, 8192));
+        bytes memory max = renderer.imageOf(_card(1, C1A1, top, new uint16[](0), 0, type(uint256).max));
+        bytes memory at8192 = renderer.imageOf(_card(1, C1A1, top, new uint16[](0), 0, 8192));
         assertEq(max, at8192, "64 steps from 8192 up");
     }
 
@@ -226,8 +228,8 @@ contract GoldensTest is Base {
     ///      so 40 and 41 must render a path while the XOR reading would underflow or render none.
     function test_imageStepsUseExponentiationNotXor() public view {
         uint16[13] memory top;
-        bytes memory a = renderer.image(_card(1, C1A1, top, new uint16[](0), 0, 40));
-        bytes memory b = renderer.image(_card(1, C1A1, top, new uint16[](0), 0, 53));
+        bytes memory a = renderer.imageOf(_card(1, C1A1, top, new uint16[](0), 0, 40));
+        bytes memory b = renderer.imageOf(_card(1, C1A1, top, new uint16[](0), 0, 53));
         assertTrue(_contains(a, "%3Cpath"), "path at 40");
         assertTrue(keccak256(a) != keccak256(b), "40 (2 steps) and 53 (5 steps) differ");
     }
@@ -257,7 +259,7 @@ contract GoldensTest is Base {
         uint16[13] memory top;
         for (uint256 i; i < 12; ++i) {
             Card memory c = _card(1, C1A1, top, new uint16[](0), 0, counts[i]);
-            string memory image = string(renderer.image(c));
+            string memory image = string(renderer.imageOf(c));
             string[] memory split = vm.split(image, "%3Cpath%20d='M");
             if (segments[i] == 0) {
                 assertEq(split.length, 1, "no path up to 39 members");
@@ -269,11 +271,11 @@ contract GoldensTest is Base {
         }
         // 8192 and 64 steps close on the first corner: the last point equals the first
         Card memory full = _card(1, C1A1, top, new uint16[](0), 0, 8192);
-        string memory dFull = vm.split(vm.split(string(renderer.image(full)), "%3Cpath%20d='M")[1], "'")[0];
+        string memory dFull = vm.split(vm.split(string(renderer.imageOf(full)), "%3Cpath%20d='M")[1], "'")[0];
         string[] memory pts = vm.split(dFull, "L");
         assertEq(pts[0], pts[6], "closed");
         Card memory max = _card(1, C1A1, top, new uint16[](0), 0, type(uint256).max);
-        assertEq(string(renderer.image(max)), string(renderer.image(full)), "capped at 64 steps");
+        assertEq(string(renderer.imageOf(max)), string(renderer.imageOf(full)), "capped at 64 steps");
     }
 
     function test_imageRareDotOnlyAtATopTierRareId() public view {
@@ -283,7 +285,7 @@ contract GoldensTest is Base {
             uint16[13] memory top;
             top[id / 100 - 1] = id;
             Card memory c = _card(1, C1A1, top, new uint16[](0), 0, 0);
-            string memory image = string(renderer.image(c));
+            string memory image = string(renderer.imageOf(c));
             bool rare = id == 202 || id == 801 || id == 901 || id == 1001 || id == 1201 || (id >= 1101 && id <= 1104);
             assertEq(vm.split(image, "%3Ccircle%20").length - 1, rare ? 1 : 0, vm.toString(id));
             // a lit cell is outlined in its class colour; the twelve others are dark
@@ -303,7 +305,7 @@ contract GoldensTest is Base {
         uint256[5] memory ringsTotal = [uint256(0), 1, 14, 27, 39];
         for (uint256 i; i < 5; ++i) {
             Card memory c = _card(1, C1A1, top, new uint16[](0), 0, counts[i]);
-            string memory image = string(renderer.image(c));
+            string memory image = string(renderer.imageOf(c));
             // the centre cell is lit: its zones carry fill-opacity, one per ring plus the cell
             assertEq(vm.split(image, "fill-opacity='").length - 1, ringsInCentre[i] + 1, "centre zones");
             // every other cell is empty: its rings are outlines of width 3 (the outer ring V is one more)
@@ -316,8 +318,8 @@ contract GoldensTest is Base {
         Card memory many = _card(1, C1A1, top, new uint16[](0), 0, 5000);
         Card memory thirtyNine = _card(1, C1A1, top, new uint16[](0), 0, 39);
         assertEq(
-            vm.split(string(renderer.image(many)), "fill-opacity='0.57'").length,
-            vm.split(string(renderer.image(thirtyNine)), "fill-opacity='0.57'").length,
+            vm.split(string(renderer.imageOf(many)), "fill-opacity='0.57'").length,
+            vm.split(string(renderer.imageOf(thirtyNine)), "fill-opacity='0.57'").length,
             "rings saturate at 39"
         );
     }
@@ -325,7 +327,7 @@ contract GoldensTest is Base {
     function test_imageIdsOutsideTheCatalogRenderWithoutReverting() public view {
         uint16[13] memory top = [uint16(199), 200, 399, 65535, 1, 602, 0, 0, 0, 0, 1199, 0, 0];
         Card memory c = _card(1, C1A1, top, new uint16[](0), 0, 0);
-        bytes memory image = renderer.image(c);
+        bytes memory image = renderer.imageOf(c);
         assertGt(image.length, 0);
         assertEq(vm.split(string(image), "%3Ccircle%20").length - 1, 0, "nothing rare");
         // the level is clamped into the family's tier list: 199, 399, 65535, 602 and 1199 count as full
@@ -337,10 +339,10 @@ contract GoldensTest is Base {
     function test_imageIsPureAndDeterministic() public {
         uint16[13] memory top = [101, 202, 303, 404, 503, 601, 701, 801, 901, 1001, 1101, 1201, 1301];
         Card memory c = _card(7, C1A1, top, _allCatalogIds(), 32, 5000);
-        bytes memory first = renderer.image(c);
-        Renderer other = new Renderer();
-        assertEq(other.image(c), first);
-        assertEq(keccak256(renderer.preimage(c)), keccak256(other.preimage(c)));
+        bytes memory first = renderer.imageOf(c);
+        RendererHarness other = new RendererHarness();
+        assertEq(other.imageOf(c), first);
+        assertEq(keccak256(renderer.preimageOf(c)), keccak256(other.preimageOf(c)));
     }
 
     function _card(
@@ -361,7 +363,7 @@ contract GoldensTest is Base {
             uint16 id = uint16(10001 + i);
             c.community[i] = id;
             Spec memory s = t1Spec(REGISTRY_ADDR, string.concat("Community spec ", vm.toString(id)));
-            c.oracle[i] = OracleMeta(id, 5, 3, REQUEST_1, ORACLE_1, s);
+            c.oracle[i] = OracleMeta(id, s.kind, s.fromBlock, s.toBlock, s.target, REQUEST_1, ORACLE_1, s.name);
         }
         c.communityCount = communityCount;
     }
@@ -405,14 +407,14 @@ contract GoldensTest is Base {
     }
 
     function test_escapeJsonNeutralisesMarkup() public view {
-        assertEq(string(renderer.escapeJson('a"b\\c<d>&e\x01')), 'a\\"b\\\\c\\u003cd\\u003e\\u0026e\\u0001');
-        assertEq(string(renderer.escapeJson("plain Name 1.0-x")), "plain Name 1.0-x");
+        assertEq(string(renderer.escape('a"b\\c<d>&e\x01')), 'a\\"b\\\\c\\u003cd\\u003e\\u0026e\\u0001');
+        assertEq(string(renderer.escape("plain Name 1.0-x")), "plain Name 1.0-x");
     }
 
     function _assertGolden(string memory name_, string memory uri, Card memory c) internal view {
         string memory base = string.concat("test/fixtures/golden_", name_);
         assertEq(uri, vm.readFile(string.concat(base, "_uri.txt")), "uri");
-        bytes memory preimage = renderer.preimage(c);
+        bytes memory preimage = renderer.preimageOf(c);
         assertEq(string(preimage), vm.readFile(string.concat(base, "_preimage.txt")), "preimage");
         string memory image = vm.parseJsonString(string(preimage), ".image");
         string memory encoded = vm.replace(image, "data:image/svg+xml,", "");

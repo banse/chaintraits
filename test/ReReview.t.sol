@@ -132,16 +132,16 @@ contract ReReviewTest is Base {
         uint256 tokenId = mint(alice);
         bytes32 rid = ask(alice, 1104);
         assertTrue(deliver(rid, attestationFor(rid, word(1))));
-        assertEq(renderer.cardOf(address(registry), tokenId).top[10], 1104);
+        assertEq(renderer.cardOfOn(address(registry), tokenId).top[10], 1104);
         string memory before = registry.tokenURI(tokenId);
         rid = ask(alice, 1102);
         assertTrue(deliver(rid, attestationFor(rid, word(1))));
-        assertEq(renderer.cardOf(address(registry), tokenId).top[10], 1102, "the lowest verified ordinal is shown");
+        assertEq(renderer.cardOfOn(address(registry), tokenId).top[10], 1102, "the lowest verified ordinal is shown");
         assertTrue(keccak256(bytes(registry.tokenURI(tokenId))) != keccak256(bytes(before)));
         rid = ask(alice, 1105);
         assertTrue(deliver(rid, attestationFor(rid, word(1))));
         assertEq(
-            renderer.cardOf(address(registry), tokenId).top[10], 1102, "a higher ordinal never replaces a lower one"
+            renderer.cardOfOn(address(registry), tokenId).top[10], 1102, "a higher ordinal never replaces a lower one"
         );
     }
 
@@ -151,14 +151,14 @@ contract ReReviewTest is Base {
         uint256 tokenId = mint(alice);
         uint16 first = register(bob, t1Spec(address(0xCAFE), "First spec"));
         uint16 second = register(bob, t1Spec(address(0xBEEF), "Second-spec.v2"));
-        string memory metadata = string(renderer.preimage(renderer.cardOf(address(registry), tokenId)));
+        string memory metadata = string(renderer.preimageOf(renderer.cardOfOn(address(registry), tokenId)));
         assertFalse(vm.contains(metadata, '"trait_type":"Community 1'), "no community attribute without one");
         assertEq(vm.parseJsonUint(metadata, ".attributes[14].value"), 0);
         assertFalse(vm.keyExistsJson(metadata, ".attributes[15]"));
 
         bytes32 rid = ask(alice, second);
         assertTrue(deliver(rid, attestationFor(rid, word(1))));
-        metadata = string(renderer.preimage(renderer.cardOf(address(registry), tokenId)));
+        metadata = string(renderer.preimageOf(renderer.cardOfOn(address(registry), tokenId)));
         assertEq(vm.parseJsonUint(metadata, ".attributes[14].value"), 1);
         assertEq(
             vm.parseJsonString(metadata, ".attributes[15].trait_type"), string.concat("Community ", vm.toString(second))

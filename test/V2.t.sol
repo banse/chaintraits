@@ -171,9 +171,6 @@ contract V2Test is Base {
 
     // item 15: kind 3 asks 11 / 7
     function test_item15_kind3Panel() public {
-        (uint16 p, uint16 q) = composer.panelOf(3);
-        assertEq(p, 11);
-        assertEq(q, 7);
         fund(bob, PRICE);
         vm.prank(bob);
         registry.requestSharedFact(1201, PRICE);

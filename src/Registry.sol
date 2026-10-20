@@ -261,7 +261,7 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     }
 
     /// @notice The card's metadata, drawn by the renderer from this registry's public reads
-    ///         (`Renderer.cardOf(registry, tokenId)` is the renderer's input, readable without decoding).
+    ///         (`claimantOf`, `traitsOf`, `verifiedSpecsOf`, `verified` and `specOf`).
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
         if (claimantOf[tokenId] == address(0)) revert NoCard(tokenId);
         return renderer.tokenURIOf(address(this), tokenId);
@@ -295,7 +295,8 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
         uint256 tokenId = tokenOf[wallet];
         if (tokenId != 0) return frozenDirect[tokenId] & (1 << ((traitId / 100 - 1) * 4 + traitId % 100 - 1)) != 0;
         if (traitId == 601) return false;
-        return composer.hasDirectTrait(wallet, traitId, curator, idmd);
+        return
+            composer.directSnapshot(wallet, curator, idmd) & (1 << ((traitId / 100 - 1) * 4 + traitId % 100 - 1)) != 0;
     }
 
     /// @notice The catalog ids (all tiers) that are true for a wallet, ascending; no community specs.
@@ -318,26 +319,13 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
         return (v.requestId, v.oracleRequestId, fromBlock, toBlock);
     }
 
-    /// @notice 0 direct, 1 chain, 2 panel, 3 shared; reverts for an unknown id.
-    function traitClass(uint16 traitId) public view returns (uint8) {
-        if (_isDirect(traitId)) return 0;
-        if (traitId == 1201) return 3;
-        if (traitId == 1301) return 2;
-        if (_isCatalogChain(traitId)) return 1;
-        uint8 kind = _specs[traitId].kind;
-        if (kind == 0) revert NotAnOracleTrait(traitId);
-        if (kind == 3) return 3;
-        if (kind == 5) return 2;
-        return 1;
-    }
-
     /// @notice The name table (CATALOG.md section 7); a spec's name for community ids.
     function traitName(uint16 traitId) external view returns (string memory) {
         if (traitId >= FIRST_SPEC_ID) {
             if (_specs[traitId].kind == 0) revert NotAnOracleTrait(traitId);
             return _specs[traitId].name;
         }
-        return composer.traitName(traitId);
+        return renderer.traitName(traitId);
     }
 
     function _answerTypeOf(uint8 kind) internal pure returns (uint8) {
@@ -363,14 +351,13 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     // ------------------------------------------------------------------ catalog as specs
 
     /// @notice The catalog oracle trait (701 to 1301) or the community spec behind an id, as a Spec.
-    function specOf(uint16 traitId) public view returns (Spec memory s) {
-        if (traitId >= FIRST_SPEC_ID) {
-            s = _specs[traitId];
-            if (s.kind == 0) revert NotAnOracleTrait(traitId);
-            return s;
+    /// @dev A catalog id's spec is the Composer's answer returned as it came (no decode and re-encode here).
+    function specOf(uint16 traitId) external view returns (Spec memory s) {
+        if (traitId >= FIRST_SPEC_ID) return _spec(traitId);
+        bytes memory ret = _catalogSpecRaw(traitId);
+        assembly ("memory-safe") {
+            return(add(ret, 0x20), mload(ret))
         }
-        if (!_isCatalogChain(traitId) && traitId != 1201 && traitId != 1301) revert NotAnOracleTrait(traitId);
-        return composer.catalogSpec(traitId, address(curator));
     }
 
     /// @notice The exact body and the plane's `questionHash` for a trait and a claimant; free to call.
@@ -379,13 +366,27 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
         view
         returns (bytes memory body, bytes32 questionHash)
     {
-        Spec memory s = specOf(traitId);
-        return composer.compose(s, claimant, address(this), traitId == 1301, address(curator));
+        Spec memory s;
+        if (traitId >= FIRST_SPEC_ID) s = _spec(traitId);
+        else _checkCatalogOracle(traitId);
+        return composer.compose(traitId, s, claimant, address(this), address(curator));
     }
 
-    /// @notice The plane's `questionHash` of a composed question (the document, not the body).
-    function questionHashOf(bytes memory canonicalDocument) external pure returns (bytes32) {
-        return keccak256(canonicalDocument);
+    function _spec(uint16 traitId) internal view returns (Spec memory s) {
+        s = _specs[traitId];
+        if (s.kind == 0) revert NotAnOracleTrait(traitId);
+    }
+
+    function _checkCatalogOracle(uint16 traitId) internal pure {
+        if (!_isCatalogChain(traitId) && traitId != 1201 && traitId != 1301) revert NotAnOracleTrait(traitId);
+    }
+
+    /// @dev The ABI-encoded `Spec` of a catalog oracle trait, straight from the Composer.
+    function _catalogSpecRaw(uint16 traitId) internal view returns (bytes memory ret) {
+        _checkCatalogOracle(traitId);
+        bool ok;
+        (ok, ret) = address(composer).staticcall(abi.encodeCall(composer.catalogSpec, (traitId, address(curator))));
+        if (!ok) revert NotAnOracleTrait(traitId);
     }
 
     // ------------------------------------------------------------------ upgrades (claimant pays)
@@ -588,7 +589,8 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
         return 0;
     }
 
-    /// @dev Check 8: decode defensively, then the rule. Returns 9 (decode), 8 (rule false) or 0.
+    /// @dev Check 8: decode defensively, then the rule. Returns 9 (decode), 8 (rule false) or 0. A kind-3
+    ///      answer is a complete list of exactly `threshold` (the head) addresses or it is a decode miss.
     function _decodeAndJudge(OracleAttestation calldata a, uint8 kind, uint256 threshold, bool shared)
         internal
         pure
@@ -599,8 +601,9 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
             if (!shared) return 9; // a T3 id never reaches a personal pending record
             if (ans.length < 64) return 9;
             if (uint256(bytes32(ans[0:32])) != 0x20) return 9;
+            // V2 item 8: exactly `head` addresses (32 for 1201, the spec's threshold for a community T3).
             uint256 n = uint256(bytes32(ans[32:64]));
-            if (n < 1 || n > 64 || ans.length != 64 + 32 * n) return 9;
+            if (n != threshold || ans.length != 64 + 32 * n) return 9;
             for (uint256 i; i < n; ++i) {
                 if (uint256(bytes32(ans[64 + 32 * i:96 + 32 * i])) >> 160 != 0) return 9;
             }
@@ -671,16 +674,15 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     }
 
     /// @notice Marks `msg.sender` for a stored fact if the supplied list hashes to the stored answer and
-    ///         contains the caller within `head`. Gas only; once per claimant and fact.
+    ///         contains the caller (the list is exactly `head` long). Gas only; once per claimant and fact.
     function applySharedFact(uint16 factId, address[] calldata list) external {
         SharedFact storage f = _shared[factId];
         if (f.requestId == 0) revert FactNotStored(factId);
         if (keccak256(abi.encode(list)) != f.answerHash) revert ListMismatch();
         if (_verified[msg.sender][factId].requestId != 0) revert AlreadyVerified(msg.sender, factId);
-        (,,, uint256 head) = _rule(factId);
-        uint256 n = f.length < head ? f.length : head;
+        // a stored list is exactly `head` long (V2 item 8), so the whole of it counts
         bool found;
-        for (uint256 i; i < n; ++i) {
+        for (uint256 i; i < f.length; ++i) {
             if (list[i] == msg.sender) {
                 found = true;
                 break;

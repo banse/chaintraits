@@ -254,17 +254,17 @@ contract AdversarialTest is Base {
         vm.prank(bob);
         registry.requestSharedFact(1201, PRICE);
         bytes32 rid = intake.lastId();
-        address[] memory list = new address[](64);
-        for (uint256 i; i < 64; ++i) {
+        address[] memory list = new address[](32);
+        for (uint256 i; i < 32; ++i) {
             list[i] = address(uint160(0x5000 + i));
         }
         OracleAttestation memory a = attestationFor(rid, abi.encode(list));
         // the Intake's own `call(stipend, ...)`, with the stipend cut to 180,000: delivered means it fits with margin
         intake.setCallbackGas(180_000);
-        assertTrue(deliver(rid, a), "the 64-address envelope must fit in 180,000, under the 200,000 stipend");
+        assertTrue(deliver(rid, a), "the 32-address envelope must fit in 180,000, under the 200,000 stipend");
         (bytes32 sr,, uint16 n) = registry.sharedFact(1201);
         assertEq(sr, rid);
-        assertEq(n, 64);
+        assertEq(n, 32);
         // and the personal worst case (community id appended, card to refresh) fits the same margin
         mint(alice);
         uint16 specId = register(bob, t1Spec(address(0xCAFE), "Margin"));
@@ -434,7 +434,7 @@ contract AdversarialTest is Base {
         vm.prank(bob);
         registry.requestSharedFact(1201, PRICE);
         bytes32 rid2 = intake.lastId();
-        address[] memory list = new address[](3);
+        address[] memory list = new address[](32);
         list[0] = alice;
         OracleAttestation memory a = attestationFor(rid2, abi.encode(list));
         vm.expectEmit(false, false, false, true);
@@ -449,6 +449,7 @@ contract AdversarialTest is Base {
 
     /// forge-config: default.fuzz.runs = 256
     function test_fuzz_applySharedFactOnlyWithinTheHead(uint8 n, uint8 pos) public {
+        // V2 item 8: only a list of exactly the head (32) is stored; any other length misses (reason 9)
         n = uint8(bound(n, 1, 64));
         pos = uint8(bound(pos, 0, n - 1));
         fund(bob, PRICE);
@@ -460,11 +461,21 @@ contract AdversarialTest is Base {
             list[i] = address(uint160(0x7000 + i));
         }
         list[pos] = alice;
+        if (n != 32) {
+            vm.expectEmit(false, false, false, true);
+            emit Registry.Missed(rid, 1201, 9);
+            assertTrue(deliver(rid, attestationFor(rid, abi.encode(list))));
+            (bytes32 none,,) = registry.sharedFact(1201);
+            assertEq(none, bytes32(0), "an incomplete list is never stored");
+            vm.prank(alice);
+            vm.expectRevert(abi.encodeWithSelector(Registry.FactNotStored.selector, 1201));
+            registry.applySharedFact(1201, list);
+            return;
+        }
         assertTrue(deliver(rid, attestationFor(rid, abi.encode(list))));
         vm.prank(alice);
-        if (pos >= 32) vm.expectRevert(Registry.NotInList.selector);
         registry.applySharedFact(1201, list);
-        assertEq(registry.hasTrait(alice, 1201), pos < 32);
+        assertTrue(registry.hasTrait(alice, 1201));
         // a list that differs in one byte never matches
         list[(pos + 1) % n] = address(0x1);
         vm.prank(address(0x1));
@@ -478,7 +489,6 @@ contract AdversarialTest is Base {
         s.sumArg = "value";
         s.threshold = 3;
         uint16 id = register(bob, s);
-        assertEq(registry.traitClass(id), 3);
         // upgrade refuses a T3 spec; the pool refuses every spec
         fund(alice, PRICE);
         uint16[] memory ids = new uint16[](1);
@@ -490,12 +500,11 @@ contract AdversarialTest is Base {
         vm.prank(bob);
         registry.requestSharedFact(id, PRICE);
         bytes32 rid = intake.lastId();
-        address[] memory list = new address[](10);
-        for (uint256 i; i < 10; ++i) {
+        address[] memory list = new address[](3);
+        for (uint256 i; i < 3; ++i) {
             list[i] = address(uint160(0x8000 + i));
         }
         list[2] = alice;
-        list[3] = bob;
         assertTrue(deliver(rid, attestationFor(rid, abi.encode(list))));
         vm.prank(alice);
         registry.applySharedFact(id, list);
@@ -526,7 +535,10 @@ contract AdversarialTest is Base {
             s.toBlock = B_DEPLOY;
         } else {
             s.target = address(0xCAFE);
-            s.item = string.concat(kind == 4 ? "function " : "event ", _repeat("a", kind == 4 ? 247 : 250));
+            // a kind-3 item names its grouping key as an address-typed indexed parameter (V2 item 18)
+            s.item = kind == 3
+                ? string.concat("event ", _repeat("a", 199), "(address indexed ", _repeat("b", 32), ")")
+                : string.concat(kind == 4 ? "function " : "event ", _repeat("a", kind == 4 ? 247 : 250));
             s.fromBlock = 1;
             s.toBlock = type(uint64).max / 2;
             vm.roll(uint256(type(uint64).max / 2) + 64); // the finality margin
@@ -605,15 +617,9 @@ contract AdversarialTest is Base {
         ];
         for (uint256 i; i < 25; ++i) {
             uint16 id = all[i];
-            uint8 want = id <= 601 ? 0 : id == 1201 ? 3 : id == 1301 ? 2 : 1;
-            assertEq(registry.traitClass(id), want);
             bytes memory name = bytes(registry.traitName(id));
             assertGt(name.length, 0);
         }
-        vm.expectRevert(abi.encodeWithSelector(Registry.NotAnOracleTrait.selector, 102));
-        registry.traitClass(102);
-        vm.expectRevert(abi.encodeWithSelector(Registry.NotAnOracleTrait.selector, 10001));
-        registry.traitClass(10001);
         vm.expectRevert(abi.encodeWithSelector(Registry.NotAnOracleTrait.selector, 10001));
         registry.specOf(10001);
         vm.expectRevert(abi.encodeWithSelector(Registry.NotAnOracleTrait.selector, 101));
@@ -659,7 +665,7 @@ contract AdversarialTest is Base {
         assertEq(registry.tokenURI(id), u1, "a pending request draws nothing");
         assertTrue(deliver(rid, attestationFor(rid, word(1))));
         assertTrue(keccak256(bytes(registry.tokenURI(id))) != keccak256(bytes(u1)), "a verified trait is drawn");
-        Card memory c = renderer.cardOf(address(registry), id);
+        Card memory c = renderer.cardOfOn(address(registry), id);
         assertEq(c.oracle.length, 1);
         assertEq(c.oracle[0].traitId, 701);
         assertEq(c.oracle[0].requestId, rid);
@@ -673,14 +679,14 @@ contract AdversarialTest is Base {
             bytes32 rid = ask(alice, sid);
             assertTrue(deliver(rid, attestationFor(rid, word(1))));
         }
-        Card memory c = renderer.cardOf(address(registry), id);
+        Card memory c = renderer.cardOfOn(address(registry), id);
         assertEq(c.communityCount, 34);
         assertEq(c.community.length, 32);
         assertEq(c.oracle.length, 32);
         assertEq(c.community[0], 10001);
         assertEq(c.community[31], 10032);
         assertEq(registry.verifiedSpecsOf(alice).length, 34);
-        string memory metadata = string(renderer.preimage(c));
+        string memory metadata = string(renderer.preimageOf(c));
         assertEq(vm.parseJsonUint(metadata, ".attributes[14].value"), 34, "full community count");
         for (uint256 i; i < 32; ++i) {
             string memory prefix = string.concat(".attributes[", vm.toString(15 + i), "]");
