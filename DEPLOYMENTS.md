@@ -1,6 +1,40 @@
 # Deployments
 
-## v1 on Ethereum mainnet (chainId 1), 2026-10-18
+## Ethereum mainnet (chainId 1), 2026-10-20: the deployment of the docs/V2.md release, IMD swarm launch #2341
+
+- **Status:** live. Built, audited and deployed by the IMD swarm as one `workflow.open` (workflow `7e7dbd09-598a-41cf-8204-00b52caddb08`,
+  contracts job `472763cf-7481-495d-950c-000db51d562f`, paid 2026-10-20 19:51 UTC by pawai.eth, 0.5 IMD, order `b621f047`).
+- **Input:** this repository at tag `v2-base` = commit `007fbeb702613345389bc842a4005c07f3966ab1` (docs/V2.md, ninth cut).
+- **Source as deployed:** commit `832cc45f59acdda805b51799647be24c0cae9741` in
+  https://github.com/identity-md-launches/launch-2341-renderer-composer-registry (the swarm's commits on top of `v2-base`, PR #1).
+  Judge-accepted after one revision round (2026-10-20 22:13:37 UTC); 222 tests; admission 7 of 7 checks passed.
+- **One transaction, from the factory:** `0x079af9dac38001b9b6e6e5799fc5381c27fbb98debeff78af89fd7ab489e88d4`, block 26,236,719
+  (2026-10-20 22:14:59 UTC), sent by the launch wallet `0xcECc29B037f5064fCdF45a5C318F132ef76aA551` to the factory
+  `0xfF03410d0Fe5fa8f7F59F743de35E333D9857120`, 16,330,676 gas of the 16,777,216 per-transaction cap, fee 0.0026 ETH.
+
+| Contract | Address | Runtime bytes | keccak256 of the runtime |
+|---|---|---:|---|
+| Renderer | `0x4c7fe2202b29c23b54bd45053a6c88061f1296ef` | 23,092 | `0xf17b2f216bb8308110f7b649c7c0acd8bfbd81c235fb4423569d2160d3756a6b` |
+| Composer | `0x1d7da5353830248b042fc1396d5d12c31ac69824` | 23,621 | `0x19d1b889059013126fe03ef4b0a36e578f2eec64798f9da774d59d69fa012cce` |
+| Registry (`Sworn`, `SWORN`) | `0xdd0017e40f1a5fe514d15d108ce01eb52f2a5edb` | 22,943 | `0x1c9210de6ffd1eda2ace94bc9459038c3a698701686997ef4704d20282be18ba` |
+
+- **Toolchain:** solc 0.8.24, optimizer 200 runs, cancun, `bytecode_hash = "none"`, forge 1.8.3 (the swarm); the entrant's clean
+  rebuild with forge 1.5.1 produced the same bytes.
+- **Wiring (Registry getters):** `curator` `0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91`, `idmd` `0x0000ec93127baa929e58e97dd0095a2bfb38ec1d`,
+  `imd` `0xd34a99bc0f67ae1bbd63c660e6d0b0dd03e263b7`, `intake` `0xa43e6f75ee006411f79ac1c84120606c2330de82` (Intake v2), `attester`
+  `0x5598aa9146215bc13eb26f2c692ad1461fd32982`, `renderer` and `composer` as above, `burnExecutor`
+  `0xe29386719C155B6847aD5a4E97C6674f10ffc750` (BurnExecutor V2). `deployedAt()` no longer exists (docs/V2.md item 10). `nextSpecId()` = 10001.
+- **Launch-day gate (entrant, `sworn-verify`, 2026-10-20 22:27:56 UTC): PASS, 23 of 23 rows.** The runtime code and the creation code of all
+  three contracts equal a clean build of `832cc45f`; the Registry's eight constructor arguments decode as above; all three were created in the
+  transaction above by the factory. Record: aidude `data/surf/launch_verify/20261020T222756Z-1.json`.
+- **Known deviations from docs/V2.md, recorded by the builder and accepted by the judge:** item 19's gas target is not met (`tokenURI` at the
+  maximum state measures 10,317,448 gas against the 8,000,000 target; parts (a), (b), (c) are done and the regression test exists; the next
+  cut is named in `test/NOTES.md`); item 9 keeps 16-bit community ids (registration ends at id 65,534, pinned by a test).
+- **Earlier deployment:** the section below (launch #2147, 2026-10-18) was a test deployment, never announced. It stays on chain as it is.
+- **Source verification:** pending at the time of writing (Sourcify and Blockscout had no match yet); the swarm's verifier and the entrant's
+  gate compared bytes directly.
+
+## Test deployment on Ethereum mainnet (chainId 1), 2026-10-18 (launch #2147; never announced)
 
 | Contract | Address | Runtime bytes | Runtime keccak256 |
 |---|---|---|---|
