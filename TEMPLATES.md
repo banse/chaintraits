@@ -99,7 +99,10 @@ answered right by all four seats within 15 s. The negative case is kept in
 `contributor` in `Deposited(address indexed contributor, …)` is topic 1 (the 1201 text), `to` in
 `Transfer(address indexed from, address indexed to, uint256 value)` is topic 2. v2's Composer derives it (V2.md item
 18, after the cross audit of 2026-10-19 found a fixed "topic 1" wrong for a second indexed address); the grouping key
-must be an `address`-typed indexed parameter.
+must be an `address`-typed indexed parameter, and the event must be **non-anonymous**: an anonymous event carries no
+signature hash in topic 0, so its indexed arguments start at topic 0 and `<K>` would name the wrong one. v2's
+`validateSpec` rejects a kind-3 `item` that ends in `anonymous` with `BadSpec("item")` (recheck 2026-10-20, R-M1);
+`<K>` counts indexed parameters of every type, not only addresses.
 
 With 5 / 3 and that error rate a ranked question passes about one attempt in two or three, each attempt at the full
 price; issue #18 raises the kind-3 panel to 11 / 7 in v2 (`INTEGRATION.md` section 4 says what the consumer checks).
