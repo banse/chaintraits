@@ -4,6 +4,7 @@ import { A, REPO, EXPLORER } from './config';
 import { integrity, withRpc, DeploymentMismatch, type Integrity } from './chain';
 import { Landing, Catalog, Explorer, FactArtifact, Integrate, WhitelistCurator, About } from './pages';
 import { Claim } from './Claim';
+import { ConnectControl, ConnectSheet } from './ConnectSheet';
 import './styles.css';
 
 const NAV=[['Catalog','catalog'],['Explorer','explorer'],['Claim','claim'],['Fact vs artifact','fact-vs-artifact'],['Integrate','integrate'],['WhitelistCurator','whitelistcurator'],['About','about']];
@@ -14,7 +15,8 @@ function App(){
  useEffect(()=>{let alive=true;setCheck(undefined);setMismatch(false);setCheckMessage('Verifying Ethereum mainnet dependencies…');withRpc(rpc,integrity).then(v=>{if(alive){setCheck(v);setCheckMessage(`Ethereum mainnet / dependency check passed / block ${v.block.toLocaleString('en-US')}`);}}).catch(e=>{if(alive){setMismatch(e instanceof DeploymentMismatch);setCheckMessage(e instanceof Error?e.message:'RPC unavailable');}});return()=>{alive=false;};},[rpc]);
  const page=locationState.page;
  return <><a href="#main" className="skip-link" onClick={e=>{e.preventDefault();document.getElementById('main')?.focus();}}>Skip to content</a>
-  <header><div className="header-inner"><a className="brand" href="#/" aria-label="Sworn home"><img src="./assets/logo.svg" width={32} height={32} alt=""/><span>SWORN</span></a><nav aria-label="Main navigation">{NAV.map(([label,path])=><a key={path} href={`#/${path}`} aria-current={page===path?'page':undefined}>{label}</a>)}</nav></div></header>
+  <header><div className="header-inner"><a className="brand" href="#/" aria-label="Sworn home"><img src="./assets/logo.svg" width={32} height={32} alt=""/><span>SWORN</span></a><ConnectControl/><nav aria-label="Main navigation">{NAV.map(([label,path])=><a key={path} href={`#/${path}`} aria-current={page===path?'page':undefined}>{label}</a>)}</nav></div></header>
+  <ConnectSheet/>
   {mismatch&&<div className="mismatch" role="alert">CONTRACT MISMATCH / {checkMessage}</div>}
   <main id="main" tabIndex={-1}>
    {page===''?<Landing/>:page==='catalog'?<Catalog/>:page==='explorer'?<Explorer rpc={rpc} query={locationState.query}/>:page==='claim'?<Claim rpc={rpc} verified={!!check&&!mismatch}/>:page==='fact-vs-artifact'?<FactArtifact/>:page==='integrate'?<Integrate check={check}/>:page==='whitelistcurator'?<WhitelistCurator/>:page==='about'?<About/>:<><h1>Page not found</h1><a href="#/">Open Sworn</a></>}

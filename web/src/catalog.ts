@@ -9,7 +9,7 @@ export const CATALOG: Trait[] = [
  ...[3,5,10].map((n,i)=>t(301+i,`Hopper >= ${n}`,'direct',`txCountOf(A) >= ${n}`,'live','view; <= 2,037 repeat depositors','txCountOf')),
  ...[1,10,100,800].map((n,i)=>t(401+i,`Bullfrog >= ${n} ETH`,'direct',`contributedBy(A) >= ${n} ETH; largest single send`,'live','15,576-wallet sample; median 0.45 ETH','contributedBy')),
  ...['1,000','3,162','10,000'].map((n,i)=>t(501+i,`Benchmarked >= ${n}`,'direct',`pointsOf(A) >= ${n}`,'live','read from view; no frozen count','pointsOf')),
- t(601,'Armed','direct','IDMD.balanceOf(A) >= 1, while held','live','<= 2,000','IDMD.balanceOf'),
+ t(601,'Armed','direct','held an IDMD seat when the card was minted','at mint','no fixed population','hasDirectTrait'),
  t(701,'Uptime','chain-proven','Deposited(contributor = A), count >= 1','W_JUDGED','3,936','verified'),
  t(801,'Holdout','chain-proven','Deposited(contributor = A, hour = 64)','W_LIFE','7','verified'),
  t(901,'Final Token','chain-proven','Deposited(contributor = A, hour = 65)','W_LIFE','1','verified'),

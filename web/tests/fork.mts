@@ -42,6 +42,7 @@ try{
  }
  assert(ready,'Anvil did not become ready');client=rpcClient(endpoint);await integrity(client);passed('launch code and getters on the local mainnet fork',{block:String(block)});
  const w=await wallet(SYNTHETIC);
+ const preMint=await explore(endpoint,SYNTHETIC);assert.equal(preMint.tokenId,0n);assert(preMint.image.startsWith('data:image/svg+xml,'));passed('Explorer lookup before mint decodes a live Renderer preview',{traits:preMint.traits,tokenId:String(preMint.tokenId)});
  const amount=100000000000000000n;const q=await quoteExactImd(client,amount);const j=newJournal({key:'fork-mint',label:'Synthetic mint',data:encodeFunctionData({abi:registryAbi,functionName:'mintCard'}),amount},'ETH');
  const before=await client.getBalance({address:SYNTHETIC});
  const swapped=await runStep(client,w,j,'swap',()=>{},q);assert(swapped);
@@ -57,13 +58,14 @@ try{
  assert(upgrade.j.outcomes?.some(v=>v.includes('1301 requested')));assert.equal(await reg<boolean>(client,'hasTrait',[SYNTHETIC,1301]),false);
  passed('paid panel request with live maxPrice; pending does not become a true fact',{price:String(price),outcomes:upgrade.j.outcomes});
  const spec={kind:5,target:A.poolKey.currency0,item:'',arg:'',fixedArg:'',fixedVal:0n,sumArg:'',op:0,threshold:20n,fromBlock:25769870n,toBlock:25769870n,name:'Synthetic nonce'};
- const registered=await execute({key:'fork-register',label:'Synthetic spec',data:encodeFunctionData({abi:registryAbi,functionName:'registerSpec',args:[spec]}),amount:6400000000000000000n,spec:true},w);
+ const registered=await execute({key:'fork-register',label:'Synthetic spec',data:encodeFunctionData({abi:registryAbi,functionName:'registerSpec',args:[spec,BigInt(await reg<number>(client,'nextSpecId'))]}),amount:6400000000000000000n,spec:true},w);
  assert(registered.j.registeredId&&registered.j.registeredId>=10001);passed('community registration derives id from its own SpecRegistered receipt',{traitId:registered.j.registeredId});
+ const donated=250000000000000000n;const poolBefore=await reg<bigint>(client,'pool');const donation=await execute({key:'fork-donation',label:'Synthetic pool donation',data:encodeFunctionData({abi:registryAbi,functionName:'sponsor',args:[donated]}),amount:donated},w);assert.equal(await reg<bigint>(client,'pool'),poolBefore+donated);assert(donation.j.outcomes?.some(v=>v.includes('Pool donation confirmed')));passed('exact approval and sponsor donation increase the pool by the selected amount',{donated:String(donated)});
  const member=await wallet(CONTRIBUTORS[0].address as Address);const preview=await explore(endpoint,member.account);assert(preview.joined);assert.equal(preview.tokenId,0n);assert(preview.image.startsWith('data:image/svg+xml,'));
  passed('unminted public contributor gets a pure Renderer preview',{traits:preview.traits,tokenId:String(preview.tokenId)});
- const claim=await execute({key:'fork-pool',label:'Public contributor pool claim',data:encodeFunctionData({abi:registryAbi,functionName:'claimSponsored',args:[701]}),amount:0n,sponsored:true},member,'IMD');
+ const claim=await execute({key:'fork-pool',label:'Public contributor pool claim',data:encodeFunctionData({abi:registryAbi,functionName:'claimSponsored',args:[701,price]}),amount:0n,maxPrice:price,sponsored:true},member,'IMD');
  assert(claim.j.outcomes?.some(v=>v.includes('701 requested')));passed('sponsored pool claim and exact fresh burn-fee attachment',{valueWei:claim.j.steps.registry?.value,outcomes:claim.j.outcomes});
- try{await execute({key:'fork-daily',label:'Same-day second pool claim',data:encodeFunctionData({abi:registryAbi,functionName:'claimSponsored',args:[801]}),amount:0n,sponsored:true},member,'IMD');throw Error('Expected daily limit');}catch(e){assert(friendlyError(e).includes('UTC'));passed('pool daily-limit revert is explained in words',{message:friendlyError(e)});}
+ try{await execute({key:'fork-daily',label:'Same-day second pool claim',data:encodeFunctionData({abi:registryAbi,functionName:'claimSponsored',args:[801,price]}),amount:0n,maxPrice:price,sponsored:true},member,'IMD');throw Error('Expected daily limit');}catch(e){assert(friendlyError(e).includes('UTC'));passed('pool daily-limit revert is explained in words',{message:friendlyError(e)});}
 }finally{
  processNode.kill('SIGTERM');await new Promise<void>(r=>{if(processNode.exitCode!==null)r();else processNode.once('exit',()=>r());});
  await mkdir('test/scratch',{recursive:true});await writeFile('test/scratch/fork-results.json',JSON.stringify({upstream,block:String(block),localOnly:true,results},null,2)+'\n');

@@ -1,8 +1,8 @@
 {
   "chainId": 1,
-  "Registry": "0x39bec7648259d5a128c29b24951eabcd4d1f95a6",
-  "Composer": "0x06bf2168dd115fa37bd1637fa1f50adb29a3029d",
-  "Renderer": "0xea9185cc6dffe42a8c059b099c50cb21021439ad",
+  "Renderer": "0x4c7fe2202b29c23b54bd45053a6c88061f1296ef",
+  "Composer": "0x1d7da5353830248b042fc1396d5d12c31ac69824",
+  "Registry": "0xdd0017e40f1a5fe514d15d108ce01eb52f2a5edb",
   "WhitelistCurator": "0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91",
   "IDMD": "0x0000ec93127baa929e58e97dd0095a2bfb38ec1d",
   "IMD": "0xd34a99bc0f67ae1bbd63c660e6d0b0dd03e263b7",
@@ -22,16 +22,13 @@
     "tickSpacing": 60,
     "hooks": "0xc6c965bd164c483e87d0b550671798e9a3602840"
   },
-  "publicRpcs": ["https://rpc.mevblocker.io", "https://ethereum-rpc.publicnode.com", "https://1.rpc.thirdweb.com"],
   "runtimeHashes": {
-    "Registry": "0x9c88410fb6463610043b3adeea1ab857096e83ca8e0aea4f73f63433fbfb42d2",
-    "Composer": "0x79359a04f91e52693816feb7a9d90b4c75e44abb838f9061e8eee209f6ca417e",
-    "Renderer": "0x1fb854135321f70bb61cefbd688f8375179cdb7c4fb2af2009583786f7d47efb"
+    "Renderer": "0xf17b2f216bb8308110f7b649c7c0acd8bfbd81c235fb4423569d2160d3756a6b",
+    "Composer": "0x19d1b889059013126fe03ef4b0a36e578f2eec64798f9da774d59d69fa012cce",
+    "Registry": "0x1c9210de6ffd1eda2ace94bc9459038c3a698701686997ef4704d20282be18ba"
   },
-  "sources": {
-    "launch": "https://github.com/identity-md-launches/launch-2147-launch-sworn-registry-symbol/blob/main/launch.json",
-    "uniswap": "https://docs.uniswap.org/contracts/v4/deployments",
-    "pool": "https://pool4.imd.fun",
-    "nativeCurrency": "The zero currency in the canonical v4 PoolKey means native ETH, not a recipient."
-  }
+  "publicRpcs": [
+    "https://ethereum-rpc.publicnode.com",
+    "https://eth.drpc.org"
+  ]
 }

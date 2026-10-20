@@ -67,5 +67,5 @@ test('wrong chain and changed account are rejected before any send',async()=>{
  await assert.rejects(assertWallet({provider,account:SYNTHETIC,chainId:1,epoch:0}),/Account changed/);
 });
 test('pool errors are stated as recoverable instructions',()=>{
- for(const name of ['PoolDailyLimit','PoolTooSmall','PoolAlreadyUsed','NotMember','IdmdSponsorExhausted','BurnFeeRequired'])assert.notEqual(friendlyError(Error(name)),name);
+ for(const name of ['PoolDailyLimit','PoolTooSmall','PoolAlreadyUsed','NotMember','PoolLifetimeLimit','PoolDrawTooLarge','ZeroPrice','UnexpectedSpecId','BurnFeeRequired'])assert.notEqual(friendlyError(Error(name)),name);
 });

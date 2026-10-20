@@ -53,7 +53,7 @@ function mock(){
 test('stored intent cannot change the exact approval amount or Registry operation',()=>{
  const {journal}=mock();validateIntent(journal);
  assert.throws(()=>validateIntent({...journal,amount:'100000000000000001'}),/does not match/);
- assert.throws(()=>validateIntent({...journal,data:encodeFunctionData({abi:registryAbi,functionName:'sponsor',args:[1n]})}),/Unsupported/);
+ assert.throws(()=>validateIntent({...journal,data:encodeFunctionData({abi:registryAbi,functionName:'abandon',args:[hash('0')]})}),/Unsupported/);
 });
 test('an existing card stops before an approval or an ETH swap',async()=>{
  for(const phase of ['approve','swap'] as const){const m=mock();m.state.tokenId=1n;const j=newJournal({key:'mint',label:'Synthetic mint',data:mintData,amount},phase==='swap'?'ETH':'IMD');await assert.rejects(runStep(m.client,m.wallet,j,phase,()=>{}),/AlreadyMinted/);assert.equal(m.state.sent,0);}
@@ -105,7 +105,7 @@ test('a changed live oracle price stops the flow before buying or approving',asy
  const j=newJournal({key:'paid',label:'Synthetic upgrade',data:encodeFunctionData({abi:registryAbi,functionName:'upgrade',args:[[1301],price]}),amount:price,maxPrice:price},'ETH');
  await assert.rejects(runStep(m.client,m.wallet,j,'swap',()=>{}),/oracle price changed/);assert.equal(m.state.sent,0);
 });
-function sponsored():Journal{return newJournal({key:'pool',label:'Synthetic sponsored claim',data:encodeFunctionData({abi:registryAbi,functionName:'claimSponsored',args:[701]}),amount:0n,sponsored:true},'IMD');}
+function sponsored():Journal{return newJournal({key:'pool',label:'Synthetic sponsored claim',data:encodeFunctionData({abi:registryAbi,functionName:'claimSponsored',args:[701,500000000000000000n]}),amount:0n,maxPrice:500000000000000000n,sponsored:true},'IMD');}
 test('a failed bridge preview never authorizes a guessed attachment',async()=>{
  const m=mock();m.state.failPreview=true;
  await assert.rejects(readBurn(m.client),/preview failed/);
@@ -122,7 +122,12 @@ test('the sponsored transaction attaches exactly the fee at each boundary',async
 });
 test('a caught bridge failure is explained from BurnSkipped in the confirmed receipt',async()=>{
  const m=mock();m.state.amount=MIN_BURN;m.state.fee=100n;
- const event=parseAbiItem('event BurnSkipped(address indexed claimant,uint8 code)');
- m.state.logs=[{address:A.Registry,topics:encodeEventTopics({abi:[event],eventName:'BurnSkipped',args:{claimant:SYNTHETIC}}),data:encodeAbiParameters(parseAbiParameters('uint8'),[2])}];
- const j=sponsored();await runStep(m.client,m.wallet,j,'registry',()=>{},undefined,100n);assert(j.outcomes?.some(v=>v.includes('bridge failed; the attachment was refunded')));assert.equal(j.steps.registry?.state,'confirmed');
+ const event=parseAbiItem('event BurnSkipped(uint256 indexed tokenId,uint8 code)');
+ m.state.logs=[{address:A.Registry,topics:encodeEventTopics({abi:[event],eventName:'BurnSkipped',args:{tokenId:0n}}),data:encodeAbiParameters(parseAbiParameters('uint8'),[5])}];
+ const j=sponsored();await runStep(m.client,m.wallet,j,'registry',()=>{},undefined,100n);assert(j.outcomes?.some(v=>v.includes('bridge reverted')));assert.equal(j.steps.registry?.state,'confirmed');
+});
+
+test('all five BurnSkipped reasons are decoded from real ABI-shaped receipts',async()=>{
+ const expected=['preview unavailable or reverted','amount below the burn minimum','fee above the cap','attachment below the fee, refunded; the request stands','bridge reverted'];
+ for(let i=0;i<expected.length;i++){const m=mock();const event=parseAbiItem('event BurnSkipped(uint256 indexed tokenId,uint8 reason)');m.state.logs=[{address:A.Registry,topics:encodeEventTopics({abi:[event],eventName:'BurnSkipped',args:{tokenId:0n}}),data:encodeAbiParameters(parseAbiParameters('uint8'),[i+1])}];const j=sponsored();await runStep(m.client,m.wallet,j,'registry',()=>{},undefined,0n);assert(j.outcomes?.some(v=>v.includes(expected[i])));}
 });

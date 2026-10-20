@@ -1,4 +1,4 @@
-import { createPublicClient, http, keccak256, parseAbi, encodeFunctionData, decodeFunctionResult, type Abi, type Address, type PublicClient, type Hex } from 'viem';
+import { createPublicClient, http, keccak256, parseAbi, encodeAbiParameters, parseAbiParameters, pad, encodeFunctionData, decodeFunctionResult, type Abi, type Address, type PublicClient, type Hex } from 'viem';
 import { mainnet } from 'viem/chains';
 import { A, address, registryAbi, rendererAbi, curatorAbi, erc20Abi, burnAbi, ACTION } from './config';
 import { CATALOG, topOf } from './catalog';
@@ -71,12 +71,21 @@ export async function explore(selected:string,wallet:Address):Promise<Snapshot> 
    })),
    Promise.all(oracle.map(async t=>[t.id,await reg<Hex>(client,'pendingOf',[wallet,t.id],block)] as const)),
   ]);
-  const uri=tokenId!==0n ? await reg<string>(client,'tokenURI',[tokenId],block) : await read<string>(client,address('Renderer'),rendererAbi,'tokenURI',[{
-   tokenId:0n,claimant:wallet,top:topOf(traits),traits,community:specs.slice(0,32),communityCount:BigInt(specs.length),oracle:[],
-  }],block);
+  const uri=tokenId!==0n ? await reg<string>(client,'tokenURI',[tokenId],block) : await previewWallet(client,wallet,block);
   const {metadata,raw}=decodeMetadata(uri);
   return {wallet,block,endpoint:client.transport.url??selected,traits,specs:[...specs],tokenId,firstHour:hour[0],joined:hour[1],txCount,capital,points,idmd,price,image:metadata.image,rawMetadata:raw,metadata,verified,pending:Object.fromEntries(pairs)};
  });
+}
+/** Renderer exposes tokenURIOf only. A read-only claimantOf override lets it draw
+ * the wallet's real traits without minting. All other code and storage stay live.
+ * Slot 15 is compiler-derived at the attested source commit (docs/preview.md).
+ */
+export async function previewWallet(client:Reader,wallet:Address,block:bigint){
+ const next=await reg<bigint>(client,'totalSupply',[],block)+1n;
+ const slot=keccak256(encodeAbiParameters(parseAbiParameters('uint256,uint256'),[next,15n]));
+ const result=await client.call({to:address('Renderer'),data:encodeFunctionData({abi:rendererAbi,functionName:'tokenURIOf',args:[address('Registry'),next]}),blockNumber:block,gas:16000000n,stateOverride:[{address:address('Registry'),stateDiff:[{slot,value:pad(wallet,{size:32})}]}]});
+ if(!result.data)throw new RpcUnavailable();
+ return decodeFunctionResult({abi:rendererAbi,functionName:'tokenURIOf',data:result.data}) as string;
 }
 export const MIN_BURN=69n*10n**18n;
 export const BURN_CAP=5n*10n**15n;

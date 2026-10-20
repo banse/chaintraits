@@ -3,7 +3,7 @@ import { getAddress, isAddress } from 'viem';
 import { A, EXPLORER, REPO, SYNTHETIC } from './config';
 import { CATALOG, type Evidence } from './catalog';
 
-export const Source=({children='CATALOG §3',href=`${REPO}/blob/main/CATALOG.md#3-trait-table-v1-25-slots-working-names`}:{children?:ReactNode;href?:string})=><a className="source" href={href}>{children}</a>;
+export const Source=({children='CATALOG §3',href=`${REPO}/blob/main/CATALOG.md#3-trait-table`}:{children?:ReactNode;href?:string})=><a className="source" href={href}>{children}</a>;
 export function Section({title,children,id,className=''}:{title:string;children:ReactNode;id?:string;className?:string}){
  return <section className={`section ${className}`} id={id}><h2 className="section-label">{title}</h2>{children}</section>;
 }
@@ -26,16 +26,16 @@ export const WHY_SWORN='WhitelistCurator.sol set out to curate a permissionless 
 export const BUILT_BY_SWARM="The contracts were built, audited and deployed by Identity.md's swarm in paid jobs, and so was this site. The job records are public.";
 export const NO_COIN='Sworn has no coin of its own; its only token is the card.';
 export function WhySworn(){return <p className="measure">{WHY_SWORN}</p>;}
-/** One catalog id lit on an empty card, rendered at build time by the Renderer (site/scripts/render-assets.mjs); nothing is rendered at runtime. */
+/** One catalog id lit on an empty card, rendered at build time by the Renderer (web/scripts/render-assets.mjs); nothing is rendered at runtime. */
 export function MiniCard({id,size=96}:{id:number;size?:number}){
  const trait=CATALOG.find(t=>t.id===id);
  return <img className="mini-card" src={`./assets/traits/${trait?id:'empty'}.svg`} width={size} height={size} alt={trait?`${trait.name} on an empty card`:'An empty card'}/>;
 }
 export function CardPair(){return <figure className="card-pair"><div><MiniCard id={0}/><MiniCard id={101}/></div><figcaption>The card is the artifact. The fact belongs to the wallet: the same card, empty and with Spawned 101 lit.</figcaption></figure>;}
 /* COPY: draft, owner approval pending (round 2, F-18.29): the four trait classes and how a fact gets sworn. */
-export const PROOF_OF_SWEAR='Proof of swear: a fact is sworn when enough independent IMD agents answer the same question about a wallet the same way and sign it. The Registry checks the signature, the question, the quorum and the block window before it records anything. Direct facts need no swearing: the chain answers them live.';
+export const PROOF_OF_SWEAR='Proof of swear: a fact is sworn when enough independent IMD agents answer the same question about a wallet the same way and sign it. The Registry checks the signature, the question, the quorum and the block window before it records anything. Direct facts need no swearing: Curator reads freeze at mint, alongside the IDMD seat snapshot.';
 export const CLASS_CARDS:{cls:Evidence;title:string;how:string}[]=[
- {cls:'direct',title:'Direct facts',how:'Read live from WhitelistCurator.sol and Identity.md every time hasTrait is called. Nothing to claim, nothing to pay, true for exactly as long as the chain says so.'},
+ {cls:'direct',title:'Direct facts',how:'Curator facts freeze at mint. Armed records an IDMD seat held at mint. Before minting, Curator facts are read live and Armed is false; no oracle request is needed.'},
  {cls:'chain-proven',title:'Chain-proven facts',how:'A recipe over a fixed block window: count or sum the Curator’s events for a wallet. At least 5 IMD agents rerun it and 3 must agree; the signed answer is stored.'},
  {cls:'shared',title:'Shared facts',how:'One ranked list for everyone, the top 32 by summed weight. Requested once at the oracle price; each member applies the same attested list for gas.'},
  {cls:'panel',title:'Panel facts',how:'Evidence the chain cannot replay cheaply, such as an account’s nonce at the launch block. 11 agents check it and 7 must agree.'},
@@ -45,7 +45,7 @@ export function ClassCards(){return <div className="class-cards" aria-label="The
 export const STORIES:{title:string;steps:[string,string,string][]}[]=[
  {title:'How it works for a wallet: mint a card, add facts, swear new ones',steps:[
   ['01','Mint once','0.10 IMD mints the card. It shows every fact the wallet has and updates itself; there is no second mint.'],
-  ['02','Add facts','Direct facts are already true. A pool claim is free once a day for list members; a paid upgrade asks the oracle at the live price, spent whatever the answer.'],
+  ['02','Add facts','Direct traits freeze at mint. A pool claim is free once a day for list members; a paid upgrade asks the oracle at the live price, spent whatever the answer.'],
   ['03','Swear a new fact','Register a community trait for 6.4 IMD: a recipe anyone can claim against. Its first claim is a normal request at the live price.'],
  ]},
  {title:'How it works for a curator: finding real wallets',steps:[
@@ -81,10 +81,10 @@ export function PaymentChoice({payment,setPayment,name}:{payment:'IMD'|'ETH';set
  return <div className="payment-choice"><span>Pay with</span><label><input type="radio" name={`payment-${name}`} checked={payment==='IMD'} onChange={()=>setPayment('IMD')}/> IMD</label><label><input type="radio" name={`payment-${name}`} checked={payment==='ETH'} onChange={()=>setPayment('ETH')}/> ETH</label><span className="source">IMD is the default. ETH buys the exact IMD amount first.</span></div>;
 }
 export function HowToVerify(){return <ol className="numbered-list">
- <li><div><h3>Read the registry</h3><p>Read <code>claimantOf(tokenId)</code>, then <code>hasTrait(claimant, traitId)</code> and <code>verified(claimant, traitId)</code>. Decode the card’s tokenURI as Base64 JSON, preserving all integers exactly. Its oracle array includes the recipe, block window and both request ids. A zero request id means not claimed.</p></div></li>
+ <li><div><h3>Read the registry</h3><p>Read <code>claimantOf(tokenId)</code>, then <code>hasTrait(claimant, traitId)</code> and <code>verified(claimant, traitId)</code>. Decode the card’s tokenURI as Base64 JSON, preserving all integers exactly. Its oracle array includes the block window and both request ids. Community recipes are read with specOf(id); metadata carries only id, name, kind, target and the verifying request id. A zero request id means not claimed.</p></div></li>
  <li><div><h3>Rerun the recipe on two public RPCs</h3><p>For T1 count matching logs; for T2 sum the named field; for T3 group, sum and rank (ties by ascending address). T4 compares a historical call. T5 checks the historical account nonce. Derive event topics from the stored item, including indexed arguments. Use the exact block window and check its closing block hash.</p></div></li>
- <li><div><h3>Check the signed attestation</h3><p>Take the first 16 bytes of oracleRequestId as its UUID and open the attestation link in Explorer. Check the EIP-712 signer and domain (<code>IdentityMD Oracle</code>, version 2, chain 1, this Registry), questionHash, answer type, signed panel size, quorum, agreement, issue time and expiry. Hash the canonical question document, not the entire request body. The card’s minPanelSize and minQuorum are acceptance minima.</p></div></li>
- <li><div><h3>Compare the deployed code</h3><p>Rebuild the launch source with solc 0.8.24 and the unchanged Foundry settings. Compare each deployed runtime byte for byte with Registry, Composer and Renderer: metadata hashing and CBOR are disabled, and there are no immutables. Read all eight dependency getters and compare them with the launch record and addresses.json. This site checks those getters and runtime hashes before enabling transactions.</p></div></li>
+ <li><div><h3>Check the signed attestation</h3><p>Take the first 16 bytes of oracleRequestId as its UUID and open the attestation link in Explorer. Check the EIP-712 signer and domain (<code>IdentityMD Oracle</code>, domain version 2, chain 1, this Registry), questionHash, answer type, signed panel size, quorum, agreement, issue time and expiry. Hash the canonical question document, not the entire request body. The card’s minPanelSize and minQuorum are acceptance minima.</p></div></li>
+ <li><div><h3>Compare the deployed code</h3><p>Rebuild the launch source with solc 0.8.24 and the unchanged Foundry settings. Compare each deployed runtime byte for byte with Registry, Composer and Renderer: metadata hashing and CBOR are disabled, and there are no immutables. Read all eight dependency getters and compare them with imd-deployment.json and the launch record. This site checks those getters and runtime hashes before enabling transactions.</p></div></li>
  </ol>;}
 export const getterSource=(fn:string)=>{
  const target=fn.includes('priceOf')?A.IntakeV2:fn.includes('Quoter')?A.Quoter:fn==='IDMD.balanceOf'?A.IDMD:['firstHourOf','txCountOf','contributedBy','pointsOf'].includes(fn)?A.WhitelistCurator:A.Registry;

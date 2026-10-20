@@ -26,7 +26,7 @@ try{
   const context=await browser.newContext({viewport:{width:390,height:844},locale:'de-DE'});const page=await context.newPage();
   // Layout and pre-wallet checks intentionally exercise the honest offline state,
   // without repeatedly querying public operators for every viewport and route.
-  await context.route(/^https:\/\/(rpc\.mevblocker\.io|ethereum-rpc\.publicnode\.com|1\.rpc\.thirdweb\.com)/,async route=>{
+  await context.route(/^https:\/\/(ethereum-rpc\.publicnode\.com|eth\.drpc\.org)/,async route=>{
    const headers={'Access-Control-Allow-Origin':'*','Access-Control-Allow-Methods':'POST, OPTIONS','Access-Control-Allow-Headers':'*'};
    if(route.request().method()==='OPTIONS'){await route.fulfill({status:204,headers});return;}
    const body=route.request().postDataJSON();const list=Array.isArray(body)?body:[body];
@@ -52,7 +52,7 @@ try{
    await page.getByLabel('Wallet address',{exact:true}).fill('0x000000000000000000000000000000000000c1a1');await page.getByRole('button',{name:'Explore wallet',exact:true}).click();await page.getByRole('heading',{name:'Explorer',exact:true}).waitFor();await page.locator('.read-status').filter({hasText:'RPC unavailable'}).waitFor();assert.equal(await page.locator('.explorer-grid').count(),0);
   });
   await check(`${engine}: keyboard focus and skip link`,async()=>{
-   await page.goto(url);await page.keyboard.press('Tab');assert.equal(await page.evaluate(()=>document.activeElement.textContent),'Skip to content');await page.keyboard.press('Enter');assert.equal(await page.evaluate(()=>document.activeElement.id),'main');
+   await page.goto(url);await page.locator('.skip-link').waitFor({state:'attached'});await page.keyboard.press('Tab');assert.equal(await page.evaluate(()=>document.activeElement.textContent),'Skip to content');await page.keyboard.press('Enter');assert.equal(await page.evaluate(()=>document.activeElement.id),'main');
   });
   const routes=['','catalog','explorer','claim','fact-vs-artifact','integrate','whitelistcurator','about'];
   for(const width of [390,1280,320,780]){
@@ -60,10 +60,10 @@ try{
    for(const route of routes){
     await check(`${engine}: ${route||'landing'} at ${width}`,async()=>{
      await page.goto(`${url}#/${route}`);await page.locator('h1').waitFor();if(route==='whitelistcurator')await page.locator('tbody tr').nth(65).waitFor();
-     await page.waitForFunction(()=>[...document.images].every(i=>i.complete&&i.naturalWidth>0));
+     await page.waitForFunction(()=>[...document.images].every(i=>i.complete&&i.naturalWidth>0));await page.locator('.footer-inner > .source').filter({hasText:'RPC unavailable'}).waitFor();
      const measure=await page.evaluate(()=>({width:document.documentElement.clientWidth,scroll:document.documentElement.scrollWidth,h1:document.querySelector('h1').textContent,images:[...document.images].every(i=>i.complete&&i.naturalWidth>0)}));
      assert(measure.scroll<=measure.width+1,`page overflow ${measure.scroll} > ${measure.width}`);assert(measure.images,'An image failed');
-     if(route==='catalog')assert.equal(await page.locator('tbody tr:not(.family-row)').count(),33); // 25 facts + four classes + four windows
+     if(route==='catalog')assert.equal(await page.locator('.class-segment').count(),5); // 25 facts + four classes + four windows
      if(route==='whitelistcurator')assert.equal(await page.locator('.source-line').count(),59);
      if(route==='whitelistcurator'){
       const gutters=await page.locator('.source-line').evaluateAll(lines=>lines.map(line=>{const n=line.querySelector('.line-number').getBoundingClientRect();const code=line.querySelector('code').getBoundingClientRect();return {codeLeft:code.left,numberRight:n.right};}));
@@ -86,8 +86,14 @@ try{
   await check(`${engine}: catalog / source navigation`,async()=>{
    await page.getByRole('link',{name:'Catalog',exact:true}).click();await page.getByRole('link',{name:'WhitelistCurator.sol is not sybil-resistant by design',exact:true}).click();await page.locator('.source-line').nth(58).waitFor();assert.equal(await page.locator('h1').innerText(),'WhitelistCurator');
    await page.waitForFunction(()=>document.getElementById('source').getBoundingClientRect().top<50);
-   const excerpt=JSON.parse(await readFile('site/public/data/curator-source.json','utf8'));
+   const excerpt=JSON.parse(await readFile('web/public/data/curator-source.json','utf8'));
    assert.deepEqual(await page.locator('.source-line code').allTextContents(),excerpt.lines.map(line=>line.text));
+  });
+  await check(`${engine}: wallet picker, dismissal and focus return`,async()=>{
+   await page.goto(url);await page.getByRole('button',{name:'Connect',exact:true}).click();await page.getByRole('dialog',{name:'Connect a wallet'}).waitFor();
+   assert.equal(await page.getByRole('button',{name:'Coinbase Wallet',exact:true}).count(),1);
+   assert.equal(await page.getByRole('button',{name:'Browser wallet',exact:true}).count(),1);
+   await page.keyboard.press('Escape');assert.equal(await page.getByRole('dialog').isVisible(),false);assert.equal(await page.evaluate(()=>document.activeElement.textContent),'Connect');
   });
   if(AxeBuilder){
    for(const route of routes){
@@ -97,16 +103,16 @@ try{
      const ownerApproved=report.violations.filter(v=>v.id==='color-contrast'&&v.nodes.every(n=>n.target.every(target=>String(target).includes('.line-number'))));
      const applicable=report.violations.filter(v=>!ownerApproved.includes(v));
      assert.deepEqual(applicable.map(v=>({id:v.id,impact:v.impact,nodes:v.nodes.map(n=>n.target)})),[]);
-     return {passes:report.passes.length,incomplete:report.incomplete.length,ownerApproved:ownerApproved.map(v=>({id:v.id,nodes:v.nodes.length,reason:'The brief explicitly pins source line numbers to #5f6861. Measured contrast is 3.43:1 at 12px; retained and documented, not an AA pass.'}))};
+     return {passes:report.passes.length,incomplete:report.incomplete.length,ownerApproved:ownerApproved.map(v=>({id:v.id,nodes:v.nodes.length,reason:'The reviewed palette uses #5f6861 for decorative source line numbers (aria-hidden). Workflow requires unchanged colours; measured contrast 3.43:1 at 12px is retained and documented, not an AA pass.'}))};
     });
    }
   }
   if(engine==='chromium'){
    await page.goto(`${url}#/whitelistcurator#source`);await page.locator('.source-line').nth(58).waitFor();await page.waitForFunction(()=>document.getElementById('source').getBoundingClientRect().top<50);await page.screenshot({path:resolve(out,'verified-source-390.png')});
-   await page.goto(url);await page.getByRole('button',{name:'Explore wallet',exact:true}).focus();await page.screenshot({path:resolve(out,'focus-390.png')});
+   await page.goto(url);await page.locator('.footer-inner > .source').filter({hasText:'RPC unavailable'}).waitFor();await page.getByRole('button',{name:'Explore wallet',exact:true}).focus();await page.screenshot({path:resolve(out,'focus-390.png')});
   }
   await check(`${engine}: no runtime API, font or script CDN calls`,async()=>{
-   assert(!external.has('api.imd.fun'));assert([...external].every(host=>['rpc.mevblocker.io','ethereum-rpc.publicnode.com','1.rpc.thirdweb.com'].includes(host)));return [...external];
+   assert(!external.has('api.imd.fun'));assert([...external].every(host=>['ethereum-rpc.publicnode.com','eth.drpc.org'].includes(host)));return [...external];
   });
   await check(`${engine}: local resources and console`,async()=>{const expectedRpcErrors=errors.filter(e=>/access control/.test(e)&&/rpc\.thirdweb|rpc\.publicnode|rpc\.mevblocker/.test(e));const scriptErrors=errors.filter(e=>!expectedRpcErrors.includes(e));assert.deepEqual(localFailures,[]);assert.deepEqual(scriptErrors,[]);return {localFailures,scriptErrors,expectedRpcErrors};});
   await context.close();

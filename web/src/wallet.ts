@@ -1,60 +1,63 @@
-import { useEffect, useState, useSyncExternalStore } from 'react';
-import { getAddress, isAddress, type Address, type Hex } from 'viem';
+import {useSyncExternalStore} from 'react';
+import {getAddress,type Address,type Hex,defineChain} from 'viem';
+import {createConfig,connect as connectWallet,disconnect as disconnectWallet,reconnect,watchAccount,watchConnectors,injected,http,type Connector,type Config,type GetAccountReturnType} from '@wagmi/core';
+import {coinbaseWallet} from '@wagmi/connectors';
+import {A,deployment} from './config';
 
 export type Provider={request:(args:{method:string;params?:unknown[]|object})=>Promise<unknown>;on?:(event:string,fn:(...args:unknown[])=>void)=>void;removeListener?:(event:string,fn:(...args:unknown[])=>void)=>void};
-type Announce={info:{uuid:string;name:string;rdns:string};provider:Provider};
-declare global { interface Window { ethereum?:Provider; } }
-let discovered:Announce[]=[];
-const discoveryListeners=new Set<()=>void>();
-if(typeof window!=='undefined') {
- window.addEventListener('eip6963:announceProvider',((event:CustomEvent<Announce>)=>{
-  const d=event.detail;
-  if(d?.info?.uuid && typeof d.provider?.request==='function' && !discovered.some(x=>x.info.uuid===d.info.uuid)) { discovered=[...discovered,d];discoveryListeners.forEach(fn=>fn()); }
- }) as EventListener);
- window.dispatchEvent(new Event('eip6963:requestProvider'));
-}
-export function useProviders(){return useSyncExternalStore(cb=>{discoveryListeners.add(cb);return()=>discoveryListeners.delete(cb);},()=>discovered);}
 export type Wallet={provider:Provider;account:Address;chainId:number;epoch:number;signal?:AbortSignal;invalidate?:()=>void};
-export function useWallet() {
- const providers=useProviders();
- const [wallet,setWallet]=useState<Wallet>();
- const [message,setMessage]=useState('');
- const [connecting,setConnecting]=useState(false);
- let defaultProvider=providers[0]?.provider ?? window.ethereum;
- async function connect(provider=defaultProvider) {
-  if(!provider){setMessage('Open this page in your wallet browser, or install an Ethereum browser wallet.');return;}
-  setConnecting(true);setMessage('');
-  try {
-   const accounts=await provider.request({method:'eth_requestAccounts'}) as string[];
-   const chainId=Number(await provider.request({method:'eth_chainId'}));
-   if(!accounts[0] || !isAddress(accounts[0])) throw new Error('The wallet returned no address.');
-   const controller=new AbortController();
-   setWallet(prev=>{prev?.invalidate?.();return {provider,account:getAddress(accounts[0]),chainId,epoch:(prev?.epoch??0)+1,signal:controller.signal,invalidate:()=>controller.abort()};});
-  } catch {setMessage('Connection declined or unavailable. You can try again.');}
-  finally {setConnecting(false);}
- }
- useEffect(()=>{
-  if(!wallet)return;
-  const p=wallet.provider;
-  const changed=()=>{wallet.invalidate?.();setWallet(undefined);setMessage('Account or chain changed. Old transaction controls were cleared. Connect again to review receipts.');};
-  p.on?.('accountsChanged',changed);p.on?.('chainChanged',changed);p.on?.('disconnect',changed);
-  return()=>{p.removeListener?.('accountsChanged',changed);p.removeListener?.('chainChanged',changed);p.removeListener?.('disconnect',changed);};
- },[wallet]);
- async function switchChain(){
-  if(!wallet)return;
-  try {await wallet.provider.request({method:'wallet_switchEthereumChain',params:[{chainId:'0x1'}]});setWallet(undefined);setMessage('Ethereum selected. Connect again.');}
-  catch {setMessage('Choose Ethereum mainnet in your wallet, then connect again.');}
- }
- return {wallet,providers,connect,connecting,message,switchChain,disconnect:()=>{wallet?.invalidate?.();setWallet(undefined);}};
+type State={wallet?:Wallet;connectors:readonly Connector[];message:string;connecting:boolean;pending?:string;open:boolean};
+let state:State={connectors:[],message:'',connecting:false,open:false};
+const listeners=new Set<()=>void>();let config:Config|undefined;let generation=0;
+function update(patch:Partial<State>){state={...state,...patch};listeners.forEach(fn=>fn());}
+async function accountChanged(account:GetAccountReturnType){
+ const run=++generation;state.wallet?.invalidate?.();update({wallet:undefined});
+ if(!account.address||!account.connector)return;
+ const provider=await account.connector.getProvider() as Provider;if(run!==generation)return;
+ const controller=new AbortController();
+ update({wallet:{provider,account:getAddress(account.address),chainId:account.chainId??0,epoch:run,signal:controller.signal,invalidate:()=>controller.abort()},open:false,message:''});
 }
-export async function assertWallet(wallet:Wallet) {
- if(wallet.signal?.aborted)throw new Error('Wallet session changed. Connect again and review receipts.');
+export function walletConfig(){
+ if(config)return config;
+ const n=deployment.network;
+ const chain=defineChain({id:n.chainId,name:n.name,nativeCurrency:n.nativeCurrency,rpcUrls:{default:{http:n.rpcUrls}},blockExplorers:{default:{name:n.name,url:n.explorer}}});
+ config=createConfig({chains:[chain],multiInjectedProviderDiscovery:true,connectors:[injected(),coinbaseWallet({version:'4',appName:'Sworn',appLogoUrl:new URL('./assets/logo.svg',document.baseURI).href,preference:'all'})],transports:{[chain.id]:http(A.publicRpcs[0])}});
+ update({connectors:config.connectors});watchConnectors(config,{onChange:connectors=>update({connectors})});
+ watchAccount(config,{onChange:account=>{void accountChanged(account).catch(()=>update({message:'Wallet unavailable. Connect again.'}));}});
+ void Promise.resolve(config.storage?.getItem('recentConnectorId')).then(id=>{if(id&&config)void reconnect(config,{connectors:config.connectors.filter(c=>c.id===id)}).catch(()=>update({message:'Reconnect your wallet to continue.'}));});
+ return config;
+}
+async function connect(connector?:Connector){
+ if(!connector){update({open:true});return;}
+ update({connecting:true,pending:connector.uid,message:''});
+ try{await connectWallet(walletConfig(),{connector});}
+ catch{update({message:'Connection declined or unavailable. Select a wallet to try again.'});}
+ finally{update({connecting:false,pending:undefined});}
+}
+async function switchChain(){
+ const wallet=state.wallet;if(!wallet)return;
+ try{
+  try{await wallet.provider.request({method:'wallet_switchEthereumChain',params:[{chainId:`0x${A.chainId.toString(16)}`}]});}
+  catch(error){if(Number((error as {code?:number}).code)!==4902||!deployment.walletAddChain)throw error;await wallet.provider.request({method:'wallet_addEthereumChain',params:[deployment.walletAddChain]});await wallet.provider.request({method:'wallet_switchEthereumChain',params:[{chainId:deployment.walletAddChain.chainId}]});}
+  const chainId=Number(await wallet.provider.request({method:'eth_chainId'}));
+  if(chainId!==A.chainId)throw Error('Network was not changed');
+  if(state.wallet===wallet){const controller=new AbortController();wallet.invalidate?.();update({wallet:{...wallet,chainId,epoch:++generation,signal:controller.signal,invalidate:()=>controller.abort()},message:''});}
+ }catch{update({message:'Switch to Ethereum in your wallet, then try again.'});}
+}
+async function disconnect(){++generation;state.wallet?.invalidate?.();update({wallet:undefined,message:''});await disconnectWallet(walletConfig()).catch(()=>{});update({wallet:undefined});}
+export function useWallet(){
+ if(typeof document!=='undefined')walletConfig();
+ const s=useSyncExternalStore(cb=>{listeners.add(cb);return()=>listeners.delete(cb);},()=>state);
+ return {...s,connect,switchChain,disconnect,showConnect:()=>update({open:true,message:''}),closeConnect:()=>update({open:false})};
+}
+export async function assertWallet(wallet:Wallet){
+ if(wallet.signal?.aborted)throw Error('Wallet session changed. Connect again and review receipts.');
  const [chain,accounts]=await Promise.all([wallet.provider.request({method:'eth_chainId'}),wallet.provider.request({method:'eth_accounts'})]);
- if(wallet.signal?.aborted)throw new Error('Wallet session changed. Connect again and review receipts.');
- if(Number(chain)!==1) throw new Error('Wrong chain. Use Ethereum mainnet.');
- if((accounts as string[])[0]?.toLowerCase()!==wallet.account.toLowerCase()) throw new Error('Account changed. Connect again and review the flow.');
+ if(wallet.signal?.aborted)throw Error('Wallet session changed. Connect again and review receipts.');
+ if(Number(chain)!==A.chainId)throw Error('Wrong chain. Use Ethereum mainnet.');
+ if((accounts as string[])[0]?.toLowerCase()!==wallet.account.toLowerCase())throw Error('Account changed. Connect again and review the flow.');
 }
-export async function send(wallet:Wallet,tx:{to:Address;data:Hex;value?:bigint;gas?:bigint}) {
+export async function send(wallet:Wallet,tx:{to:Address;data:Hex;value?:bigint;gas?:bigint}){
  await assertWallet(wallet);
- return await wallet.provider.request({method:'eth_sendTransaction',params:[{from:wallet.account,to:tx.to,data:tx.data,value:'0x'+(tx.value??0n).toString(16),...(tx.gas ? {gas:'0x'+tx.gas.toString(16)} : {})}]}) as Hex;
+ return await wallet.provider.request({method:'eth_sendTransaction',params:[{from:wallet.account,to:tx.to,data:tx.data,value:'0x'+(tx.value??0n).toString(16),...(tx.gas?{gas:'0x'+tx.gas.toString(16)}:{})}]}) as Hex;
 }
