@@ -235,7 +235,7 @@ Errors: `NoCard(uint256)`, `UnknownTrait(uint16)`. The registry's `tokenURI(toke
   replay of a consumed attestation is reason 1.
 - The checks, in this order, with `INTEGRATION.md` section 4 as the long form and its reason codes (1 not pending,
   2 signer, 3 chainId, 4 answerType, 5 panel or quorum, 6 window, 7 expiry or dates, 8 rule, 9 decode, 10
-  questionHash):
+  questionHash; 11, for `settle` only, the Intake has not completed the request):
   1. `signature.length == 65` (else 2); `a.answer.length <= 2112` and, for a bool or uint256 kind, `== 32` (else 9);
      these run before any dynamic copy or hash; the expected kind comes from the pending trait, never from
      `a.answerType`.
@@ -245,20 +245,26 @@ Errors: `NoCard(uint256)`, `UnknownTrait(uint16)`. The registry's `tokenURI(toke
      (never `recover`); an error, a zero signer or a signer other than `attester` is 2.
   4. `a.answerType` equals the kind's code (bool 0 for kinds 4, 5, 6; uint256 3 for kinds 1, 2; address[] 4 for
      kind 3) (else 4).
-  5. `a.agreed >= a.quorum`, `a.quorum >= the kind's quorum`, `a.panelSize >= the kind's panel` (chain kinds 1, 2, 4:
-     5 / 3; kinds 3, 5, 6: 11 / 7) (else 5). The plane has signed below its own quorum; this check is what keeps a
-     below-quorum panel from becoming a permanent fact.
+  5. `a.panelSize` equals the kind's panel and `a.quorum` the kind's quorum **exactly**, the values the registry's own
+     body asks for (chain kinds 1, 2, 4: 5 / 3; kinds 3, 5, 6: 11 / 7), and `a.quorum <= a.agreed <= a.panelSize`
+     (else 5). Exact, never minimums: `panelSize` and `quorum` are outside the canonical document, so a body that
+     names the registry as consumer with a larger panel keeps the `questionHash`, and the plane closes a panel when
+     its quorum agrees, so 7 of 12 or 7 of 100 makes a wrong answer likelier than 7 of 11 (the spec-test audit,
+     2026-10-21). The plane has signed below its own quorum; this check is what keeps a below-quorum panel from
+     becoming a permanent fact.
   6. `a.fromBlock` and `a.toBlock` equal the pending record's window (else 6).
   7. Dates: `block.timestamp <= a.expiresAt`; `a.issuedAt <= block.timestamp + 1 hours`; `a.issuedAt >=
      p.requestedAt`; `a.issuedAt <= p.requestedAt + ISSUE_WINDOW` with `ISSUE_WINDOW = 1 days`; `a.expiresAt <=
      a.issuedAt + VALID_FOR_SECONDS` (2,592,000) (else 7). With `ABANDON_AFTER = 31 days` and the strict boundary of
      3.7, the latest second an attestation can be valid is `requestedAt + 31 days`, when no abandon is possible yet, so
-     a valid answer and an abandon are never both possible at one second.
+     a valid answer and an abandon are never both possible at one second (the claimant's early abandon of a request
+     the Intake completed, 3.7, is the claimant's own choice).
   8. `a.questionHash == p.questionHash` (else 10).
   9. The answer, decoded defensively (never a plain `abi.decode` on hostile bytes): kinds 1 and 2 `value >=
      threshold`; kinds 4, 5, 6 the word is 0 or 1 (else 9) and `== 1` (else 8); kind 3 the canonical envelope
-     (`length == 64 + 32 n`, word 0 `0x20`, word 1 `n`, `n` equal to the fact's `head` exactly, clean address words;
-     else 9).
+     (`length == 64 + 32 n`, word 0 `0x20`, word 1 `n`, `n` equal to the fact's `head` exactly, clean address words,
+     each entry at least `2**80`, so a list of amounts such as the measured wrong answer `0x016345785d8a0000` of
+     `templates/fixtures/negative/1201-grouped-by-data-field.json` is refused; else 9).
 - On success, personal: `verified[claimant][traitId] = (requestId, a.requestId, fromBlock, toBlock)`; a community id
   is appended once to `verifiedSpecsOf(claimant)`; `Verified`; `MetadataUpdate(tokenOf[claimant])` if a card exists.
   Shared: `sharedFact[factId] = (requestId, keccak256(a.answer), a.requestId, n)`; `SharedFactStored`. `verified()`
@@ -274,14 +280,20 @@ Errors: `NoCard(uint256)`, `UnknownTrait(uint16)`. The registry's `tokenURI(toke
   ever reverts on an envelope that decodes (a revert is a permanent `delivered == false` at the Intake).
 - `settle(requestId, a, signature)` by anyone, for a true verdict the Intake could not deliver (its `Completed`
   event says `delivered == false`; the attestation and the signature are the `args` of that `complete` transaction
-  and are served by the plane): the request is pending (`NotPending(requestId)` otherwise); the nine checks below run
-  in the same order and any reason reverts `NotSettleable(requestId, reason)`, so a miss is never applied here
-  (misses and failures come from the Intake only); then the same clear, the same writes and the same events as a
-  successful `onResult`. An attestation that passes the nine checks for the pending record is accepted whoever
-  submits it and whichever oracle request produced it: the `questionHash` binds the claimant and the window and
-  `issuedAt >= requestedAt` keeps earlier answers out, so this gives no power beyond a paid retry; an attestation is
-  applied once (a replay is reason 1 or `NotPending`). `settle` has no stipend and its caller pays the gas; it is the
-  registry's answer to a lowered `callbackGas` and to any later repricing (3.11).
+  and are served by the plane): the request is pending (`NotPending(requestId)` otherwise) **and the Intake has
+  completed it**: Intake v2's public getter `requests(requestId)` returns `(payer, callbackTarget, callbackSelector,
+  completed)` and `completed` must be true (`NotSettleable(requestId, 11)` otherwise). Then the nine checks above run
+  in the same order and any reason reverts `NotSettleable(requestId, reason)`, so a miss is never applied here (misses
+  and failures come from the Intake only); then the same clear, the same writes and the same events as a successful
+  `onResult`. Why the completion comes first (the spec-test audit, 2026-10-21): any payer can buy an attestation for
+  the registry's exact question, because the plane signs for the body's `consumer` and the canonical document leaves
+  out `consumer`, `panelSize`, `quorum`, `validForSeconds`, `toleranceBps` and `guards`. Without the rule a claimant
+  buys several panels and settles the first true answer before the registry's own verdict lands, and the first
+  `settle` of a shared fact chooses its permanent list. With it the registry's own verdict always arrives first, and
+  `settle` stores a true verdict only for a request whose own delivery failed; which oracle request produced that
+  attestation is not checked (the signed id is not the Intake id). An attestation is applied once (a replay is reason
+  1 or `NotPending`). `settle` has no stipend and its caller pays the gas; it is the registry's answer to a lowered
+  `callbackGas` and to any later repricing (3.11).
 
 ### 3.5 Shared facts (kind 3: 1201 and every kind-3 community spec)
 
@@ -313,7 +325,11 @@ Errors: `NoCard(uint256)`, `UnknownTrait(uint16)`. The registry's `tokenURI(toke
   (`[A-Za-z_][A-Za-z0-9_]*`, at most 32 bytes); each `param` is `type name` or `type indexed name`, single spaces,
   `type` from the closed list `address`, `bool`, `string`, `bytes`, `bytes1` to `bytes32`, `uint8` to `uint256` and
   `int8` to `int256` in steps of 8, each optionally followed by `[]`, and `name` an identifier of at most 32 bytes;
-  nothing before `event `, nothing after `)`. `anonymous` is refused for every event kind (an anonymous event has no
+  nothing before `event `, nothing after `)`. Every parameter is named: an unnamed parameter (`type,`, `type
+  indexed,`, `type indexed)`) and a parameter named `indexed` revert `BadSpec("item")`, so the topic position and the
+  three-indexed limit count every indexed parameter (the spec-test audit, 2026-10-21: `event Transfer(address indexed,
+  address indexed to, uint256 value)` registered with `to` read as topic 1, and four indexed parameters passed).
+  `anonymous` is refused for every event kind (an anonymous event has no
   topic 0, so neither the T1/T2 topic filter nor the T3 grouping topic would be right). An event declares at most
   three `indexed` parameters (`BadSpec("item")`): a log carries topic 0 and at most three indexed arguments, so a spec
   on a fourth would register, take its fee and never be answered (the audit of the first delivery, 2026-10-21). A
@@ -322,8 +338,11 @@ Errors: `NoCard(uint256)`, `UnknownTrait(uint16)`. The registry's `tokenURI(toke
   keeps the two guarantees that matter (no text outside the grammar's tokens; every identifier at most 32 bytes) in
   the smallest form that fits and records it in `test/NOTES.md`.
 - **A spec names only real fields.** Kinds 1 and 2: `arg` is an `indexed` parameter of `item` of type `address` (the
-  claimant filter, a topic); `fixedArg`, when set, an `indexed` parameter of `item` of any type (its value is a topic);
-  `sumArg` (kinds 2 and 3) a parameter of `item`, indexed or data. Kind 3: the grouping key `arg` is an `indexed`
+  claimant filter, a topic); `fixedArg`, when set, an `indexed` parameter of `item` of a static value type (`address`, `bool`, `bytes1`
+  to `bytes32`, `uint8` to `uint256`, `int8` to `int256`; never `string`, `bytes` or an array, whose topic is a hash
+  that no decimal `fixedVal` equals); `sumArg` (kinds 2 and 3) a parameter of `item` of an unsigned integer type
+  (`uint8` to `uint256`), indexed or data (a signed, address, bool, bytes or string sum has no defined uint256 answer,
+  and a negative sum in two's complement would pass every threshold). Kind 3: the grouping key `arg` is an `indexed`
   parameter of type `address`. Misses revert `BadSpec("arg")`, `BadSpec("fixedArg")` and `BadSpec("sumArg")`.
 - **Windows.** Kinds 1 to 4 require `fromBlock <= toBlock`, at least 7,200 inclusive blocks and `toBlock <= H - 64`;
   kind 5 `fromBlock == toBlock` and `toBlock + 7200 <= H`. `H` is `block.number` on chain 1, where `validateSpec`
@@ -339,10 +358,15 @@ Errors: `NoCard(uint256)`, `UnknownTrait(uint16)`. The registry's `tokenURI(toke
 
 ### 3.7 Abandon
 
-- `abandon(requestId)` only when `block.timestamp > requestedAt + ABANDON_AFTER` (31 days; strictly later: `TooEarly`
+- `abandon(requestId)` when `block.timestamp > requestedAt + ABANDON_AFTER` (31 days; strictly later: `TooEarly`
   before and at the exact second): a personal pair by its stored claimant only (`NotClaimant` for anyone else); a
-  shared fact (claimant zero) by anyone. It clears the pending record and the reverse index (only if it still equals
-  this id), emits `Abandoned`, returns no price. A late callback for the abandoned id is reason 1 and leaves a
+  shared fact (claimant zero) by anyone. **Earlier, a personal pair only:** its stored claimant may abandon it at once
+  when the Intake reports the request completed (`requests(requestId).completed`, as in 3.4) while it is still pending
+  here, since a false verdict or a failure the Intake did not deliver (empty failure args, a lowered `callbackGas`, an
+  undecodable tuple) would otherwise block the pair for 31 days; a true one can be stored with `settle` instead. A
+  shared fact keeps the 31 days, so no stranger abandons an undelivered true list before someone settles it (the
+  spec-test audit, 2026-10-21). It clears the pending record and the reverse index (only if it still equals this id),
+  emits `Abandoned`, returns no price. A late callback for the abandoned id is reason 1 and leaves a
   successor request untouched.
 
 ### 3.8 Fees
@@ -436,7 +460,7 @@ The live deployment of 2026-10-21 (#2362) fails the same way: 297,579 / 525,519 
 2. **One id per `upgrade`** (3.3), so no call grows with its input beyond the bounds the grammar already sets: every
    call at its largest input uses at most 15,000,000 gas under the Glamsterdam schedule (the transaction cap has been
    16,777,216 since Fusaka; 601 is the costliest single request).
-3. 3. **`settle`** (3.4) applies a signed true verdict the Intake could not deliver, so neither a lowered
+3. **`settle`** (3.4) applies a signed true verdict the Intake completed but could not deliver, so neither a lowered
    `callbackGas` nor a later repricing leaves a paid verdict unstorable.
 4. **How it is checked.** Foundry's EVM (`evm_version = "cancun"`) does not charge the Glamsterdam price, so the tests
    check structure: each callback path runs under a state-diff recording and asserts that no slot goes from zero to
@@ -459,7 +483,10 @@ indexed parameters of every type) and the no-data-field rule; 1201's fixture car
 Panels: kinds 1, 2, 4 at 5 / 3; kinds 3, 5, 6 at 11 / 7; `validForSeconds` 2,592,000 everywhere. Every body carries
 `consumer: {chainId: block.chainid, verifyingContract: <the registry, lowercase>}`; the top-level `chainId` stays 1.
 Every `definitions` entry is at most 512 characters and the question at most 1,000; the longest catalog text (T3)
-composes to 625 question and 398 definition bytes.
+composes to 625 question and 398 definition bytes. The T2 `definitions.units` value is the fixed text of `TEMPLATES.md`
+for every spec ("…e.g. wei for an ETH amount."): `<SUMARG>` fills only the places `TEMPLATES.md` marks with it (the
+spec-test audit, 2026-10-21: a generator substitution put the spec's `sumArg` into units); a golden with a `sumArg`
+other than `amount` proves it.
 
 The plane's `questionHash` is `keccak256` of the RFC 8785 canonical document of `INTEGRATION.md` section 4, check 7
 (`v`, `chainId`, `question`, `definitions`, `answerType`, `window.fromBlock`, `window.toBlock`, plus `head` when
@@ -693,7 +720,9 @@ expected reverts). In addition, by name:
    limits.
 2. Abandon: a stranger's `abandon` of a shared fact at day 15 reverts `TooEarly`, at day 32 succeeds and clears the
    pair; the claimant's personal abandon at day 32 succeeds; a stranger's personal abandon at day 32 reverts
-   `NotClaimant`.
+   `NotClaimant`. A request the mock Intake completed without delivery (empty failure args; a false verdict under a
+   10,000 stipend): the claimant's abandon succeeds at once, a stranger's reverts `NotClaimant`; a shared fact so
+   completed still reverts `TooEarly` until day 32; a pending request the Intake has not completed reverts `TooEarly`.
 3. Dates: an attestation issued before the request, one issued two days after it, and one valid for 31 days each miss
    with 7 and clear the pair; one issued 23 hours after the request and valid for 30 days passes; at the exact second
    `requestedAt + 31 days` a delivery still verifies and `abandon` reverts `TooEarly`; one second later `abandon`
@@ -721,12 +750,15 @@ expected reverts). In addition, by name:
    signature or answer still ends as a miss under the stipend), the transition table of `INTEGRATION.md` section 4b,
    the diagnostic precedence, a replay (reason 1), the worst-case gas; after a `Missed` delivery `pendingOf` is zero
    and a new request for the same trait succeeds. `upgrade` with two ids reverts `TooManyTraits(2)` and with none
-   `NoTraits`, nothing pulled.
+   `NoTraits`, nothing pulled. Panel: `panelSize` 12, 100 or 1,000 at quorum 7 (kinds 3, 5, 6), 6 or 100 at quorum 3
+   (kinds 1, 2, 4), quorum 8 at panel 11, and `agreed > panelSize` each miss with 5.
 9. Kind 3: a decoded list shorter or longer than `head` misses with 9 and stores nothing; `applySharedFact` with a
    list that hashes right and a sender outside the head reverts `NotInList`; `registerSpec` refuses an anonymous
    kind-3 event and a non-address grouping key with `BadSpec("item")` / `BadSpec("arg")`; `event Receipt(address
    indexed account, address indexed sender, uint256 value) anonymous` grouped by `account` is the regression;
-   `Transfer` grouped by `to` composes "topic 2".
+   `Transfer` grouped by `to` composes "topic 2"; the answer of the negative fixture
+   `templates/fixtures/negative/1201-grouped-by-data-field.json` (amount words below `2**80`) misses with 9 and stores
+   nothing.
 10. Specs: `toBlock = block.number - 1` reverts, `block.number - 64` passes, and on chain 1 a wrong `blockNumber`
     argument changes nothing; two registrations in one block with the wrong `expectedId` revert, `expectedId 0` always
     registers; the maximal spec registers, composes and fits the body caps (fuzz); ids end at 65,534. The rules of 3.6:
@@ -734,10 +766,14 @@ expected reverts). In addition, by name:
     "hour"` on `Deposited` passes and `fixedArg = "amount"` reverts; `sumArg = "weightAdded"` passes and `sumArg =
     "nothing"` reverts; an item padded with English words reverts `BadSpec("item")`; `anonymous` reverts for kinds 1, 2
     and 3; an event with four `indexed` parameters reverts `BadSpec("item")` for kinds 1, 2 and 3 (`arg` or
-    `fixedArg` on the fourth); the catalog's items and the fixtures' items pass; every guard reverts before any fee is
-    pulled.
+    `fixedArg` on the fourth); `event Transfer(address indexed, address indexed to, uint256 value)`, `event E(address
+    indexed, address indexed, address indexed, address indexed who)` and a parameter named `indexed` revert
+    `BadSpec("item")`; a `sumArg` of type `int256`, `address`, `bool`, `bytes32` or `string` reverts `BadSpec("sumArg")`
+    and `uint8` to `uint256` pass; a `fixedArg` on an indexed `string`, `bytes` or array reverts `BadSpec("fixedArg")`;
+    the catalog's items and the fixtures' items pass; every guard reverts before any fee is pulled.
 11. Composer goldens: every fixture body byte for byte; every fixture's canonical-document keccak equal to
-    `reference/plane/questionHashes.json`; the T6 fixture.
+    `reference/plane/questionHashes.json`; the T6 fixture; a T2 body composed with `sumArg = "weightAdded"` carries the
+    `definitions.units` text of `TEMPLATES.md` byte for byte.
 12. Attestations: signature recovery over the five served attestations in `reference/attestations/` (three under the
     zero domain, two under their consumer's domain; the loader maps the JSON `answerType` name to its code and rejects
     unknown names).
@@ -762,9 +798,11 @@ expected reverts). In addition, by name:
     spec at the field limits, `registerSpec` of the maximal spec, `mintCard`, `applySharedFact` of 32) computed the
     same way stays under 15,000,000; a prepared slot reads as nothing in `hasTrait`, `verified`, `verifiedSpecsOf`,
     `traitsOf`, `sharedFact` and `tokenURI` after a miss, a failure and an abandon.
-18. `settle`: a true verdict whose delivery runs out of gas (a mock Intake with a 60,000 stipend) leaves the request
-    pending and stores nothing; `settle` with that attestation by a stranger stores it with the same events as
-    `onResult`; a second `settle`, a `settle` after the Intake's own delivery, after `abandon` or for an unknown id
+18. `settle`: before the mock Intake completes a pending request, `settle` with a valid true attestation (also one
+    from another oracle request for the same question, and one with `panelSize` 100 at quorum 7) reverts
+    `NotSettleable(requestId, 11)`; a true verdict whose delivery runs out of gas (a mock Intake with a 60,000 stipend)
+    leaves the request pending and stores nothing; `settle` with that attestation by a stranger stores it with the
+    same events as `onResult`, and with `panelSize` 100 at quorum 7 it reverts `NotSettleable` with 5; a second `settle`, a `settle` after the Intake's own delivery, after `abandon` or for an unknown id
     reverts `NotPending`; a false verdict, a wrong signer, a wrong window and an early `issuedAt` revert
     `NotSettleable` with reasons 8, 2, 6 and 7 and leave the request pending; a shared fact settles and
     `applySharedFact` works on it.
@@ -850,7 +888,10 @@ the panel-minima cross-check and the sentence that a rendering is not a credenti
 and the T6 fixture with the plane's `questionHash`. From the audit of this specification's first delivery (2026-10-21:
 swarm job 6571be23, commit `fd7d7bde`, deployed on Sepolia at Registry `0x6b69e5644a7caaf6e2d189bd57abfdaa74ac4fb8`; a
 12-agent solidity-auditor pass): the Glamsterdam rules of 3.11, `settle`, one id per `upgrade` and the refusal of a
-fourth indexed parameter (D8). Kept from the beginning: ids, rules, windows, thresholds, templates, fixtures, the
+fourth indexed parameter (D8). From the three-pass audit of the spec-test delivery (2026-10-21: swarm job 00b86a67,
+commit `4255293d`, 3 x 12 solidity-auditor agents): the completion rule of `settle` and the claimant's early abandon
+of a completed request, the exact panel check, named parameters only, the typed `sumArg` and `fixedArg`, the `2**80`
+floor of a list entry and the fixed T2 units text (D9). Kept from the beginning: ids, rules, windows, thresholds, templates, fixtures, the
 questionHash document, the card model, the card design, the compiler settings. What the earlier cuts said about
 regenerating owner-written tables or keeping owner-written files is void here: there are none.
 
@@ -885,4 +926,9 @@ Decisions the owner took for this branch (2026-10-21), with the default applied 
 - D8 (later the same day, after the audit of the first delivery) every function call works under Glamsterdam's gas
   schedule, the deployment excepted (3.11); a public `settle` stores a signed true verdict the Intake could not
   deliver (3.4); `upgrade` takes one id, since a batch saves no IMD (3.3); an event with a fourth indexed parameter
-  is refused before the fee (3.6).
+  is refused before the fee (3.6);
+- D9 (after the three-pass audit of the spec-test delivery the same day; the owner: "go with your recommendations"):
+  `settle` only after the Intake completed the request (3.4), panel and quorum checked for exact equality and `agreed`
+  within them (3.4, check 5), every event parameter named (3.6), `sumArg` of an unsigned integer type and `fixedArg`
+  of a static type (3.6), a list entry at least `2**80` (3.4, check 9), the claimant's early abandon of a completed
+  undelivered personal request (3.7), the T2 units text fixed (4.1).

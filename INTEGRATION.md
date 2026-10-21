@@ -257,8 +257,11 @@ runtime bytes).
    `a.answer.length <= 2112` (64 ABI-encoded addresses) and, for the pending bool/uint256 kind,
    `a.answer.length == 32` (otherwise reason 9). The expected kind comes from the pending trait, not the untrusted
    `a.answerType`. Only then check `a.chainId == QUESTION_CHAIN_ID` (1), followed by the recovered signer == attester.
-3. `a.answerType` equals the template's type; `a.agreed >= a.quorum`, `a.quorum >= the template's quorum` (3 for
-   kinds 1, 2, 4; 7 for kinds 3, 5, 6), `a.panelSize >= the template's panel size` (5, or 11).
+3. `a.answerType` equals the template's type; `a.panelSize` and `a.quorum` equal the template's panel and quorum
+   exactly (5 / 3 for kinds 1, 2, 4; 11 / 7 for kinds 3, 5, 6) and `a.quorum <= a.agreed <= a.panelSize`. Both fields
+   are outside the canonical document (check 7), so a minimum would accept a larger panel that a third party ordered
+   for the same question, and a panel that closes at its quorum errs more often the larger it is
+   (`docs/REBUILD.md` 3.4).
 
    **The plane can attest below its own quorum, and the consumer then pays for nothing.** Measured 2026-10-18 on two
    paid T3 requests of this registry (plane ids `cb72b826`, `4ee4290d`, panel 5 / quorum 3): four seats answered, two
@@ -287,7 +290,11 @@ runtime bytes).
    on the x402 pilot, whose quote hash equals its attested hash. The registry computes the document from the same
    parameters it composes the body from, at request time, and stores the hash in the pending record; the callback
    compares one word. This binds the attestation to the exact question the registry asked, so a writer that pairs
-   claimant A's attestation with claimant B's request, or one trait's with another's, produces a miss, not a trait.
+   claimant A's attestation with claimant B's request, or one trait's with another's, produces a miss, not a trait,
+   unless the two questions are identical: a community spec that copies a catalog spec field for field composes the
+   same document, so one attestation verifies both, and both ask the same fact. The hash binds the question, not the
+   request: a third party can buy an attestation for the same document with other `panelSize`, `quorum`,
+   `toleranceBps` or `guards`, which is why check 3 is exact and `settle` waits for the Intake's completion (4b).
    The golden test asserts that the `questionHash` of the canonical document (`keccak256(canonicalDocument)`,
    the keccak of the document, never of the body: the body's keccak is a different value) equals the plane's value
    for all ten fixtures (`reference/plane/questionHashes.json`).
@@ -295,7 +302,8 @@ runtime bytes).
    the word 0 or 1); otherwise reason 9. For `address[]` (T3) the callback does not decode the list; it checks the
    canonical envelope: `answer.length == 64 + 32 * n`, word 0 == `0x20`, word 1 == `n`, `n` equal to the fact's
    `head` exactly, and the upper
-   12 bytes of every element word are zero. A malformed envelope is reason 9 and **does not store the shared fact**,
+   12 bytes of every element word are zero, and every element is at least `2**80` (a list of amounts, as in
+   `templates/fixtures/negative/1201-grouped-by-data-field.json`, is refused). A malformed envelope is reason 9 and **does not store the shared fact**,
    so the fact can be requested again. On success it stores `(requestId, keccak256(a.answer), n)`, nothing else.
    A plain `abi.decode` on hostile bytes reverts, and a revert in `onResult` is a permanent `delivered == false`.
 9. One shape. The registry accepts the 15-field struct only. A different wire tuple does not decode as this function's
@@ -308,7 +316,7 @@ The size checks precede EIP-712 hashing and signature recovery; the subsequent q
 document are unchanged.
 
 **`Missed` reason codes** (uint8): 1 not pending, 2 signer, 3 chainId, 4 answerType, 5 panel or quorum, 6 window,
-7 expiry, 8 rule, 9 decode, 10 questionHash. (The round-1 code 10, "requestId mismatch", is retired: the signed id is
+7 expiry, 8 rule, 9 decode, 10 questionHash, 11 not completed by the Intake (`settle` only). (The round-1 code 10, "requestId mismatch", is retired: the signed id is
 not the Intake id.)
 
 ### 4b. Transition table (every pending request ends in exactly one row)
@@ -329,13 +337,15 @@ at the current head); for a shared-fact request `claimant == address(0)` and `tr
 | `onResult` or `onFailure`, `requestId` unknown (abandoned, consumed, never ours) | Intake | nothing | nothing | `Missed(reason 1)` |
 | `onFailure` (status 1 or 2) | Intake | clear | nothing; the pair may be requested again | `NoVerdict` |
 | `onResult` that ran out of gas or reverted (`delivered == false` at the Intake) | Intake | nothing: the revert undoes the call, the pair stays pending | nothing | none |
-| `settle(requestId, a, signature)`, all nine checks pass | anyone | clear | as the two "all checks pass" rows | as those rows |
+| `settle(requestId, a, signature)` after the Intake completed the request (`requests(requestId).completed`), all nine checks pass | anyone | clear | as the two "all checks pass" rows | as those rows |
+| `settle` before the Intake completed the request | anyone | revert `NotSettleable(requestId, 11)`; the pair stays pending | | |
 | `settle` with any reason 2 to 10 | anyone | revert `NotSettleable(requestId, reason)`; the pair stays pending | | |
 | `settle` of an id that is not pending | anyone | revert `NotPending(requestId)` | | |
 | `abandon(requestId)` when `block.timestamp > requestedAt + 31 days` (strictly later), personal | stored claimant only | clear | nothing | `Abandoned` |
 | `abandon(requestId)` when `block.timestamp > requestedAt + 31 days` (strictly later), shared (`claimant == 0`) | anyone | clear | nothing | `Abandoned` |
 | `abandon` of a personal request after the deadline by a stranger | anyone but its claimant | revert `NotClaimant()` | | |
-| `abandon` earlier, including the exact second `requestedAt + 31 days` | anyone | revert `TooEarly()` | | |
+| `abandon(requestId)` of a personal request the Intake completed (`requests(requestId).completed`) while it is still pending here, at any time | stored claimant only | clear | nothing | `Abandoned` |
+| `abandon` earlier, including the exact second `requestedAt + 31 days`, except the row above | anyone | revert `TooEarly()` | | |
 | late callback for an abandoned request | Intake | as the unknown-id row: the successor request's reverse index is untouched, because the index is cleared only when it equals the stale id | | `Missed(reason 1)` |
 | not called back, not abandoned | | stays pending; at most one pending request per pair, so a new `upgrade` for the pair reverts | | |
 

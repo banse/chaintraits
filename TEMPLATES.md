@@ -69,7 +69,8 @@ Spec fields: `<C>`, `<EVENT>`, `<ARG>`, optional `<FARG>`+`<FVAL>`, `<N>`, windo
 >
 > Fixture: `templates/fixtures/T2-log-sum-composed.json` (composed from this template; checked and quoted 2026-10-12).
 
-Spec fields: as T1 plus `<SUMARG>`. No catalog trait uses it; wave-two families (degen volume, whale receiver by sum) do.
+Spec fields: as T1 plus `<SUMARG>`, which fills the question only; `definitions.units` is the fixed text above for
+every spec. No catalog trait uses it; wave-two families (degen volume, whale receiver by sum) do.
 
 ### T3 log-rank, shared fact (`evidence: chain`, `answerType: address[]`, `head <= 32`, panel 11 / quorum 7)
 
