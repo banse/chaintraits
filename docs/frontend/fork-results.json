@@ -1,0 +1,35 @@
+{
+  "at": "2026-10-21T19:57:06.085Z",
+  "checks": [
+    "Configured chain, deployed bytecode and all seven dependencies match on the pinned fork.",
+    "Actual source lookup before mint returns tokenOf=0 and a decoded live Renderer preview using compiler-derived storage slots.",
+    "Exact-output ETH→IMD swap executes against live fork contracts; receives exactly 12 IMD, respects 1% maximum, and refunds unspent ETH in the same transaction.",
+    "Mint consumes an exact 0.10 IMD approval, forwards the fee to the live executor, and the actual source lookup switches to the minted wallet’s own tokenURI.",
+    "Registry simulation refuses a multi-id upgrade.",
+    "Kind-3 spec id 10001 is read from SpecRegistered; requestSharedFact requests that own id, never 1201 or upgrade.",
+    "With a labelled verified-state fixture, applySharedFact grants the registered community id and leaves catalog id 1201 unclaimed.",
+    "EIP-6963 lists the named extension and hides the generic row; wrong-chain control switches with 4902 add-chain fallback using exact manifest parameters.",
+    "Mint journal prepares exact approval and mint; a wallet rejection appears beneath the failed step with rejected state.",
+    "Browser journal retries after rejection, sends actual fork approval then mint, records receipts, refreshes to the minted tokenURI and disables a second mint.",
+    "Selecting three personal facts produces an exact 1.5 IMD total, one exact approval and three individually numbered upgrade calls before signing.",
+    "Three separate requests confirm on the fork; reload never sends and hash recovery reads a receipt without broadcasting.",
+    "A controlled live-price change stops a prepared request before any wallet signature.",
+    "ETH preparation quotes only the IMD deficit, shows exact maximum wei and a refund commitment; a 121-second clock advance expires the quote without sending.",
+    "A real fork transaction replacement leaves the original step unknown, shows both hashes and disables continuation until receipt recovery; replacement is never marked as the prepared action’s success.",
+    "An RPC outage clears write readiness; retry recovers live reads without reloading.",
+    "An unconnected iPhone context shows four official wallet marks and open-in links, Coinbase Smart Wallet, and a bottom-aligned sheet."
+  ],
+  "limitations": [
+    "Anvil impersonation is used only inside an isolated fork. No private key is required and no mainnet transaction is broadcast.",
+    "Shared application uses an explicitly injected verified-state fixture after a real kind-3 request; it does not test a real panel callback or signature."
+  ],
+  "blockNumber": 26243215,
+  "swap": {
+    "output": "12000000000000000000",
+    "quotedInputWei": "29379139510201358",
+    "maximumWei": "29672930905303372",
+    "actualInputWei": "29379139510201358",
+    "refundedWei": "293791395102014",
+    "deadlineSeconds": 120
+  }
+}

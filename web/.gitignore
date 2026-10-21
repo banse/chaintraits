@@ -1,0 +1,8 @@
+# Path budget: this single web/.gitignore; frontend generated dependencies only.
+node_modules/
+**/node_modules/
+.vite/
+**/.cache/
+coverage/
+test-results/
+playwright-report/

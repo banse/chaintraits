@@ -1,0 +1,14 @@
+{
+  "market": {
+    "currency0": "0x0000000000000000000000000000000000000000",
+    "currency1": "0xD34a99Bc0f67aE1bbd63C660e6d0b0dd03E263B7",
+    "fee": 10000,
+    "tickSpacing": 200,
+    "hooks": "0x0000000000000000000000000000000000000000"
+  },
+  "id": "0xb07d640fd9e2eb9dc81b953c8e4fd006bdfeaf276010fb5418eb763ca15abfb3",
+  "initializeTransaction": "0x95f51e7d456c9df25ba6fe56569e08a5f7d3e781f4d34ed532fb191dc2ceabd1",
+  "initializeBlock": "0x1873e9f",
+  "observedLiquidity": "9161877728594052979200",
+  "source": "https://ethereum-rpc.publicnode.com"
+}

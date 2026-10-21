@@ -1,55 +1,79 @@
-# Sworn design implementation
+# Sworn: implemented frontend design
 
-This documents the implemented frontend in `web/src`, preserving the reviewed site as the approved workflow requires. The root `DESIGN.md` requested by the general acceptance text is placed here because the assignment's overriding path budget permits `docs/**`, `web/**` and `dist/**`, and does not permit a root document.
+## Overview
 
-## Visual direction
+Sworn is a compact reference and transaction interface for an ownerless Ethereum registry. The implementation in `web/src/` preserves the specification's terminal character: dark canvas, system monospace, green hive artwork, square controls and thin structural rules. Facts, their sources and their consequences lead each task.
 
-An ownerless Ethereum registry presented as a compact terminal-style reference: dark background, green hive imagery, monospace text, square controls, thin structural rules, and source links beside claims. Existing pages, palette, card art, source excerpts, section labels and typography are retained. Wallet and pool components use that same system.
+The landing pairs the exact approved headline with an address form and a Renderer-generated illustration. At 390 pixels the product and Explore wallet action appear on the first screen. Claim starts with minting; longer paid and community flows follow in numbered steps. Eight hash routes share the header, deployment footer and runtime configuration.
 
-## Tokens and typography
+This document is under `docs/` because the overriding path budget excludes a repository-root `DESIGN.md`. It replaces the earlier design record's obsolete implementation claims with the delivered source.
 
-Source: `web/src/styles.css:1`.
+## Colors
 
-| Role | Implemented value |
+Canonical definitions are in `web/src/styles.css`, `:root`.
+
+| Token | Value | Use |
+| --- | --- | --- |
+| `--bg` | `#0a0a0a` | Canvas, inputs and modal |
+| `--text` | `#d9e0da` | Primary text and keyboard focus |
+| `--muted` | `#8c968e` | Secondary text, captions, source line numbers |
+| `--faint` | `#5f6861` | Input borders and structural emphasis |
+| `--rule` | `#1f1f1f` | Section and row separators |
+| `--row-rule` | `#151515` | Subtle hover and disabled surfaces |
+| `--accent` | `#00ff41` | Links, main action and confirmed state |
+| `--direct` | `#00cc33` | Direct-read evidence |
+| `--shared` | `#dbfee6` | Shared evidence and primary hover |
+| `--panel` | `#8ff0a4` | Panel-sworn evidence |
+| `--danger` | `#ff7777` | Errors and rejected/failed/unknown steps |
+
+Evidence classes always have names alongside color. A white dot marks a rare id. The faint token is not used for instructional text. Text contrast is measured against resolved solid backgrounds by the design probe; coverage and remaining visual limits are recorded in `web/TEST-NOTES.md`.
+
+## Typography
+
+The stack is `ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`; no font download is needed. Weights are 400 and 600, with tabular numbers throughout. Root body text is 13px/1.6. `.prose` is 15px/1.65 with a 75-character maximum measure.
+
+The six content tokens are `--label: 11px`, `--small: 12px`, `--body: 13px`, `--prose: 15px`, `--title: 24px`, and `--display: 34px`. The mobile input exception is 16px to avoid iOS focus zoom. The 20px close glyph is an icon treatment. Page headings use 24px/1.3; the landing headline uses 34px/1.25 and -0.03em tracking. Section and step headings use 15px/1.5. Labels and table headers follow the required 11px uppercase style where appropriate; instructions remain at least 12px.
+
+The exact uppercase headings WHY SWORN and BUILT BY THE SWARM and monospace prose are specification requirements. They intentionally override the review probe's generic casing and prose-font preferences. Addresses, hashes and critical values wrap; they are never ellipsized. Code preserves whitespace in labelled scroll regions. Raw Renderer metadata remains available as lossless original JSON text.
+
+## Layout
+
+Shared page containers have a 1264px outer maximum and 32px inline padding. The spacing vocabulary is a 4px scale: 4, 8, 12, 16, 20, 24, 32, 40 and 48px. Main padding is 40px above and 72px below. Sections use 48px separation and a 24px inset after their rule.
+
+The landing and Explorer use two columns, while evidence descriptions use four. The mint text precedes its image in DOM order. Controls, status and relevant instructions stay in the same group. Receipt errors appear within the step they belong to.
+
+At 1150px the header navigation wraps; the brand stays at the left and Connect at the right. At 900px evidence descriptions become two columns. At 780px landing, Explorer, mint and comparison layouts stack; catalog rows become answer-first two-line rows. At 640px forms, census bands and remaining grids stack, and the wallet dialog becomes a bottom sheet. At 600px gutters become 16px, main top padding 28px, input text 16px, and the dense chart is omitted. Contract addresses wrap onto their own lines. The 66-hour census is the sole sideways-scrolling data table and has a visible cue. Other data rows reflow without horizontal page scrolling.
+
+Rendered checks cover 320, 390, 780, 1280 and 1440px. The design probe independently covers 320, 390 and 1440px. Native browser zoom, translated content and physical-device behavior have not been certified.
+
+## Elevation & Depth
+
+The interface is flat: no shadows, gradients, entrance animation or continuous motion. Thin borders express structure, selection and disabled state. The native wallet dialog uses a black 80% backdrop, a faint border and normal browser modal focus containment. It is the only elevated overlay.
+
+## Shapes
+
+Buttons, inputs and sections are square. The hive is the distinguishing shape, rendered by the deployed Renderer. Interactive cell hit regions use geometry extracted from that SVG and retain rectangular visible keyboard focus. Buttons are at least 44px high; wallet rows are at least 48px. Links used as block citations have 24px targets.
+
+## Components
+
+| Component / source | Purpose and behavior |
 | --- | --- |
-| Page background | `--bg: #0a0a0a` |
-| Main text | `--text: #d9e0da` |
-| Secondary text | `--muted: #8c968e` |
-| Faint rules/numbers | `--faint: #5f6861` |
-| Structural borders | `--rule: #1f1f1f`; `--row-rule: #151515` |
-| Primary action / links | `--accent: #00ff41` |
-| Direct facts | `--direct: #00cc33` |
-| Shared facts | `--shared: #dbfee6` |
-| Panel facts | `--panel: #8ff0a4` |
-| Errors | `--danger: #ff7777` |
-| Typeface | `ui-monospace, SFMono-Regular, Menlo, Consolas, monospace` |
+| `App` / `App.tsx` | Shared header/footer, active navigation, route titles, focus on `#main`, dependency status, RPC choice and recovery |
+| `AddressForm` / `components.tsx` | Persistent label, pasteable address, inline validation, focus on the invalid field, Explore submission |
+| `Section`, `Status`, `Mark`, `Sources` / `components.tsx` | Reusable content grouping, polite status text, named evidence classes and block source citations |
+| `Card` / `components.tsx` | Explicit illustration/preview/minted caption; authentic Renderer SVG; keyboard-operable family inspection |
+| `CodeBlock` / `components.tsx` | Copy control, recoverable clipboard error and labelled code scrolling |
+| `WalletProvider`, `ConnectControl` / `wallet.tsx` | EIP-6963 names/icons, mobile open-in links, Coinbase option, native modal, wrong-chain switch/add, disconnect and provider restoration |
+| `Claim`, `CommunityForm`, `SharedFact`, `Settlement` / `claim.tsx` | Mint first, one payment group, one oracle acknowledgement, per-field grammar checks, shared-fact status and simulated verdict storage |
+| `TransactionJournal` / `transactions.tsx` | Exact amount and per-fact price, numbered simulation/signature/receipt states, rejection/replacement recovery and receipt-only persistence |
+| `WalletFactRows` / `components.tsx` | Proven / absent / not claimed / impossible / pending states, proof window and claim links |
 
-Root type is 13px/1.55 with tabular numbers. Existing display sizes are 34px for the landing headline, 24px for page titles and mint title, and 15px for ordinary headings. Prose uses 13px or 15px/1.6; mobile measure text uses 14px. Supporting sizes are 12px, 11px and 10px. Weights are 400, 500 and 600. Inputs become 16px at 600px and below to avoid iOS focus zoom. The probe reports seven repeated sizes/eight including one-offs; this inherited scale and monospace prose are retained under the no-redesign instruction rather than described as meeting the probe's six-size preference.
+`primary` buttons use the green fill for the central action. Secondary buttons have a visible faint border, green hover border/text and green pressed fill with dark text. Disabled controls state their reason in adjacent text. `:focus-visible` has a 2px foreground outline with 4px offset. Native dialog behavior traps focus, closes on Escape/backdrop/close and restores its trigger.
 
-Uppercase tracked section labels (`.12em`), table labels, the `.22em` brand and source-caption treatment are part of the reviewed design. Addresses and critical values wrap; exact numeric formatting is always en-US and never uses floating-point conversion for token amounts. Long code tables scroll in labelled keyboard-focusable regions, with a mobile scrolling cue.
+## Do's and Don'ts
 
-## Layout and surfaces
+Start a new route from the shared container and `Section`, preserve the heading outline and reuse the six content size tokens. Keep the immediate action above long explanations. Put error and progress text beside the control that starts the operation. Preserve exact addresses, integers, fee consequences and full receipt hashes.
 
-The page maximum width is 1200px with 32px horizontal gutters; narrow content is 976px. Gutters become 16px at 600px. Main top spacing is 38px, reduced to 24px on phones. Sections use 30px vertical spacing, reduced to 24px. The existing spacing vocabulary includes 4/8/12/16/20/24/28/32/36px, with 44px controls and 48px numbered columns.
+Reuse the authentic deployment loader and ABI assets; a Renderer image alone is not a credential. Label synthetic artwork, clear failed live results and retain a recovery action. Keep the specified terminal palette, square controls and motion-free behavior. Do not introduce new deployment maps or replace an unavailable read with invented data.
 
-All surfaces and controls remain square. Borders organize tables, sections, forms and mint content; there are no card shadows or gradient text. The wallet overlay has a black 75% backdrop and a native modal dialog with the page's dark surface. Its content has 16px padding and 48px minimum wallet rows. There are no animated transitions or autoplay effects, including under reduced motion.
-
-## Components and behavior
-
-- Header: hive brand at the left, named page links, one Connect control at the right. At 1100px and below navigation occupies a second row.
-- `AddressForm`: persistent visible label, pasteable input, inline validation, focus on the invalid field, and Explore wallet submission. The landing product and action are visible at 390×844.
-- `Section`, `Table`, `ClassMark`, `Source`, `MiniCard`: reused from the reviewed site. Evidence classes have words as well as color. Synthetic static previews are identified as illustrations.
-- Explorer: a read status, live image, 13-family summary, all 25 trait results, proof links, pending states and lossless raw metadata. A wallet with no mint is labelled as a preview. Failures clear old results and offer Retry reads.
-- Claim: the mint action precedes the longer explanatory flow so it is visible on the first phone screen. Existing explanation, trait classes, payment choices, previews and numbered transaction flow remain. The live Intake price and sponsor-pool balance are adjacent immediately above the pool action, with explicit eighth-of-pool/2 IMD/zero-price warnings.
-- Transaction journal: exact purchase, exact approval, Registry call, explicit wallet confirmations, receipt links, pending/rejection/failure/replacement/recovery states, five named burn reasons and the receipt-derived spec id. A reload never resends a transaction automatically.
-- Wallet picker: EIP-6963 names and icons, generic Browser wallet only when unnamed, Coinbase Wallet/passkey support, and four mobile in-wallet links. Native modal focus containment, Escape/backdrop/close dismissal and focus restoration. It is a bottom sheet below 640px; desktop width is at most 420px. Connected state displays the short checksum address and Disconnect; wrong chain offers Switch to Ethereum.
-
-## Responsive behavior
-
-At 1100px the header wraps and address controls may wrap. At 900px class cards form two columns. At 780px the landing, Explorer, mint panel and three-column stories become single-column layouts; the mint controls precede their image. At 640px class cards, flow steps and hour bands stack, and the wallet picker becomes a bottom sheet. At 600px gutters, spacing, forms, contract address rows and footer controls adapt to the phone width. Tables retain their readable minimum width inside their own scroll regions.
-
-Rendered overflow and interaction checks cover 320, 390, 780 and 1280px; the design probe also covers 1440px. Contrast checks cover resolved solid text/background pairs, not every pixel of SVG art. Decorative source-line numbers retain the reviewed `#5f6861` value and are hidden from assistive technology; their measured 3.43:1 ratio is recorded as an exception, not an AA claim.
-
-Use native controls, existing tokens, wrapped full addresses and explicit read/error states. Preserve the hive drawing, source quotations and reviewed palette. Do not show synthetic artwork as a live wallet result, enable signatures before deployment verification, or use card ownership as a credential.
-
-Design guidance attribution is retained in `web/LICENSES/Better-Interface.txt`; wallet mark attribution is in `web/LICENSES/RainbowKit.txt`. Coverage and limitations are recorded in `web/TEST-NOTES.md`.
+Guidance attribution is in `web/LICENSES/Better-Interface.txt`; wallet mark attribution is in `web/LICENSES/RainbowKit.txt`. The consolidated six-domain review and measured validation are in `web/TEST-NOTES.md`.

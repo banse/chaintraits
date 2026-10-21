@@ -1,0 +1,301 @@
+{
+  "at": "2026-10-21T19:56:42.937Z",
+  "browsers": {
+    "chromium": "156.0.8078.4",
+    "webkit": "27.2"
+  },
+  "pages": [
+    {
+      "route": "/",
+      "width": 320,
+      "scroll": 320,
+      "h1": "Facts about wallets, onchain and sworn by the swarm.",
+      "title": "Sworn | Home"
+    },
+    {
+      "route": "/catalog",
+      "width": 320,
+      "scroll": 320,
+      "h1": "Catalog",
+      "title": "Sworn | Catalog"
+    },
+    {
+      "route": "/explorer",
+      "width": 320,
+      "scroll": 320,
+      "h1": "Explorer",
+      "title": "Sworn | Explorer"
+    },
+    {
+      "route": "/claim",
+      "width": 320,
+      "scroll": 320,
+      "h1": "Claim",
+      "title": "Sworn | Claim"
+    },
+    {
+      "route": "/fact-vs-artifact",
+      "width": 320,
+      "scroll": 320,
+      "h1": "Fact vs artifact",
+      "title": "Sworn | Fact vs artifact"
+    },
+    {
+      "route": "/integrate",
+      "width": 320,
+      "scroll": 320,
+      "h1": "Integrate",
+      "title": "Sworn | Integrate"
+    },
+    {
+      "route": "/whitelistcurator",
+      "width": 320,
+      "scroll": 320,
+      "h1": "WhitelistCurator",
+      "title": "Sworn | WhitelistCurator"
+    },
+    {
+      "route": "/about",
+      "width": 320,
+      "scroll": 320,
+      "h1": "About Sworn",
+      "title": "Sworn | About"
+    },
+    {
+      "route": "/",
+      "width": 390,
+      "scroll": 390,
+      "h1": "Facts about wallets, onchain and sworn by the swarm.",
+      "title": "Sworn | Home"
+    },
+    {
+      "route": "/catalog",
+      "width": 390,
+      "scroll": 390,
+      "h1": "Catalog",
+      "title": "Sworn | Catalog"
+    },
+    {
+      "route": "/explorer",
+      "width": 390,
+      "scroll": 390,
+      "h1": "Explorer",
+      "title": "Sworn | Explorer"
+    },
+    {
+      "route": "/claim",
+      "width": 390,
+      "scroll": 390,
+      "h1": "Claim",
+      "title": "Sworn | Claim"
+    },
+    {
+      "route": "/fact-vs-artifact",
+      "width": 390,
+      "scroll": 390,
+      "h1": "Fact vs artifact",
+      "title": "Sworn | Fact vs artifact"
+    },
+    {
+      "route": "/integrate",
+      "width": 390,
+      "scroll": 390,
+      "h1": "Integrate",
+      "title": "Sworn | Integrate"
+    },
+    {
+      "route": "/whitelistcurator",
+      "width": 390,
+      "scroll": 390,
+      "h1": "WhitelistCurator",
+      "title": "Sworn | WhitelistCurator"
+    },
+    {
+      "route": "/about",
+      "width": 390,
+      "scroll": 390,
+      "h1": "About Sworn",
+      "title": "Sworn | About"
+    },
+    {
+      "route": "/",
+      "width": 780,
+      "scroll": 780,
+      "h1": "Facts about wallets, onchain and sworn by the swarm.",
+      "title": "Sworn | Home"
+    },
+    {
+      "route": "/catalog",
+      "width": 780,
+      "scroll": 780,
+      "h1": "Catalog",
+      "title": "Sworn | Catalog"
+    },
+    {
+      "route": "/explorer",
+      "width": 780,
+      "scroll": 780,
+      "h1": "Explorer",
+      "title": "Sworn | Explorer"
+    },
+    {
+      "route": "/claim",
+      "width": 780,
+      "scroll": 780,
+      "h1": "Claim",
+      "title": "Sworn | Claim"
+    },
+    {
+      "route": "/fact-vs-artifact",
+      "width": 780,
+      "scroll": 780,
+      "h1": "Fact vs artifact",
+      "title": "Sworn | Fact vs artifact"
+    },
+    {
+      "route": "/integrate",
+      "width": 780,
+      "scroll": 780,
+      "h1": "Integrate",
+      "title": "Sworn | Integrate"
+    },
+    {
+      "route": "/whitelistcurator",
+      "width": 780,
+      "scroll": 780,
+      "h1": "WhitelistCurator",
+      "title": "Sworn | WhitelistCurator"
+    },
+    {
+      "route": "/about",
+      "width": 780,
+      "scroll": 780,
+      "h1": "About Sworn",
+      "title": "Sworn | About"
+    },
+    {
+      "route": "/",
+      "width": 1280,
+      "scroll": 1280,
+      "h1": "Facts about wallets, onchain and sworn by the swarm.",
+      "title": "Sworn | Home"
+    },
+    {
+      "route": "/catalog",
+      "width": 1280,
+      "scroll": 1280,
+      "h1": "Catalog",
+      "title": "Sworn | Catalog"
+    },
+    {
+      "route": "/explorer",
+      "width": 1280,
+      "scroll": 1280,
+      "h1": "Explorer",
+      "title": "Sworn | Explorer"
+    },
+    {
+      "route": "/claim",
+      "width": 1280,
+      "scroll": 1280,
+      "h1": "Claim",
+      "title": "Sworn | Claim"
+    },
+    {
+      "route": "/fact-vs-artifact",
+      "width": 1280,
+      "scroll": 1280,
+      "h1": "Fact vs artifact",
+      "title": "Sworn | Fact vs artifact"
+    },
+    {
+      "route": "/integrate",
+      "width": 1280,
+      "scroll": 1280,
+      "h1": "Integrate",
+      "title": "Sworn | Integrate"
+    },
+    {
+      "route": "/whitelistcurator",
+      "width": 1280,
+      "scroll": 1280,
+      "h1": "WhitelistCurator",
+      "title": "Sworn | WhitelistCurator"
+    },
+    {
+      "route": "/about",
+      "width": 1280,
+      "scroll": 1280,
+      "h1": "About Sworn",
+      "title": "Sworn | About"
+    },
+    {
+      "route": "/",
+      "width": 1440,
+      "scroll": 1440,
+      "h1": "Facts about wallets, onchain and sworn by the swarm.",
+      "title": "Sworn | Home"
+    },
+    {
+      "route": "/catalog",
+      "width": 1440,
+      "scroll": 1440,
+      "h1": "Catalog",
+      "title": "Sworn | Catalog"
+    },
+    {
+      "route": "/explorer",
+      "width": 1440,
+      "scroll": 1440,
+      "h1": "Explorer",
+      "title": "Sworn | Explorer"
+    },
+    {
+      "route": "/claim",
+      "width": 1440,
+      "scroll": 1440,
+      "h1": "Claim",
+      "title": "Sworn | Claim"
+    },
+    {
+      "route": "/fact-vs-artifact",
+      "width": 1440,
+      "scroll": 1440,
+      "h1": "Fact vs artifact",
+      "title": "Sworn | Fact vs artifact"
+    },
+    {
+      "route": "/integrate",
+      "width": 1440,
+      "scroll": 1440,
+      "h1": "Integrate",
+      "title": "Sworn | Integrate"
+    },
+    {
+      "route": "/whitelistcurator",
+      "width": 1440,
+      "scroll": 1440,
+      "h1": "WhitelistCurator",
+      "title": "Sworn | WhitelistCurator"
+    },
+    {
+      "route": "/about",
+      "width": 1440,
+      "scroll": 1440,
+      "h1": "About Sworn",
+      "title": "Sworn | About"
+    }
+  ],
+  "interactions": [
+    "Home address validation names the field, focuses it and keeps the main action in the first 390×844 screen.",
+    "Native wallet dialog opens; Tab stays inside; Escape/backdrop close and restores trigger focus.",
+    "All eight hash routes render without page overflow at 320, 390, 780, 1280 and 1440; every route sets its Sworn tab title.",
+    "Trait deep link preselects id 701; IMD defaults; ETH changes echoed payment text; disconnected writes stay disabled; community form refuses both audit claimant cases and prose-padded signatures.",
+    "Integrate has two working Copy controls, a Solidity gate that compiles with 0.8.24, and a linked exported agent skill.",
+    "Census shows all 66 rows, the exact 59 source lines and no unreadable phone chart.",
+    "Three public contributors and a stranger load all 25 live hasTrait results and deployed-Renderer unminted previews over configured RPC requests relayed only by the test harness.",
+    "WebKit: primary form validation and wallet dialog open/Escape verified at 390."
+  ],
+  "errors": [],
+  "limitations": []
+}

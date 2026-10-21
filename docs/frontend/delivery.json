@@ -1,0 +1,56 @@
+{
+  "version": 1,
+  "checkedAt": "2026-10-21T20:03:59.490161+00:00",
+  "sourceCommit": "c4ff3238390fc51962fb67e86affc20cf418126e",
+  "launchId": "1377d17c-3f09-49e8-87e7-20a07ad45ea9",
+  "chainId": 1,
+  "checks": {
+    "cleanInstall": "passed: npm ci",
+    "productionBuild": "passed: npm run build",
+    "typecheck": "passed: tsc --noEmit",
+    "format": "passed: prettier --check",
+    "npmTest": "passed: 26 unit/export tests, 40 route/width combinations and 17 fork checks",
+    "browserEngines": {
+      "chromium": "156.0.8078.4",
+      "webkit": "27.2"
+    },
+    "consoleAndPageErrors": [],
+    "designProbe": {
+      "passed": 14,
+      "total": 16,
+      "specificationOverrides": [
+        "casing",
+        "type-faces"
+      ]
+    },
+    "independentWalletChecks": 4,
+    "independentHasTraitCalls": 100,
+    "applicationAbiHashes": "match handoff and exact pinned Git ABI files",
+    "deployedRuntimes": "all three match pinned compiler output",
+    "manifestAssets": "all file SHA-256 values match",
+    "knownDependencyVulnerabilities": 0,
+    "scope": "only web/, dist/, docs/ and the explicit web/.gitignore path",
+    "newFrontendSubmodules": 0,
+    "protectedSourceAndInheritedLibraryEntries": "unchanged"
+  },
+  "export": {
+    "assetCount": 45,
+    "assetBytes": 1012530,
+    "allFileBytes": 1020895,
+    "largestFileBytes": 664550,
+    "manifestSha256": "7e6fa90bb62bd28eb8ff6fad04830a64c567191f91aba7e8dce672c610aea88d",
+    "relativeStaticAssets": true
+  },
+  "budget": {
+    "maximumSubmissionBytes": 8388608,
+    "changedFileCount": 148,
+    "rawChangedFileBytes": 2683830
+  },
+  "limits": [
+    "Physical wallet app handoff, real extension signing UI and Coinbase passkey creation unperformed.",
+    "Shared-answer application on the fork uses an explicit verified-state fixture; a real oracle signature callback is not claimed.",
+    "A real successful settlement for this Registry and the requested recorded Sepolia failure replay remain unverified.",
+    "Native zoom, physical screen-reader sessions and every SVG-art contrast pair are unverified.",
+    "Publication, IPFS pinning, naming and control-plane verification occur after worker delivery."
+  ]
+}

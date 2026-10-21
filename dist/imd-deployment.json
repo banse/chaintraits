@@ -1,0 +1,264 @@
+{
+  "version": 1,
+  "launchId": "1377d17c-3f09-49e8-87e7-20a07ad45ea9",
+  "chainId": 1,
+  "sourceCommit": "c4ff3238390fc51962fb67e86affc20cf418126e",
+  "attestationHash": "7afa89428facc92ccd863a1b1d36ef9384b58fe2108465765b35e60eb78377c7",
+  "contracts": [
+    {
+      "name": "Renderer",
+      "address": "0x3039eaf3b979759c77a2a3fc62850f9534162c3b",
+      "abiHash": "61a60df208f0a8712452ebc563183e54d1e5ba8b43dfa1a26fbe54f265b73817",
+      "abiPath": "abi/Renderer.json"
+    },
+    {
+      "name": "Composer",
+      "address": "0xf564dd76bd081554170c5e0b78144abfb39f7061",
+      "abiHash": "37b9a6c54c65f302558b81c741465e5559c33284612d2046b4ffbfff6584eb6d",
+      "abiPath": "abi/Composer.json"
+    },
+    {
+      "name": "Registry",
+      "address": "0x0da2679000ea5380d1361cc3cca7d4e8c881f766",
+      "abiHash": "681346b3fa66ff9c620fb255a9617b0f102e975f5ad492bab6d4afd2f608e031",
+      "abiPath": "abi/Registry.json"
+    }
+  ],
+  "assets": [
+    {
+      "path": "abi/Composer.json",
+      "sha256": "37c04500905facc0ac4aba421a31886dae70fe440b226c0da331c47c189213c8"
+    },
+    {
+      "path": "abi/IntakeV2.json",
+      "sha256": "8dc80498ae23b30dc34da3831cd038aeaa1940c66faeafab8ddbaf672b913062"
+    },
+    {
+      "path": "abi/Registry.json",
+      "sha256": "662ad6516dbfea0c5282d1001c3c0ac4d8111af05381f37434e8173f0e3acaa8"
+    },
+    {
+      "path": "abi/Renderer.json",
+      "sha256": "c5c4a6392f06c2461c67cf05baa72c8b07e2a4871147272cf428a6dca98c29c1"
+    },
+    {
+      "path": "abi/WhitelistCurator.json",
+      "sha256": "924c02c3004271a92d133fd54ab1c83237d97c21346632d65e9f08ce74c415c6"
+    },
+    {
+      "path": "agents/sworn.md",
+      "sha256": "07e166a4c4bada399a7de2f4bae0769f3d27db3c97b2fe22a0c3b2d76bc73f93"
+    },
+    {
+      "path": "art/sample.svg",
+      "sha256": "dd5827d9e3e08e4fc34567e73b41c40fa6eb0ab194da994bfe118a4f9c4a99bf"
+    },
+    {
+      "path": "art/trait-1001.svg",
+      "sha256": "738257cf44a5daa02ef7834f8320795d1f1ab54c155324c032ae1918366b030f"
+    },
+    {
+      "path": "art/trait-101.svg",
+      "sha256": "f8ab19756462924840789397b73d9385c54f3403665d1e14c6aca3cf2bc384d6"
+    },
+    {
+      "path": "art/trait-1101.svg",
+      "sha256": "bfb2aa83903ca32c56e046f4d5063ac82d1bba4867e500434a057cf34fa83a29"
+    },
+    {
+      "path": "art/trait-1102.svg",
+      "sha256": "bfb2aa83903ca32c56e046f4d5063ac82d1bba4867e500434a057cf34fa83a29"
+    },
+    {
+      "path": "art/trait-1103.svg",
+      "sha256": "bfb2aa83903ca32c56e046f4d5063ac82d1bba4867e500434a057cf34fa83a29"
+    },
+    {
+      "path": "art/trait-1104.svg",
+      "sha256": "bfb2aa83903ca32c56e046f4d5063ac82d1bba4867e500434a057cf34fa83a29"
+    },
+    {
+      "path": "art/trait-1105.svg",
+      "sha256": "b0faada52e087456ef8e2c9e74d88d246e45c0e052646fd5982ebc674a4129ed"
+    },
+    {
+      "path": "art/trait-1201.svg",
+      "sha256": "1035ea21551e717de6695a2b09d9bc86f596ac6331ea6b337d9bd17b983b2bb0"
+    },
+    {
+      "path": "art/trait-1301.svg",
+      "sha256": "e0109f976e7289e4881ed768c823096b65a50da6f0ee92ac672a4a4b2a2475ef"
+    },
+    {
+      "path": "art/trait-201.svg",
+      "sha256": "2783b0fe3b2b80ca0a2cd7bf6456b9840eb152dd8a20c4c1fac33d6ab79f0d75"
+    },
+    {
+      "path": "art/trait-202.svg",
+      "sha256": "771ee4520d89a09683a280adf3019d2cd90be6cd315f5b02f1348547a83a8064"
+    },
+    {
+      "path": "art/trait-301.svg",
+      "sha256": "4ab402b89c24b32de3c6cc21606337188bda979e8129a36c35c1a303dbfb7f44"
+    },
+    {
+      "path": "art/trait-302.svg",
+      "sha256": "9eb051641a314cf1e44508a9941be3e0af3e11912aaf2aa98e39e4a662974869"
+    },
+    {
+      "path": "art/trait-303.svg",
+      "sha256": "96ed9ff608c9af8cbcb02225a094f2ac7467a6d8556e7bb073da4e1cf443a468"
+    },
+    {
+      "path": "art/trait-401.svg",
+      "sha256": "c621344a01d17c85a895e06427e1648f29f235699f607e0c368113bfe0f70e41"
+    },
+    {
+      "path": "art/trait-402.svg",
+      "sha256": "7e4b896863aa118e41a82999cdd73551b2a2db292fcb77cd8e0e4d8403d1a8c1"
+    },
+    {
+      "path": "art/trait-403.svg",
+      "sha256": "2bc49cac715a1e8c770c7dfaf72f06167d82d05f1fdcb9554b02f89de306cac3"
+    },
+    {
+      "path": "art/trait-404.svg",
+      "sha256": "ae957fe8d5ac590bf7f0ea00bfc4d09aa2d885094d304e99301254c24a71820b"
+    },
+    {
+      "path": "art/trait-501.svg",
+      "sha256": "f04a70ce90588288306b745afd3e699e2d2dadb69a3c553d0c23a4fe0b156db5"
+    },
+    {
+      "path": "art/trait-502.svg",
+      "sha256": "01a57ee6f2a7ed4f8ca83f14209a799f1e8026d8a303aab25de42aa522a195a7"
+    },
+    {
+      "path": "art/trait-503.svg",
+      "sha256": "e8727fb7a80ec4ae2171d2ab3b420f41215bfe0fcb1d874a78471ce77f347eca"
+    },
+    {
+      "path": "art/trait-601.svg",
+      "sha256": "5e4d99452e1671b47078451f8ec5afa5254d36e38889e8f171544f201faf8188"
+    },
+    {
+      "path": "art/trait-701.svg",
+      "sha256": "648a67f8f7961b53ee02d3f609b34e2c68667e81ee9a875ef8f4e7e5503b7c52"
+    },
+    {
+      "path": "art/trait-801.svg",
+      "sha256": "6a66eca6b911fd4c163d5094dfbd82fe78651577a31b1ca82cc43c5789290c27"
+    },
+    {
+      "path": "art/trait-901.svg",
+      "sha256": "c34bce140e26f958072943a5326c503bd737cfa49c98e5b7a0345a06302e94b6"
+    },
+    {
+      "path": "assets/ccip-AJUFevyU.js",
+      "sha256": "15e0c7c7813c44277ba7e7e26b4d286c8084881000a7c6832be69c27bb5dfa08"
+    },
+    {
+      "path": "assets/dist-CqbChHYP.js",
+      "sha256": "766261901e92644fe694ea7d32d32588f95b777cca0f54ca4d1a735433a8f18c"
+    },
+    {
+      "path": "assets/index-B7zxnXCr.css",
+      "sha256": "d13e70239b1ff55d1e29ebe264bb35f987f7b0781f7a47445955ded57899c8af"
+    },
+    {
+      "path": "assets/index-DVw1ahbR.js",
+      "sha256": "15648ca3821c6b11746d01b0daef83c91114400e3db2d5faeba277f389b2318d"
+    },
+    {
+      "path": "data/art-provenance.json",
+      "sha256": "4190a224c385d0911363011bd2fd753d4bbb7c5f9b606cd80a896ff5194564da"
+    },
+    {
+      "path": "data/curator-source.json",
+      "sha256": "69d105bf6779a73c0351042edf809d4022ac2828b2462b73eb88cc7483a6eaff"
+    },
+    {
+      "path": "data/eth-market.json",
+      "sha256": "c429ea23c021bf01b1cea7ef0d611588812a772766575d6b86ce5f22e89b8995"
+    },
+    {
+      "path": "data/hours.json",
+      "sha256": "68af1b82da606a6bf9aa97e4fe9d941699c2da8c6cc4595d48f5f523a9d89397"
+    },
+    {
+      "path": "data/launch.json",
+      "sha256": "48da5d4fefa1065742cf072bbcb1e5c3a791d29bfa0305d30aecbd6925684182"
+    },
+    {
+      "path": "data/renderer-preview.json",
+      "sha256": "5c979a4a65212a174559bb9fb4129b4c47142074bd85ae84ec109e91def29069"
+    },
+    {
+      "path": "favicon.svg",
+      "sha256": "1f745a9a1e2db3fcdb9d06c7b14f230c49dec80ad6bfdf51f33c81e6e8a6abd6"
+    },
+    {
+      "path": "index.html",
+      "sha256": "a9e689a1c439adcb135e5bc5661dd2012af44447f82346d0b53e934f682ecf7b"
+    },
+    {
+      "path": "share.png",
+      "sha256": "efb18f20c250c58413f6c56a227e2574ad899f390e3a0439b42aaa85da429a11"
+    }
+  ],
+  "network": {
+    "chainId": 1,
+    "name": "Ethereum",
+    "testnet": false,
+    "rpcUrls": [
+      "https://ethereum-rpc.publicnode.com",
+      "https://eth.drpc.org"
+    ],
+    "explorer": "https://etherscan.io",
+    "nativeCurrency": {
+      "name": "Ether",
+      "symbol": "ETH",
+      "decimals": 18
+    },
+    "faucets": [],
+    "uniswapV4": {
+      "poolManager": "0x000000000004444c5dc75cb358380d2e3de08a90",
+      "universalRouter": "0x66a9893cc07d91d95644aedd05d03f95e1dba8af",
+      "quoter": "0x52f0e24d1c21c8a0cb1e5a5dd6198556bd9e1203",
+      "stateView": "0x7ffe42c4a5deea5b0fec41c94c136cf115597227",
+      "positionManager": "0xbd216513d74c8cf14cf4747e6aaa6420ff64ee9e",
+      "permit2": "0x000000000022d473030f116ddee9f6b43ac78ba3"
+    },
+    "pairToken": {
+      "address": "0xd34a99bc0f67ae1bbd63c660e6d0b0dd03e263b7",
+      "symbol": "IMD",
+      "name": "Identity.md",
+      "decimals": 18
+    },
+    "otherPairTokens": [
+      {
+        "id": "fwa",
+        "address": "0xa0df17b5ac76ababa36e1450e2cbcd18a620c845",
+        "symbol": "FWA",
+        "name": "Fake World Assets",
+        "decimals": 18
+      }
+    ]
+  },
+  "walletAddChain": {
+    "chainId": "0x1",
+    "chainName": "Ethereum",
+    "rpcUrls": [
+      "https://ethereum-rpc.publicnode.com",
+      "https://eth.drpc.org"
+    ],
+    "nativeCurrency": {
+      "name": "Ether",
+      "symbol": "ETH",
+      "decimals": 18
+    },
+    "blockExplorerUrls": [
+      "https://etherscan.io"
+    ]
+  }
+}
