@@ -879,7 +879,7 @@ Decisions the owner took for this branch (2026-10-21), with the default applied 
 - D4 the card keeps the approved design by its numbers (5.2); the SVG bytes and the goldens are the builder's;
 - D5 the public surface keeps the live names and types for everything that survives the pool's removal (section 2),
   so integrators and the site keep working;
-- D6 the site is rebuilt from `docs/SITE.md` with the rows marked for this build there (S-1 to S-38);
+- D6 the site is rebuilt from `docs/SITE.md` with the rows marked for this build there (S-1 to S-39);
 - D7 one workflow (contracts, independent review, deployment, site, hosting) is the planned order; a plain contracts
   job is the fallback;
 - D8 (later the same day, after the audit of the first delivery) every function call works under Glamsterdam's gas
