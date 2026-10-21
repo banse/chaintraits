@@ -116,7 +116,7 @@ and, in `onResult(requestId, attestation, signature)`, verifies in this order: `
 kinds (reason 9), before any dynamic copy or hash; `chainId` == 1; signer == attester
 (`0x5598aa9146215bc13eb26f2c692ad1461fd32982`, constructor argument) under the domain with
 `verifyingContract` == the registry and domain `chainId` == the deployment chain; `answerType` (uint8) == the template's code;
-`agreed >= quorum >= the template's quorum` and `panelSize >= the template's`; window == the pending request's window;
+`panelSize` and `quorum` equal to the template's exactly and `quorum <= agreed <= panelSize`; window == the pending request's window;
 expiry; **`questionHash` == the hash the registry computed when it composed the body**; and the answer against the
 rule below (decoded defensively: `INTEGRATION.md` section 4). The attestation's `requestId` is the plane's own id and
 is stored, not compared. A miss is recorded (`Missed(requestId, traitId, reason)` with the reason codes of
@@ -154,10 +154,10 @@ trait in section 3 names its template there (T1, T3, T5).
 |---|---|---|
 | `kind` | uint8: 1 T1, 2 T2, 3 T3, 4 T4, 5 T5 | one of the five; kind 6 is the catalog's operator fact (601) and cannot be registered |
 | `target` | address | nonzero for T1 to T4; must be zero for T5 (`validateSpec` reverts `BadSpec("target")` otherwise, as the struct comment says) |
-| `item` | string | a signature, never prose (the panel is a set of LLM agents, so text inside the signature is an injection path). T1 to T3: exactly `event Name(param, param, …)`: `Name` an identifier `[A-Za-z_][A-Za-z0-9_]*` of at most 32 bytes; each `param` is `type name` or `type indexed name`, single spaces, `type` from the closed list `address`, `bool`, `string`, `bytes`, `bytes1` to `bytes32`, `uint8` to `uint256` and `int8` to `int256` in steps of 8, each optionally followed by `[]`, `name` an identifier of at most 32 bytes; nothing before `event `, nothing after `)`. **`anonymous` is refused for every event kind** (an anonymous event has no signature topic, so neither the T1/T2 topic filter nor the T3 grouping topic would be right). **At most three `indexed` parameters** (a log carries topic 0 and three indexed arguments; a fourth could never be answered). T4: exactly `function name(address) view returns (uint256)` with `name` an identifier of at most 32 bytes. At most 256 bytes; every miss reverts `BadSpec("item")` |
+| `item` | string | a signature, never prose (the panel is a set of LLM agents, so text inside the signature is an injection path). T1 to T3: exactly `event Name(param, param, …)`: `Name` an identifier `[A-Za-z_][A-Za-z0-9_]*` of at most 32 bytes; each `param` is `type name` or `type indexed name`, single spaces, `type` from the closed list `address`, `bool`, `string`, `bytes`, `bytes1` to `bytes32`, `uint8` to `uint256` and `int8` to `int256` in steps of 8, each optionally followed by `[]`, `name` an identifier of at most 32 bytes; nothing before `event `, nothing after `)`. **`anonymous` is refused for every event kind** (an anonymous event has no signature topic, so neither the T1/T2 topic filter nor the T3 grouping topic would be right). **At most three `indexed` parameters** (a log carries topic 0 and three indexed arguments; a fourth could never be answered). **Every parameter is named**: `type,`, `type indexed,`, `type indexed)` and a parameter named `indexed` are refused, so the topic count sees every indexed parameter. T4: exactly `function name(address) view returns (uint256)` with `name` an identifier of at most 32 bytes. At most 256 bytes; every miss reverts `BadSpec("item")` |
 | `arg` | string | T1, T2: an `indexed` parameter of `item` of type `address` (the claimant filter, a topic); T3: the groupBy key, an `indexed` parameter of `item` of type `address`; otherwise `BadSpec("arg")`; an identifier of at most 32 bytes; empty for T4 and T5 |
-| `fixedArg`, `fixedVal` | string, uint256 | optional second filter (T1, T2): when set, an `indexed` parameter of `item` of any type (its value is a topic), otherwise `BadSpec("fixedArg")`; empty string = none and requires `fixedVal == 0` (`BadSpec` otherwise) |
-| `sumArg` | string | T2 and T3 only: a parameter of `item`, indexed or data, otherwise `BadSpec("sumArg")` |
+| `fixedArg`, `fixedVal` | string, uint256 | optional second filter (T1, T2): when set, an `indexed` parameter of `item` of a static value type (`address`, `bool`, `bytes1` to `bytes32`, `uint8` to `uint256`, `int8` to `int256`; never `string`, `bytes` or an array, whose topic is a hash), otherwise `BadSpec("fixedArg")`; empty string = none and requires `fixedVal == 0` (`BadSpec` otherwise) |
+| `sumArg` | string | T2 and T3 only: a parameter of `item` of an unsigned integer type (`uint8` to `uint256`), indexed or data, otherwise `BadSpec("sumArg")` |
 | `op` | uint8 | T4 only: 1 `>=`, 2 `>`, 3 `<=`, 4 `<`, 5 `==` |
 | `threshold` | uint256 | T1, T2, T4, T5: `>= 1`; T3: head, 1 to 32 |
 | `fromBlock`, `toBlock` | uint64 | `fromBlock <= toBlock`, `toBlock - fromBlock + 1 >= 7200` and `toBlock <= H - 64` at registration (T5: `fromBlock == toBlock`, and `toBlock + 7200 <= H`); mainnet height `H` is `block.number` on chain 1, otherwise `Composer.mainnetHeightBound()` (the timestamp-derived upper bound and its caveat are documented in README and INTEGRATION); on chain 1 `validateSpec` reads `block.number` itself and ignores its `blockNumber` argument. The catalog's own windows are frozen anchors and exempt from the 7,200-block minimum |
@@ -172,9 +172,9 @@ struct Spec {
     address target;      // T1 to T4; zero for T5
     string  item;        // "event Name(type [indexed] name, ...)" (T1-T3) or "function name(address) view returns (uint256)" (T4); <= 256 bytes
     string  arg;         // identifier, 1..32 bytes; an indexed address parameter of item: T1/T2 the claimant, T3 the groupBy key; empty for T4/T5
-    string  fixedArg;    // identifier, 0..32 bytes; an indexed parameter of item; empty = no second filter (T1/T2 only)
+    string  fixedArg;    // identifier, 0..32 bytes; an indexed static-type parameter of item; empty = no second filter (T1/T2 only)
     uint256 fixedVal;
-    string  sumArg;      // identifier; a parameter of item (indexed or data), T2/T3 only, else empty
+    string  sumArg;      // identifier; a uint8..uint256 parameter of item (indexed or data), T2/T3 only, else empty
     uint8   op;          // T4 only: 1 >=, 2 >, 3 <=, 4 <, 5 ==; else 0
     uint256 threshold;   // T1/T2/T4/T5 >= 1; T3: head 1..32
     uint64  fromBlock;
