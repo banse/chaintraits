@@ -125,7 +125,7 @@ function failureSelectorOf(bytes32 requestId) external view returns (bytes4);
   **`oracle.request@oracle-1`** = `0x6f7261636c652e72657175657374406f7261636c652d31000000000000000000`.
   `priceOf(action, IMD)` returned `500000000000000000` (0.5 IMD) on 2026-10-12; the other spellings return 0 and
   `request` reverts `ActionNotSold`. Read `priceOf` at call time and pay exactly that: the registry must never
-  hard-code 0.5 IMD, and the claimant's `upgrade` charges `k * priceOf(...)`.
+  hard-code 0.5 IMD, and each `upgrade` accepts one id and charges exactly `priceOf(...)`.
 - `body` is the UTF-8 JSON of `TEMPLATES.md`, at most `MAX_BODY_BYTES` = 16,384 bytes. **It carries
   `"consumer": {"chainId": <deployment chainId>, "verifyingContract": "<the registry, lowercase hex>"}`**:
   `consumer.chainId` is `block.chainid` (11155111 on Sepolia), and that field supplies the EIP-712 domain
@@ -325,8 +325,7 @@ The pending record is `pending[requestId] = (address claimant, uint16 traitId, u
 questionHash, uint64 fromBlock, uint64 toBlock)`, the window being the one the body was composed with (for 601 the
 living window of that request; the callback compares the attestation's window with it, never with a window recomputed
 at the current head); for a shared-fact request `claimant == address(0)` and `traitId` is the fact id. The reverse index is
-`pendingOf[claimant][traitId] = requestId` (for shared facts `sharedPending[factId]`). "Clear" means: delete
-`pending[requestId]`, and delete the reverse index **only if it still equals this `requestId`**.
+`pendingOf[claimant][traitId] = requestId` (for shared facts `sharedPending[factId]`). "Clear" means pending views return absence, and an old callback cannot affect a successor request. The implementation keeps archival records and clears their status word. Its reverse views resolve only active records; this preserves the specified behavior while preparing every callback-written slot at request time (see `test/NOTES.md`).
 
 | event | who | effect on the pair | stored | event emitted |
 |---|---|---|---|---|

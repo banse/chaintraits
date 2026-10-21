@@ -148,7 +148,7 @@ trait in section 3 names its template there (T1, T3, T5).
 
 ## 5. Spec registration (community traits)
 
-`registerSpec(Spec)` by anyone, 6.4 IMD into the registry, returns the new id (10001 upward), emits
+`registerSpec(Spec, expectedId)` by anyone, 6.4 IMD forwarded to the BurnExecutor for bridging and burning on Base, returns the new id (10001 upward), emits
 `SpecRegistered(id, registrant)`. The spec is immutable. Fields:
 
 | field | type | guard |
@@ -238,22 +238,14 @@ Community spec registration costs 6.4 IMD, forwarded to the BurnExecutor V2 for 
 | 1301 | Not born yesterday | Pretrained |
 | product, symbol, X handle | the registry | Sworn, SWORN, (handle not given) |
 
-The final names are the `traitName` table of `Composer`, the `name` of every catalog `Spec` (`catalogSpec`), the
+The final names are the `traitName` table exposed by `Renderer` and `Registry`, the `name` of every catalog `Spec` (`catalogSpec`), the
 `FAMILIES` of `tools/gen_template.py` (the thirteen family `trait_type`s of the metadata and the card's labels) and
 the collection strings `ERC721("Sworn", "SWORN")` with metadata names `Sworn #<tokenId>`. The rename (2026-10-16)
 replaced this table and the collection strings; it touched no rule, id or window. Section 3 keeps the working names
 in its first column as the historical key; the id is the identity.
 
-## 8. Not frozen (open)
+## 8. Operational limits
 
-- Panel 5 / quorum 3 for chain questions is a default, not a measurement; if the first job's requests stall, 7 / 4.
-- `validForSeconds` 30 days is a wish: the plane has served attestations with 86,400; the registry checks only
-  `expiresAt`.
-- T5's round-2 wording (account nonce only, no explorer fallback) passed the free check and a free quote; it has not
-  been attested yet. The 2026-10-11 wording was attested twice (true 7/11, false 7/11). A paid re-attestation of the
-  new wording is planned with the first real request from the registry on Sepolia.
-- Whether the plane ever signs chain evidence with `agreed` below `quorum`. The registry refuses such an attestation
-  (reason 5, `a.agreed < a.quorum`), so if the plane does sign one it is a paid request that ends as a miss. Open
-  until the plane documents that it signs only agreed verdicts.
-- The attestation struct, the callback shapes and the `questionHash` document are in `INTEGRATION.md`, read from
-  the Intake's verified source, five mainnet completions and fourteen free quotes.
+The fixed acceptance panels are exactly 5 / 3 for kinds 1, 2 and 4 and exactly 11 / 7 for kinds 3, 5 and 6. They cannot be changed after deployment. Agreement below quorum or above panel size is a miss. The request validity is 30 days, bounded by issuance within one day of the request; timed abandonment is strictly later than 31 days. A completed personal request can be abandoned earlier by its claimant.
+
+The approved fixture bodies and canonical hashes are checked against the supplied plane evidence, including T6. Later protocol or signer changes can make new requests unusable. Such a dependency change requires a successor deployment. The attestation ABI, callback shapes and complete acceptance rules are in `INTEGRATION.md` and `docs/REBUILD.md`.

@@ -40,7 +40,7 @@ Mirrors the THE LIST record NFT (`reference/list-record/`):
   `verified[claimant][traitId] = (bytes32 requestId, bytes32 oracleRequestId, uint64 fromBlock, uint64 toBlock)`
   (the README's `verified()` returns exactly this tuple; `requestId` is the Intake's id, `oracleRequestId` the plane's
   signed id, see `INTEGRATION.md` section 4). They never change and never move with the card.
-- `hasTrait(wallet, traitId)` is the credential: the direct-read rule evaluated live, or a `verified` entry. **It
+- `hasTrait(wallet, traitId)` is the credential: the frozen direct snapshot for a minted claimant (live reads otherwise), or a `verified` entry. **It
   needs no card.** The card is the display and the collectible; the registry is the credential.
 - One card per claimant; no re-mint after a sale, so a sold card keeps its claimant and the facts stay queryable.
 - `_update` emits ERC-4906 `MetadataUpdate` on transfers; every verified upgrade emits it too, so marketplaces
@@ -59,17 +59,17 @@ one Intake request, one `priceOf` (reverts when `priceOf > maxPrice`). For the t
 template (`TEMPLATES.md`) with `msg.sender` as the claimant and itself as the `consumer` on the deployment
 chain (`consumer.chainId = block.chainid`); the question's `chainId` remains 1, Ethereum mainnet. It computes the plane's
 `questionHash` of that body (`INTEGRATION.md` section 4, check 7), stores
-`pending[requestId] = (claimant, traitId, requestedAt, questionHash)` plus the reverse index
+`pending[requestId] = (claimant, traitId, requestedAt, questionHash, fromBlock, toBlock)` plus the reverse index
 `pendingOf[claimant][traitId] = requestId`, and calls `Intake.requestWithFailure` with `onResult` and `onFailure` as
 the two callbacks. Minutes later the writer calls `Intake.complete`, which calls `onResult` (a result) or `onFailure`
 (a refusal or a panel without a verdict); the registry verifies (`INTEGRATION.md` section 4), writes
 `verified[claimant][traitId]`, clears the pending pair, and emits `MetadataUpdate(tokenOf[claimant])` only if the
 claimant has a card (id 0 is never emitted). Every other outcome clears the pending pair and stores nothing (the
 transition table in `INTEGRATION.md` section 4b); the price is spent either way, and the claimant may request the
-trait again. After 31 days (`ABANDON_AFTER`; `block.timestamp` since `requestedAt`) only the stored claimant may call
+trait again. Strictly after 31 days (`ABANDON_AFTER`; `block.timestamp > requestedAt + ABANDON_AFTER`) only the stored claimant may call
 `abandon(requestId)` to clear a personal pair the plane never completed; a stranger gets `NotClaimant()`.
-Anyone may abandon a shared fact, whose claimant is zero. Abandoning returns no price; the dates of an attestation are bounded to its request
-(`docs/REBUILD.md` 3.4), so every answer a request can receive is dead before that day and a late answer never
+Anyone may abandon a shared fact, whose claimant is zero, strictly after the same deadline. Before then, only the claimant of a completed personal request may abandon immediately. A true result whose delivery failed may instead be stored with `settle` after Intake completion. Abandoning returns no price; the dates of an attestation are bounded to its request
+(`docs/REBUILD.md` 3.4), so the final valid second is exactly `requestedAt + 31 days`, when timed abandonment is still too early and a late answer never
 settles an abandoned request. At most one pending request per `(claimant, traitId)`; duplicate ids in one `upgrade`
 call revert; an already verified trait cannot be requested again. A wallet without a card may upgrade too (the traits
 attach to the claimant; the card renders them when minted). `composeBody(traitId, claimant)` is a public view that
@@ -103,7 +103,7 @@ holds (`docs/REBUILD.md` 3.8).
 - One card image, the **hive symbol** (2026-10-16; README "The card image"): thirteen hexagonal cells, one per
   family, lit in the family's class colour, part-filled with honey up to the tier reached, ringed by the first 39
   community specs, dotted white at a rare top tier, framed by a ring that a path circles as the community count
-  grows. Polygons, clip paths, one circle per rare tier, one path and one text element only; the whole renderer
+  grows. Polygons, clip paths, one circle per rare tier and one path; no text element; the whole renderer
   inside the EIP-170 limit; a second renderer only if it ever needs it.
 - The JSON envelope and every coordinate string of the image are **compile-time constants** in the renderer's
   bytecode (`bytes constant`; solc emits a `codecopy`),
@@ -125,12 +125,12 @@ holds (`docs/REBUILD.md` 3.8).
 - `tokenURI` returns `data:application/json;base64,...` with the SVG percent-encoded inside, built from the
   envelope by splicing per-card values at fixed offsets; the image value is assembled from precomputed,
   pre-encoded strings selected by index (no trigonometry onchain). The generator in `tools/` is the normative
-  drawing and produces the envelope blob, the offsets, the hive data and the goldens, and the golden tests prove
-  the Solidity output byte-exact (see the vendored `Renderer.t.sol` and `Template.t.sol` for the method).
+  drawing and produces the envelope blob, the offsets, the hive data and the goldens, and `test/Goldens.t.sol` proves
+  the Solidity output byte-exact against the independently generated documents.
 - Every oracle trait's metadata carries its template, parameters, pinned window, `minPanelSize`, `minQuorum` (acceptance minima; signed values are in the served attestation), the Intake
   `requestId` and the plane's `oracleRequestId`, so a third party can rerun the recipe against public RPCs or fetch the
   served attestation without trusting the registry or the swarm.
-- The card prints the Curator author's caveat: "this list is not sybil-resistant by design; filter offchain".
+- The image prints no prose. Direct membership remains unsuitable as a sybil-resistance judgment.
 
 ## 6. Contracts
 
@@ -138,14 +138,14 @@ Three contracts: `Registry`, `Renderer` and `Composer`; the registry's construct
 
 | contract | role | constructor |
 |---|---|---|
-| `Registry` (`ERC721("Sworn", "SWORN")`) | ERC-721 + IERC4906; catalog table; `mintCard`, `upgrade`, `hasTrait`; Intake consumer (`onResult`, `onFailure`); specs; shared facts | seven static addresses `(curator, imd, intake, attester, renderer, composer, burnExecutor)` stored in storage (no `immutable`), every one nonzero; the renderer and the composer are deployed first and passed in as static addresses (the registry creates no contract: with both helpers embedded its init code would exceed EIP-3860); `renderer`, `composer` and `burnExecutor` must have code, always; outside the floor (all three of Curator, IMD and Intake codeless) it requires `curator.isSettled()` true, `imd.decimals() == 18` and `intake.priceOf(ACTION, imd)` nonzero |
+| `Registry` (`ERC721("Sworn", "SWORN")`) | ERC-721 + IERC4906; catalog table; `mintCard`, `upgrade`, `hasTrait`; Intake consumer (`onResult`, `onFailure`); specs; shared facts | seven static addresses `(curator, imd, intake, attester, renderer, composer, burnExecutor)` stored in storage (no `immutable`), every one nonzero; the renderer and the composer are deployed first and passed in as static addresses; both helpers must have code always. Outside the floor where all three of Curator, IMD and Intake are codeless, the executor must have code, `curator.isSettled()` must be true, IMD must have 18 decimals and the Intake price must be positive |
 | `Renderer` | template `bytes constant` + offsets as constants + splice + Base64 | none |
-| `Composer` | the five templates, body and canonical-document serialisers, catalog specs, spec guards, name table, catalog enumeration and direct-read predicates; views only, never called inside `onResult` | none |
+| `Composer` | the six templates, body and canonical-document serialisers, catalog specs, spec guards, name table, catalog enumeration and direct-read predicates; views only, never called inside `onResult` | none |
 | interfaces | `IWhitelistCurator` (written by the builder from the verified ABI `reference/abi/WhitelistCurator.json`), `IIntake` (v2: `requestWithFailure`, from `reference/IntakeV2.sol`), `IOracleConsumer` (`onResult`, `onFailure`); the executor needs no interface: the registry only transfers IMD to it | |
 
 The constructor skips its dependency reads only when **all three of Curator, IMD and Intake lack code**: the
 pipeline's empty-chain floor, no external call at all. If any of the three has code, all three reads run. The code
-checks of the renderer, the composer and the executor and the seven nonzero-address checks always apply. The factory
+checks of the renderer and composer and the seven nonzero-address checks always apply. The executor code check applies outside the floor only. The factory
 probe deploys Renderer, Composer and Registry in order, but operational launch still requires the deployer to verify
 every address and both helpers. `deployForChain()` uses the Sepolia set on 11155111 and the mainnet constants on
 every other chain. Parameters are in `INTEGRATION.md` section 1.
@@ -165,8 +165,8 @@ section 4). `hasTrait(wallet, unknownId)` returns false, never reverts; `hasTrai
 3. A `verified[c][t]` entry exists only after an attestation that passed every check in `INTEGRATION.md` section 4
    and whose pending record named exactly `(c, t)` with the `questionHash` of the body the registry composed for
    `(c, t)`, or, for any T3 id, after `applySharedFact` matched the stored hash and found `c` within `head`.
-   `hasTrait(c, t)` equals the live rule for direct-read traits and the `verified` entry for oracle traits, card or no
-   card.
+   `hasTrait(c, t)` uses the frozen snapshot for direct traits after mint, the live rule before mint, and the
+   verified entry for oracle traits, card or no card.
 4. An attestation is consumed once: one pending request is consumed once (its first callback clears it, and any later
    callback for that request id is reason 1 and touches nothing). The same signed evidence is not tied to one request:
    it may satisfy another pending request whose canonical question is identical (same `questionHash`, which binds
@@ -183,15 +183,14 @@ section 4). `hasTrait(wallet, unknownId)` returns false, never reverts; `hasTrai
 6. Tiers are monotone: `hasTrait(c, 303)` implies `hasTrait(c, 302)` and `hasTrait(c, 301)`; `hasTrait(c, 202)`
    implies `hasTrait(c, 201)`; likewise 4xx and 5xx. The PID family (11xx, working name Ordinal) is not a tier family.
 7. A registered spec never changes; the body sent to the Intake is a deterministic function of the spec and the
-   claimant (golden tests per template against `templates/fixtures/`), and the registry's
-   `questionHashOf(canonicalDocument)`, which takes the canonical document of `INTEGRATION.md` section 4, check 7,
-   not the body, equals the plane's value for every fixture (`reference/plane/questionHashes.json`); registration fees stay in the
-   registry.
-8. `tokenURI` is pure over the registry's storage, the Curator's views and IDMD `balanceOf`; the renderer output
+   claimant (golden tests per template against `templates/fixtures/`), and the Composer's
+   canonical-document keccak equals the plane's value for every fixture (`reference/plane/questionHashes.json`); registration fees are forwarded to the BurnExecutor for bridging and burning on Base.
+8. `tokenURI` reads claimant facts from the registry; minted direct traits use the frozen snapshot and 601 uses its stored oracle window; the renderer output
    decodes to the golden bytes; a hostile spec name cannot break the JSON or the SVG (escaping tests).
 9. The registry's IMD balance is zero after every transaction it makes: a fee reaches the executor in the
    transaction that pulls it, and a claimant-paid request pulls and forwards in one transaction; `abandon` releases a
-   pending pair only after 31 days, by its claimant for personal requests or anyone for a shared fact; one pending
+   pending pair after strictly more than 31 days, by its claimant for personal requests or anyone for a shared fact;
+   a claimant can also abandon a completed personal request immediately. There is one pending
    request per pair and per fact id; `sharedFact` holds a hash and a length, never a list.
 10. Curator-derived direct-read traits (families 1 to 5) for a non-member are all false (`firstHourOf` returns
     `(0, false)`): a non-member never renders as an hour-0 Zero-Shot. 601 (Swarmed) is an oracle fact and independent

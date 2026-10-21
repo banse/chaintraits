@@ -1,5 +1,20 @@
 # Disclosure
 
+## Limits of this deployment
+
+This contribution implements ownerless contracts for Ethereum mainnet; review and deployment are later workflow stages. No new onchain addresses are asserted here. The historical sections below describe earlier experiments and do not define this implementation.
+
+- A single fixed attester signs answers. Exact panel and quorum checks, canonical question binding, request windows, validity bounds and one completion per Intake request protect verification, but cannot establish that the panel told the truth. Identical questions can reuse signed evidence across distinct pending requests; each still waits for its own Intake completion before permissionless settlement.
+- Swarmed uses a living window and depends on historical archive logs and state for the IdentityMD collection, adapter and reputation registry, including the specified batcher. Incomplete archive reads are no evidence. A changed batcher or adapter can stop future claims; established facts remain permanent and describe each wallet's own holding intervals.
+- Every oracle claim pays the current Intake price. Refusal, disagreement, invalid delivery, expiration and abandonment do not refund it. The Intake administrator can change prices, callback gas, payment destination and writer; the oracle signer and wire format can change outside this Registry. There are no setters, owner, pause or repair path here. Undelivered valid true verdicts can be settled after completion and before expiry.
+- Mint and registration fees are forwarded to the BurnExecutor for bridging and burning on Base. Its administrator can change token, OFT, destination and options and can rescue funds. Bridging and the destination burn are separate asynchronous actions requiring an actor and native bridge fees; neither is guaranteed by the Registry. It accepts no ETH and cannot recover unsolicited assets.
+- Cards are transferable, while their claimant and direct snapshot never change. A rendered card is not a credential: the renderer accepts arbitrary read adapters and identifies no authentic registry in its image. Consumers must query `hasTrait` on the authentic Registry for the claimant.
+- Metadata displays at most 32 community facts and draws at most 39 inner rings. `verifiedSpecsOf` reads the whole verified list before the display cap, so its cost grows with history. The supplied historical estimate of roughly 124,000 entries exceeding practical view limits is above this implementation's 55,534-id registration ceiling, but large valid lists can still become costly to render. Facts remain individually queryable.
+- Off-mainnet window validation uses a timestamp-derived upper bound on Ethereum height. It can admit a not-yet-mined window. Clients must verify actual head and finality before payment. The mint block is stored as uint64, as specified.
+- Local checks include unit, fuzz, stateful invariant, generated-golden, fork and static-analysis tests. The callback repricing figures are the prescribed structural model, not a measurement on a future mainnet gas schedule. Independent adversarial review and the launch service's full deployment simulation remain required.
+
+## Historical disclosures
+
 - The entrant operates three IMD worker seats (IDMD #420, #3 and #7). They may be assigned any swarm job on this
   repository; the entry says so, and the seats are not excluded onchain, because an onchain list would name wallets.
 - The entrant's seats and wallets abstain from the sponsor pool's upgrades and never appear in a showcase, a
