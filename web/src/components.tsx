@@ -5,6 +5,7 @@ import { useSite } from "./context";
 import { asset, explain, type WalletFacts } from "./chain";
 import { completion } from "./settlement";
 import { FAMILIES, TRAITS } from "./data";
+import { imd } from "./pure.mjs";
 export const num = (n: bigint | number) => n.toLocaleString("en-US");
 export function Section({
   title,
@@ -300,6 +301,7 @@ export function WalletFactRows({
   facts: WalletFacts;
   family?: number;
 }) {
+  const { health } = useSite();
   const rows = TRAITS.filter((t) => !family || t.family === family);
   return (
     <div className="fact-rows">
@@ -345,9 +347,16 @@ export function WalletFactRows({
               </div>
             )}
             {!result && t.class !== "direct" && !cannot && (
-              <a className="source" href={`#/claim?trait=${t.id}`}>
-                Request {t.name} ↗
-              </a>
+              <div className="fact-request">
+                <span className="muted">
+                  {health
+                    ? `${imd(health.price)} IMD · priceOf · live`
+                    : "Live price unavailable"}
+                </span>
+                <a className="source" href={`#/claim?trait=${t.id}`}>
+                  Request {t.name} ↗
+                </a>
+              </div>
             )}
           </div>
         );

@@ -1,5 +1,5 @@
 {
-  "at": "2026-10-21T19:57:06.085Z",
+  "at": "2026-10-21T20:34:30.092Z",
   "checks": [
     "Configured chain, deployed bytecode and all seven dependencies match on the pinned fork.",
     "Actual source lookup before mint returns tokenOf=0 and a decoded live Renderer preview using compiler-derived storage slots.",
@@ -23,13 +23,13 @@
     "Anvil impersonation is used only inside an isolated fork. No private key is required and no mainnet transaction is broadcast.",
     "Shared application uses an explicitly injected verified-state fixture after a real kind-3 request; it does not test a real panel callback or signature."
   ],
-  "blockNumber": 26243215,
+  "blockNumber": 26243400,
   "swap": {
     "output": "12000000000000000000",
-    "quotedInputWei": "29379139510201358",
-    "maximumWei": "29672930905303372",
-    "actualInputWei": "29379139510201358",
-    "refundedWei": "293791395102014",
+    "quotedInputWei": "29298625327853453",
+    "maximumWei": "29591611581131988",
+    "actualInputWei": "29298625327853453",
+    "refundedWei": "292986253278535",
     "deadlineSeconds": 120
   }
 }

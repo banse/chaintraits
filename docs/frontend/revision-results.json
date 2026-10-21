@@ -1,0 +1,297 @@
+{
+  "version": 1,
+  "scope": "Bounded revision of the three reported frontend findings.",
+  "rpcSource": "https://ethereum-rpc.publicnode.com",
+  "rpcTransport": "Public reads forwarded by the test harness through the supplied RPC transport; runtime public RPC configuration is unchanged.",
+  "before": {
+    "at": "2026-10-21T20:25:31.637Z",
+    "errors": [],
+    "acknowledgement": {
+      "before": true,
+      "after": false,
+      "hash": "#/claim#oracle-ack"
+    },
+    "journal": {
+      "before": {
+        "heading": "Request 1 oracle fact: 601 / Swarmed",
+        "confirmButtons": 1,
+        "states": [
+          "Approve exactly 0.50 IMD to Registry\nready",
+          "Request 601 / Swarmed\nready"
+        ],
+        "hash": "#/claim?trait=601"
+      },
+      "after": {
+        "heading": "Transaction steps",
+        "confirmButtons": 0,
+        "states": [
+          "Approve exactly 0.50 IMD to Registry\nunknown",
+          "Request 601 / Swarmed\nunknown"
+        ],
+        "hash": "#/claim#transaction-steps"
+      }
+    },
+    "signingMethods": [],
+    "prices": [
+      "601 / SwarmedPanel-sworn\nnot claimed\nSwarmed: operated a seat through 3 accepted swarm jobs. Counted up to 64 blocks before the block of your request; request again after more jobs. · 25,090,085 → request block − 64\nRequest Swarmed ↗",
+      "1301 / PretrainedPanel-sworn\nnot claimed\nAccount nonce ≥ 20 at launch · W_DEPLOY\nRequest Pretrained ↗"
+    ],
+    "refresh": {
+      "before": {
+        "scrollY": 3754,
+        "height": 5443,
+        "rows": 25
+      },
+      "trigger": "Captured 45000ms health interval callback, invoked once; hasTrait RPC read held until the intermediate state was measured.",
+      "during": {
+        "scrollY": 401,
+        "height": 1245,
+        "rows": 0
+      },
+      "after": {
+        "scrollY": 401,
+        "height": 5443,
+        "rows": 25
+      }
+    }
+  },
+  "after": {
+    "chromium": {
+      "at": "2026-10-21T20:34:00.697Z",
+      "engine": "chromium",
+      "checks": [
+        {
+          "name": "Acknowledgement keyboard navigation retains all query parameters, selected trait and main element; focuses its checkbox."
+        },
+        {
+          "name": "Prepared journal survives its link, originating-step link and browser Back, with two ready steps and one confirmation control; no signing or broadcast.",
+          "before": {
+            "title": "Request 1 oracle fact: 601 / Swarmed",
+            "confirmButtons": 1,
+            "steps": [
+              "Approve exactly 0.50 IMD to Registry\nready",
+              "Request 601 / Swarmed\nready"
+            ],
+            "hash": "#/claim?trait=601",
+            "sameMain": true,
+            "selected": true,
+            "acknowledged": true
+          },
+          "after": {
+            "title": "Request 1 oracle fact: 601 / Swarmed",
+            "confirmButtons": 1,
+            "steps": [
+              "Approve exactly 0.50 IMD to Registry\nready",
+              "Request 601 / Swarmed\nready"
+            ],
+            "hash": "#/claim?trait=601#transaction-steps",
+            "sameMain": true,
+            "selected": true,
+            "acknowledged": true
+          }
+        },
+        {
+          "name": "Both requestable stranger facts show the RPC-fetched amount through the common IMD formatter, with priceOf · live and the correct Claim link; impossible facts have no request link; no overflow at 320/390/1440.",
+          "priceWei": "500000000000000000",
+          "requestRows": [
+            {
+              "id": 601,
+              "text": "0.50 IMD · priceOf · live\nRequest Swarmed ↗"
+            },
+            {
+              "id": 1301,
+              "text": "0.50 IMD · priceOf · live\nRequest Pretrained ↗"
+            }
+          ]
+        },
+        {
+          "name": "Scheduled 45000ms refresh callback retains result nodes, height and reading position during and after a held RPC read.",
+          "before": {
+            "scrollY": 3769,
+            "height": 5446,
+            "rows": 25,
+            "sameRows": true
+          },
+          "during": {
+            "scrollY": 3769,
+            "height": 5446,
+            "rows": 25,
+            "sameRows": true
+          },
+          "after": {
+            "scrollY": 3769,
+            "height": 5446,
+            "rows": 25,
+            "sameRows": true
+          }
+        },
+        {
+          "name": "Scheduled 45000ms refresh callback retains result nodes, height and reading position during and after a held RPC read; an initial trait deep link does not scroll again.",
+          "before": {
+            "scrollY": 3769,
+            "height": 5446,
+            "rows": 25,
+            "sameRows": true
+          },
+          "during": {
+            "scrollY": 3769,
+            "height": 5446,
+            "rows": 25,
+            "sameRows": true
+          },
+          "after": {
+            "scrollY": 3769,
+            "height": 5446,
+            "rows": 25,
+            "sameRows": true
+          }
+        },
+        {
+          "name": "Failed wallet read clears old credentials and exposes Retry reads; retry restores all 25 facts."
+        },
+        {
+          "name": "Address change clears the previous wallet while the next read is pending, then shows the requested public contributor."
+        }
+      ],
+      "errors": [],
+      "limitations": [],
+      "browserVersion": "156.0.8078.4"
+    },
+    "webkit": {
+      "at": "2026-10-21T20:34:06.985Z",
+      "engine": "webkit",
+      "checks": [
+        {
+          "name": "Acknowledgement keyboard navigation retains all query parameters, selected trait and main element; focuses its checkbox."
+        },
+        {
+          "name": "Prepared journal survives its link, originating-step link and browser Back, with two ready steps and one confirmation control; no signing or broadcast.",
+          "before": {
+            "title": "Request 1 oracle fact: 601 / Swarmed",
+            "confirmButtons": 1,
+            "steps": [
+              "Approve exactly 0.50 IMD to Registry\nready",
+              "Request 601 / Swarmed\nready"
+            ],
+            "hash": "#/claim?trait=601",
+            "sameMain": true,
+            "selected": true,
+            "acknowledged": true
+          },
+          "after": {
+            "title": "Request 1 oracle fact: 601 / Swarmed",
+            "confirmButtons": 1,
+            "steps": [
+              "Approve exactly 0.50 IMD to Registry\nready",
+              "Request 601 / Swarmed\nready"
+            ],
+            "hash": "#/claim?trait=601#transaction-steps",
+            "sameMain": true,
+            "selected": true,
+            "acknowledged": true
+          }
+        },
+        {
+          "name": "Both requestable stranger facts show the RPC-fetched amount through the common IMD formatter, with priceOf · live and the correct Claim link; impossible facts have no request link; no overflow at 320/390/1440.",
+          "priceWei": "500000000000000000",
+          "requestRows": [
+            {
+              "id": 601,
+              "text": "0.50 IMD · priceOf · live\nRequest Swarmed ↗"
+            },
+            {
+              "id": 1301,
+              "text": "0.50 IMD · priceOf · live\nRequest Pretrained ↗"
+            }
+          ]
+        },
+        {
+          "name": "Scheduled 45000ms refresh callback retains result nodes, height and reading position during and after a held RPC read.",
+          "before": {
+            "scrollY": 3774,
+            "height": 5448,
+            "rows": 25,
+            "sameRows": true
+          },
+          "during": {
+            "scrollY": 3774,
+            "height": 5448,
+            "rows": 25,
+            "sameRows": true
+          },
+          "after": {
+            "scrollY": 3774,
+            "height": 5448,
+            "rows": 25,
+            "sameRows": true
+          }
+        },
+        {
+          "name": "Scheduled 45000ms refresh callback retains result nodes, height and reading position during and after a held RPC read; an initial trait deep link does not scroll again.",
+          "before": {
+            "scrollY": 3774,
+            "height": 5448,
+            "rows": 25,
+            "sameRows": true
+          },
+          "during": {
+            "scrollY": 3774,
+            "height": 5448,
+            "rows": 25,
+            "sameRows": true
+          },
+          "after": {
+            "scrollY": 3774,
+            "height": 5448,
+            "rows": 25,
+            "sameRows": true
+          }
+        },
+        {
+          "name": "Failed wallet read clears old credentials and exposes Retry reads; retry restores all 25 facts."
+        },
+        {
+          "name": "Address change clears the previous wallet while the next read is pending, then shows the requested public contributor."
+        }
+      ],
+      "errors": [],
+      "limitations": [],
+      "browserVersion": "27.2"
+    }
+  },
+  "checks": {
+    "productionBuild": "passed: npm run build; implementation-derived ABIs match pinned commit and canonical Keccak handoff hashes",
+    "typecheck": "passed: npm run typecheck",
+    "format": "passed: npm run format:check",
+    "npmTest": "passed: 27 unit/export tests, 40 route/width checks, 7 Chromium revision groups and 17 isolated-fork checks",
+    "webkitRevision": "passed: all 7 revision groups",
+    "manifest": "passed: all 45 exported assets; exact handoff/network snapshots and contract set",
+    "designProbe": "14/16; required uppercase headings and monospace prose retained",
+    "newDependencies": 0,
+    "changedIgnoreFiles": 0
+  },
+  "limitations": [
+    "Refresh measurements invoke the actual scheduled 45000ms callback explicitly and hold a hasTrait read; they do not wait 45 real seconds.",
+    "The connected revision fixture overrides only the specified wallet balanceOf read to 1 IMD and refuses signing and broadcasting.",
+    "The provided browser connector could not launch its missing Chrome executable; installed local Playwright Chromium and WebKit supplied the actual rendered checks.",
+    "WebKit used temporary system libraries and software EGL outside the deliverable.",
+    "Physical wallets, passkey creation, screen readers and native 200% browser zoom remain unperformed; prior oracle-settlement fixture limitations remain in TEST-NOTES."
+  ],
+  "export": {
+    "assetCount": 45,
+    "assetBytes": 1012986,
+    "allFileBytes": 1021351,
+    "largestFileBytes": 664872,
+    "manifestSha256": "84c50d12f17e6991894b3100b0d95d5392302700590d958c1e3ad57ad90c0718",
+    "relativeStaticAssets": true
+  },
+  "budget": {
+    "maximumSubmissionBytes": 8388608,
+    "revisionChangedFileCount": 34,
+    "rawRevisionFileBytesUpperBound": 1500000,
+    "revisionGitBundleBytesUpperBound": 524288,
+    "bundlePrerequisite": "accepted starting HEAD 186dc95108c0ad8c2917ea0a21f9390379508786",
+    "bundleAudit": "Verified revision bundle, below 512 KiB, using the already accepted starting HEAD as its Git prerequisite. Temporary commit, index, object store and bundle are confined to test/scratch; production Git metadata is unchanged."
+  },
+  "checkedAt": "2026-10-21T20:42:54.795639+00:00"
+}

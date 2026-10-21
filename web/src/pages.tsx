@@ -346,14 +346,20 @@ export function Explorer() {
   const journal = useTransactions();
   useEffect(() => {
     let active = true;
-    setFacts(null);
+    setFacts((previous) =>
+      previous?.address.toLowerCase() === address.toLowerCase()
+        ? previous
+        : null,
+    );
     setError("");
+    setBusy(false);
     if (!address) return;
     if (!isAddress(address, { strict: false })) {
       setError("Enter a valid Ethereum address.");
       return;
     }
     if (!site.health) {
+      setFacts(null);
       if (site.error) setError(site.error);
       return;
     }
@@ -369,7 +375,10 @@ export function Explorer() {
         if (active) setFacts(value);
       })
       .catch((e) => {
-        if (active) setError(explain(e));
+        if (active) {
+          setFacts(null);
+          setError(explain(e));
+        }
       })
       .finally(() => {
         if (active) setBusy(false);
@@ -378,8 +387,9 @@ export function Explorer() {
       active = false;
     };
   }, [address, site.health, tick]);
+  const factsAddress = facts?.address;
   useEffect(() => {
-    if (!facts) return;
+    if (!factsAddress) return;
     const id = new URLSearchParams(location.hash.split("?")[1]).get("trait");
     if (id) {
       const timeout = setTimeout(
@@ -391,7 +401,7 @@ export function Explorer() {
       );
       return () => clearTimeout(timeout);
     }
-  }, [facts]);
+  }, [factsAddress]);
   return (
     <>
       <h1>Explorer</h1>
@@ -404,27 +414,26 @@ export function Explorer() {
         }}
       />
       <Status error={!!error}>
-        {error || busy
-          ? ""
-          : !address
-            ? "Enter any wallet to read its facts."
-            : ""}
+        {error ||
+          (busy
+            ? facts
+              ? "Refreshing wallet facts…"
+              : "Reading the Registry, Curator and deployed Renderer…"
+            : facts
+              ? "Wallet facts loaded."
+              : !address
+                ? "Enter any wallet to read its facts."
+                : "")}
       </Status>
-      {busy && (
-        <Status>Reading the Registry, Curator and deployed Renderer…</Status>
-      )}
       {error && (
-        <>
-          <Status error>{error}</Status>
-          <button
-            onClick={() => {
-              setTick((v) => v + 1);
-              site.refresh();
-            }}
-          >
-            Retry reads
-          </button>
-        </>
+        <button
+          onClick={() => {
+            setTick((v) => v + 1);
+            site.refresh();
+          }}
+        >
+          Retry reads
+        </button>
       )}
       {facts && (
         <>

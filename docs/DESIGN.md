@@ -66,9 +66,13 @@ Buttons, inputs and sections are square. The hive is the distinguishing shape, r
 | `WalletProvider`, `ConnectControl` / `wallet.tsx` | EIP-6963 names/icons, mobile open-in links, Coinbase option, native modal, wrong-chain switch/add, disconnect and provider restoration |
 | `Claim`, `CommunityForm`, `SharedFact`, `Settlement` / `claim.tsx` | Mint first, one payment group, one oracle acknowledgement, per-field grammar checks, shared-fact status and simulated verdict storage |
 | `TransactionJournal` / `transactions.tsx` | Exact amount and per-fact price, numbered simulation/signature/receipt states, rejection/replacement recovery and receipt-only persistence |
-| `WalletFactRows` / `components.tsx` | Proven / absent / not claimed / impossible / pending states, proof window and claim links |
+| `WalletFactRows` / `components.tsx` | Proven / absent / not claimed / impossible / pending states, proof window and claim links; each requestable oracle fact pairs its link with the common IMD-formatted live price and `priceOf · live`, or explicit price unavailability |
 
 `primary` buttons use the green fill for the central action. Secondary buttons have a visible faint border, green hover border/text and green pressed fill with dark text. Disabled controls state their reason in adjacent text. `:focus-visible` has a 2px foreground outline with 4px offset. Native dialog behavior traps focus, closes on Escape/backdrop/close and restores its trigger.
+
+Explorer's `.fact-request` group wraps its price and request link with an 8px row gap and 24px column gap; it spans the fact row and reuses existing text/link tokens. Same-wallet refreshes retain the result nodes and show “Refreshing wallet facts…” in the existing status position. An address change or failed read clears the old wallet result. A trait deep link scrolls when that wallet's result first appears, rather than on each refresh.
+
+Claim acknowledgement, journal and originating-step anchors use `claimAnchor` in `web/src/navigation.ts`. It preserves the current Claim query so anchor navigation retains the selected facts, acknowledgement and in-memory prepared plan. It adds no Claim query when used from another route.
 
 ## Do's and Don'ts
 

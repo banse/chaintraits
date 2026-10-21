@@ -13,6 +13,7 @@ import { read, health, contract, tokenAbi, explain, ACTION } from "./chain";
 import { imd, ethCeiling, MISS_REASONS } from "./pure.mjs";
 import { quoteEth, swapCall, type SwapQuote } from "./swap";
 import { Status } from "./components";
+import { claimAnchor } from "./navigation";
 export type Call = {
   label: string;
   functionName: string;
@@ -400,7 +401,7 @@ export function TransactionJournal({ journal }: { journal: Journal }) {
       <h2>{journal.plan?.title || "Transaction steps"}</h2>
       {journal.plan && (
         <>
-          <a href={`#/claim#${journal.plan.from}`}>
+          <a href={claimAnchor(journal.plan.from)}>
             from{" "}
             {journal.plan.from === "mint"
               ? "mint card"

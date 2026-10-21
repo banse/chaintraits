@@ -927,6 +927,16 @@ fieldset {
 .fact-row > .proof {
   grid-column: 1/-1;
 }
+.fact-request {
+  grid-column: 1/-1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 24px;
+}
+.fact-request .source {
+  margin-block-start: 0;
+}
 .signed-verdict {
   width: 100%;
   min-width: 0;

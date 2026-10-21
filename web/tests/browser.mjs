@@ -302,6 +302,21 @@ try {
     const safari = await webkit.launch({ headless: true });
     evidence.browsers.webkit = safari.version();
     const p = await safari.newPage({ viewport: { width: 390, height: 844 } });
+    if (providedRpc)
+      await p.route(
+        /https:\/\/(rpc\.mevblocker\.io|ethereum-rpc\.publicnode\.com|eth\.drpc\.org|1\.rpc\.thirdweb\.com)\/?/,
+        async (route) => {
+          const body = await forwardRpc(
+            providedRpc,
+            route.request().postDataJSON(),
+          );
+          await route.fulfill({
+            status: 200,
+            contentType: "application/json",
+            body,
+          });
+        },
+      );
     await p.goto(preview.url);
     await p.getByRole("heading", { level: 1 }).waitFor();
     await p.getByRole("button", { name: "Explore wallet" }).click();

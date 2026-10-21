@@ -20,10 +20,11 @@ import {
 } from "./transactions";
 import { useWalletSheet } from "./wallet";
 import { sharedState, completion } from "./settlement";
+import { claimAnchor } from "./navigation";
 function AckLink() {
   return (
     <a
-      href="#/claim#oracle-ack"
+      href={claimAnchor("oracle-ack")}
       onClick={() =>
         setTimeout(() => document.getElementById("oracle-ack")?.focus(), 0)
       }
@@ -203,7 +204,7 @@ export function Settlement({
       )}
       <Status>{status}</Status>
       {status.startsWith("Prepared") && (
-        <a href="#/claim#transaction-steps">Transaction steps ↓</a>
+        <a href={claimAnchor("transaction-steps")}>Transaction steps ↓</a>
       )}
     </div>
   );
@@ -360,7 +361,7 @@ function SharedFact({
       </Status>
       {!ack && !stored && <AckLink />}
       {status.startsWith("Prepared") && (
-        <a href="#/claim#transaction-steps">Transaction steps ↓</a>
+        <a href={claimAnchor("transaction-steps")}>Transaction steps ↓</a>
       )}
       {pending && <Settlement requestId={value.pending} journal={journal} />}
     </div>
@@ -614,7 +615,7 @@ function CommunityForm({
           (Object.keys(errors).length ? "Correct the named fields above." : "")}
       </Status>
       {status.startsWith("Prepared") && (
-        <a href="#/claim#transaction-steps">Transaction steps ↓</a>
+        <a href={claimAnchor("transaction-steps")}>Transaction steps ↓</a>
       )}
     </form>
   );
@@ -809,7 +810,7 @@ export function Claim() {
                   (!facts ? "Reading your wallet…" : ""))}
           </Status>
           {status.mint?.startsWith("Prepared") && (
-            <a href="#/claim#transaction-steps">
+            <a href={claimAnchor("transaction-steps")}>
               {facts && facts.token !== 0n
                 ? "View mint receipts ↓"
                 : "Transaction steps ↓"}
@@ -1040,7 +1041,7 @@ export function Claim() {
                     : "")}
           </Status>
           {status.facts?.startsWith("Prepared") && (
-            <a href="#/claim#transaction-steps">Transaction steps ↓</a>
+            <a href={claimAnchor("transaction-steps")}>Transaction steps ↓</a>
           )}
           {facts &&
             Object.entries(facts.pending)
