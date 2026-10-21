@@ -1,0 +1,971 @@
+{
+  "version": 1,
+  "finding": "3aa4a93bec7c4bb99c2e947c7995a54468ebff3f2c46afb1bc6b04fee7604bed",
+  "scope": "Bounded Explorer render guard for missing health; established implementation and transaction flows preserved.",
+  "rpcSource": "https://ethereum-rpc.publicnode.com",
+  "rpcTransport": "Successful browser JSON-RPC requests forwarded unmodified through the supplied read transport; production RPC configuration unchanged. HTTP 503 is deliberately injected only for the failure cases.",
+  "before": {
+    "chromium": {
+      "at": "2026-10-21T20:54:17.824Z",
+      "engine": "chromium",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "walletFixture": false,
+      "checks": [
+        {
+          "name": "rpc-switch",
+          "pageErrors": [
+            "Cannot read properties of null (reading 'block')"
+          ],
+          "consoleErrors": [],
+          "localResourceErrors": [],
+          "rpcFailures": 0,
+          "forwardedReads": 73,
+          "methods": [
+            "eth_chainId",
+            "eth_getCode",
+            "eth_call",
+            "eth_blockNumber"
+          ],
+          "before": {
+            "main": 1,
+            "sameMain": true,
+            "navigation": 1,
+            "footer": 1,
+            "rows": 25,
+            "sameRows": null,
+            "address": "0x000000000000000000000000000000000000c1a1",
+            "rpc": "https://rpc.mevblocker.io",
+            "status": "Public facts. No wallet connection needed.",
+            "healthStatus": "Dependencies verified \u00b7 Ethereum block 26,243,499 \u00b7 priceOf read live",
+            "bodyTextLength": 3633,
+            "scrollY": 0,
+            "height": 5446
+          },
+          "unavailable": {
+            "main": 0,
+            "sameMain": false,
+            "navigation": 0,
+            "footer": 0,
+            "rows": 0,
+            "sameRows": null,
+            "address": null,
+            "rpc": null,
+            "status": null,
+            "healthStatus": null,
+            "bodyTextLength": 0,
+            "scrollY": 0,
+            "height": 844
+          },
+          "passed": false,
+          "failure": "Explorer must retain the application shell\n\n0 !== 1\n",
+          "final": {
+            "main": 0,
+            "sameMain": false,
+            "navigation": 0,
+            "footer": 0,
+            "rows": 0,
+            "sameRows": null,
+            "address": null,
+            "rpc": null,
+            "status": null,
+            "healthStatus": null,
+            "bodyTextLength": 0,
+            "scrollY": 0,
+            "height": 844
+          }
+        },
+        {
+          "name": "health-failure-retry",
+          "pageErrors": [
+            "Cannot read properties of null (reading 'block')"
+          ],
+          "consoleErrors": [
+            "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+            "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+          ],
+          "localResourceErrors": [],
+          "rpcFailures": 2,
+          "forwardedReads": 73,
+          "methods": [
+            "eth_chainId",
+            "eth_getCode",
+            "eth_call",
+            "eth_blockNumber"
+          ],
+          "before": {
+            "main": 1,
+            "sameMain": true,
+            "navigation": 1,
+            "footer": 1,
+            "rows": 25,
+            "sameRows": null,
+            "address": "0x000000000000000000000000000000000000c1a1",
+            "rpc": "https://rpc.mevblocker.io",
+            "status": "Public facts. No wallet connection needed.",
+            "healthStatus": "Dependencies verified \u00b7 Ethereum block 26,243,499 \u00b7 priceOf read live",
+            "bodyTextLength": 3633,
+            "scrollY": 0,
+            "height": 5446
+          },
+          "unavailable": {
+            "main": 0,
+            "sameMain": false,
+            "navigation": 0,
+            "footer": 0,
+            "rows": 0,
+            "sameRows": null,
+            "address": null,
+            "rpc": null,
+            "status": null,
+            "healthStatus": null,
+            "bodyTextLength": 0,
+            "scrollY": 0,
+            "height": 844
+          },
+          "passed": false,
+          "failure": "Explorer must retain the application shell\n\n0 !== 1\n",
+          "final": {
+            "main": 0,
+            "sameMain": false,
+            "navigation": 0,
+            "footer": 0,
+            "rows": 0,
+            "sameRows": null,
+            "address": null,
+            "rpc": null,
+            "status": null,
+            "healthStatus": null,
+            "bodyTextLength": 0,
+            "scrollY": 0,
+            "height": 844
+          }
+        },
+        {
+          "name": "health-failure-scheduled-recovery",
+          "pageErrors": [
+            "Cannot read properties of null (reading 'block')"
+          ],
+          "consoleErrors": [
+            "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+            "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+          ],
+          "localResourceErrors": [],
+          "rpcFailures": 2,
+          "forwardedReads": 73,
+          "methods": [
+            "eth_chainId",
+            "eth_getCode",
+            "eth_call",
+            "eth_blockNumber"
+          ],
+          "before": {
+            "main": 1,
+            "sameMain": true,
+            "navigation": 1,
+            "footer": 1,
+            "rows": 25,
+            "sameRows": null,
+            "address": "0x000000000000000000000000000000000000c1a1",
+            "rpc": "https://rpc.mevblocker.io",
+            "status": "Public facts. No wallet connection needed.",
+            "healthStatus": "Dependencies verified \u00b7 Ethereum block 26,243,499 \u00b7 priceOf read live",
+            "bodyTextLength": 3633,
+            "scrollY": 0,
+            "height": 5446
+          },
+          "unavailable": {
+            "main": 0,
+            "sameMain": false,
+            "navigation": 0,
+            "footer": 0,
+            "rows": 0,
+            "sameRows": null,
+            "address": null,
+            "rpc": null,
+            "status": null,
+            "healthStatus": null,
+            "bodyTextLength": 0,
+            "scrollY": 0,
+            "height": 844
+          },
+          "passed": false,
+          "failure": "Explorer must retain the application shell\n\n0 !== 1\n",
+          "final": {
+            "main": 0,
+            "sameMain": false,
+            "navigation": 0,
+            "footer": 0,
+            "rows": 0,
+            "sameRows": null,
+            "address": null,
+            "rpc": null,
+            "status": null,
+            "healthStatus": null,
+            "bodyTextLength": 0,
+            "scrollY": 0,
+            "height": 844
+          }
+        }
+      ],
+      "limitations": [],
+      "browserVersion": "156.0.8078.4"
+    },
+    "webkit": {
+      "at": "2026-10-21T20:57:19.857Z",
+      "engine": "webkit",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "walletFixture": false,
+      "checks": [
+        {
+          "name": "rpc-switch",
+          "pageErrors": [
+            "null is not an object (evaluating 'e.health.block')"
+          ],
+          "consoleErrors": [],
+          "localResourceErrors": [],
+          "rpcFailures": 0,
+          "forwardedReads": 73,
+          "methods": [
+            "eth_chainId",
+            "eth_getCode",
+            "eth_call",
+            "eth_blockNumber"
+          ],
+          "before": {
+            "main": 1,
+            "sameMain": true,
+            "navigation": 1,
+            "footer": 1,
+            "rows": 25,
+            "sameRows": null,
+            "address": "0x000000000000000000000000000000000000c1a1",
+            "rpc": "https://rpc.mevblocker.io",
+            "status": "Wallet facts loaded.",
+            "healthStatus": "Dependencies verified \u00b7 Ethereum block 26,243,514 \u00b7 priceOf read live",
+            "bodyTextLength": 3543,
+            "scrollY": 0,
+            "height": 5448
+          },
+          "unavailable": {
+            "main": 0,
+            "sameMain": false,
+            "navigation": 0,
+            "footer": 0,
+            "rows": 0,
+            "sameRows": null,
+            "address": null,
+            "rpc": null,
+            "status": null,
+            "healthStatus": null,
+            "bodyTextLength": 0,
+            "scrollY": 0,
+            "height": 844
+          },
+          "passed": false,
+          "failure": "Explorer must retain the application shell\n\n0 !== 1\n",
+          "final": {
+            "main": 0,
+            "sameMain": false,
+            "navigation": 0,
+            "footer": 0,
+            "rows": 0,
+            "sameRows": null,
+            "address": null,
+            "rpc": null,
+            "status": null,
+            "healthStatus": null,
+            "bodyTextLength": 0,
+            "scrollY": 0,
+            "height": 844
+          }
+        },
+        {
+          "name": "health-failure-retry",
+          "pageErrors": [
+            "null is not an object (evaluating 'e.health.block')"
+          ],
+          "consoleErrors": [
+            "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+            "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+          ],
+          "localResourceErrors": [],
+          "rpcFailures": 2,
+          "forwardedReads": 73,
+          "methods": [
+            "eth_chainId",
+            "eth_getCode",
+            "eth_call",
+            "eth_blockNumber"
+          ],
+          "before": {
+            "main": 1,
+            "sameMain": true,
+            "navigation": 1,
+            "footer": 1,
+            "rows": 25,
+            "sameRows": null,
+            "address": "0x000000000000000000000000000000000000c1a1",
+            "rpc": "https://rpc.mevblocker.io",
+            "status": "Wallet facts loaded.",
+            "healthStatus": "Dependencies verified \u00b7 Ethereum block 26,243,515 \u00b7 priceOf read live",
+            "bodyTextLength": 3543,
+            "scrollY": 0,
+            "height": 5448
+          },
+          "unavailable": {
+            "main": 0,
+            "sameMain": false,
+            "navigation": 0,
+            "footer": 0,
+            "rows": 0,
+            "sameRows": null,
+            "address": null,
+            "rpc": null,
+            "status": null,
+            "healthStatus": null,
+            "bodyTextLength": 0,
+            "scrollY": 0,
+            "height": 844
+          },
+          "passed": false,
+          "failure": "Explorer must retain the application shell\n\n0 !== 1\n",
+          "final": {
+            "main": 0,
+            "sameMain": false,
+            "navigation": 0,
+            "footer": 0,
+            "rows": 0,
+            "sameRows": null,
+            "address": null,
+            "rpc": null,
+            "status": null,
+            "healthStatus": null,
+            "bodyTextLength": 0,
+            "scrollY": 0,
+            "height": 844
+          }
+        },
+        {
+          "name": "health-failure-scheduled-recovery",
+          "pageErrors": [
+            "null is not an object (evaluating 'e.health.block')"
+          ],
+          "consoleErrors": [
+            "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+            "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+          ],
+          "localResourceErrors": [],
+          "rpcFailures": 2,
+          "forwardedReads": 73,
+          "methods": [
+            "eth_chainId",
+            "eth_getCode",
+            "eth_call",
+            "eth_blockNumber"
+          ],
+          "before": {
+            "main": 1,
+            "sameMain": true,
+            "navigation": 1,
+            "footer": 1,
+            "rows": 25,
+            "sameRows": null,
+            "address": "0x000000000000000000000000000000000000c1a1",
+            "rpc": "https://rpc.mevblocker.io",
+            "status": "Wallet facts loaded.",
+            "healthStatus": "Dependencies verified \u00b7 Ethereum block 26,243,515 \u00b7 priceOf read live",
+            "bodyTextLength": 3543,
+            "scrollY": 0,
+            "height": 5448
+          },
+          "unavailable": {
+            "main": 0,
+            "sameMain": false,
+            "navigation": 0,
+            "footer": 0,
+            "rows": 0,
+            "sameRows": null,
+            "address": null,
+            "rpc": null,
+            "status": null,
+            "healthStatus": null,
+            "bodyTextLength": 0,
+            "scrollY": 0,
+            "height": 844
+          },
+          "passed": false,
+          "failure": "Explorer must retain the application shell\n\n0 !== 1\n",
+          "final": {
+            "main": 0,
+            "sameMain": false,
+            "navigation": 0,
+            "footer": 0,
+            "rows": 0,
+            "sameRows": null,
+            "address": null,
+            "rpc": null,
+            "status": null,
+            "healthStatus": null,
+            "bodyTextLength": 0,
+            "scrollY": 0,
+            "height": 844
+          }
+        }
+      ],
+      "limitations": [],
+      "browserVersion": "27.2"
+    }
+  },
+  "after": {
+    "chromium": {
+      "at": "2026-10-21T20:58:08.602Z",
+      "engine": "chromium",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "walletFixture": false,
+      "checks": [
+        {
+          "name": "rpc-switch",
+          "pageErrors": [],
+          "consoleErrors": [],
+          "localResourceErrors": [],
+          "rpcFailures": 0,
+          "forwardedReads": 146,
+          "methods": [
+            "eth_chainId",
+            "eth_getCode",
+            "eth_call",
+            "eth_blockNumber"
+          ],
+          "before": {
+            "main": 1,
+            "sameMain": true,
+            "navigation": 1,
+            "footer": 1,
+            "rows": 25,
+            "sameRows": null,
+            "address": "0x000000000000000000000000000000000000c1a1",
+            "rpc": "https://rpc.mevblocker.io",
+            "status": "Wallet facts loaded.",
+            "healthStatus": "Dependencies verified \u00b7 Ethereum block 26,243,518 \u00b7 priceOf read live",
+            "bodyTextLength": 3633,
+            "scrollY": 0,
+            "height": 5446
+          },
+          "unavailable": {
+            "main": 1,
+            "sameMain": true,
+            "navigation": 1,
+            "footer": 1,
+            "rows": 0,
+            "sameRows": null,
+            "address": null,
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "status": "",
+            "healthStatus": "Checking deployment and dependencies\u2026",
+            "bodyTextLength": 625,
+            "scrollY": 0,
+            "height": 1226
+          },
+          "recovered": {
+            "main": 1,
+            "sameMain": true,
+            "navigation": 1,
+            "footer": 1,
+            "rows": 25,
+            "sameRows": null,
+            "address": "0x000000000000000000000000000000000000c1a1",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "status": "Wallet facts loaded.",
+            "healthStatus": "Dependencies verified \u00b7 Ethereum block 26,243,519 \u00b7 priceOf read live",
+            "bodyTextLength": 3633,
+            "scrollY": 0,
+            "height": 5446
+          },
+          "passed": true
+        },
+        {
+          "name": "health-failure-retry",
+          "pageErrors": [],
+          "consoleErrors": [
+            "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+            "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+          ],
+          "localResourceErrors": [],
+          "rpcFailures": 2,
+          "forwardedReads": 145,
+          "methods": [
+            "eth_chainId",
+            "eth_getCode",
+            "eth_call",
+            "eth_blockNumber"
+          ],
+          "before": {
+            "main": 1,
+            "sameMain": true,
+            "navigation": 1,
+            "footer": 1,
+            "rows": 25,
+            "sameRows": null,
+            "address": "0x000000000000000000000000000000000000c1a1",
+            "rpc": "https://rpc.mevblocker.io",
+            "status": "Wallet facts loaded.",
+            "healthStatus": "Dependencies verified \u00b7 Ethereum block 26,243,519 \u00b7 priceOf read live",
+            "bodyTextLength": 3633,
+            "scrollY": 0,
+            "height": 5446
+          },
+          "unavailable": {
+            "main": 1,
+            "sameMain": true,
+            "navigation": 1,
+            "footer": 1,
+            "rows": 0,
+            "sameRows": null,
+            "address": null,
+            "rpc": "https://rpc.mevblocker.io",
+            "status": "RPC unavailable. HTTP request failed.",
+            "healthStatus": "RPC unavailable. HTTP request failed.",
+            "bodyTextLength": 678,
+            "scrollY": 0,
+            "height": 1226
+          },
+          "recovered": {
+            "main": 1,
+            "sameMain": true,
+            "navigation": 1,
+            "footer": 1,
+            "rows": 25,
+            "sameRows": null,
+            "address": "0x000000000000000000000000000000000000c1a1",
+            "rpc": "https://rpc.mevblocker.io",
+            "status": "Wallet facts loaded.",
+            "healthStatus": "Dependencies verified \u00b7 Ethereum block 26,243,519 \u00b7 priceOf read live",
+            "bodyTextLength": 3633,
+            "scrollY": 0,
+            "height": 5446
+          },
+          "passed": true
+        },
+        {
+          "name": "health-failure-scheduled-recovery",
+          "pageErrors": [],
+          "consoleErrors": [
+            "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+            "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+          ],
+          "localResourceErrors": [],
+          "rpcFailures": 2,
+          "forwardedReads": 218,
+          "methods": [
+            "eth_chainId",
+            "eth_getCode",
+            "eth_call",
+            "eth_blockNumber"
+          ],
+          "before": {
+            "main": 1,
+            "sameMain": true,
+            "navigation": 1,
+            "footer": 1,
+            "rows": 25,
+            "sameRows": null,
+            "address": "0x000000000000000000000000000000000000c1a1",
+            "rpc": "https://rpc.mevblocker.io",
+            "status": "Wallet facts loaded.",
+            "healthStatus": "Dependencies verified \u00b7 Ethereum block 26,243,519 \u00b7 priceOf read live",
+            "bodyTextLength": 3633,
+            "scrollY": 0,
+            "height": 5446
+          },
+          "unavailable": {
+            "main": 1,
+            "sameMain": true,
+            "navigation": 1,
+            "footer": 1,
+            "rows": 0,
+            "sameRows": null,
+            "address": null,
+            "rpc": "https://rpc.mevblocker.io",
+            "status": "RPC unavailable. HTTP request failed.",
+            "healthStatus": "RPC unavailable. HTTP request failed.",
+            "bodyTextLength": 678,
+            "scrollY": 0,
+            "height": 1226
+          },
+          "recovered": {
+            "main": 1,
+            "sameMain": true,
+            "navigation": 1,
+            "footer": 1,
+            "rows": 25,
+            "sameRows": null,
+            "address": "0x000000000000000000000000000000000000c1a1",
+            "rpc": "https://rpc.mevblocker.io",
+            "status": "Wallet facts loaded.",
+            "healthStatus": "Dependencies verified \u00b7 Ethereum block 26,243,519 \u00b7 priceOf read live",
+            "bodyTextLength": 3633,
+            "scrollY": 0,
+            "height": 5446
+          },
+          "successfulRefresh": {
+            "before": {
+              "main": 1,
+              "sameMain": true,
+              "navigation": 1,
+              "footer": 1,
+              "rows": 25,
+              "sameRows": true,
+              "address": "0x000000000000000000000000000000000000c1a1",
+              "rpc": "https://rpc.mevblocker.io",
+              "status": "Wallet facts loaded.",
+              "healthStatus": "Dependencies verified \u00b7 Ethereum block 26,243,519 \u00b7 priceOf read live",
+              "bodyTextLength": 3633,
+              "scrollY": 3769,
+              "height": 5446
+            },
+            "during": {
+              "main": 1,
+              "sameMain": true,
+              "navigation": 1,
+              "footer": 1,
+              "rows": 25,
+              "sameRows": true,
+              "address": "0x000000000000000000000000000000000000c1a1",
+              "rpc": "https://rpc.mevblocker.io",
+              "status": "Refreshing wallet facts\u2026",
+              "healthStatus": "Dependencies verified \u00b7 Ethereum block 26,243,519 \u00b7 priceOf read live",
+              "bodyTextLength": 3637,
+              "scrollY": 3769,
+              "height": 5446
+            },
+            "after": {
+              "main": 1,
+              "sameMain": true,
+              "navigation": 1,
+              "footer": 1,
+              "rows": 25,
+              "sameRows": true,
+              "address": "0x000000000000000000000000000000000000c1a1",
+              "rpc": "https://rpc.mevblocker.io",
+              "status": "Wallet facts loaded.",
+              "healthStatus": "Dependencies verified \u00b7 Ethereum block 26,243,519 \u00b7 priceOf read live",
+              "bodyTextLength": 3633,
+              "scrollY": 3769,
+              "height": 5446
+            }
+          },
+          "passed": true
+        }
+      ],
+      "limitations": [],
+      "browserVersion": "156.0.8078.4"
+    },
+    "webkit": {
+      "at": "2026-10-21T20:58:08.549Z",
+      "engine": "webkit",
+      "viewport": {
+        "width": 390,
+        "height": 844
+      },
+      "walletFixture": false,
+      "checks": [
+        {
+          "name": "rpc-switch",
+          "pageErrors": [],
+          "consoleErrors": [],
+          "localResourceErrors": [],
+          "rpcFailures": 0,
+          "forwardedReads": 146,
+          "methods": [
+            "eth_chainId",
+            "eth_getCode",
+            "eth_call",
+            "eth_blockNumber"
+          ],
+          "before": {
+            "main": 1,
+            "sameMain": true,
+            "navigation": 1,
+            "footer": 1,
+            "rows": 25,
+            "sameRows": null,
+            "address": "0x000000000000000000000000000000000000c1a1",
+            "rpc": "https://rpc.mevblocker.io",
+            "status": "Wallet facts loaded.",
+            "healthStatus": "Dependencies verified \u00b7 Ethereum block 26,243,518 \u00b7 priceOf read live",
+            "bodyTextLength": 3543,
+            "scrollY": 0,
+            "height": 5448
+          },
+          "unavailable": {
+            "main": 1,
+            "sameMain": true,
+            "navigation": 1,
+            "footer": 1,
+            "rows": 0,
+            "sameRows": null,
+            "address": null,
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "status": "",
+            "healthStatus": "Checking deployment and dependencies\u2026",
+            "bodyTextLength": 547,
+            "scrollY": 0,
+            "height": 1235
+          },
+          "recovered": {
+            "main": 1,
+            "sameMain": true,
+            "navigation": 1,
+            "footer": 1,
+            "rows": 25,
+            "sameRows": null,
+            "address": "0x000000000000000000000000000000000000c1a1",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "status": "Wallet facts loaded.",
+            "healthStatus": "Dependencies verified \u00b7 Ethereum block 26,243,519 \u00b7 priceOf read live",
+            "bodyTextLength": 3543,
+            "scrollY": 0,
+            "height": 5448
+          },
+          "passed": true
+        },
+        {
+          "name": "health-failure-retry",
+          "pageErrors": [],
+          "consoleErrors": [
+            "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+            "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+          ],
+          "localResourceErrors": [],
+          "rpcFailures": 2,
+          "forwardedReads": 145,
+          "methods": [
+            "eth_chainId",
+            "eth_getCode",
+            "eth_call",
+            "eth_blockNumber"
+          ],
+          "before": {
+            "main": 1,
+            "sameMain": true,
+            "navigation": 1,
+            "footer": 1,
+            "rows": 25,
+            "sameRows": null,
+            "address": "0x000000000000000000000000000000000000c1a1",
+            "rpc": "https://rpc.mevblocker.io",
+            "status": "Wallet facts loaded.",
+            "healthStatus": "Dependencies verified \u00b7 Ethereum block 26,243,519 \u00b7 priceOf read live",
+            "bodyTextLength": 3543,
+            "scrollY": 0,
+            "height": 5448
+          },
+          "unavailable": {
+            "main": 1,
+            "sameMain": true,
+            "navigation": 1,
+            "footer": 1,
+            "rows": 0,
+            "sameRows": null,
+            "address": null,
+            "rpc": "https://rpc.mevblocker.io",
+            "status": "RPC unavailable. HTTP request failed.",
+            "healthStatus": "RPC unavailable. HTTP request failed.",
+            "bodyTextLength": 600,
+            "scrollY": 0,
+            "height": 1235
+          },
+          "recovered": {
+            "main": 1,
+            "sameMain": true,
+            "navigation": 1,
+            "footer": 1,
+            "rows": 25,
+            "sameRows": null,
+            "address": "0x000000000000000000000000000000000000c1a1",
+            "rpc": "https://rpc.mevblocker.io",
+            "status": "Wallet facts loaded.",
+            "healthStatus": "Dependencies verified \u00b7 Ethereum block 26,243,519 \u00b7 priceOf read live",
+            "bodyTextLength": 3543,
+            "scrollY": 0,
+            "height": 5448
+          },
+          "passed": true
+        },
+        {
+          "name": "health-failure-scheduled-recovery",
+          "pageErrors": [],
+          "consoleErrors": [
+            "Failed to load resource: the server responded with a status of 503 (Service Unavailable)",
+            "Failed to load resource: the server responded with a status of 503 (Service Unavailable)"
+          ],
+          "localResourceErrors": [],
+          "rpcFailures": 2,
+          "forwardedReads": 217,
+          "methods": [
+            "eth_chainId",
+            "eth_getCode",
+            "eth_call",
+            "eth_blockNumber"
+          ],
+          "before": {
+            "main": 1,
+            "sameMain": true,
+            "navigation": 1,
+            "footer": 1,
+            "rows": 25,
+            "sameRows": null,
+            "address": "0x000000000000000000000000000000000000c1a1",
+            "rpc": "https://rpc.mevblocker.io",
+            "status": "Wallet facts loaded.",
+            "healthStatus": "Dependencies verified \u00b7 Ethereum block 26,243,519 \u00b7 priceOf read live",
+            "bodyTextLength": 3543,
+            "scrollY": 0,
+            "height": 5448
+          },
+          "unavailable": {
+            "main": 1,
+            "sameMain": true,
+            "navigation": 1,
+            "footer": 1,
+            "rows": 0,
+            "sameRows": null,
+            "address": null,
+            "rpc": "https://rpc.mevblocker.io",
+            "status": "RPC unavailable. HTTP request failed.",
+            "healthStatus": "RPC unavailable. HTTP request failed.",
+            "bodyTextLength": 600,
+            "scrollY": 0,
+            "height": 1235
+          },
+          "recovered": {
+            "main": 1,
+            "sameMain": true,
+            "navigation": 1,
+            "footer": 1,
+            "rows": 25,
+            "sameRows": null,
+            "address": "0x000000000000000000000000000000000000c1a1",
+            "rpc": "https://rpc.mevblocker.io",
+            "status": "Wallet facts loaded.",
+            "healthStatus": "Dependencies verified \u00b7 Ethereum block 26,243,519 \u00b7 priceOf read live",
+            "bodyTextLength": 3543,
+            "scrollY": 0,
+            "height": 5448
+          },
+          "successfulRefresh": {
+            "before": {
+              "main": 1,
+              "sameMain": true,
+              "navigation": 1,
+              "footer": 1,
+              "rows": 25,
+              "sameRows": true,
+              "address": "0x000000000000000000000000000000000000c1a1",
+              "rpc": "https://rpc.mevblocker.io",
+              "status": "Wallet facts loaded.",
+              "healthStatus": "Dependencies verified \u00b7 Ethereum block 26,243,519 \u00b7 priceOf read live",
+              "bodyTextLength": 3543,
+              "scrollY": 3774,
+              "height": 5448
+            },
+            "during": {
+              "main": 1,
+              "sameMain": true,
+              "navigation": 1,
+              "footer": 1,
+              "rows": 25,
+              "sameRows": true,
+              "address": "0x000000000000000000000000000000000000c1a1",
+              "rpc": "https://rpc.mevblocker.io",
+              "status": "Refreshing wallet facts\u2026",
+              "healthStatus": "Dependencies verified \u00b7 Ethereum block 26,243,519 \u00b7 priceOf read live",
+              "bodyTextLength": 3547,
+              "scrollY": 3774,
+              "height": 5448
+            },
+            "after": {
+              "main": 1,
+              "sameMain": true,
+              "navigation": 1,
+              "footer": 1,
+              "rows": 25,
+              "sameRows": true,
+              "address": "0x000000000000000000000000000000000000c1a1",
+              "rpc": "https://rpc.mevblocker.io",
+              "status": "Wallet facts loaded.",
+              "healthStatus": "Dependencies verified \u00b7 Ethereum block 26,243,519 \u00b7 priceOf read live",
+              "bodyTextLength": 3543,
+              "scrollY": 3774,
+              "height": 5448
+            }
+          },
+          "passed": true
+        }
+      ],
+      "limitations": [],
+      "browserVersion": "27.2"
+    }
+  },
+  "validation": {
+    "cleanInstall": "passed; lockfile preserved",
+    "build": "passed; pinned ABI file bytes and canonical Keccak verified before Vite; deployment manifest generated after export",
+    "typecheck": "passed: tsc --noEmit",
+    "format": "passed: prettier --check",
+    "unitAndExportTests": 27,
+    "browserRouteWidthChecks": 40,
+    "browserVersions": {
+      "chromium": "156.0.8078.4",
+      "webkit": "27.2"
+    },
+    "browserErrors": [],
+    "browserLimitations": [],
+    "exportIntegrity": "passed: npm run verify:export",
+    "designProbe": {
+      "passed": 14,
+      "total": 16,
+      "specificationOverrides": [
+        "casing",
+        "type-faces"
+      ],
+      "firstScreen390": "Product and Explore action visible in inspected production-export screenshot."
+    },
+    "scopeAndBudget": {
+      "scope": "web/, dist/, docs/ plus the explicitly requested .imd-responses.json",
+      "changedPathCount": 22,
+      "rawChangedFileBytesUpperBound": 2097152,
+      "completeFrontendSourceExportDocsBytesUpperBound": 6291456,
+      "revisionGitBundleBytesUpperBound": 1048576,
+      "submissionLimitBytes": 8388608,
+      "bundlePrerequisite": "8228e96e67506c5c16f58408da7b05cd54cbc28c",
+      "protectedFilesLockfileAndIgnoreFile": "unchanged",
+      "generatedDependencyCacheAndBrowserFiles": "excluded from submission",
+      "newSubmodules": 0
+    }
+  },
+  "export": {
+    "assetCount": 45,
+    "assetBytes": 1012996,
+    "allFileBytes": 1021361,
+    "largestFileBytes": 664882,
+    "manifestSha256": "6686c533602985e43e100a1711271b3aa211ff11b4b662af0253211beb00cef4",
+    "relativeStaticAssets": true
+  },
+  "limitations": [
+    "Intentional HTTP 503s produce expected resource-console messages; no application page errors or failed local resources after the fix.",
+    "Browser MCP could not launch absent Chrome; actual browser checks used local Playwright Chromium and WebKit.",
+    "WebKit used temporary extracted libraries, a temporary launcher retaining their search path, software rendering and skipped system-cache dependency detection. No browser runtime or dependency archive is submitted.",
+    "The combined npm test command, earlier Claim regressions, isolated transaction fork and independent cast comparisons were not repeated for this render guard. Their previously accepted evidence is retained separately.",
+    "Native zoom, physical devices, screen readers, wallet app handoff and passkey onboarding remain unperformed.",
+    "Publication, naming and control-plane checks occur after worker delivery."
+  ]
+}

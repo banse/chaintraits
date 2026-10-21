@@ -4,7 +4,7 @@
    "name": "render",
    "passed": true,
    "exitCode": 0,
-   "durationMs": 12544,
+   "durationMs": 16528,
    "output": "renders, no script errors or missing local files\nexternal hosts: rpc.mevblocker.io"
   },
   {
@@ -25,14 +25,14 @@
    "name": "contrast",
    "passed": true,
    "exitCode": 0,
-   "durationMs": 1,
+   "durationMs": 0,
    "output": "all measured text meets 4.5:1 (3:1 large)"
   },
   {
    "name": "casing",
    "passed": false,
    "exitCode": 1,
-   "durationMs": 0,
+   "durationMs": 1,
    "output": "2 all-caps text boxes in content:\n1440px: #main > section.section:nth-of-type(4) > h2 \"WHY SWORN\"\n1440px: #main > section.section:nth-of-type(5) > h2 \"BUILT BY THE SWARM\""
   },
   {
@@ -46,21 +46,21 @@
    "name": "eyebrows",
    "passed": true,
    "exitCode": 0,
-   "durationMs": 0,
+   "durationMs": 2,
    "output": "no kicker labels above headings"
   },
   {
    "name": "type-sizes",
    "passed": true,
    "exitCode": 0,
-   "durationMs": 1,
+   "durationMs": 0,
    "output": "390: 3 sizes in use, 5 with one-offs (11px×1, 12px×21, 13px×39, 15px×22, 34px×1)\n1440: 3 sizes in use, 5 with one-offs (11px×1, 12px×21, 13px×39, 15px×22, 34px×1)\nbar: 6 sizes used more than once, 8 counting one-offs, per width"
   },
   {
    "name": "type-faces",
    "passed": false,
    "exitCode": 1,
-   "durationMs": 0,
+   "durationMs": 1,
    "output": "families (1): ui-monospace\nweights (2): 400, 600\nmonospace prose: 12, e.g. #main > section.landing:nth-of-type(1) > div.landing-copy:nth-of-type(1) > p.prose \"Sworn is an ownerless registry on Ethere\""
   },
   {
@@ -81,7 +81,7 @@
    "name": "repetition",
    "passed": true,
    "exitCode": 0,
-   "durationMs": 2,
+   "durationMs": 3,
    "output": "no repeated lines"
   },
   {
@@ -89,7 +89,7 @@
    "passed": true,
    "exitCode": 0,
    "durationMs": 1,
-   "output": "prose on the first screen: 60 words at 390 (bar 60), 60 at 1440 (bar 90)\nall words on the first screen: 94 at 390, 118 at 1440\nwhole page: 604 words, 274 of them prose"
+   "output": "prose on the first screen: 60 words at 390 (bar 60), 60 at 1440 (bar 90)\nall words on the first screen: 94 at 390, 118 at 1440\nwhole page: 609 words, 284 of them prose"
   },
   {
    "name": "chrome",
@@ -113,8 +113,8 @@
    "output": "title \"Sworn | Home\", favicon, og:title, og:image, description"
   }
  ],
- "target": "dist",
- "at": "2026-10-21T20:34:20.537Z",
+ "target": "dist/",
+ "at": "2026-10-21T20:58:43.741Z",
  "bar": {
   "sizes": 6,
   "strays": 8,
@@ -136,7 +136,7 @@
    "vh": 844,
    "art": 0,
    "scrollWidth": 390,
-   "height": 5101,
+   "height": 5120,
    "texts": 84,
    "offenders": [],
    "overlaps": [],
@@ -334,7 +334,7 @@
      "w": 358,
      "h": 19,
      "cx": 195,
-     "cy": 5024.34375,
+     "cy": 5043.53125,
      "label": "Deployment manifest ↗",
      "crowded": false
     },
@@ -343,7 +343,7 @@
      "w": 358,
      "h": 19,
      "cx": 195,
-     "cy": 5059.53125,
+     "cy": 5078.71875,
      "label": "About & sources ↗",
      "crowded": false
     }
@@ -2696,9 +2696,9 @@
    "digits": 0
   },
   {
-   "sel": "#root > footer.site-footer > p.status.danger",
-   "text": "RPC unavailable. HTTP request failed.",
-   "words": 5,
+   "sel": "#root > footer.site-footer > p.status.muted",
+   "text": "Dependencies verified · Ethereum block 26,243,520 · priceOf read live",
+   "words": 10,
    "tag": "p",
    "size": 12,
    "weight": 400,
@@ -2707,7 +2707,7 @@
    "upper": false,
    "authoredCaps": false,
    "tracking": 0,
-   "ratio": 7.69,
+   "ratio": 6.48,
    "large": false,
    "inCode": false,
    "heading": false,
@@ -2715,11 +2715,11 @@
    "x": 16,
    "y": 4915.375,
    "w": 358,
-   "h": 19.1875,
+   "h": 38.375,
    "fixed": false,
    "chrome": true,
    "data": false,
-   "digits": 0
+   "digits": 0.11594202898550725
   },
   {
    "sel": "#root > footer.site-footer > div.footer-bottom:nth-of-type(3) > span",
@@ -2739,7 +2739,7 @@
    "heading": false,
    "pill": false,
    "x": 16,
-   "y": 4979.5625,
+   "y": 4998.75,
    "w": 358,
    "h": 19.1875,
    "fixed": false,
@@ -2765,7 +2765,7 @@
    "heading": false,
    "pill": false,
    "x": 16,
-   "y": 5014.75,
+   "y": 5033.9375,
    "w": 358,
    "h": 19.1875,
    "fixed": false,
@@ -2791,7 +2791,7 @@
    "heading": false,
    "pill": false,
    "x": 16,
-   "y": 5049.9375,
+   "y": 5069.125,
    "w": 358,
    "h": 19.1875,
    "fixed": false,
@@ -4882,9 +4882,9 @@
    "digits": 0
   },
   {
-   "sel": "#root > footer.site-footer > p.status.danger",
-   "text": "RPC unavailable. HTTP request failed.",
-   "words": 5,
+   "sel": "#root > footer.site-footer > p.status.muted",
+   "text": "Dependencies verified · Ethereum block 26,243,520 · priceOf read live",
+   "words": 10,
    "tag": "p",
    "size": 12,
    "weight": 400,
@@ -4893,7 +4893,7 @@
    "upper": false,
    "authoredCaps": false,
    "tracking": 0,
-   "ratio": 7.69,
+   "ratio": 6.48,
    "large": false,
    "inCode": false,
    "heading": false,
@@ -4905,7 +4905,7 @@
    "fixed": false,
    "chrome": true,
    "data": false,
-   "digits": 0
+   "digits": 0.11594202898550725
   },
   {
    "sel": "#root > footer.site-footer > div.footer-bottom:nth-of-type(3) > span",

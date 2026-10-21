@@ -435,14 +435,14 @@ export function Explorer() {
           Retry reads
         </button>
       )}
-      {facts && (
+      {facts && site.health && (
         <>
           <div className="explorer-head">
             <div>
               <h2>Wallet facts</h2>
               <p className="break">{facts.address}</p>
               <p className="muted">
-                Live reads at Ethereum block {num(site.health!.block)}.
+                Live reads at Ethereum block {num(site.health.block)}.
                 Credentials use hasTrait and tokenOf, never ownerOf.
               </p>
               <dl className="wallet-metrics">

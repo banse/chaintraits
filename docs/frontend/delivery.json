@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "checkedAt": "2026-10-21T20:42:54.794121+00:00",
+  "checkedAt": "2026-10-21T21:01:41.897067+00:00",
   "sourceCommit": "c4ff3238390fc51962fb67e86affc20cf418126e",
   "launchId": "1377d17c-3f09-49e8-87e7-20a07ad45ea9",
   "chainId": 1,
@@ -9,7 +9,7 @@
     "productionBuild": "passed: npm run build",
     "typecheck": "passed: tsc --noEmit",
     "format": "passed: prettier --check",
-    "npmTest": "passed: 27 unit/export tests, 40 route/width checks, 7 Chromium revision groups and 17 isolated-fork checks",
+    "npmTest": "Combined command not repeated in this bounded revision; 27 unit/export tests, 40 route/width checks and 3 Explorer health scenarios in each browser passed through individual scripts.",
     "browserEngines": {
       "chromium": "156.0.8078.4",
       "webkit": "27.2"
@@ -25,31 +25,33 @@
     },
     "independentWalletChecks": 4,
     "independentHasTraitCalls": 100,
-    "applicationAbiHashes": "match handoff and exact pinned Git ABI files",
-    "deployedRuntimes": "all three match pinned compiler output",
+    "applicationAbiHashes": "all three exact pinned Git ABI files and canonical Keccak hashes match handoff in current build",
+    "deployedRuntimes": "current read-only browser health checks verify all three runtime hashes before loading facts",
     "manifestAssets": "all file SHA-256 values match",
     "knownDependencyVulnerabilities": "not rerun in this revision; original delivery recorded 0",
     "scope": "web/, dist/, docs/ and the explicitly requested root .imd-responses.json; no ignore-file change",
     "newFrontendSubmodules": 0,
     "protectedSourceAndInheritedLibraryEntries": "unchanged",
-    "revisionBrowsers": "passed: all 7 regression groups in Chromium and WebKit",
-    "independentReadEvidence": "original accepted four-wallet/100-call evidence retained; not rerun in this revision"
+    "revisionBrowsers": "passed: 3 Explorer health scenarios in Chromium and WebKit without a wallet fixture, plus successful-refresh row/scroll retention",
+    "independentReadEvidence": "original accepted four-wallet/100-call evidence retained; not rerun in this revision",
+    "isolatedForkEvidence": "Previously accepted 17-check evidence retained; not repeated for this render guard."
   },
   "export": {
     "assetCount": 45,
-    "assetBytes": 1012986,
-    "allFileBytes": 1021351,
-    "largestFileBytes": 664872,
-    "manifestSha256": "84c50d12f17e6991894b3100b0d95d5392302700590d958c1e3ad57ad90c0718",
+    "assetBytes": 1012996,
+    "allFileBytes": 1021361,
+    "largestFileBytes": 664882,
+    "manifestSha256": "6686c533602985e43e100a1711271b3aa211ff11b4b662af0253211beb00cef4",
     "relativeStaticAssets": true
   },
   "budget": {
     "maximumSubmissionBytes": 8388608,
-    "revisionChangedFileCount": 34,
-    "rawRevisionFileBytesUpperBound": 1500000,
-    "revisionGitBundleBytesUpperBound": 524288,
-    "bundlePrerequisite": "accepted starting HEAD 186dc95108c0ad8c2917ea0a21f9390379508786",
-    "bundleAudit": "Verified revision bundle, below 512 KiB, using the already accepted starting HEAD as its Git prerequisite. Temporary commit, index, object store and bundle are confined to test/scratch; production Git metadata is unchanged."
+    "revisionChangedFileCount": 22,
+    "rawRevisionFileBytesUpperBound": 2097152,
+    "revisionGitBundleBytesUpperBound": 1048576,
+    "bundlePrerequisite": "accepted starting HEAD 8228e96e67506c5c16f58408da7b05cd54cbc28c",
+    "bundleAudit": "Verified a scratch-only revision Git bundle below 1 MiB using the accepted starting HEAD as its prerequisite, including the explicit finding response. The temporary repository, index, objects and bundle remain in test/scratch; production Git metadata is unchanged.",
+    "completeFrontendSourceExportDocsRawBytesUpperBound": 6291456
   },
   "limits": [
     "Physical wallet app handoff, real extension signing UI and Coinbase passkey creation unperformed.",

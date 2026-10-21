@@ -33,6 +33,8 @@ npm run test:unit
 npm run test:browser
 npm run test:revision
 SWORN_TEST_RPC=https://ethereum-rpc.publicnode.com npm run test:revision -- --webkit
+SWORN_TEST_RPC=https://ethereum-rpc.publicnode.com npm run test:explorer-health
+SWORN_TEST_RPC=https://ethereum-rpc.publicnode.com npm run test:explorer-health -- --webkit
 SWORN_TEST_RPC=https://ethereum-rpc.publicnode.com npm run test:fork
 npm run verify:export
 npm run format:check
@@ -42,6 +44,8 @@ node scripts/check-reads.mjs https://ethereum-rpc.publicnode.com
 The browser suite serves `dist/` below `/preview/`, checks all eight routes at five widths, validates forms, clipboard controls, wallet dialog focus, mobile links and primary WebKit interactions. With a read endpoint it also loads live wallet previews. Actual results, exact commands, review findings and limitations are recorded in [TEST-NOTES.md](TEST-NOTES.md). Machine-readable evidence is in [docs/frontend](../docs/frontend/).
 
 The revision suite checks Claim acknowledgement and journal links, Explorer request prices and same-wallet refresh stability. Set `SWORN_TEST_RPC` to include live reads and connected preparation; without it, those cases are explicitly skipped. Its read-only test wallet uses the reviewer's 1 IMD balance fixture and refuses every signing/broadcast method. `--webkit` runs the same regressions in WebKit. The unit suite also renders the unavailable-price state without inventing an amount. See [revision-results.json](../docs/frontend/revision-results.json) for reproduced defects and rechecks.
+
+The Explorer health suite uses no wallet fixture. With `SWORN_TEST_RPC`, it checks switching the footer's Public RPC, an HTTP 503 during the actual scheduled health callback, keyboard Retry reads, scheduled recovery without a reload, and retention of rows and scroll during a successful refresh. It forwards successful JSON-RPC requests unchanged. Without a read endpoint it explicitly reports the scenarios as skipped. The current revision's before/after results are in [explorer-health-results.json](../docs/frontend/explorer-health-results.json).
 
 ## Rebuild the static export
 
