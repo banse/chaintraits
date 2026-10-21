@@ -33,13 +33,13 @@ test('F-18.17: the catalog is one segment per class, each with meaning, how it i
  assert.deepEqual(CLASS_SEGMENTS.map(s=>s.cls),['direct','chain-proven','shared','panel']);
  for(const s of CLASS_SEGMENTS){for(const k of ['meaning','sworn','get','cost','risk','step'] as const)assert(s[k].length>10,`${s.cls}.${k}`);assert.match(s.link,/^#\/claim#step-0[1-4]$/);}
  assert.equal(CLASS_SEGMENTS.reduce((n,s)=>n+CATALOG.filter(t=>t.evidence===s.cls).length,0),25,'every catalog row lands in exactly one segment');
- assert.match(COMMUNITY_SEGMENT.link,/#step-04$/);const pages=src('pages.tsx');assert(pages.includes('placeholder-row')&&pages.includes('No community trait registered yet'));
+ assert.match(COMMUNITY_SEGMENT.link,/#step-04$/);const pages=src('pages.tsx');assert(pages.includes('placeholder-row')&&pages.includes('Read registered community specs by id'));
  assert(src('Claim.tsx').includes('id={`step-${n}`}'),'the claim steps carry the anchors the catalog links to');
 });
-test('F-18.18: the claim guide opens with the question, the answer and the flow chart',()=>{
+test('F-18.18: the claim guide keeps the explanation and flow after the first-screen mint',()=>{
  assert.equal(WHY_QUESTION,'Why do I need to buy traits for a card I already minted?');assert(WHY_ANSWER.startsWith('You do not.'));
  assert.equal(FLOW.length,2);assert.equal(FLOW[0].length,3);assert.equal(FLOW[1].length,4);
- const claim=src('Claim.tsx');assert(claim.indexOf('<Section title={WHY_QUESTION}')<claim.indexOf('<div className="mint-block">'));assert(claim.includes('<FlowChart/>'));
+ const claim=src('Claim.tsx');assert(claim.indexOf('<Section title={WHY_QUESTION}')>claim.indexOf('<div className="mint-block">'));assert(claim.includes('<FlowChart/>'));
 });
 test('F-18.19/20/21: steps 01, 02 and 03 each carry who, cost, risk and who benefits',()=>{
  const claim=src('Claim.tsx');

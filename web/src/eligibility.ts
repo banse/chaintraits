@@ -7,7 +7,7 @@ export const READ_FAILED = 'could not read, retry';
 export const DISCLAIMER_TEXT = 'I understand: an oracle price is spent whatever the answer, and a missed answer refunds nothing.';
 export const DISCLAIMER_REASON = 'accept the oracle disclaimer first';
 
-export type PoolReads = {joined:boolean; used:boolean; lastDay:bigint; pool:bigint; price:bigint; verified:boolean};
+export type PoolReads = {joined:boolean; used:boolean; lastDay:bigint; pool:bigint; price:bigint; verified:boolean;sponsoredVerified?:number};
 export type Reads = {pool?:PoolReads; verifiedIds:number[]; sharedVerified:boolean};
 export type Context = {connected:boolean; chainId?:number; reads?:Reads; failed:boolean; loading?:boolean; acknowledged:boolean};
 export const READING = 'reading eligibility…';
@@ -31,7 +31,7 @@ export function plainGuard(c:Context):Guard {
  if(c.connected&&c.chainId!==1)return {ok:false,reason:WRONG_CHAIN};
  return OK;
 }
-/** claimSponsored(id) / upgradeSponsored(seat,[id]) for the selected catalog chain id. */
+/** claimSponsored(id,maxPrice), with the deployed pool price and lifetime limits. */
 export function poolGuard(c:Context, nowDay = currentUtcDay()):Guard {
  const first=oracleGate(c);if(first)return first;
  if(!c.connected)return OK;
@@ -40,7 +40,11 @@ export function poolGuard(c:Context, nowDay = currentUtcDay()):Guard {
  if(r.verified)return {ok:false,reason:'already verified for this wallet'};
  if(r.used)return {ok:false,reason:'pool already used for this fact'};
  if(r.lastDay===nowDay)return {ok:false,reason:'pool already used today (UTC)'};
+ if(r.price===0n)return {ok:false,reason:'oracle price is zero; requests revert'};
  if(r.pool<r.price)return {ok:false,reason:'pool below the oracle price'};
+ if(r.price>r.pool/8n)return {ok:false,reason:'price exceeds an eighth of the pool'};
+ if(r.price>2n*10n**18n)return {ok:false,reason:'price exceeds the 2 IMD draw cap'};
+ if((r.sponsoredVerified??0)>=9)return {ok:false,reason:'nine sponsored traits already verified'};
  return OK;
 }
 /** upgrade(ids, maxPrice): refused when one selected id is already verified for the wallet. */

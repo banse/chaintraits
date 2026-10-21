@@ -1,5 +1,5 @@
 import { decodeEventLog, decodeFunctionData, encodeFunctionData, parseAbiItem, type Address, type Hex, type TransactionReceipt } from 'viem';
-import { A, address, registryAbi, erc20Abi } from './config';
+import { A, address, registryAbi, erc20Abi, deployment } from './config';
 import { assertWallet, send, type Wallet } from './wallet';
 import { reg, read, integrity, readBurn, livePrice, type Reader } from './chain';
 import { quoteExactImd, swapCalldata, type SwapQuote } from './swap';
@@ -9,29 +9,32 @@ import { CHAIN_IDS } from './catalog';
 export type Plan={key:string;label:string;data:Hex;amount:bigint;maxPrice?:bigint;sponsored?:boolean;spec?:boolean;shared?:boolean};
 export type Phase='swap'|'approve'|'registry';
 export type StepState='ready'|'awaiting wallet'|'pending'|'confirmed'|'rejected'|'failed'|'replaced'|'unknown';
-export type Journal={version:1;key:string;label:string;data:Hex;amount:string;maxPrice?:string;sponsored?:boolean;spec?:boolean;payment:'IMD'|'ETH';steps:Partial<Record<Phase,{state:StepState;hash?:Hex;data?:Hex;to?:Address;value?:string}>>;registeredId?:number;outcomes?:string[]};
-const JOURNAL_KEY='sworn.transaction.v1';
+export type Journal={version:1;deploymentId:string;key:string;label:string;data:Hex;amount:string;maxPrice?:string;sponsored?:boolean;spec?:boolean;payment:'IMD'|'ETH';steps:Partial<Record<Phase,{state:StepState;hash?:Hex;data?:Hex;to?:Address;value?:string}>>;registeredId?:number;outcomes?:string[]};
+const JOURNAL_KEY='sworn.transaction.'+deployment.launchId;
 export function loadJournal():Journal|undefined {
  try {
   const v=JSON.parse(sessionStorage.getItem(JOURNAL_KEY)??'null');
-  if(v?.version!==1||!['IMD','ETH'].includes(v.payment)||!/^\d+$/.test(v.amount)||!/^0x[0-9a-fA-F]+$/.test(v.data)||!v.steps)return;
+  if(v?.version!==1||v.deploymentId!==deployment.launchId||!['IMD','ETH'].includes(v.payment)||!/^\d+$/.test(v.amount)||!/^0x[0-9a-fA-F]+$/.test(v.data)||!v.steps)return;
   const decoded=decodeFunctionData({abi:registryAbi,data:v.data});
-  if(!['mintCard','upgrade','registerSpec','requestSharedFact','applySharedFact','claimSponsored','upgradeSponsored'].includes(decoded.functionName))return;
+  if(!['mintCard','upgrade','registerSpec','requestSharedFact','applySharedFact','claimSponsored','sponsor'].includes(decoded.functionName))return;
   return v as Journal;
  }catch{return;}
 }
 export function saveJournal(j:Journal){sessionStorage.setItem(JOURNAL_KEY,JSON.stringify(j));}
 export function clearJournal(){sessionStorage.removeItem(JOURNAL_KEY);}
-export function newJournal(plan:Plan,payment:'IMD'|'ETH'):Journal {return {version:1,key:plan.key,label:plan.label,data:plan.data,amount:plan.amount.toString(),maxPrice:plan.maxPrice?.toString(),sponsored:plan.sponsored,spec:plan.spec,payment,steps:{}};}
+export function newJournal(plan:Plan,payment:'IMD'|'ETH'):Journal {return {version:1,deploymentId:deployment.launchId,key:plan.key,label:plan.label,data:plan.data,amount:plan.amount.toString(),maxPrice:plan.maxPrice?.toString(),sponsored:plan.sponsored,spec:plan.spec,payment,steps:{}};}
 export function validateIntent(journal:Journal){
  const call=decodeFunctionData({abi:registryAbi,data:journal.data});
  const args=call.args as readonly unknown[]|undefined;
  let amount:bigint;let maxPrice:bigint|undefined;let sponsored=false;let spec=false;
+ if(journal.deploymentId!==deployment.launchId)throw new Error('Stored flow belongs to another deployment.');
  if(call.functionName==='mintCard')amount=100000000000000000n;
  else if(call.functionName==='registerSpec'){amount=6400000000000000000n;spec=true;}
  else if(call.functionName==='upgrade'){maxPrice=args![1] as bigint;amount=BigInt((args![0] as unknown[]).length)*maxPrice;}
  else if(call.functionName==='requestSharedFact'){maxPrice=args![1] as bigint;amount=maxPrice;}
- else if(['claimSponsored','upgradeSponsored','applySharedFact'].includes(call.functionName)){amount=0n;sponsored=call.functionName!=='applySharedFact';}
+ else if(call.functionName==='claimSponsored'){amount=0n;sponsored=true;maxPrice=args![1] as bigint;}
+ else if(call.functionName==='applySharedFact')amount=0n;
+ else if(call.functionName==='sponsor'){amount=args![0] as bigint;if(amount<=0n)throw Error('Donation must be greater than zero.');}
  else throw new Error('Unsupported Registry operation in the recovered flow.');
  if(BigInt(journal.amount)!==amount || (journal.maxPrice===undefined?undefined:BigInt(journal.maxPrice))!==maxPrice || !!journal.sponsored!==sponsored || !!journal.spec!==spec)throw new Error('The stored intent does not match its Registry calldata. Review the flow before signing.');
 }
@@ -48,6 +51,8 @@ async function checkEligibility(client:Reader,wallet:Wallet,journal:Journal){
    if(verified)throw new Error('AlreadyVerified');
    if(!/^0x0+$/.test(pending))throw new Error('AlreadyPending');
   }
+ }else if(call.functionName==='registerSpec'){
+  const expected=args![1] as bigint;const next=await reg<number>(client,'nextSpecId');if(BigInt(next)!==expected)throw new Error('UnexpectedSpecId');
  }else if(call.functionName==='requestSharedFact'){
   const id=args![0] as number;
   if(id!==1201){const spec=await reg<{kind:number}>(client,'specOf',[id]);if(spec.kind!==3)throw new Error('This community spec is personal. Use a paid upgrade.');}
@@ -79,10 +84,12 @@ export function friendlyError(error:unknown) {
  const cases:[string,string][]=[
   ['PoolDailyLimit','You already used the pool today (UTC). Try after the next UTC day.'],
   ['PoolTooSmall','The pool cannot cover the current oracle price. Use a paid upgrade or wait for funding.'],
-  ['PoolAlreadyUsed','This wallet already used its pool allowance for that trait. It is once per trait, whatever the verdict.'],
+  ['PoolAlreadyUsed','This trait is reserved or already verified through the pool. Failed requests release the reservation; retry on a later UTC day.'],
+  ['PoolDrawTooLarge','The price exceeds an eighth of the pool or the 2 IMD draw cap. Use a paid upgrade or wait for funding.'],
+  ['PoolLifetimeLimit','This wallet already has nine verified sponsored traits. Use a paid upgrade.'],
+  ['ZeroPrice','The live Intake price is zero. Requests are unavailable until it changes.'],
+  ['UnexpectedSpecId','Another registration took the reviewed id. Prepare the spec again to review the next id.'],
   ['NotMember','This wallet is not in WhitelistCurator.sol. Use a paid upgrade.'],
-  ['IdmdSponsorExhausted','This Identity.md token has used its nine pool requests.'],
-  ['NotIdmdHolder','The connected wallet must hold that Identity.md token.'],
   ['AlreadyPending','This trait already has a pending request. Check it in Explorer.'],
   ['AlreadyVerified','This fact is already verified. Check it in Explorer.'],
   ['AlreadyMinted','This wallet already minted its card. Open Explorer.'],
@@ -98,6 +105,7 @@ export function friendlyError(error:unknown) {
  ];
  return cases.find(([key])=>raw.includes(key))?.[1] ?? (raw.length>240 ? raw.slice(0,240) : raw);
 }
+export const BURN_REASONS:Record<number,string>={1:'preview unavailable or reverted',2:'amount below the burn minimum',3:'fee above the cap',4:'attachment below the fee, refunded; the request stands',5:'bridge reverted'};
 type Update=(j:Journal,message?:string)=>void;
 export async function confirmStep(client:Reader,wallet:Wallet,journal:Journal,phase:Phase,update:Update) {
  const entry=journal.steps[phase];
@@ -127,7 +135,8 @@ export async function confirmStep(client:Reader,wallet:Wallet,journal:Journal,ph
     if(decoded.eventName==='CardMinted')journal.outcomes.push(`Card minted: token ${String(args.tokenId)}. Open Explorer to read its live metadata.`);
     if(decoded.eventName==='TraitRequested')journal.outcomes.push(`Trait ${String(args.traitId)} requested. The oracle verdict is pending.`);
     if(decoded.eventName==='BurnTriggered')journal.outcomes.push(`Burn bridge submitted: ${units(args.amount as bigint)} IMD; ${units(args.nativeFee as bigint)} ETH fee. Base delivery is not yet proved.`);
-    if(decoded.eventName==='BurnSkipped')journal.outcomes.push(`Burn skipped: ${Number(args.code)===1?'preview failed':Number(args.code)===2?'bridge failed; the attachment was refunded':'fee above cap; the attachment was refunded'}. The oracle request remains pending.`);
+    if(decoded.eventName==='BurnSkipped')journal.outcomes.push(`Burn skipped: ${BURN_REASONS[Number(args.reason)]??'unknown reason; inspect the receipt'}. The oracle request remains pending.`);
+    if(decoded.eventName==='Sponsored')journal.outcomes.push(`Pool donation confirmed: ${units(args.amount as bigint)} IMD.`);
    }catch{/* Unrelated or unsupported event. */}
   }
  }

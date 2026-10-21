@@ -10,7 +10,7 @@ interface ISworn {
 
 contract SwornGate {
     ISworn public constant SWORN =
-        ISworn(0x39Bec7648259d5a128c29b24951eAbcD4d1F95A6);
+        ISworn(0xDD0017e40F1A5Fe514D15D108CE01EB52F2a5edb);
 
     function canEnter(address wallet) external view returns (bool) {
         return SWORN.hasTrait(wallet, 701);

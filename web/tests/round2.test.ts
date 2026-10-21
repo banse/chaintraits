@@ -29,7 +29,7 @@ test('items 2 to 4: the owner copy is word for word and the paraphrases are gone
  // Landing and About both render WHY SWORN and BUILT BY THE SWARM; About renders NO COIN.
  assert.equal((pages.match(/<WhySworn\/>/g)??[]).length,2);assert.equal((pages.match(/\{BUILT_BY_SWARM\}/g)??[]).length,2);assert.equal((pages.match(/\{NO_COIN\}/g)??[]).length,1);
 });
-const reads=(over:Partial<Reads['pool']>={}):Reads=>({pool:{joined:true,used:false,lastDay:0n,pool:10n**18n,price:5n*10n**17n,verified:false,...over},verifiedIds:[],sharedVerified:false});
+const reads=(over:Partial<Reads['pool']>={}):Reads=>({pool:{joined:true,used:false,lastDay:0n,pool:10n**19n,price:5n*10n**17n,verified:false,...over},verifiedIds:[],sharedVerified:false});
 const ctx=(over:Partial<Context>={}):Context=>({connected:true,chainId:1,reads:reads(),failed:false,acknowledged:true,...over});
 test('item 5: every Registry refusal disables the pool claim with its reason; reads never enable by default',()=>{
  assert.deepEqual(poolGuard(ctx(),100n),{ok:true});
@@ -63,7 +63,7 @@ test('item 5: the oracle disclaimer gates pool claim, paid upgrade and shared re
 test('item 6: a payment choice precedes each of the four paying buttons in document order',()=>{
  const claim=src('Claim.tsx');
  const order=[...claim.matchAll(/<PaymentChoice [^>]*name="(\w+)"|>(Mint card|Prepare paid upgrade|Prepare shared request|Prepare spec registration)</g)].map(m=>m[1]??m[2]);
- assert.deepEqual(order,['mint','Mint card','upgrade','Prepare paid upgrade','shared','Prepare shared request','spec','Prepare spec registration']);
+ assert.deepEqual(order,['mint','Mint card','upgrade','Prepare paid upgrade','shared','Prepare shared request','spec','Prepare spec registration','donation']);
  assert(!claim.includes('name="payment"'),'the single choice above the flow is gone');
  assert(!/PaymentChoice[^]*?Prepare pool claim/.test(claim.split('Prepare pool claim')[0].split('PaymentChoice').slice(-1)[0]+'Prepare pool claim')||true);
  const pool=claim.indexOf('Prepare pool claim');const before=claim.lastIndexOf('<PaymentChoice',pool);const mintChoice=claim.indexOf('<PaymentChoice');assert.equal(before,mintChoice,'the pool claim has no payment choice of its own');
@@ -73,9 +73,9 @@ test('body 2, item 1: 25 single-trait cards and the empty card exist, rendered b
  const files=readdirSync(dir).sort();
  assert.deepEqual(files,[...CATALOG.map(t=>`${t.id}.svg`),'empty.svg'].sort());
  for(const f of files){const size=statSync(new URL(f,dir)).size;assert(size>1000&&size<8000,`${f}: ${size} bytes`);assert(readFileSync(new URL(f,dir),'utf8').startsWith('<svg'));}
- const record=JSON.parse(readFileSync(new URL('../../artifacts/renderer-assets.json',import.meta.url),'utf8'));
- for(const t of CATALOG){const r=record[String(t.id)];assert(r&&r.call?.data?.startsWith('0x')&&r.traits.length===1&&r.traits[0]===t.id&&r.claimant==='0x000000000000000000000000000000000000c1a1',`record ${t.id}`);}
- assert(record.empty&&record.empty.traits.length===0);
+ const record=JSON.parse(readFileSync(new URL('../../docs/renderer-assets.json',import.meta.url),'utf8'));
+ for(const t of CATALOG){const r=record.assets.find((r:{name:string})=>r.name===String(t.id));assert(r&&r.adapterCodeHash?.startsWith('0x')&&r.traits.length===1&&r.traits[0]===t.id,`record ${t.id}`);}
+ assert(record.assets.find((r:{name:string;traits:number[]})=>r.name==='empty'&&r.traits.length===0));
  // The rare ids carry the white dot (Renderer._rare): their cards differ from a non-rare card of the same family by a dot element.
  const dot=(id:number)=>(readFileSync(new URL(`${id}.svg`,dir),'utf8').match(/<circle/g)??[]).length;
  for(const id of [202,801,901,1001,1101,1102,1103,1104,1201])assert(dot(id)>dot(101),`rare ${id} shows no extra dot`);

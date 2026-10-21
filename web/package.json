@@ -4,14 +4,17 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite --host 127.0.0.1",
-    "build": "node scripts/prepare.mjs && tsc --noEmit && vite build",
+    "dev": "node scripts/prepare.mjs && vite --host 127.0.0.1",
+    "build": "node scripts/prepare.mjs && tsc --noEmit && vite build && node scripts/manifest.mjs",
     "typecheck": "tsc --noEmit",
     "check:abi": "node scripts/check-abi.mjs",
     "preview": "vite preview --host 127.0.0.1",
-    "test": "tsx --test tests/*.test.ts"
+    "test": "node scripts/prepare.mjs && tsx --import ./tests/setup.ts --test tests/*.test.ts",
+    "check:export": "node scripts/check-export.mjs"
   },
   "dependencies": {
+    "@wagmi/connectors": "6.2.0",
+    "@wagmi/core": "2.22.1",
     "lossless-json": "4.3.0",
     "react": "19.1.1",
     "react-dom": "19.1.1",
