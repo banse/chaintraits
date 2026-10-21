@@ -32,7 +32,9 @@ Sepolia Intake v2's `callbackGas` is 1,000,000; the unit tests still prove deliv
 200,000 stipend. The Intake owner can change these values; read them before launch and monitor them afterwards.
 
 On Sepolia (11155111), `Deploy.deployForChain()` uses Curator `0x0919ba50b206C3F31D516De818b1fBc7dA21653D` (a mock),
-TestIMD `0x44a1Cd38474FB1748400E7DEb5F8D786ccE3F89A` and BurnExecutor V1 `0x097A19e0f021BBA5072701132625ad2401043A2E`
+imdTEST `0x56bcf2a5f47710649a4091219ef0b56e2d1b58bf` (the token the plane's Sepolia Intake prices: `priceOf` 0.5,
+measured 2026-10-21; the older TestIMD `0x44a1Cd38474FB1748400E7DEb5F8D786ccE3F89A` is priced 0 there and would fail
+the constructor's price check) and BurnExecutor V1 `0x097A19e0f021BBA5072701132625ad2401043A2E`
 (it has code, which is all the constructor asks of it), with the same Intake v2 and attester as above. Every other
 chain selects the mainnet constants. `run()` calls this function; no environment or caller-dependent choice is
 involved.

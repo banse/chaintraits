@@ -370,8 +370,9 @@ Errors: `NoCard(uint256)`, `UnknownTrait(uint16)`. The registry's `tokenURI(toke
 - Mainnet values (`sworn-verify` reads these seven getters): curator `0xcB0b0531e86A9aC36Fa865cA8e3dbccF047FDA91`,
   imd `0xD34a99Bc0f67aE1bbd63C660e6d0b0dd03E263B7`, intake `0xa43e6F75ee006411F79Ac1C84120606C2330DE82` (Intake v2),
   attester `0x5598Aa9146215Bc13eb26f2c692Ad1461Fd32982`, renderer and composer the two helpers of the same build,
-  burnExecutor `0xe29386719C155B6847aD5a4E97C6674f10ffc750`. Sepolia (11155111): the mocks of `INTEGRATION.md`
-  section 1, the same Intake and attester, and the coded BurnExecutor V1 `0x097A19e0f021BBA5072701132625ad2401043A2E`
+  burnExecutor `0xe29386719C155B6847aD5a4E97C6674f10ffc750`. Sepolia (11155111): the Curator mock of `INTEGRATION.md`
+  section 1, imdTEST `0x56bcf2a5f47710649a4091219ef0b56e2d1b58bf` (the only token the Sepolia Intake prices), the same
+  Intake and attester, and the coded BurnExecutor V1 `0x097A19e0f021BBA5072701132625ad2401043A2E`
   (code is all the constructor asks of it). The mainnet launch never depends on a Sepolia outcome.
 
 ### 3.10 What can kill it (accepted; the audit record)
