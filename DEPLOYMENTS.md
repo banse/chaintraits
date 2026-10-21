@@ -1,6 +1,47 @@
 # Deployments
 
-## Ethereum mainnet (chainId 1), 2026-10-20: the deployment of the docs/V2.md release, IMD swarm launch #2341
+## Ethereum mainnet (chainId 1), 2026-10-21: the deployment of the docs/V3.md release, IMD swarm launch #2362
+
+- **Status:** live. Built, reviewed and deployed by the IMD swarm as one `workflow.open` (workflow `f61e069d-3f9e-432f-a9aa-a6c7746466ad`,
+  contracts job `5d68c9ee-de0d-4dfb-9b5a-32e13dee6a30`, paid 2026-10-21 04:24:27 UTC by pawai.eth, 0.5 IMD, order `7e004e78`); workflow
+  completed 06:59:23 UTC, validation passed on the first attempt.
+- **Input:** this repository at tag `v3-base` = commit `092cc28447d29a5f96ecd35b866e470513ca06f8` (docs/V3.md with the cross audit of
+  2026-10-21 and the three One Dollar Audits of the previous deployment folded in).
+- **Source as deployed:** commit `e462b062e68c0962a15d05cfe7d70dacbb354cbd` in
+  https://github.com/identity-md-launches/launch-2362-renderer-composer-registry (the swarm's commits on top of `v3-base`). Eight contract
+  nodes accepted on their first attempt; admission 7 of 7 checks passed.
+- **One transaction, from the factory:** `0xa24493a1b74bb47458eb7dc772269d791a083d3851da8f0e79d4075dd2362e52`, block 26,239,042
+  (2026-10-21 06:01:11 UTC), sent by the launch wallet `0xcECc29B037f5064fCdF45a5C318F132ef76aA551` to the factory
+  `0xfF03410d0Fe5fa8f7F59F743de35E333D9857120`, 16,009,263 gas of the 16,777,216 per-transaction cap, fee 0.00135 ETH.
+
+| Contract | Address | Runtime bytes | keccak256 of the runtime |
+|---|---|---:|---|
+| Renderer | `0x8309e5734cb8df4139878c74e2114a87ebc2af5c` | 23,553 | `0x87eaea63e4bb92d2f0da4f1093f8cd4e67d45766f711aea098cbb0dbfd1b6caa` |
+| Composer | `0xae4b30f656be1069748c351aecf396a99253ee9c` | 24,068 | `0x7dfc0cea1c5cd3d69cb48300f993d06a1bcaf7829cb821db1938261628d05322` |
+| Registry (`Sworn`, `SWORN`) | `0x9cb36ecca47d753e4e62ed87c12a2b7b20dfa828` | 20,465 | `0x3830b10816d6b205ff71c5f7cb3081d7360c21295fdb1b55db0656f464b1b32c` |
+
+- **Toolchain:** solc 0.8.24, optimizer 200 runs, cancun, `bytecode_hash = "none"`; the entrant's clean rebuild with forge 1.5.1 produced the
+  same bytes. Sum of the three runtimes 68,086 bytes (budget 69,800).
+- **Wiring (Registry getters, seven):** `curator` `0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91`, `imd` `0xd34a99bc0f67ae1bbd63c660e6d0b0dd03e263b7`,
+  `intake` `0xa43e6f75ee006411f79ac1c84120606c2330de82` (Intake v2), `attester` `0x5598aa9146215bc13eb26f2c692ad1461fd32982`, `renderer` and
+  `composer` as above, `burnExecutor` `0xe29386719C155B6847aD5a4E97C6674f10ffc750` (BurnExecutor V2, where every fee is forwarded).
+  No `idmd` (docs/V3.md item 7). `nextSpecId()` = 10001.
+- **Launch-day gate (entrant, `sworn-verify`, 2026-10-21 08:02:43 UTC): PASS, 23 of 23 rows.** The runtime code and the creation code of all
+  three contracts equal a clean build of `e462b062`; the Registry's seven constructor arguments decode as above; all three were created in the
+  transaction above by the factory. Record: aidude `data/surf/launch_verify/20261021T080243Z-1.json`.
+- **Measured by the builder (`test/NOTES.md`):** `tokenURI` at the maximum state 10,023,370 gas (bound 10,317,448; the 8,000,000 target is
+  not met); worst `onResult` 150,178 gas under the 200,000 stipend.
+- **Deviation recorded by the builder:** docs/V3.md item 18 asked for the executor code check outside any floor branch; the plane's
+  empty-chain deployment probe has no executor, so the builder moved only that check inside the floor branch (`test/NOTES.md` point 1). On
+  mainnet, where the Curator, IMD and Intake have code, a codeless executor still reverts the constructor.
+- **Site:** https://sworn-843c.sites.imd.fun (ENS `sworn-843c.site.identitymd.eth`, CID `bafybeiehy7r75mdf7hicpofzsjvbazxdrorfyslpgkyobtqemovnqb4gpm`),
+  source https://github.com/identity-md-launches/launch-2366-workflow-frontend-stage-context at `dd0aedb683ccce6e02bde30606e1562e6cf4f692`.
+- **Earlier deployments:** launch #2341 (2026-10-20) and launch #2147 (2026-10-18), the two sections below, were tests, never announced; this
+  registry replaced them on 2026-10-21. They stay on chain as they are.
+- **Open (2026-10-21 08:10 UTC):** source verification (no Sourcify match yet for any of the three, two hours after the deployment), the One
+  Dollar Audits of the three contracts, the owner's cross audit of the delivered tree before the announcement (docs/V3.md item 28).
+
+## Ethereum mainnet (chainId 1), 2026-10-20: the deployment of the docs/V2.md release, IMD swarm launch #2341 (replaced 2026-10-21; a test, never announced)
 
 - **Status:** live. Built, audited and deployed by the IMD swarm as one `workflow.open` (workflow `7e7dbd09-598a-41cf-8204-00b52caddb08`,
   contracts job `472763cf-7481-495d-950c-000db51d562f`, paid 2026-10-20 19:51 UTC by pawai.eth, 0.5 IMD, order `b621f047`).
