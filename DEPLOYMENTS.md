@@ -31,8 +31,11 @@
   maximum state measures 10,317,448 gas against the 8,000,000 target; parts (a), (b), (c) are done and the regression test exists; the next
   cut is named in `test/NOTES.md`); item 9 keeps 16-bit community ids (registration ends at id 65,534, pinned by a test).
 - **Earlier deployment:** the section below (launch #2147, 2026-10-18) was a test deployment, never announced. It stays on chain as it is.
-- **Source verification:** pending at the time of writing (Sourcify and Blockscout had no match yet); the swarm's verifier and the entrant's
-  gate compared bytes directly.
+- **Source verification (state 2026-10-21 00:10 UTC):** all three contracts carry a full Sourcify match (creation and runtime bytecode):
+  Composer 2026-10-20 22:30:04 UTC, Renderer 22:30:19 UTC, Registry 2026-10-21 00:01:49 UTC (the Registry's match arrived about 1 h 45 min
+  after the two others; `https://sourcify.dev/server/v2/contract/1/<address>`). Blockscout imports each match within seconds and shows the
+  three as verified via Sourcify (`is_fully_verified: false` is Blockscout's own flag for an imported match, not a partial match). Etherscan not
+  checked (its API needs a key). Before the matches landed, the swarm's verifier and the entrant's gate had compared the bytes directly.
 
 ## Test deployment on Ethereum mainnet (chainId 1), 2026-10-18 (launch #2147; never announced)
 
