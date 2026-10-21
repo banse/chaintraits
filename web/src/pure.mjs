@@ -1,3 +1,4 @@
+import { unsafeTransferRanking, TRANSFER_WARNING } from "./shared-safety.mjs";
 export function canonical(value) {
   if (Array.isArray(value)) return `[${value.map(canonical).join(",")}]`;
   if (value && typeof value === "object")
@@ -80,6 +81,7 @@ export function validateSpec(s, height) {
   const fail = (k, v) => {
     errors[k] ??= v;
   };
+  if (unsafeTransferRanking(s)) fail("arg", TRANSFER_WARNING);
   if (![1, 2, 3, 4, 5].includes(kind))
     fail("kind", "Choose a template from T1 to T5.");
   if (!/^[A-Za-z0-9 .-]{1,32}$/.test(s.name))

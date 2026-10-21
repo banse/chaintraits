@@ -22,6 +22,7 @@ import {
   About,
 } from "./pages";
 import { Claim } from "./claim";
+import { READ_RPCS } from "./rpc.mjs";
 function routeInfo() {
   const hash = location.hash.slice(1) || "/";
   const [path, rest] = hash.split("#");
@@ -36,11 +37,11 @@ export function App({ r }: { r: Runtime }) {
   const [route, setRoute] = useState(routeInfo);
   const [rpcUrl, setRpcUrlState] = useState(() => {
     try {
-      return (
-        localStorage.getItem("sworn.public-rpc") || "https://rpc.mevblocker.io"
-      );
+      return READ_RPCS.includes(localStorage.getItem("sworn.public-rpc") || "")
+        ? localStorage.getItem("sworn.public-rpc")!
+        : READ_RPCS[0];
     } catch {
-      return "https://rpc.mevblocker.io";
+      return READ_RPCS[0];
     }
   });
   const [health, setHealth] = useState<Health | null>(null);
@@ -70,7 +71,9 @@ export function App({ r }: { r: Runtime }) {
     } catch (e) {
       if (ticket !== refreshId.current) return;
       setHealth(null);
-      setError(`RPC unavailable. ${explain(e)}`);
+      setError(
+        "Cannot read the chain, retrying. Use Retry reads to try again now.",
+      );
     } finally {
       if (ticket === refreshId.current) setLoading(false);
     }
@@ -177,6 +180,7 @@ export function App({ r }: { r: Runtime }) {
               {name}
             </a>
           ))}
+          <a href={asset("agents/sworn/SKILL.md")}>Agents</a>
         </nav>
         <ConnectControl r={r} />
       </header>
@@ -206,13 +210,7 @@ export function App({ r }: { r: Runtime }) {
             value={rpcUrl}
             onChange={(e) => setRpcUrl(e.target.value)}
           >
-            {Array.from(
-              new Set([
-                "https://rpc.mevblocker.io",
-                ...r.deployment.network.rpcUrls,
-                "https://1.rpc.thirdweb.com",
-              ]),
-            ).map((url) => (
+            {Array.from(new Set(READ_RPCS)).map((url) => (
               <option key={url} value={url}>
                 {new URL(url).hostname}
               </option>

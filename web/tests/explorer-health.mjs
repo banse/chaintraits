@@ -128,7 +128,7 @@ try {
           check.localResourceErrors.push(response.status());
       });
       await page.route(
-        /https:\/\/(rpc\.mevblocker\.io|ethereum-rpc\.publicnode\.com|eth\.drpc\.org|1\.rpc\.thirdweb\.com)\/?/,
+        /https:\/\/(gateway\.tenderly\.co|rpc\.mevblocker\.io|ethereum-rpc\.publicnode\.com|eth\.drpc\.org|1\.rpc\.thirdweb\.com)\/?/,
         async (route) => {
           const payload = route.request().postDataJSON();
           if (!check.methods.includes(payload.method))
@@ -172,11 +172,11 @@ try {
         });
         check.before = await state(page);
         if (scenario === "rpc-switch") {
-          assert.equal(check.before.rpc, "https://rpc.mevblocker.io");
+          assert.equal(check.before.rpc, "https://ethereum-rpc.publicnode.com");
           holdRpc = true;
           await page
             .getByLabel("Public RPC", { exact: true })
-            .selectOption("https://ethereum-rpc.publicnode.com");
+            .selectOption("https://gateway.tenderly.co/public/mainnet");
           await page.waitForFunction(
             () => !document.querySelector(".explorer-head"),
           );
@@ -185,7 +185,7 @@ try {
           assert.equal(check.unavailable.rows, 0);
           assert.equal(
             check.unavailable.rpc,
-            "https://ethereum-rpc.publicnode.com",
+            "https://gateway.tenderly.co/public/mainnet",
           );
           assert.match(check.unavailable.healthStatus, /Checking deployment/);
           holdRpc = false;
@@ -204,7 +204,10 @@ try {
           assert.ok(check.rpcFailures > 0);
           assertShell(check.unavailable);
           assert.equal(check.unavailable.rows, 0);
-          assert.match(check.unavailable.status, /RPC unavailable/);
+          assert.match(
+            check.unavailable.status,
+            /Cannot read the chain, retrying/,
+          );
           const retry = page
             .getByRole("main")
             .getByRole("button", { name: "Retry reads", exact: true });
@@ -234,7 +237,7 @@ try {
         assert.equal(
           check.recovered.rpc,
           scenario === "rpc-switch"
-            ? "https://ethereum-rpc.publicnode.com"
+            ? "https://gateway.tenderly.co/public/mainnet"
             : check.before.rpc,
         );
         await page.evaluate(() => scrollTo(0, 0));

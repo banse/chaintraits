@@ -4,6 +4,23 @@ Sworn is an ownerless registry of wallet facts for Ethereum mainnet. Its only to
 
 **Status:** the three application contracts, tests, generated artwork and ABI exports are implemented. Independent review, the launch manifest, deployment, source publication and the website belong to subsequent workflow stages. This tree asserts no new deployment address. The three earlier deployments were unannounced tests; their implementation trees were not used.
 
+## Registry site
+
+The current Ethereum deployment and static frontend are recorded in `dist/imd-deployment.json`. The site export is `dist/`; frontend source and its existing lockfile are in `web/`. To install, preview and rebuild with Node 22.12+:
+
+```sh
+cd web
+npm ci
+node scripts/agents.mjs
+npm run typecheck
+npm run build
+npm run preview
+```
+
+Vite uses relative asset URLs and hash routes, so the export works below a static gateway path. The build verifies the pinned ABIs and writes an asset manifest. The publisher serves the committed export without rebuilding it. No server, key or application API is required at runtime.
+
+Run `npm test` for unit/export and route checks, plus `node tests/acceptance.mjs` for the fake-wallet A–E interactions (install Playwright Chromium first). See [frontend instructions](web/README.md), [current test notes](web/TEST-NOTES.md), [implemented design](DESIGN.md), [agent skill](agents/sworn/SKILL.md) and [agent index](llms.txt). The earlier contract-stage status above is historical; this contribution changes the existing frontend and does not deploy a contract.
+
 ## Read in this order
 
 1. `docs/REBUILD.md`, the approved specification.

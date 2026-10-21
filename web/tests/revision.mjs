@@ -169,7 +169,7 @@ try {
       evidence.errors.push(`Local resource HTTP ${response.status()}`);
   });
   await page.route(
-    /https:\/\/(rpc\.mevblocker\.io|ethereum-rpc\.publicnode\.com|eth\.drpc\.org|1\.rpc\.thirdweb\.com)\/?/,
+    /https:\/\/(gateway\.tenderly\.co|rpc\.mevblocker\.io|ethereum-rpc\.publicnode\.com|eth\.drpc\.org|1\.rpc\.thirdweb\.com)\/?/,
     async (route) => {
       if (!rpc) return route.abort();
       const payload = route.request().postDataJSON();
@@ -227,23 +227,11 @@ try {
   await page.evaluate(() => {
     window.__revisionMain = document.querySelector("main");
   });
-  const acknowledgement = page
-    .getByRole("link", {
-      name: "Acknowledge that the price is spent whatever the answer",
-      exact: true,
-    })
-    .first();
-  assert.equal(
-    await acknowledgement.getAttribute("href"),
-    "#/claim?trait=701&view=all#oracle-ack",
-  );
-  await acknowledgement.focus();
-  await page.keyboard.press("Enter");
-  await page.waitForFunction(
-    () =>
-      location.hash.endsWith("#oracle-ack") &&
-      document.activeElement?.id === "oracle-ack",
-  );
+  // The old anchor remains navigable; payment acknowledgement now lives in the dialog.
+  await page.evaluate(() => {
+    location.hash = "#/claim?trait=701&view=all#oracle-ack";
+  });
+  await page.waitForFunction(() => location.hash.endsWith("#oracle-ack"));
   assert.equal(await page.locator("#pick-701 input").isChecked(), true);
   assert.equal(
     await page.evaluate(
@@ -252,7 +240,7 @@ try {
     true,
   );
   record({
-    name: "Acknowledgement keyboard navigation retains all query parameters, selected trait and main element; focuses its checkbox.",
+    name: "Legacy acknowledgement anchor retains query parameters, selected trait and main element; directs readers to the payment dialog.",
   });
   await page.screenshot({
     path: new URL("acknowledgement-390.png", output).pathname,
@@ -275,20 +263,23 @@ try {
     await page
       .getByText("preview, no card minted", { exact: true })
       .waitFor({ timeout: 60000 });
-    await page.locator("#oracle-ack").check();
     await page
       .getByRole("button", { name: "Prepare selected facts", exact: true })
       .click();
-    await page
-      .getByRole("button", { name: "Confirm transaction steps", exact: true })
-      .waitFor({ timeout: 60000 });
-    await page.evaluate(() => {
-      window.__revisionMain = document.querySelector("main");
+    const paymentDialog = page.getByRole("dialog", {
+      name: "Request 1 oracle fact: 601 / Swarmed",
+      exact: true,
     });
-    const before = await journal();
-    assert.equal(before.title, "Request 1 oracle fact: 601 / Swarmed");
-    assert.equal(before.steps.length, 2);
-    assert.ok(before.steps.every((step) => step.endsWith("ready")));
+    await paymentDialog.waitFor({ timeout: 60000 });
+    assert.equal(await paymentDialog.locator(".journal-steps li").count(), 2);
+    assert.equal(
+      await paymentDialog
+        .getByRole("button", { name: "Request 601 / Swarmed", exact: true })
+        .isDisabled(),
+      true,
+    );
+    await paymentDialog.locator("#payment-ack").check();
+    await page.getByRole("button", { name: "Close payment dialog" }).click();
     await page
       .locator("#step-02")
       .getByRole("link", { name: "Transaction steps ↓", exact: true })
@@ -296,32 +287,15 @@ try {
     await page.waitForFunction(
       () => location.hash === "#/claim?trait=601#transaction-steps",
     );
-    const after = await journal();
-    assert.deepEqual(after, {
-      ...before,
-      hash: "#/claim?trait=601#transaction-steps",
-    });
     await page
-      .locator("#transaction-steps")
-      .getByRole("link", { name: "from step 02", exact: true })
+      .getByRole("button", { name: "Review transaction steps" })
       .click();
-    await page.waitForFunction(
-      () => location.hash === "#/claim?trait=601#step-02",
-    );
-    assert.deepEqual(await journal(), {
-      ...before,
-      hash: "#/claim?trait=601#step-02",
-    });
+    assert.equal(await paymentDialog.locator("#payment-ack").isChecked(), true);
+    await page.getByRole("button", { name: "Close payment dialog" }).click();
     await page.goBack();
-    await page.waitForFunction(
-      () => location.hash === "#/claim?trait=601#transaction-steps",
-    );
-    assert.deepEqual(await journal(), after);
     assert.deepEqual(await page.evaluate(() => window.__revisionSigning), []);
     record({
-      name: "Prepared journal survives its link, originating-step link and browser Back, with two ready steps and one confirmation control; no signing or broadcast.",
-      before,
-      after,
+      name: "Prepared dialog retains separate locked approval/action steps, acknowledgement and originating query through close, journal navigation and browser Back; no signing or broadcast.",
     });
     await page.screenshot({
       path: new URL("prepared-journal-390.png", output).pathname,

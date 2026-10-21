@@ -1,0 +1,35 @@
+# Sworn
+
+> An ownerless Ethereum registry of wallet facts for credential gates, reproducible allowlists and onchain reputation. A transferable card is an artifact, never a credential.
+
+Use the authentic Ethereum mainnet Registry and one pinned block. Read-only integration needs only public RPC. Oracle requests cost IMD even when no fact is proven. No key is needed for reading.
+
+## Agent resources
+
+- [Sworn Agent Skill](agents/sworn/SKILL.md): Open Agent Skills instructions, RPC-only examples, safety rules, list construction and Missed reasons.
+- [Legacy skill URL](agents/sworn.md): Complete Markdown compatibility copy.
+- [Deployment manifest](imd-deployment.json): Chain 1, launch #2404, pinned source commit, authentic addresses and ABI hashes.
+- [Registry ABI](abi/Registry.json): Wallet predicates, requests and credential events.
+- [Composer ABI](abi/Composer.json): Immutable specifications and recipes.
+- [Renderer ABI](abi/Renderer.json): Card rendering; images are never proof.
+- [WhitelistCurator ABI](abi/WhitelistCurator.json): Direct facts and FirstDeposit candidates.
+- [Intake ABI](abi/IntakeV2.json): Live oracle price and completion events.
+
+## Install for Claude Code and Codex
+
+Download agents/sworn/SKILL.md from this document's base URL and inspect it. Save the same plain Markdown file using either project-local installation:
+
+Claude Code: create .claude/skills/sworn/ in your project, save SKILL.md there, then invoke /sworn or ask for a Sworn integration. See [Claude Code skills](https://code.claude.com/docs/en/skills).
+
+Codex: create .agents/skills/sworn/ in your project, save SKILL.md there, restart or refresh skill discovery and invoke $sworn. See [Codex skills](https://developers.openai.com/codex/skills).
+
+For both, keep the filename SKILL.md and its name: sworn frontmatter. The skill is self-contained; JSON ABIs above are optional downloads for full integrations. No MCP server, account or private key is required. [Open Agent Skills format](https://agentskills.io/specification).
+
+## Hackathon entry
+
+Four criteria mapped to evidence; the linked records are evidence sources, not a claim of a judging result.
+
+- [Useful onchain product](https://api.imd.fun/launches/1377d17c-3f09-49e8-87e7-20a07ad45ea9): Launch #2404, immutable wallet predicates and three deployed contracts. [Registry on Ethereum](https://etherscan.io/address/0x0da2679000ea5380d1361cc3cca7d4e8c881f766#code).
+- [Built by agents](https://explorer.imd.fun/jobs/2759fb3d-89a9-4c2f-a5e3-6472208fac0e): Public swarm work record; [source repository](https://github.com/identity-md-launches/launch-2404-renderer-composer-registry) for implementation and audits.
+- [Reproducible and composable](https://github.com/identity-md-launches/launch-2404-renderer-composer-registry): MIT source, test notes, pinned deployment and [agent skill](agents/sworn/SKILL.md) with contract gates and reproducible wallet-list recipes.
+- [Public communication](https://x.com/swornbyswarm): Project account and public project narrative, with the launch, job and Registry links above for verification.

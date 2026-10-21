@@ -21,18 +21,6 @@ import {
 import { useWalletSheet } from "./wallet";
 import { sharedState, completion } from "./settlement";
 import { claimAnchor } from "./navigation";
-function AckLink() {
-  return (
-    <a
-      href={claimAnchor("oracle-ack")}
-      onClick={() =>
-        setTimeout(() => document.getElementById("oracle-ack")?.focus(), 0)
-      }
-    >
-      Acknowledge that the price is spent whatever the answer
-    </a>
-  );
-}
 function disableReason(site: any, account: any, busy: boolean) {
   return busy
     ? "A transaction is in progress."
@@ -212,14 +200,12 @@ export function Settlement({
 function SharedFact({
   id = 1201,
   name = "Top Weights",
-  ack,
   payment,
   journal,
   facts,
 }: {
   id?: number;
   name?: string;
-  ack: boolean;
   payment: string;
   journal: Journal;
   facts?: WalletFacts | null;
@@ -264,9 +250,7 @@ function SharedFact({
             ? included
               ? ""
               : "not in the list"
-            : !ack
-              ? "Acknowledge the oracle cost."
-              : "");
+            : "");
   async function prepare() {
     setBusy(true);
     setStatus("Preparing…");
@@ -359,7 +343,6 @@ function SharedFact({
       >
         {error || status || reason}
       </Status>
-      {!ack && !stored && <AckLink />}
       {status.startsWith("Prepared") && (
         <a href={claimAnchor("transaction-steps")}>Transaction steps ↓</a>
       )}
@@ -368,25 +351,23 @@ function SharedFact({
   );
 }
 const defaultForm = {
-  kind: "1",
+  kind: "",
   target: "",
-  item: "event Deposited(address indexed contributor, uint256 indexed hour, uint256 amount, uint256 creditedDelta, uint256 weightAdded, uint256 newWeight, uint256 txCount, uint256 hourTotal, uint256 earlyBps)",
-  arg: "contributor",
+  item: "",
+  arg: "",
   fixedArg: "",
-  fixedVal: "0",
+  fixedVal: "",
   sumArg: "",
-  op: "0",
-  threshold: "1",
-  fromBlock: "25769870",
-  toBlock: "25789604",
+  op: "",
+  threshold: "",
+  fromBlock: "",
+  toBlock: "",
   name: "",
 };
 function CommunityForm({
-  ack,
   payment,
   journal,
 }: {
-  ack: boolean;
   payment: string;
   journal: Journal;
 }) {
@@ -396,16 +377,12 @@ function CommunityForm({
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
-  useEffect(() => {
-    if (site.health)
-      setForm((old) => ({
-        ...old,
-        target: old.target || site.health!.deps.curator,
-      }));
-  }, [site.health]);
+  const [edited, setEdited] = useState<Record<string, boolean>>({});
   const normalized = {
     ...form,
     target: form.kind === "5" ? zeroAddress : form.target,
+    fixedVal: form.fixedVal || (form.fixedArg ? "" : "0"),
+    op: form.kind === "4" ? form.op : "0",
   };
   let errors: Record<string, string> = {};
   try {
@@ -418,7 +395,9 @@ function CommunityForm({
     target: ["Contract address", "The contract that emits the event"],
     item: [
       "Event or function signature",
-      "event Deposited(address indexed contributor, uint256 amount)",
+      form.kind === "4"
+        ? "function balanceOf(address) view returns (uint256)"
+        : "event Deposited(address indexed contributor, uint256 amount)",
     ],
     arg: ["Claimant / group field", "contributor"],
     fixedArg: ["Second indexed filter (optional)", "hour"],
@@ -433,27 +412,16 @@ function CommunityForm({
   };
   function change(key: string, value: string) {
     setStatus("");
-    setForm((old) => {
-      const next = { ...old, [key]: value };
-      if (key === "kind") {
-        next.arg = Number(value) <= 3 ? "contributor" : "";
-        next.fixedArg = "";
-        next.fixedVal = "0";
-        next.sumArg = ["2", "3"].includes(value) ? "amount" : "";
-        next.op = value === "4" ? "1" : "0";
-        next.item =
-          value === "4"
-            ? "function balanceOf(address) view returns (uint256)"
-            : value === "5"
-              ? ""
-              : defaultForm.item;
-        if (value === "5") {
-          next.fromBlock = "25769870";
-          next.toBlock = "25769870";
-        }
-      }
-      return next;
-    });
+    setEdited((old) => ({ ...old, [key]: true }));
+    setForm((old) =>
+      key === "kind"
+        ? { ...defaultForm, kind: value, name: old.name }
+        : { ...old, [key]: value },
+    );
+    if (key === "kind") {
+      setEdited({ kind: true });
+      setSent(false);
+    }
   }
   async function prepare(e: React.FormEvent) {
     e.preventDefault();
@@ -469,8 +437,8 @@ function CommunityForm({
       const s = {
         ...normalized,
         kind: Number(form.kind),
-        op: Number(form.op),
-        fixedVal: BigInt(form.fixedVal),
+        op: Number(normalized.op),
+        fixedVal: BigInt(normalized.fixedVal),
         threshold: BigInt(form.threshold),
         fromBlock: BigInt(form.fromBlock),
         toBlock: BigInt(form.toBlock),
@@ -487,10 +455,10 @@ function CommunityForm({
             label: "Register the immutable community spec",
             functionName: "registerSpec",
             args: [s, 0n],
-            amount: 6400000000000000000n,
+            amount: site.health.specFee,
           },
         ],
-        [{ name: "Register community spec", amount: 6400000000000000000n }],
+        [{ name: "Register community spec", amount: site.health.specFee }],
         payment,
       );
       setStatus(
@@ -521,6 +489,7 @@ function CommunityForm({
             value={form.kind}
             onChange={(e) => change("kind", e.target.value)}
           >
+            <option value="">Choose a template</option>
             <option value="1">T1 · Count events</option>
             <option value="2">T2 · Sum events</option>
             <option value="3">T3 · Rank a shared list</option>
@@ -557,12 +526,19 @@ function CommunityForm({
                 value={(form as any)[key]}
                 placeholder={placeholder}
                 onChange={(e) => change(key, e.target.value)}
-                aria-invalid={!!errors[key]}
+                aria-invalid={!!errors[key] && (!!edited[key] || sent)}
                 aria-describedby={`spec-${key}-error`}
+                inputMode={
+                  ["fixedVal", "threshold", "fromBlock", "toBlock"].includes(
+                    key,
+                  )
+                    ? "numeric"
+                    : "text"
+                }
                 spellCheck={false}
               />
               <p className="field-error" id={`spec-${key}-error`}>
-                {errors[key] || ""}
+                {edited[key] || sent ? errors[key] || "" : ""}
               </p>
             </div>
           ))}
@@ -573,6 +549,7 @@ function CommunityForm({
               value={form.op}
               onChange={(e) => change("op", e.target.value)}
             >
+              <option value="">Choose comparison</option>
               <option value="1">≥</option>
               <option value="2">&gt;</option>
               <option value="3">≤</option>
@@ -612,7 +589,9 @@ function CommunityForm({
       >
         {status ||
           disableReason(site, account, journal.busy) ||
-          (Object.keys(errors).length ? "Correct the named fields above." : "")}
+          (Object.keys(errors).length && (sent || Object.keys(edited).length)
+            ? "Enter valid values for the selected template."
+            : "")}
       </Status>
       {status.startsWith("Prepared") && (
         <a href={claimAnchor("transaction-steps")}>Transaction steps ↓</a>
@@ -626,8 +605,13 @@ export function Claim() {
   const { open } = useWalletSheet();
   const journal = useTransactions();
   const [facts, setFacts] = useState<WalletFacts | null>(null);
+  const [owned, setOwned] = useState<{ address: string; token: bigint } | null>(
+    null,
+  );
+  const minted =
+    facts?.token ??
+    (owned && owned.address === account.address ? owned.token : null);
   const [factError, setFactError] = useState("");
-  const [ack, setAck] = useState(false);
   const [payment, setPayment] = useState("IMD");
   const [selected, setSelected] = useState<number[]>([]);
   const [busy, setBusy] = useState("");
@@ -643,10 +627,14 @@ export function Claim() {
     setFacts(null);
     setFactError("");
     if (account.address && site.health)
-      lookup(site.client, site.r, site.health, account.address, [
-        ...TRAITS.map((t) => t.id),
-        ...site.specs.map((s) => s.id),
-      ])
+      read(site.client, site.r, "Registry", "tokenOf", [account.address])
+        .then((token) => {
+          if (active) setOwned({ address: account.address!, token });
+          return lookup(site.client, site.r, site.health!, account.address!, [
+            ...TRAITS.map((t) => t.id),
+            ...site.specs.map((s) => s.id),
+          ]);
+        })
         .then((v) => {
           if (active) setFacts(v);
         })
@@ -724,11 +712,12 @@ export function Claim() {
             label: "Mint one Sworn card",
             functionName: "mintCard",
             args: [],
-            amount: 100000000000000000n,
+            amount: site.health!.mintFee,
           },
         ],
-        [{ name: "Mint card", amount: 100000000000000000n }],
+        [{ name: "Mint card", amount: site.health!.mintFee }],
         payment,
+        facts || undefined,
       );
       setStatus((v) => ({ ...v, mint: "Prepared, see Transaction steps." }));
     } catch (e) {
@@ -741,7 +730,6 @@ export function Claim() {
     setBusy("facts");
     setStatus((v) => ({ ...v, facts: "Preparing…" }));
     try {
-      if (!ack) throw Error("Acknowledge the oracle cost.");
       if (!site.health || !facts)
         throw Error("Wallet reads unavailable. Retry reads.");
       if (!selected.length) throw Error("Select at least one fact.");
@@ -772,15 +760,29 @@ export function Claim() {
       <h1>Claim</h1>
       <section className="mint-panel" id="mint">
         <div>
-          <h2>Mint your Sworn card</h2>
-          <p>A card costs 0.10 IMD; no trait claim is needed before minting.</p>
-          <p className="accent">Mint your card now. It updates itself.</p>
-          <p>{FEE}.</p>
-          <p className="muted">Pay with: {payment}</p>
+          <h2>
+            {minted !== null && minted !== 0n
+              ? `Your Sworn card #${minted}`
+              : "Mint your Sworn card"}
+          </h2>
+          {(minted === null || minted === 0n) && (
+            <>
+              <p>
+                A card costs 0.10 IMD; no trait claim is needed before minting.
+              </p>
+              <p className="accent">Mint your card now. It updates itself.</p>
+              <p>{FEE}.</p>
+              <p className="muted">Pay with: {payment}</p>
+            </>
+          )}
           {!account.address ? (
             <button className="primary" onClick={open}>
               Connect to mint
             </button>
+          ) : minted !== null && minted !== 0n ? (
+            <p className="accent">
+              Card #{minted.toString()} · Original claimant: {account.address}
+            </p>
           ) : (
             <button
               className="primary"
@@ -822,7 +824,15 @@ export function Claim() {
             </button>
           )}
         </div>
-        {facts ? <Card facts={facts} /> : <Card sample />}
+        {facts ? (
+          <Card facts={facts} />
+        ) : minted !== null && minted !== 0n ? (
+          <Status>
+            Card #{minted.toString()} · Reading its facts and image…
+          </Status>
+        ) : (
+          <Card sample />
+        )}
       </section>
       <Section title="Why add traits after minting?">
         <p>
@@ -985,30 +995,14 @@ export function Claim() {
               );
             })}
           </div>
-          <label className="ack">
-            <input
-              type="checkbox"
-              id="oracle-ack"
-              checked={ack}
-              onChange={(e) => setAck(e.target.checked)}
-            />
-            I understand that the oracle price is spent whatever the answer,
-            including a false answer or no verdict.
-          </label>
-          <p className="muted">
-            Pay with: {payment}. One fact per transaction; each request pays the
-            full oracle price.
+          <p id="oracle-ack" className="muted">
+            The payment dialog explains the cost and requires your confirmation
+            before any wallet signature.
           </p>
-          {!ack && (
-            <p>
-              <AckLink />
-            </p>
-          )}
           <button
             disabled={
               !!reason ||
               !facts ||
-              !ack ||
               selected.length === 0 ||
               !!busy ||
               selected.some(
@@ -1036,9 +1030,7 @@ export function Claim() {
                 ? "Wait for wallet reads."
                 : !selected.length
                   ? "Select at least one fact."
-                  : !ack
-                    ? "Acknowledge the oracle cost."
-                    : "")}
+                  : "")}
           </Status>
           {status.facts?.startsWith("Prepared") && (
             <a href={claimAnchor("transaction-steps")}>Transaction steps ↓</a>
@@ -1052,12 +1044,7 @@ export function Claim() {
                   <Settlement requestId={rid} journal={journal} />
                 </div>
               ))}
-          <SharedFact
-            ack={ack}
-            payment={payment}
-            journal={journal}
-            facts={facts}
-          />
+          <SharedFact payment={payment} journal={journal} facts={facts} />
           <h3>Community facts</h3>
           {site.loading ? (
             <Status>Reading community specs…</Status>
@@ -1083,7 +1070,6 @@ export function Claim() {
                 key={t.id}
                 id={t.id}
                 name={t.name}
-                ack={ack}
                 payment={payment}
                 journal={journal}
                 facts={facts}
@@ -1108,7 +1094,7 @@ export function Claim() {
               their community. Eligible wallets request and prove it.
             </p>
           </div>
-          <CommunityForm ack={ack} payment={payment} journal={journal} />
+          <CommunityForm payment={payment} journal={journal} />
         </section>
       </section>
       <TransactionJournal journal={journal} />

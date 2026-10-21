@@ -2,6 +2,7 @@ import {
   createPublicClient,
   defineChain,
   http,
+  custom,
   keccak256,
   stringToHex,
   parseAbi,
@@ -13,6 +14,7 @@ import {
   type PublicClient,
 } from "viem";
 import { canonical, decodeMetadata } from "./pure.mjs";
+import { READ_RPCS, resilientRpc } from "./rpc.mjs";
 export type Deployment = {
   version: 1;
   launchId: string;
@@ -92,7 +94,10 @@ export const contract = (r: Runtime, name: string) => {
 export const makeClient = (r: Runtime, url: string) =>
   createPublicClient({
     chain: r.chain,
-    transport: http(url, { timeout: 15000, retryCount: 1 }),
+    transport: custom(
+      resilientRpc({ urls: [url, ...READ_RPCS.filter((u) => u !== url)] }),
+      { retryCount: 0 },
+    ),
     batch: { multicall: false },
   });
 export const read = async (
@@ -121,6 +126,8 @@ export type Health = {
   price: bigint;
   deps: Record<string, Address>;
   supply: bigint;
+  mintFee: bigint;
+  specFee: bigint;
 };
 export async function health(client: any, r: Runtime): Promise<Health> {
   const chain = await client.getChainId();
@@ -159,7 +166,7 @@ export async function health(client: any, r: Runtime): Promise<Health> {
     r.deployment.network.pairToken.address.toLowerCase()
   )
     throw Error("IMD getter does not match network.");
-  const [price, block, supply] = await Promise.all([
+  const [price, block, supply, mintFee, specFee] = await Promise.all([
     client.readContract({
       address: deps.intake,
       abi: r.abis.IntakeV2,
@@ -168,9 +175,11 @@ export async function health(client: any, r: Runtime): Promise<Health> {
     }),
     client.getBlockNumber(),
     read(client, r, "Registry", "totalSupply"),
+    read(client, r, "Registry", "MINT_FEE"),
+    read(client, r, "Registry", "SPEC_FEE"),
   ]);
   if (price <= 0n) throw Error("The live oracle price is unavailable or zero.");
-  return { block, price, deps, supply };
+  return { block, price, deps, supply, mintFee, specFee };
 }
 export type WalletFacts = {
   address: Address;
@@ -315,7 +324,9 @@ export async function community(client: any, r: Runtime) {
   return result;
 }
 export const explain = (e: any) => {
-  const raw = e?.shortMessage || e?.message || String(e);
+  const raw = [e?.shortMessage || e?.message || String(e), e?.details]
+    .filter(Boolean)
+    .join(" ");
   return /rejected|denied|4001/i.test(raw)
     ? "Rejected in your wallet. You can try again."
     : raw.slice(0, 700);

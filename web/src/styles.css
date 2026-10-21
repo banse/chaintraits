@@ -1376,3 +1376,86 @@ th {
     color: CanvasText;
   }
 }
+
+/* One payment review surface; the native dialog supplies focus containment. */
+.payment-dialog {
+  width: min(680px, calc(100% - 32px));
+  max-height: calc(100dvh - 48px);
+  padding: 0;
+  overscroll-behavior: contain;
+  color: var(--text);
+  background: var(--bg);
+  border: 1px solid var(--rule);
+}
+.payment-dialog::backdrop {
+  background: #000c;
+}
+.payment-dialog-body {
+  padding: var(--s5);
+}
+.payment-dialog .sheet-head {
+  align-items: start;
+  gap: var(--s4);
+}
+.payment-dialog .sheet-head h2 {
+  margin: 0;
+}
+.payment-dialog .sheet-head button {
+  flex-shrink: 0;
+  min-width: 44px;
+}
+.payment-summary {
+  font-variant-numeric: tabular-nums;
+}
+.payment-summary div {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--s4);
+  padding-block: var(--s2);
+  border-bottom: 1px solid var(--rule);
+}
+.payment-summary dd {
+  margin: 0;
+  text-align: right;
+}
+.payment-dialog .ack {
+  margin-block: var(--s5);
+}
+.payment-preview .card-figure {
+  max-width: 240px;
+  margin-inline: auto;
+}
+.step-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+}
+.payment-dialog .journal-steps li {
+  padding-block: var(--s4);
+}
+.payment-dialog .receipt {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 640px) {
+  .payment-dialog {
+    width: 100%;
+    height: 100dvh;
+    max-width: none;
+    max-height: none;
+    margin: 0;
+    border: 0;
+  }
+  .payment-dialog-body {
+    padding: var(--s4);
+  }
+  .payment-summary div {
+    flex-direction: column;
+    gap: var(--s1);
+  }
+  .payment-summary dd {
+    text-align: left;
+  }
+  .step-actions {
+    flex-direction: column;
+  }
+}

@@ -47,7 +47,11 @@
     },
     {
       "path": "agents/sworn.md",
-      "sha256": "07e166a4c4bada399a7de2f4bae0769f3d27db3c97b2fe22a0c3b2d76bc73f93"
+      "sha256": "0724f06f4dfbb69815120853d65726c2e5aaaf08a93e80e1d26b94f5523a7fa5"
+    },
+    {
+      "path": "agents/sworn/SKILL.md",
+      "sha256": "826a6b2548b91cb95ef96c692a6c59845e22b8a532e5e364ad4a4cfbcc0b73d8"
     },
     {
       "path": "art/sample.svg",
@@ -154,20 +158,20 @@
       "sha256": "c34bce140e26f958072943a5326c503bd737cfa49c98e5b7a0345a06302e94b6"
     },
     {
-      "path": "assets/ccip-d7FZk9D4.js",
-      "sha256": "e5019ada980aec929bf9f9d5403a3471a4e3b2d7ccb795c2c210d271875ea215"
+      "path": "assets/ccip-DitJ_yRK.js",
+      "sha256": "1d43f70ae4fe9f2a91883ece2b042afd2bd21513fc2f8cb83a03d273fcd36e4d"
     },
     {
-      "path": "assets/dist-mbml2NTA.js",
-      "sha256": "f05a68a67b99be2c83fbfb8222215d76544c5a4bd155cc3ce39882ff78789c9b"
+      "path": "assets/dist-BBVDTADk.js",
+      "sha256": "50a5b9ceb5f95ba9488a06e465a30a492731481acd242d20dfe6951fb299be7f"
     },
     {
-      "path": "assets/index-BNS4TvO-.css",
-      "sha256": "915f59e1e1f7dbcd319b0ddba63309a4a874546c49b1399b21bba508a22f2d49"
+      "path": "assets/index-CaJcimlt.js",
+      "sha256": "c2cd6c5d74c7894de143a80d3b21d1e5e6ae09a3f199b2292105d1139741ff11"
     },
     {
-      "path": "assets/index-DrNDTVhN.js",
-      "sha256": "fc20eaafb82c7b77feda7843eb51c65291331946fb517e035777f57157776b0b"
+      "path": "assets/index-LGwv5xva.css",
+      "sha256": "cb9a64e45019e6ad5cd6dc366c7fa02dad4cea7d14e14a3b548b53304b53bfe8"
     },
     {
       "path": "data/art-provenance.json",
@@ -199,7 +203,11 @@
     },
     {
       "path": "index.html",
-      "sha256": "e648f675f3d5e698d659c928f35f5a5cd6204f92f9f84e61bcb6cf3cb17af791"
+      "sha256": "ba2bcfcdab564622746a5ae3e1275dd190ebc0f66d03de5c843d34319daeae1e"
+    },
+    {
+      "path": "llms.txt",
+      "sha256": "ac13855849ae77902f6194d4c298c3d0779608ebe56b79b533b9bfdeb3d23da1"
     },
     {
       "path": "share.png",

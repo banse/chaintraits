@@ -3,6 +3,7 @@ import fs from "node:fs";
 import assert from "node:assert/strict";
 import { chromium, webkit } from "playwright";
 import { server, forwardRpc } from "./harness.mjs";
+import { fakeChain, mockPage } from "./fake-chain.mjs";
 const output = new URL("../../test/scratch/browser-check/", import.meta.url);
 fs.mkdirSync(output, { recursive: true });
 const providedRpc = process.env.SWORN_TEST_RPC;
@@ -27,6 +28,7 @@ try {
     deviceScaleFactor: 1,
   });
   const page = await context.newPage();
+  if (!providedRpc) await mockPage(page, fakeChain());
   page.on("pageerror", (e) => evidence.errors.push(e.message));
   page.on("console", (msg) => {
     if (msg.type() === "error") evidence.errors.push(msg.text());
@@ -45,7 +47,7 @@ try {
   });
   if (providedRpc)
     await page.route(
-      /https:\/\/(rpc\.mevblocker\.io|ethereum-rpc\.publicnode\.com|eth\.drpc\.org|1\.rpc\.thirdweb\.com)\/?/,
+      /https:\/\/(gateway\.tenderly\.co|rpc\.mevblocker\.io|ethereum-rpc\.publicnode\.com|eth\.drpc\.org|1\.rpc\.thirdweb\.com)\/?/,
       async (route) => {
         try {
           const body = await forwardRpc(
@@ -178,7 +180,7 @@ try {
   );
   await page.getByRole("radio", { name: "ETH", exact: true }).check();
   assert.ok((await readBody(page)).includes("Pay with: ETH"));
-  await page.locator("#oracle-ack").check();
+  assert.match(await page.locator("#oracle-ack").innerText(), /payment dialog/);
   assert.equal(
     await page
       .getByRole("button", { name: "Prepare selected facts" })
@@ -302,9 +304,10 @@ try {
     const safari = await webkit.launch({ headless: true });
     evidence.browsers.webkit = safari.version();
     const p = await safari.newPage({ viewport: { width: 390, height: 844 } });
+    if (!providedRpc) await mockPage(p, fakeChain());
     if (providedRpc)
       await p.route(
-        /https:\/\/(rpc\.mevblocker\.io|ethereum-rpc\.publicnode\.com|eth\.drpc\.org|1\.rpc\.thirdweb\.com)\/?/,
+        /https:\/\/(gateway\.tenderly\.co|rpc\.mevblocker\.io|ethereum-rpc\.publicnode\.com|eth\.drpc\.org|1\.rpc\.thirdweb\.com)\/?/,
         async (route) => {
           const body = await forwardRpc(
             providedRpc,
