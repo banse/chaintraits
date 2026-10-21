@@ -87,6 +87,16 @@ registry checks the quorum it was built with, issue #20); an attestation issued 
 valid after an `abandon`, in which case it lands as `Missed` and the fee is spent (F-7). The next-cut list is at the end
 of the disposition file; no next cut is planned.
 
+**From the One Dollar Audit of the Composer (job 1043, 2026-10-21; `audits/2026-10-21-onedollaraudit-1043.md`):** the
+registration guard does not check that a community spec's `arg` (kinds 1 and 2), `fixedArg` or `sumArg` names a real,
+indexed parameter of its event (H-1). A spec that names a data field or a non-existent one registers for 6.4 IMD and
+can never be answered: every request about it is paid to the Intake and ends without a verdict. Before registering a
+community trait on this deployment, check that `arg` and `fixedArg` are `indexed` parameters of the event and `sumArg`
+one of its parameters; no community spec is registered on 2026-10-21. The same guard admits prose inside an event
+signature, which the composed question repeats to the oracle's panel (M-2); the next deployment refuses both. The
+Composer's views trust the addresses they are given (M-3) and `compose` trusts its spec (M-1): the registry passes only
+its pinned addresses and stored, validated specs; a direct caller of the Composer harms only its own call.
+
 ## Known issues of the test deployment (2026-10-18, from the One Dollar Audit of 2026-10-19)
 
 **This section describes the test deployment of 2026-10-18 (Registry `0x39bec7648259d5a128c29b24951eabcd4d1f95a6`, swarm
