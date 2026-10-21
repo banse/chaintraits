@@ -7,7 +7,8 @@ for the Intake and the attestation.
 **Round 2 (2026-10-12), before any code exists:** the two Early bird predicates swapped ids so the family is monotone
 (201 = hour <= 1, 202 = hour 0); the callback acceptance of section 4 binds through the plane's `questionHash`; T5
 asks for the account nonce only. **2026-10-21:** trait 601 became the sworn operator fact Swarmed (kind 6,
-`docs/REBUILD.md` 4.2) and every fee is burned (section 6). Everything else is as frozen.
+`docs/REBUILD.md` 4.2) and every fee is forwarded to the BurnExecutor V2 for bridging and burning on Base (section 6); a community spec names only real fields
+of a strict event or function signature (section 5). Everything else is as frozen.
 
 **Words.** *The registry* is the ERC-721 contract, *the card* is a wallet's token, a *trait* is one per-wallet fact
 (`traitId`, `hasTrait`). *Claimant* is the wallet that minted the card and that every trait is about; *holder* is
@@ -77,7 +78,8 @@ windows unchanged in the free quotes of 2026-10-12 (`reference/plane/quotes/`).
 | 301 / 302 / 303 | Climber >= 3 / 5 / 10 | direct | `txCountOf(A) >= 3 / 5 / 10` | live | from the view; at most 2,037 wallets made more than one deposit |
 | 401 / 402 / 403 / 404 | Capital >= 1 / 10 / 100 / 800 ETH | direct | `contributedBy(A) >= 1e18 / 1e19 / 1e20 / 8e20` (the view returns `contributors(A).highWater`, the largest single send in wei) | live | snapshot of 15,576 wallets: median 0.45 ETH, p90 14, p99 98.8, max 1,000 (the cap) |
 | 501 / 502 / 503 | Scoreboard >= 1,000 / 3,162 / 10,000 | direct | `pointsOf(A) >= 1000 / 3162 / 10000` (points = 1000 x sqrt(weight in ETH)) | live | from the view |
-| 601 | Operator | panel, T6 bool, **living window** | operated an IdentityMD seat (`0x0000eC93127BAA929E58E97dd0095A2BFb38ec1D`) through at least 3 accepted Identity.md swarm jobs while holding it: the recipe of `docs/REBUILD.md` 4.2 (seats held, the seat's agent, accepted `NewFeedback` entries inside the holding intervals); independent of THE LIST membership; catalog-only (kind 6 is not registrable) | 25,090,085 to the request block − 64 | about 850 agents (2026-10-21) |
+| 601 | Operator | panel, T6 bool, **living window** | operated an IdentityMD seat (`0x0000eC93127BAA929E58E97dd0095A2BFb38ec1D`) through at least 3 accepted Identity.md swarm jobs while holding it: the recipe of `docs/REBUILD.md` 4.2 (seats held, every agent bound to the seat at or before an entry's block, accepted `NewFeedback` entries inside the
+wallet's own holding intervals; each holder counts only its own intervals, a claim by another holder blocks nothing); independent of THE LIST membership; catalog-only (kind 6 is not registrable) | 25,090,085 to the request block − 64 | about 850 agents (2026-10-21) |
 | 701 | Still here | chain, T1 log-count >= 1 | `Deposited` with `contributor` = A | `W_JUDGED` | 3,936 |
 | 801 | Last stand | chain, T1 log-count >= 1 | `Deposited` with `contributor` = A and `hour` = 64 | `W_LIFE` | 7 |
 | 901 | The last one in | chain, T1 log-count >= 1 | `Deposited` with `contributor` = A and `hour` = 65 | `W_LIFE` | 1 |
@@ -153,13 +155,13 @@ trait in section 3 names its template there (T1, T3, T5).
 |---|---|---|
 | `kind` | uint8: 1 T1, 2 T2, 3 T3, 4 T4, 5 T5 | one of the five; kind 6 is the catalog's operator fact (601) and cannot be registered |
 | `target` | address | nonzero for T1 to T4; must be zero for T5 (`validateSpec` reverts `BadSpec("target")` otherwise, as the struct comment says) |
-| `item` | string | the event item (T1 to T3) or function item (T4); charset `[A-Za-z0-9_ ,()[]]`, at most 256 bytes, must start with `event ` or `function ` as the kind requires; **a kind-3 item must not end in `anonymous`** (`BadSpec("item")`: an anonymous event has no signature topic, so the grouping topic would be wrong) |
-| `arg` | string | indexed argument that equals the claimant (T1, T2) or the groupBy key (T3); ASCII `[A-Za-z0-9_]`, at most 32 |
-| `fixedArg`, `fixedVal` | string, uint256 | optional second indexed filter (T1, T2); empty string = none and requires `fixedVal == 0` (`BadSpec` otherwise) |
-| `sumArg` | string | T2 and T3 only |
+| `item` | string | a signature, never prose (the panel is a set of LLM agents, so text inside the signature is an injection path). T1 to T3: exactly `event Name(param, param, …)`: `Name` an identifier `[A-Za-z_][A-Za-z0-9_]*` of at most 32 bytes; each `param` is `type name` or `type indexed name`, single spaces, `type` from the closed list `address`, `bool`, `string`, `bytes`, `bytes1` to `bytes32`, `uint8` to `uint256` and `int8` to `int256` in steps of 8, each optionally followed by `[]`, `name` an identifier of at most 32 bytes; nothing before `event `, nothing after `)`. **`anonymous` is refused for every event kind** (an anonymous event has no signature topic, so neither the T1/T2 topic filter nor the T3 grouping topic would be right). T4: exactly `function name(address) view returns (uint256)` with `name` an identifier of at most 32 bytes. At most 256 bytes; every miss reverts `BadSpec("item")` |
+| `arg` | string | T1, T2: an `indexed` parameter of `item` of type `address` (the claimant filter, a topic); T3: the groupBy key, an `indexed` parameter of `item` of type `address`; otherwise `BadSpec("arg")`; an identifier of at most 32 bytes; empty for T4 and T5 |
+| `fixedArg`, `fixedVal` | string, uint256 | optional second filter (T1, T2): when set, an `indexed` parameter of `item` of any type (its value is a topic), otherwise `BadSpec("fixedArg")`; empty string = none and requires `fixedVal == 0` (`BadSpec` otherwise) |
+| `sumArg` | string | T2 and T3 only: a parameter of `item`, indexed or data, otherwise `BadSpec("sumArg")` |
 | `op` | uint8 | T4 only: 1 `>=`, 2 `>`, 3 `<=`, 4 `<`, 5 `==` |
 | `threshold` | uint256 | T1, T2, T4, T5: `>= 1`; T3: head, 1 to 32 |
-| `fromBlock`, `toBlock` | uint64 | `fromBlock <= toBlock`, `toBlock - fromBlock + 1 >= 7200` and `toBlock <= H - 64` at registration (T5: `fromBlock == toBlock`, and `toBlock + 7200 <= H`); mainnet height `H` is `block.number` on chain 1, otherwise `Composer.mainnetHeightBound()` (the timestamp-derived upper bound and its caveat are documented in README and INTEGRATION) |
+| `fromBlock`, `toBlock` | uint64 | `fromBlock <= toBlock`, `toBlock - fromBlock + 1 >= 7200` and `toBlock <= H - 64` at registration (T5: `fromBlock == toBlock`, and `toBlock + 7200 <= H`); mainnet height `H` is `block.number` on chain 1, otherwise `Composer.mainnetHeightBound()` (the timestamp-derived upper bound and its caveat are documented in README and INTEGRATION); on chain 1 `validateSpec` reads `block.number` itself and ignores its `blockNumber` argument. The catalog's own windows are frozen anchors and exempt from the 7,200-block minimum |
 | `name` | string | ASCII `[A-Za-z0-9 .-]`, 1 to 32 bytes; escaped by the renderer like every other spec string |
 | `evidence` | derived | chain for kinds 1 to 4, panel for 5 |
 
@@ -169,11 +171,11 @@ The Solidity shape (field order is the ABI; there is no `evidence` field, it is 
 struct Spec {
     uint8   kind;        // 1 T1 log-count, 2 T2 log-sum, 3 T3 log-rank (shared), 4 T4 call-compare, 5 T5 panel nonce
     address target;      // T1 to T4; zero for T5
-    string  item;        // event or function item; charset [A-Za-z0-9_ ,()\[\]], <= 256 bytes, prefix "event " or "function "
-    string  arg;         // [A-Za-z0-9_], 1..32 bytes; T1/T2 the claimant argument, T3 the groupBy key; empty for T4/T5
-    string  fixedArg;    // [A-Za-z0-9_], 0..32 bytes; empty = no second filter (T1/T2 only)
+    string  item;        // "event Name(type [indexed] name, ...)" (T1-T3) or "function name(address) view returns (uint256)" (T4); <= 256 bytes
+    string  arg;         // identifier, 1..32 bytes; an indexed address parameter of item: T1/T2 the claimant, T3 the groupBy key; empty for T4/T5
+    string  fixedArg;    // identifier, 0..32 bytes; an indexed parameter of item; empty = no second filter (T1/T2 only)
     uint256 fixedVal;
-    string  sumArg;      // [A-Za-z0-9_], T2/T3 only, else empty
+    string  sumArg;      // identifier; a parameter of item (indexed or data), T2/T3 only, else empty
     uint8   op;          // T4 only: 1 >=, 2 >, 3 <=, 4 <, 5 ==; else 0
     uint256 threshold;   // T1/T2/T4/T5 >= 1; T3: head 1..32
     uint64  fromBlock;
@@ -186,12 +188,14 @@ The class of a spec follows its kind: kinds 1, 2 and 4 are chain, kind 3 is shar
 `traitClass` view was removed for the launch size budget; `specOf(id).kind` says it).
 `upgrade` rejects T3 spec ids (shared facts go through `requestSharedFact`/`applySharedFact`, which accept any T3 id).
 The renderer escapes every spec string (`item`, `arg`, `fixedArg`, `sumArg`,
-`name`) in JSON and SVG, and the body composer rejects any byte outside the charsets above.
+`name`) in JSON and SVG, and the body composer rejects anything outside the grammar and the charsets above, before
+`registerSpec` takes the fee.
 
 The composed body is a deterministic function of the spec and the claimant (golden tests per kind, fixtures in
 `templates/fixtures/`); the registry asserts every `definitions` entry is at most 512 characters and the question at
 most 1,000 before sending. A spec whose body is refused by the plane keeps its fee, and its registrant or claimants pay
-every request about it: junk specs burden only whoever pays for junk. Sequential ids are a public ordering, not a
+every request about it: junk specs burden only whoever pays for junk. A kind-4 spec's `fromBlock` is part of its hash;
+a duplicate spec costs only its registrant. Sequential ids are a public ordering, not a
 reservation: a client reads the id from `SpecRegistered` or the return value, never predicts it.
 
 `nextSpecId` is a `uint16` starting at 10001, so at most 55,534 community specs (ids 10001 to 65534) can ever be
@@ -203,16 +207,19 @@ unaffected.
 `mintCard()` 0.1 IMD, once per wallet; `upgrade(traitIds[], maxPrice)` k x `priceOf` to the Intake (reverts if
 `priceOf > maxPrice` or `priceOf == 0`); `requestSharedFact(factId, maxPrice)` one `priceOf` by anyone, at most one
 pending per fact id, refused once stored; `applySharedFact(factId, list)` gas only; `registerSpec(spec, expectedId)`
-6.4 IMD; `abandon(requestId)` after 31 days (a personal pair by its claimant, a shared fact by anyone). Both fees, the
-mint's and the registration's, are transferred in the same transaction to the IMD BurnExecutor V2
-(`0xe29386719C155B6847aD5a4E97C6674f10ffc750`) and burned from there; the registry holds no IMD and never handles ETH.
+6.4 IMD; `abandon(requestId)` strictly later than 31 days after the request (a personal pair by its claimant, a shared
+fact by anyone). Both fees, the mint's and the registration's, are transferred in the same transaction to the IMD
+BurnExecutor V2 (`0xe29386719C155B6847aD5a4E97C6674f10ffc750`) for bridging and burning on Base: the registry promises
+the forward, not the burn (the executor's owner configuration, the bridge's delivery and the Base action are
+dependencies `DISCLOSURE.md` names); the registry holds no IMD and never handles ETH.
 There is no free claim and nothing that pays a request for someone else: every oracle question is paid by the wallet
 that asks it. A spec costs 6.4 IMD; with a first claim at a 0.5 IMD price, the total is 6.9 IMD plus gas. No owner,
 no upgrade, no pause, no token.
 
 ## 7. Name table (filled by the entrant on 2026-10-16)
 
-Community spec registration costs 6.4 IMD, burned; every oracle request is paid by its claimant (section 6).
+Community spec registration costs 6.4 IMD, forwarded to the BurnExecutor V2 for bridging and burning on Base; every oracle request is paid by its claimant
+(section 6).
 
 | id | working name | final name |
 |---|---|---|

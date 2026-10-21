@@ -4,13 +4,13 @@ Sworn (collection symbol `SWORN`) is an ownerless onchain registry of verifiable
 one transferable ERC-721 card per wallet, traits as facts about the wallet that minted it, every trait backed by
 evidence anyone can rerun. Direct reads from the settled `WhitelistCurator` (THE LIST) are free and frozen on the
 card at mint; everything else is attested by the IMD swarm through the onchain Intake and verified in the
-registry's callback; every fee the registry takes is burned through the IMD BurnExecutor V2. `hasTrait(wallet,
-traitId)` needs no card.
+registry's callback; every fee the registry takes is forwarded to the BurnExecutor V2 for bridging and burning on Base. `hasTrait(wallet,
+traitId)` needs no card, and it is the credential: a rendered card is not.
 
 **This branch holds the specification, not the code.** The product is built from it by the Identity.md swarm, every
-line: contracts, tests, goldens, generator, deployment script, site. The two earlier deployments (2026-10-18 and
-2026-10-20, `DEPLOYMENTS.md`) were tests, never announced; their trees are on the `main` branch and are not an input
-of this build.
+line: contracts, tests, goldens, generator, deployment script, site. The three earlier deployments (2026-10-18,
+2026-10-20 and 2026-10-21, `DEPLOYMENTS.md`) were tests, never announced; their trees are on the `main` branch and in
+the swarm's delivery repositories and are not an input of this build.
 
 ## Read in this order
 

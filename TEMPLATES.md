@@ -4,7 +4,12 @@ These are the templates of the Sworn registry. Community specs and the catalog's
 compose their question bodies from exactly these templates, one per recipe kind, so the stored parameters and the
 text can never disagree: T1 to T5 below for kinds 1 to 5, and T6, the catalog-only operator fact 601, in
 `docs/REBUILD.md` 4.2. The plane's market recipes (`v4-volume-rank`, `univ4-spot`) are not wallet facts and are not
-offered. T2 shares T1's shape with a sum instead of a count. **Checked and quoted 2026-10-12, 00:00 UTC (round 2):** all ten fixture bodies passed `POST /requests/check`
+offered. T2 shares T1's shape with a sum instead of a count. **T6 checked and quoted 2026-10-21:**
+`templates/fixtures/T6-operator-reference.json` (the eight keys of `docs/REBUILD.md` 4.2, the synthetic claimant, `<TO>`
+26,237,654) passed `POST /requests/check` with no blockers (judged true; three suggestions, among them the usual
+"reads as chain evidence", ignored by design) and was admitted by a free `POST /requests/quote` with its window pinned
+unchanged; the plane's `questionHash` `0x4794f9eb3607338a2d29cc2671d095296ee7c0ad234325945df1122cfaabb481` equals the
+keccak of its canonical document. **Checked and quoted 2026-10-12, 00:00 UTC (round 2):** all ten T1 to T5 fixture bodies passed `POST /requests/check`
 with no blockers (the two T5 bodies carry the plane's usual "reads as chain evidence" suggestion, ignored by design)
 and were admitted by a free `POST /requests/quote`, each with its canonical window pinned unchanged and the hash of its
 last block as `toBlockHash`. The ten check responses and the ten quote records are vendored under
@@ -89,8 +94,9 @@ every type, read from the `item` signature: `contributor` in `Deposited(address 
 `to` in `Transfer(address indexed from, address indexed to, uint256 value)` is topic 2. The Composer derives it. The
 grouping key must be an `address`-typed indexed parameter, and the event must be **non-anonymous**: an anonymous event
 carries no signature hash in topic 0, so its indexed arguments start at topic 0 and `<K>` would name the wrong one.
-`validateSpec` rejects a kind-3 `item` that ends in `anonymous` with `BadSpec("item")` and a grouping key that is not
-an address-typed indexed parameter with `BadSpec("arg")`, before `registerSpec` takes the fee.
+The same holds for T1 and T2, whose topic filter starts at topic 0 too: `validateSpec` rejects `anonymous` for every
+event kind and any `item` outside the signature grammar of `CATALOG.md` section 5 with `BadSpec("item")`, and a
+grouping key that is not an address-typed indexed parameter with `BadSpec("arg")`, before `registerSpec` takes the fee.
 
 **Why the wording is this exact (measured on mainnet, 2026-10-18, three paid attempts of the 1201 question at panel
 5 / quorum 3 with an earlier, shorter text).** Attempts one and two (`cb72b826`, `4ee4290d`) ended with two right
@@ -115,8 +121,10 @@ the consumer checks).
 >
 > Fixture: `templates/fixtures/T4-call-compare-reference.json` (`pointsOf`, `>=`, 1000, `W_LIFE`).
 
-Spec fields: `<C>`, `<FN>` (one address argument, one uint256 return), `<OP>`, `<N>`, window (its last block is the
-state read). No catalog trait uses it (the registry reads the Curator's views directly); wave-two bagholder and
+Spec fields: `<C>`, `<FN>` (one address argument, one uint256 return; the item is exactly `function <FN>(address) view
+returns (uint256)`), `<OP>`, `<N>`, window (its last block is the state read). A kind-4 spec's `fromBlock` is part of
+its hash although only `toBlock` is read; two specs that differ only there are two specs, and a duplicate costs only its
+registrant. No catalog trait uses it (the registry reads the Curator's views directly); wave-two bagholder and
 diamond-hands facts do.
 
 ### T5 panel nonce (`evidence: panel`, `answerType: bool`, panel 11 / quorum 7)
@@ -151,6 +159,15 @@ the question's parenthesis: `(hex <BH>, block hash <HASH>; the block in which th
 `<B>` is the spec's `toBlock` (equal to its `fromBlock`); the definitions are unchanged. Fixture:
 `templates/fixtures/T5-community-composed.json`. A contract cannot read the hash of a block older than 256 blocks; the
 plane pins `toBlockHash` itself.
+
+### T6 operator fact (`evidence: panel`, `answerType: bool`, panel 11 / quorum 7; trait 601 only)
+
+Catalog-only (kind 6 is not registrable). The question, the eight `definitions` keys in their order (`method`,
+`seats`, `agent`, `accepted`, `answer`, `true`, `false`, `window`, each value at most 512 characters) and the living
+window are normative in `docs/REBUILD.md` 4.2. Fixture: `templates/fixtures/T6-operator-reference.json` (the synthetic
+claimant `0x…c1a1`, consumer `0x…c0de`, `<TO>` 26,237,654); unlike the other fixtures its `definitions` object keeps
+the order of 4.2 instead of sorted keys (the canonical document of `INTEGRATION.md` section 4 sorts them anyway, so the
+`questionHash` does not depend on it). Spec fields: none; the window's `<TO>` is the request block minus 64.
 
 ## The request body
 

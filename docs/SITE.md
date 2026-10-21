@@ -31,8 +31,8 @@ build: its design record `docs/DESIGN.md` says how it looked, and section 2 says
 | IMD token | `0xd34a99bc0f67ae1bbd63c660e6d0b0dd03e263b7` |
 | Intake v2 | `0xa43e6f75ee006411f79ac1c84120606c2330de82`; action `oracle.request@oracle-1`; price `priceOf` read live, never a dated figure in copy |
 | attester | `0x5598aa9146215bc13eb26f2c692ad1461fd32982` |
-| BurnExecutor V2 | `0xe29386719C155B6847aD5a4E97C6674f10ffc750`: where every fee goes; "the fee is burned" is the only sentence about fees |
-| fees | mint 0.1 IMD, burned; oracle request `priceOf` per fact, to the Intake; community spec 6.4 IMD, burned (6.9 with the first claim at a 0.5 IMD price; the figure is computed from the live price) |
+| BurnExecutor V2 | `0xe29386719C155B6847aD5a4E97C6674f10ffc750`: where every fee goes; "the fee is forwarded to the BurnExecutor for bridging and burning on Base" is the only sentence about fees, never "burned" alone |
+| fees | mint 0.1 IMD, forwarded to the BurnExecutor; oracle request `priceOf` per fact, to the Intake; community spec 6.4 IMD, forwarded to the BurnExecutor (6.9 with the first claim at a 0.5 IMD price; the figure is computed from the live price) |
 | panels | chain evidence (kinds 1, 2, 4) 5 seats / quorum 3; shared (kind 3), panel (kinds 5, 6) 11 / 7; constants of `REBUILD.md` 4.1 |
 | windows | `W_LIFE` 25,769,870 to 25,789,604; `W_JUDGED` 25,777,045 to 25,789,604; `W_FIRST1000` 25,769,870 to 25,770,897; `W_DEPLOY` block 25,769,870; Swarmed: living, 25,090,085 to the request block − 64 |
 | census, the three bands | hours 0 to 23: 22,395 deposits, 15,620 new contributors, 114,291 ETH; hours 24 to 45: 5,073 / 3,095 / 12,846; hours 46 to 65: 885 / 807 / 994; totals 28,353 / 19,522 / 128,131 ETH (sum of `amount`, whole ETH); per hour in `reference/census/hours.json`, the method in `reference/census/census.py` |
@@ -85,11 +85,11 @@ build: its design record `docs/DESIGN.md` says how it looked, and section 2 says
 | NO COIN | Sworn has no coin of its own; its only token is the card. |
 | claim, mint block | Mint your card now. It updates itself. |
 | claim, mint lead | A card costs 0.10 IMD; no trait claim is needed before minting. |
-| claim, community trait | A community trait costs 6.9 IMD: 0.5 for your first claim and 6.4 IMD burned by registerSpec(). |
-| claim, Swarmed | Swarmed: operated a seat through 3 accepted swarm jobs. Counted up to the block of your request; request again after more jobs. |
+| claim, community trait | A community trait costs 6.9 IMD: 0.5 for your first claim and 6.4 IMD that registerSpec() forwards to the BurnExecutor for bridging and burning on Base. |
+| claim, Swarmed | Swarmed: operated a seat through 3 accepted swarm jobs. Counted up to 64 blocks before the block of your request; request again after more jobs. |
 | About, ownerless | Ownerless: no owner roles, no upgrade path, pause or fee switch; dependencies fixed at construction. MIT. Static: no backend, no key, no analytics. |
-| About, earlier deployments | Two earlier deployments (Registry 0x39bec764…95a6, swarm launch #2147, 2026-10-18; Registry 0xdd0017e4…5edb, swarm launch #2341, 2026-10-20) were tests, never announced; this registry replaced them on <date>. |
-| community spec form, help | The event must not be `anonymous`; the registry refuses such an event before the fee is taken. |
+| About, earlier deployments | Three earlier deployments (Registry 0x39bec764…95a6, swarm launch #2147, 2026-10-18; Registry 0xdd0017e4…5edb, swarm launch #2341, 2026-10-20; Registry 0x9cb36ecc…a828, swarm launch #2362, 2026-10-21) were tests, never announced; this registry replaced them on <date>. |
+| community spec form, help | The event must be written as its signature, `event Name(type indexed name, …)`, and must not be `anonymous`; the claimant field must be an indexed address of that event. The registry refuses anything else before the fee is taken. |
 
 The 6.9 figure is computed from the live price (0.5 IMD on 2026-10-21) and restated when the price differs.
 
@@ -121,7 +121,7 @@ Connect control at the right; at 600 px and below the address placeholder reads 
 | S-5 [F-09] | pay with ETH: an exact-output swap for the IMD a flow needs, 1 % maximum input over the quote, 120 s deadline, exact approval only, refunds shown; the IMD route is the default | the builder's fork run, recorded in `web/TEST-NOTES.md` |
 | S-6 [F-23] | a wallet with `tokenOf == 0` gets the Renderer's live preview of its facts, labelled "preview, no card minted", drawn by `eth_call` (a Renderer view that takes the wallet, or an `eth_call` with a state override whose slot is read from the build's `storageLayout`, never a typed constant); a minted wallet gets its own `tokenURI`; a metadata decode error shown in place of a result is a blocker; checked before and after a mint by a test that performs the lookup | browser test in `web/tests/` |
 | S-7 [F-21] | no token-id text in any shipped SVG: the sample card and the trait previews are generated against the deployed Renderer by a script in `web/scripts/` at build time; `grep -l '>#[0-9]*</text>' web/public -r` finds nothing; in a run where the Renderer does not answer, leave the files, say so in `web/TEST-NOTES.md`, never a `needs_input` | site test |
-| S-8 [F-24, F-25] | no page, sample or example names an earlier Registry except the About note of section 3; a search for `39bec764` and `dd0017e4` under `web/src` and `web/public` finds only that note; the About note is present and worded as section 3 says; no "v1", "v2" or "pool" anywhere in the copy | site test, `grep` |
+| S-8 [F-24, F-25] | no page, sample or example names an earlier Registry except the About note of section 3; a search for `39bec764`, `dd0017e4` and `9cb36ecc` under `web/src` and `web/public` finds only that note; the About note is present and worded as section 3 says; no "v1", "v2" or "pool" anywhere in the copy | site test, `grep` |
 | S-9 [F-27] | the registration copy states the cost from the live `priceOf` at the moment of the click and says it can change | manual |
 | S-10 [F-28] | no oracle fact is offered that cannot be true for the wallet (Explorer and claim step 02): for a wallet outside WhitelistCurator, ids 701 to 1105 and 1201 show "cannot be true: not in WhitelistCurator.sol" with the prepare button disabled for that reason; 1301, 601 and community ids stay requestable; "It does not mean the fact is false" appears only for requestable ids | with `0x…c1a1` connected at 390 and 1280 |
 | S-11 [F-29] | each prepare, apply, register and mint button shows its own busy, error and success line (`role=status`) directly under itself; a journal step whose simulation or send fails shows the error under that step and changes its state word from "ready" | step 03 with an invalid spec at 390 |
@@ -145,10 +145,11 @@ Connect control at the right; at 600 px and below the address placeholder reads 
 | S-29 [F-50] | CSS: `th { text-align: start }`; info boxes single-column at 600 px and below; secondary buttons with a visible hover and active (text and border colour on hover, accent fill and dark text on active); the footer's "Public RPC" label unbroken; the connect sheet's border in the faint token and a 20 px close glyph; selects beside a card capped at 650 px; type sizes and a 4 px spacing scale as tokens; a 15 px prose rule on a `.prose` class | computed styles |
 | S-30 [F-19.4] | the shared-fact block states the cost in words above the request button: one attempt at panel 11 / quorum 7 costs the full price (`priceOf` now), an attempt whose panel misses the quorum refunds nothing; the attempt count and the last panel result are read from the Registry's events (`SharedFactStored`, `Missed`, `NoVerdict` for the fact id) | manual |
 | S-31 | the Swarmed copy of section 3 everywhere the trait is named; the claim guide offers it as a paid upgrade with the living-window note; the Explorer shows the window a verified 601 was asked with | manual |
-| S-32 | every fee line says the fee is burned (BurnExecutor V2 named once, on About and in the catalog's cost boxes); the words "pool", "sponsor", "sponsored", "donate" occur nowhere in `web/` | `grep` |
-| S-33 [F-02, F-03, F-04] | the fixed copy of section 3 appears word for word where section 4 places it; the headline is eight words | site test |
+| S-32 | every fee line says the fee is forwarded to the BurnExecutor for bridging and burning on Base (BurnExecutor V2 named once, on About and in the catalog's cost boxes), never "burned" alone; there is no sponsor pool, free claim or donation anywhere: over `web/` (source, tests, config, public files, the export; `package-lock.json` and `node_modules/` excluded, since npm's funding links name `github.com/sponsors`) `grep -rniE 'sponsor\|donat'` and `grep -rniE '\bpool\b\|pool\(\)\|poolUsed\|lastPoolDay\|PoolSpent\|PoolDraw'` print nothing (Uniswap's own identifiers in swap code and vendored ABIs, `poolManager`, `PoolKey`, `poolId`, do not match and stay; copy that calls the ETH/IMD market "a pool" is reworded). No burn status block: no `previewBridge` read, no "waiting IMD" figure, no LayerZero fee quote, no burn journal outcomes (`docs/DESIGN.md`'s "burn reasons" belong to the earlier design and are void), no `payable` call path; at most the executor's pending amount once on About beside the fee sentence | `grep` |
+| S-33 [F-02, F-03, F-04] | the fixed copy of section 3 appears word for word where section 4 places it, the headline included; the builder changes no fixed text | site test |
 | S-34 [F-18.9] | an agents page: `#/agents` or a block on Integrate that serves the fact-vs-artifact rules as a Markdown skill file a coding agent can read (`dist/agents/sworn.md`): what a fact is, `hasTrait` not `ownerOf`, the ids, how to verify a card | the file exists in the export and is linked |
-| S-35 [F-11, optional] | if the budget allows after S-1 to S-34: a live claims feed on the landing (the Registry's `CardMinted`, `Verified`, `Missed` with reason text, `SharedFactStored`, `SpecRegistered` from the launch block, newest first, with the attestation link where one exists); otherwise `web/TEST-NOTES.md` says it was left out | manual |
+| S-35 [F-11, optional] | if the budget allows after S-1 to S-34 and S-36: a live claims feed on the landing (the Registry's `CardMinted`, `Verified`, `Missed` with reason text, `SharedFactStored`, `SpecRegistered` from the launch block, newest first, with the attestation link where one exists); otherwise `web/TEST-NOTES.md` says it was left out | manual |
+| S-36 | the community spec form (step 03) checks before the transaction what `validateSpec` checks (`CATALOG.md` section 5): the item grammar, no `anonymous`, `arg` an indexed `address` parameter of the event, `fixedArg` an indexed parameter, `sumArg` a parameter, the window bounds; a refused field is named with the reason in words beside it, and the register button stays disabled while one is refused | site test with the audit's two cases (`arg = "amount"` on `Deposited`, a data field; `arg = "zzNotAField"`) and a prose-padded item |
 
 The self-hosted extended site of the entrant (rows F-10, F-12, F-13, F-18.5, F-18.7, F-18.10 of the entrant's file)
 is not part of this build.
@@ -157,7 +158,7 @@ is not part of this build.
 
 1. `site-check --dist dist --registry <new Registry> --steps <a steps file written for this DOM>`: pages PASS, connect
    PASS, kind3 PASS; replace PASS or INCONCLUSIVE with the manual pass recorded.
-2. Section 3 texts appear word for word where section 4 places them; the headline is eight words.
+2. Section 3 texts appear word for word where section 4 places them, the headline included.
 3. WhitelistCurator page: the three bands with all three figures from section 1; the 66-row table sums to the band
    figures; the quoted source equals lines 4 to 62 of the verified contract; the page names the hour-24 cliff and the
    hour-65 last deposit.
@@ -167,6 +168,7 @@ is not part of this build.
    errors; the export opens from IPFS exactly as from `dist/`.
 6. Every address on the site is in section 1, from the deployment file, or `0x…c1a1`; no owner wallet or seat.
 7. Claim guide: prices read live, "spent whatever the answer" stated and acknowledged, the 6.4 IMD spec fee stated
-   as burned, `maxPrice` pinned, exact approval only, the three steps numbered 01 to 03 with every link following.
+   as forwarded to the BurnExecutor for bridging and burning on Base, `maxPrice` pinned, exact approval only, the three
+   steps numbered 01 to 03 with every link following; S-36's field checks refuse the audit's two cases.
 8. The rows S-10 to S-14 checked by hand on a phone at 390 px; every row of section 5 has its verification in
    `web/TEST-NOTES.md`, and every browser test runs from the repository with `npm test`.

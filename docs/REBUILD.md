@@ -2,9 +2,10 @@
 
 This branch (`rebuild-base`) holds no product code. It holds the specification of Sworn and the evidence behind it, and
 the swarm writes every line of code from it: the three contracts, their tests and goldens, the generator of the
-renderer's tables, the deployment script, the public site. The owner's reason (2026-10-21): the live deployment's tree
-was built by the swarm on a brief that carried owner-written code (a Curator interface, a generator, hive lines,
-tests); after this build no line of the product carries the entrant's authorship.
+renderer's tables, the deployment script, the public site. The owner's reason (2026-10-21): the earlier deployments' trees,
+the live one of 2026-10-21 included, were built by the swarm on a brief that carried owner-written code (a Curator
+interface, a generator, hive lines, tests, the first site); after this build no line of the product carries the
+entrant's authorship.
 
 This file is the top of the specification and is self-contained on every rule. The other documents are the long
 form and the evidence; where one of them disagrees with this file, this file wins. Reading order:
@@ -17,8 +18,8 @@ form and the evidence; where one of them disagrees with this file, this file win
    (verified sources and ABIs, served attestations, decoded completions, block headers, the plane's checks and
    quotes, the plane's `questionHash` goldens, the THE LIST record NFT this card model mirrors, the Curator census);
 4. `docs/SITE.md` (the public site), `docs/DESIGN.md` (the look of the earlier site, kept as the design record);
-5. `DEPLOYMENTS.md`, `DISCLOSURE.md`, `audits/` (the two earlier deployments and their audits: history, not
-   instructions; they keep the words of the earlier design).
+5. `DEPLOYMENTS.md`, `DISCLOSURE.md`, `audits/` (the three earlier deployments and their audits: history, not
+   instructions; they keep the words of the earlier designs).
 
 What is given, and what is yours: given are the compiler pins and the two libraries (`foundry.toml`,
 `remappings.txt`, `lib/forge-std` v1.9.7, `lib/openzeppelin-contracts` at `cab19933`, both submodules), the
@@ -29,8 +30,8 @@ are not an input of this build and are not to be copied: the point of the build 
 implementation of the same specification. Where this file says "as today" or "unchanged", it means: as the
 documents of item 2 describe, not as any earlier code did it.
 
-Public texts name no version: the product is Sworn, the two earlier deployments were tests, never announced. This
-file's name is an internal label.
+Public texts name no version: the product is Sworn, the three earlier deployments (2026-10-18, 2026-10-20 and
+2026-10-21, launches #2147, #2341 and #2362) were tests, never announced. This file's name is an internal label.
 
 ## 1. The product in one paragraph
 
@@ -40,8 +41,9 @@ traits are read free from the settled `WhitelistCurator` (THE LIST) and frozen o
 trait is a verdict of the IMD swarm, asked through the onchain Intake, signed by the plane's attester and verified
 in the registry's callback; one shared fact (the top-32 list) serves many wallets at once; anyone may register a
 community spec for 6.4 IMD and the swarm answers it for every wallet that pays. `hasTrait(wallet, traitId)` is the
-credential and needs no card. Every fee the registry takes is transferred at once to the IMD BurnExecutor V2 to be
-burned; the registry never holds IMD at rest and never handles ETH. No owner, no setter, no pause, no upgrade path.
+credential and needs no card. Every fee the registry takes is forwarded in the same transaction to the IMD BurnExecutor V2
+for bridging and burning on Base (the registry promises the forward, not the burn); the registry never holds IMD at
+rest and never handles ETH. No owner, no setter, no pause, no upgrade path.
 Not an eligibility list, not a sybil verdict, not a token.
 
 ## 2. The three contracts and their public surface
@@ -78,7 +80,7 @@ function burnExecutor() view returns (address);
 // cards (plus the ERC-721 and ERC-4906 surface: name, symbol, balanceOf, ownerOf, approve, getApproved,
 // setApprovalForAll, isApprovedForAll, transferFrom, safeTransferFrom x2, supportsInterface, tokenURI,
 // MetadataUpdate, BatchMetadataUpdate)
-function mintCard() returns (uint256 tokenId);                 // 0.1 IMD, burned; once per wallet
+function mintCard() returns (uint256 tokenId);                 // 0.1 IMD, forwarded to the executor; once per wallet
 function tokenOf(address wallet) view returns (uint256);       // 0 = no card
 function claimantOf(uint256 tokenId) view returns (address);   // the minter, for ever
 function mintedAtBlock(uint256 tokenId) view returns (uint64);
@@ -107,7 +109,7 @@ function onFailure(bytes32 requestId, uint8 status, bytes32 reason, uint16 agree
     bytes calldata signature);
 
 // community specs
-function registerSpec(Spec calldata spec, uint256 expectedId) returns (uint16 traitId);  // 6.4 IMD, burned
+function registerSpec(Spec calldata spec, uint256 expectedId) returns (uint16 traitId);  // 6.4 IMD, forwarded to the executor
 function specOf(uint16 traitId) view returns (Spec memory);                              // catalog ids too; reverts for an unknown id
 function nextSpecId() view returns (uint16);
 
@@ -139,7 +141,8 @@ Errors: `AlreadyMinted(address)`, `AlreadyPending(address, uint16)`, `AlreadyVer
 function compose(uint16 traitId, Spec calldata s, address claimant, address consumer, address curator) view
     returns (bytes memory body, bytes32 questionHash);              // the request body and the plane's questionHash of it
 function catalogSpec(uint16 traitId, address curator) pure returns (Spec memory);   // every catalog oracle id, 601 included
-function validateSpec(Spec calldata s, uint256 blockNumber) view;  // reverts BadSpec(field); kinds 1 to 5 only
+function validateSpec(Spec calldata s, uint256 blockNumber) view;  // reverts BadSpec(field); kinds 1 to 5 only;
+                                                                  // on chain 1 reads block.number, ignores blockNumber
 function directSnapshot(address wallet, address curator) view returns (uint32 bits);  // 3.2; no IdentityMD argument
 function traitsOf(address registry, address wallet) view returns (uint16[] memory ids);
 function mainnetHeightBound() view returns (uint256);
@@ -151,7 +154,7 @@ Errors: `BadSpec(string field)`, `NotACatalogOracleTrait(uint16)`.
 ### 2.3 Renderer (pure over its inputs; it reads the registry)
 
 ```solidity
-function tokenURIOf(address registry, uint256 tokenId) view returns (string memory);
+function tokenURIOf(address registry, uint256 tokenId) view returns (string memory);  // a rendering, not a credential
 function traitName(uint16 traitId) pure returns (string memory);
 ```
 
@@ -163,8 +166,8 @@ Errors: `NoCard(uint256)`, `UnknownTrait(uint16)`. The registry's `tokenURI(toke
 ### 3.1 Cards
 
 - `mintCard()`: once per wallet (`AlreadyMinted`); pulls `MINT_FEE` from `msg.sender` with `safeTransferFrom` and
-  transfers it in the same transaction to `burnExecutor` (the executor's pending amount is its IMD balance; anyone
-  bridges and burns it on Base by paying the LayerZero fee); takes the direct snapshot (3.2); `_mint` (not
+  transfers it in the same transaction to `burnExecutor` (the executor holds it until anyone bridges its balance to
+  Base by paying the LayerZero fee, and the Base receiver burns it; the registry promises the forward, not the burn); takes the direct snapshot (3.2); `_mint` (not
   `_safeMint`: no receiver callback); records `claimantOf`, `mintedAtBlock`, `tokenOf`; increments `totalSupply`;
   emits `CardMinted`. Order: fee, state, mint. IMD has no `permit`; the claimant approves the registry first.
 - Token ids start at 1 and count up. `tokenOf(c) != 0` implies `claimantOf(tokenOf(c)) == c`; transfers never
@@ -241,9 +244,9 @@ Errors: `NoCard(uint256)`, `UnknownTrait(uint16)`. The registry's `tokenURI(toke
   6. `a.fromBlock` and `a.toBlock` equal the pending record's window (else 6).
   7. Dates: `block.timestamp <= a.expiresAt`; `a.issuedAt <= block.timestamp + 1 hours`; `a.issuedAt >=
      p.requestedAt`; `a.issuedAt <= p.requestedAt + ISSUE_WINDOW` with `ISSUE_WINDOW = 1 days`; `a.expiresAt <=
-     a.issuedAt + VALID_FOR_SECONDS` (2,592,000) (else 7). With `ABANDON_AFTER = 31 days` every attestation a
-     request can ever receive is dead before anyone may abandon it, so a late valid answer never collides with an
-     abandoned request.
+     a.issuedAt + VALID_FOR_SECONDS` (2,592,000) (else 7). With `ABANDON_AFTER = 31 days` and the strict boundary of
+     3.7, the latest second an attestation can be valid is `requestedAt + 31 days`, when no abandon is possible yet, so
+     a valid answer and an abandon are never both possible at one second.
   8. `a.questionHash == p.questionHash` (else 10).
   9. The answer, decoded defensively (never a plain `abi.decode` on hostile bytes): kinds 1 and 2 `value >=
      threshold`; kinds 4, 5, 6 the word is 0 or 1 (else 9) and `== 1` (else 8); kind 3 the canonical envelope
@@ -275,43 +278,76 @@ Errors: `NoCard(uint256)`, `UnknownTrait(uint16)`. The registry's `tokenURI(toke
   only. The list is public (the `complete` transaction's calldata and the plane's served attestation).
 - `sharedFact(factId)` returns `(requestId, answerHash, length)`; the registry stores a hash and a length, never a
   list.
-- The stored 1201 answer of the live registry (`sharedFact(1201).answerHash =
-  0xe2321ca2…2543`, 32 addresses) is the reference for the new deployment's first 1201 request: the same question
-  text must produce the same list.
+- The 1201 answer stored by the deployments of 2026-10-18 and 2026-10-20 (`sharedFact(1201).answerHash =
+  0xe2321ca26c74668346a694beb25439aeb99e38e8cc1195d134ee9b22f9a52543` on both, 32 addresses; the deployment of
+  2026-10-21 stores none) is the reference for the new deployment's first 1201 request: the same question text must
+  produce the same list.
 
 ### 3.6 Community specs
 
 - `registerSpec(spec, expectedId)` by anyone: `Composer.validateSpec(spec, block.number)` (the guards of
-  `CATALOG.md` section 5; kind 3 additionally requires a non-anonymous event and an `address`-typed indexed grouping
-  key; kinds 1 to 4 require `fromBlock <= toBlock`, at least 7,200 inclusive blocks and `toBlock <= H - 64`; kind 5
-  `fromBlock == toBlock` and `toBlock + 7200 <= H`; `H` is `block.number` on chain 1 and
-  `Composer.mainnetHeightBound()` elsewhere); `expectedId != 0 && expectedId != nextSpecId` reverts
+  `CATALOG.md` section 5, made absolute by this list); `expectedId != 0 && expectedId != nextSpecId` reverts
   `UnexpectedSpecId(expected, next)`; pulls `SPEC_FEE` and transfers it to `burnExecutor`; stores the spec under the
   next id (`uint16`, 10001 upward, registration ends at 65,534: `registerSpec` reverts for ever once the counter is
-  exhausted); emits `SpecRegistered`. A spec never changes. Kind 6 is not registrable.
+  exhausted); emits `SpecRegistered`. Every guard runs before the fee is pulled. A spec never changes. Kind 6 is not
+  registrable.
+- **`item` is a signature, not prose** (the panel is a set of LLM agents, so text inside the signature is an injection
+  path). An event item (kinds 1 to 3) is exactly `event Name(param, param, …)`: `Name` one identifier
+  (`[A-Za-z_][A-Za-z0-9_]*`, at most 32 bytes); each `param` is `type name` or `type indexed name`, single spaces,
+  `type` from the closed list `address`, `bool`, `string`, `bytes`, `bytes1` to `bytes32`, `uint8` to `uint256` and
+  `int8` to `int256` in steps of 8, each optionally followed by `[]`, and `name` an identifier of at most 32 bytes;
+  nothing before `event `, nothing after `)`. `anonymous` is refused for every event kind (an anonymous event has no
+  topic 0, so neither the T1/T2 topic filter nor the T3 grouping topic would be right). A function item (kind 4) is
+  exactly `function name(address) view returns (uint256)` with `name` an identifier of at most 32 bytes. Misses revert
+  `BadSpec("item")`. If the parser does not fit the size budget as written, the builder keeps the two guarantees that
+  matter (no text outside the grammar's tokens; every identifier at most 32 bytes) in the smallest form that fits and
+  records it in `test/NOTES.md`.
+- **A spec names only real fields.** Kinds 1 and 2: `arg` is an `indexed` parameter of `item` of type `address` (the
+  claimant filter, a topic); `fixedArg`, when set, an `indexed` parameter of `item` of any type (its value is a topic);
+  `sumArg` (kinds 2 and 3) a parameter of `item`, indexed or data. Kind 3: the grouping key `arg` is an `indexed`
+  parameter of type `address`. Misses revert `BadSpec("arg")`, `BadSpec("fixedArg")` and `BadSpec("sumArg")`.
+- **Windows.** Kinds 1 to 4 require `fromBlock <= toBlock`, at least 7,200 inclusive blocks and `toBlock <= H - 64`;
+  kind 5 `fromBlock == toBlock` and `toBlock + 7200 <= H`. `H` is `block.number` on chain 1, where `validateSpec`
+  ignores its `blockNumber` argument, and `Composer.mainnetHeightBound()` elsewhere (the argument counts off mainnet
+  only). The catalog's windows are frozen anchors, exempt from the 7,200-block minimum.
+- For the maximal spec the question stays at most 1,000 characters, every `definitions` value at most 512 and the body
+  under 16,384 bytes (fuzzed).
 - `specOf(id)` returns the stored spec; for a catalog id it returns `Composer.catalogSpec(id, curator)`; an unknown
-  id reverts. A spec's class is its kind (1, 2, 4 chain; 3 shared; 5 and 6 panel).
+  id reverts. A spec's class is its kind (1, 2, 4 chain; 3 shared; 5 and 6 panel). A kind-4 spec's `fromBlock` is part
+  of its hash although only `toBlock` is read; a duplicate spec costs only its registrant.
+- The Composer's views trust their arguments (`INTEGRATION.md`, after the transition table): the Registry passes only
+  its pinned addresses and stored, validated specs.
 
 ### 3.7 Abandon
 
-- `abandon(requestId)` at `requestedAt + ABANDON_AFTER` (31 days) or later: a personal pair by its stored claimant
-  only (`NotClaimant` for anyone else); a shared fact (claimant zero) by anyone. Earlier: `TooEarly`. It clears the
-  pending record and the reverse index (only if it still equals this id), emits `Abandoned`, returns no price. A late
-  callback for the abandoned id is reason 1 and leaves a successor request untouched.
+- `abandon(requestId)` only when `block.timestamp > requestedAt + ABANDON_AFTER` (31 days; strictly later: `TooEarly`
+  before and at the exact second): a personal pair by its stored claimant only (`NotClaimant` for anyone else); a
+  shared fact (claimant zero) by anyone. It clears the pending record and the reverse index (only if it still equals
+  this id), emits `Abandoned`, returns no price. A late callback for the abandoned id is reason 1 and leaves a
+  successor request untouched.
 
 ### 3.8 Fees
 
 - Exactly two fees: `MINT_FEE` 0.1 IMD at `mintCard`, `SPEC_FEE` 6.4 IMD at `registerSpec`. Both are transferred in
-  the same transaction from the payer to the BurnExecutor V2 `0xe29386719C155B6847aD5a4E97C6674f10ffc750`. Oracle
-  prices go to the Intake. The registry's IMD balance is zero before and after every transaction it makes; it has no
-  function that moves IMD it holds and no function that accepts ETH. A plain `IMD.transfer(registry, x)` by a
-  stranger is lost by that stranger's choice and is not a rule of the registry.
-- There is no sponsor pool, no sponsored claim, no donation, no burn rule inside the registry. The words "pool",
-  "sponsor", "sponsored" and "donate" do not occur in `src/`, `test/`, `script/`, `tools/`, `web/src/`,
-  `web/public/`, `CATALOG.md`, `CONCEPT.md`, `INTEGRATION.md`, `TEMPLATES.md`, `README.md` or the site's copy of the
-  delivered tree; `DEPLOYMENTS.md`, `DISCLOSURE.md`, `audits/` and `docs/` keep them as the record of the earlier
-  deployments. Acceptance: `grep -ril 'pool\|sponsor\|donat' src test script tools web/src web/public CATALOG.md
-  CONCEPT.md INTEGRATION.md TEMPLATES.md README.md` prints nothing.
+  the same transaction from the payer to the BurnExecutor V2 `0xe29386719C155B6847aD5a4E97C6674f10ffc750`. The executor
+  holds them until anyone bridges its balance to Base by paying the LayerZero fee (`previewBridge()` quotes the sendable
+  amount and the fee; it differs from the raw balance by dust and the OFT's limits) and the Base receiver burns it.
+  **The registry promises the forward, not the burn:** every text says "forwarded to the BurnExecutor for bridging and
+  burning on Base", never "burned" alone; the executor's owner configuration, the bridge's delivery and the Base action
+  are dependencies `DISCLOSURE.md` names. Oracle prices go to the Intake. The registry's IMD balance is zero before and
+  after every transaction it makes; it has no function that moves IMD it holds and no function that accepts ETH. A
+  plain `IMD.transfer(registry, x)` by a stranger is lost by that stranger's choice and is not a rule of the registry.
+- There is no sponsor pool, no sponsored claim, no donation, no burn rule inside the registry, and no reference to
+  them remains in code, tests, documents or the site (source, tests, config, public files, the export). Acceptance,
+  two greps that print nothing:
+  `grep -rniE --exclude=package-lock.json --exclude-dir=node_modules 'sponsor|donat' src test script tools web README.md CATALOG.md CONCEPT.md INTEGRATION.md TEMPLATES.md`
+  and the same paths with `'\bpool\b|pool\(\)|poolUsed|lastPoolDay|PoolSpent|PoolDraw'`. The lockfile is excluded
+  because npm's funding links name `github.com/sponsors`; Uniswap's own identifiers in the site's swap code and in
+  vendored third-party ABIs (`poolManager`, `PoolKey`, `poolId`) do not match the second pattern and stay; a comment or
+  copy that calls the ETH/IMD market "a pool" is reworded. Over `web/`,
+  `grep -rniE --exclude=package-lock.json --exclude-dir=node_modules 'burnskipped|burntriggered|previewBridge' web`
+  prints nothing outside the one optional read of the executor's pending amount on About (`docs/SITE.md` S-32).
+  `DEPLOYMENTS.md`, `DISCLOSURE.md`, `audits/` and `docs/` keep the words as the record of the earlier deployments.
 
 ### 3.9 Constructor and dependencies
 
@@ -319,17 +355,24 @@ Errors: `NoCard(uint256)`, `UnknownTrait(uint16)`. The registry's `tokenURI(toke
   composer_, address burnExecutor_)`, in this order, seven arguments, all nonzero (`ZeroAddress`), all stored in
   ordinary storage. No `idmd` argument and no `idmd` getter: the IdentityMD collection is a constant of the operator
   recipe (section 4.2), nothing else.
-- Unconditional code checks: `renderer_`, `composer_` and `burnExecutor_` must have code (`DependencyHasNoCode`).
-- The floor branch, kept for test chains only: when **all three** of `curator_`, `imd_` and `intake_` lack code, the
-  constructor makes no external call to them; otherwise it requires `IERC20Metadata(imd_).decimals() == 18`,
-  `curator.isSettled() == true` and `intake.priceOf(ACTION, imd) != 0`, and an unavailable call reverts.
+- Code checks that always apply: `renderer_` and `composer_` must have code (`DependencyHasNoCode`). The attester is
+  an EOA and gets no code check.
+- **The empty-chain floor**, for the launch's probe and for test chains: when **all three** of `curator_`, `imd_` and
+  `intake_` lack code, the constructor makes no external call and does not require code at `burnExecutor_` either.
+  The IMD launch pipeline's factory probe deploys only the three creation codes on an otherwise empty chain with the
+  real launch arguments, so the BurnExecutor has no code there: on 2026-10-21 an executor check outside the floor made
+  that probe fail ("application 2 constructor failed") until the builder moved it inside; that is now the rule.
+  Outside the floor (one, two or three of them with code): `burnExecutor_` must have code (`DependencyHasNoCode`),
+  `IERC20Metadata(imd_).decimals() == 18`, `curator.isSettled() == true` and `intake.priceOf(ACTION, imd) != 0`, and an
+  unavailable call reverts.
 - `attester` is the plane's signer; the Intake writer is not an argument (the registry trusts the Intake as
   `msg.sender` and the attester as the signer, never the writer).
 - Mainnet values (`sworn-verify` reads these seven getters): curator `0xcB0b0531e86A9aC36Fa865cA8e3dbccF047FDA91`,
   imd `0xD34a99Bc0f67aE1bbd63C660e6d0b0dd03E263B7`, intake `0xa43e6F75ee006411F79Ac1C84120606C2330DE82` (Intake v2),
   attester `0x5598Aa9146215Bc13eb26f2c692Ad1461Fd32982`, renderer and composer the two helpers of the same build,
-  burnExecutor `0xe29386719C155B6847aD5a4E97C6674f10ffc750`. Sepolia (11155111): the sets of `INTEGRATION.md` section 1
-  without an executor requirement (a Sepolia deployment names the mocks the entrant provides).
+  burnExecutor `0xe29386719C155B6847aD5a4E97C6674f10ffc750`. Sepolia (11155111): the mocks of `INTEGRATION.md`
+  section 1, the same Intake and attester, and the coded BurnExecutor V1 `0x097A19e0f021BBA5072701132625ad2401043A2E`
+  (code is all the constructor asks of it). The mainnet launch never depends on a Sepolia outcome.
 
 ### 3.10 What can kill it (accepted; the audit record)
 
@@ -343,9 +386,10 @@ answer. `DISCLOSURE.md` says so for every deployment.
 ### 4.1 Templates T1 to T5 and the request body
 
 `TEMPLATES.md` is normative for the five templates and the request body; `templates/fixtures/*.json` are the exact
-bodies for the catalog ids 701, 801, 1001, 1102, 1105, 1201, 1301 and the three composed examples (T2, T4, T5
-community), every one of which the Composer must reproduce byte for byte from the stored parameters (sorted keys,
-two-space indent, the fixture's synthetic claimant `0x…c1a1` and consumer `0x…c0de`, `vm.chainId(1)`). The kind-3
+bodies for the catalog ids 701, 801, 1001, 1102, 1105, 1201, 1301, the three composed examples (T2, T4, T5
+community) and the operator fact (T6, section 4.2), every one of which the Composer must reproduce byte for byte from
+the stored parameters (sorted keys, except T6's `definitions`, which keep the order of 4.2; two-space indent; the
+fixture's synthetic claimant `0x…c1a1` and consumer `0x…c0de`; `vm.chainId(1)`). The kind-3
 text is the one with the derived topic position (`<K>`, the 1-based position of the grouping key among the event's
 indexed parameters of every type) and the no-data-field rule; 1201's fixture carries it with `contributor` = topic 1.
 Panels: kinds 1, 2, 4 at 5 / 3; kinds 3, 5, 6 at 11 / 7; `validForSeconds` 2,592,000 everywhere. Every body carries
@@ -357,7 +401,7 @@ The plane's `questionHash` is `keccak256` of the RFC 8785 canonical document of 
 (`v`, `chainId`, `question`, `definitions`, `answerType`, `window.fromBlock`, `window.toBlock`, plus `head` when
 present and `evidence` only when it is `panel`; `consumer`, `panelSize`, `quorum`, `validForSeconds` and
 `toBlockHash` are outside it). `reference/plane/questionHashes.json` holds the plane's value and the canonical
-document for the ten fixtures; a golden test proves the Composer's hash equal to each.
+document for the eleven fixtures (T6 since 2026-10-21); a golden test proves the Composer's hash equal to each.
 
 ### 4.2 Kind 6: the operator fact, trait 601 "Swarmed"
 
@@ -368,39 +412,68 @@ from `hasTrait(wallet, 601)`; its class colour is the panel colour `#8ff0a4`. A 
 requested again at once (more jobs later); 601 is a paid upgrade like every oracle id, and a wallet needs no seat at
 request time (a former operator keeps the fact; every verified fact is permanent).
 
-- **The window is living:** `fromBlock = 25,090,085` (the IdentityMD collection's creation block), `toBlock = the
-  request's block.number - 64`. Two requests of the same wallet at different blocks carry different question hashes;
-  the pending record stores the window and the callback compares the attestation's window with it (3.4, check 6), so
-  an attestation for an earlier window of the same wallet misses with 6 or 10. `specOf(601)` returns kind 6, target
-  the IdentityMD collection `0x0000eC93127BAA929E58E97dd0095A2BFb38ec1D`, `fromBlock` 25,090,085, `toBlock` 0 (0 means
-  living), threshold 3, name "Swarmed".
-- **The question** (the exact wording is the builder's, the meaning is not): "Up to block `<TO>` on Ethereum mainnet,
-  did the wallet `<A>` operate an IdentityMD seat through at least 3 accepted Identity.md swarm jobs while it held
-  that seat? Answer true or false."
-- **`definitions.method`**, in this order, with these constants:
-  1. *Seats held.* Every `Transfer(address indexed from, address indexed to, uint256 indexed tokenId)` log of the
-     IdentityMD collection `0x0000eC93127BAA929E58E97dd0095A2BFb38ec1D` from block 25,090,085 to `<TO>` whose `from`
-     or `to` is `<A>`. For each `tokenId`, the wallet's holding intervals: from the block of a transfer to `<A>`
-     (inclusive) to the block of the next transfer of that token away from `<A>` (exclusive); an interval still open at
-     `<TO>` ends at `<TO>` inclusive. Transfers in one block are ordered by log index.
-  2. *The agent of each seat.* The `AgentBound(uint256 indexed agentId, uint8 indexed standard, address indexed
-     tokenContract, uint256 tokenId, address registeredBy)` logs of the adapter `0xde152AfB7db5373F34876E1499fbD893A82dD336`
-     with `tokenContract` equal to the collection and `tokenId` equal to the seat; the latest binding at or before `<TO>`.
-     A seat without a binding has no agent and counts nothing.
-  3. *Accepted jobs.* The `NewFeedback` logs (topic 0 `0x6a4a61743519c9d648a14e6493f47dbe3ff1aa29e7785c96c8326a205e58febc`)
-     of the reputation registry `0x8004baa17c55a88189ae136b182e5fda19de9b63` whose topic 1 is the agent id, whose
-     topic 2 is the batcher `0xb6d0a187b050fa5bb0b87033a203f37becf4a775`, whose second data word (bytes 32 to 63) equals 1,
-     and whose block lies inside one of the wallet's holding intervals of that seat.
-  4. *The answer.* true when the entries of step 3, summed over every seat, number at least 3; false otherwise. A
-     pruned, null or partial log read, or an endpoint without the window, is no evidence: write no answer, never false.
-  The texts of `definitions.true` and `definitions.false` follow the T5 pattern of `TEMPLATES.md`; the body's
-  `evidence` is `panel`, `panelSize` 11, `quorum` 7, `window` the living window, `answerType` `bool`.
-- **Fixture:** `templates/fixtures/T6-operator-reference.json` holds the composed body for the synthetic claimant and
-  a pinned `<TO>`, and the golden test reproduces it. The owner's cross audit of the recipe text (the third-cut
-  handover, 2026-10-21) may still change a wording before this build is paid; the text above is then updated here
-  first. Measured on 2026-10-21 (blocks 26,013,352 to 26,237,549): 28,328 `NewFeedback` entries by the batcher for
-  952 agents, 471 rejections (second data word 0); 1,117 agents bound to seats by the adapter; 847 agents with three
-  or more entries.
+- **The window is living:** `fromBlock = 25,090,085` (the IdentityMD collection's creation block), `toBlock = H - 64`
+  with `H` the request's `block.number` on chain 1 and `Composer.mainnetHeightBound()` elsewhere (a Sepolia block
+  number minus 64 lies before 25,090,085 and would invert the window: the review of the Sepolia build of 2026-10-21).
+  Two requests of the same wallet at different blocks carry different question hashes; the pending record stores the
+  window and the callback compares the attestation's window with it (3.4, check 6), never with a window recomputed at
+  the current head, so an attestation for an earlier window of the same wallet misses with 6 or 10, and a delivery
+  after the head moved on still verifies. The verified entry keeps that window; `verified(claimant, 601)`, the oracle
+  record in the metadata and every later read report it. `specOf(601)` returns kind 6, target the IdentityMD collection
+  `0x0000eC93127BAA929E58E97dd0095A2BFb38ec1D`, `fromBlock` 25,090,085, `toBlock` 0 (0 means living), threshold 3,
+  name "Swarmed".
+- **The question:** "Up to block `<TO>` on Ethereum mainnet, did the wallet `<A>` operate an IdentityMD seat through
+  at least 3 accepted Identity.md swarm jobs while it held that seat? Answer true or false."
+- **`definitions`: eight keys, in this order, every value at most 512 characters** (the plane's limit; a single
+  `method` field of an earlier draft came to 1,676). `<A>` is the claimant in lowercase hex, `<TO>` the window's last
+  block in decimal; the lengths are measured with a 42-character address and an 8-digit block:
+  - `method` (321): "Four steps, executed in order as one procedure: seats (step 1), agent (step 2), accepted (step
+    3), answer (step 4). Every read is of Ethereum mainnet archive logs and state up to block `<TO>` inclusive. A
+    pruned, null or partial log read, or an endpoint without the window, is no evidence: write no answer, never
+    false."
+  - `seats` (509): "Step 1, seats. Every Transfer(from, to, tokenId; all indexed) log of the IdentityMD collection
+    0x0000eC93127BAA929E58E97dd0095A2BFb38ec1D from block 25090085 to `<TO>` whose from or to is `<A>`. Per tokenId, a
+    holding interval runs from the block of a transfer to the wallet (inclusive) to the block of the next transfer of
+    that token away from it (exclusive); an interval still open at `<TO>` ends at `<TO>` inclusive. Same-block
+    transfers are ordered by log index."
+  - `agent` (429): "Step 2, the agents of a seat. The AgentBound(uint256 indexed agentId, uint8 indexed standard,
+    address indexed tokenContract, uint256 tokenId, address registeredBy) logs of the adapter
+    0xde152AfB7db5373F34876E1499fbD893A82dD336 with tokenContract equal to the collection and tokenId equal to the
+    seat. An agent is bound to the seat from the block of its AgentBound log on. A seat without a binding has no agent
+    and counts nothing."
+  - `accepted` (493): "Step 3, accepted jobs. The NewFeedback logs (topic 0
+    0x6a4a61743519c9d648a14e6493f47dbe3ff1aa29e7785c96c8326a205e58febc) of the reputation registry
+    0x8004baa17c55a88189ae136b182e5fda19de9b63 whose topic 2 is the batcher
+    0xb6d0a187b050fa5bb0b87033a203f37becf4a775, whose second data word (bytes 32 to 63) equals 1, whose block lies
+    inside one of the wallet's holding intervals of a seat, and whose topic 1 is an agent bound to that seat at or
+    before the log's block. Each such log is one entry."
+  - `answer` (216): "Step 4, the answer. true when the entries of step 3, summed over every seat the wallet held,
+    number at least 3; false otherwise. Count entries, not distinct jobs; a log whose second data word is not 1 counts
+    nothing."
+  - `true` (89): "true only if complete historical log reads establish at least 3 entries under the method."
+  - `false` (204): "false only if complete historical log reads establish fewer than 3 entries under the method. If a
+    read is pruned, null, partial or unavailable, write no answer; never answer false from an incomplete read."
+  - `window` (151): "The window is blocks 25090085 to `<TO>` inclusive on Ethereum mainnet; it fixes which logs and
+    chain state count. The current head is not the window."
+
+  The body's `evidence` is `panel`, `panelSize` 11, `quorum` 7, `answerType` `bool`, `window` `{25090085, <TO>}`.
+- **Attribution policy** (the owner's decision of 2026-10-21): the fact is the wallet's, never the seat's. A seat earns
+  it for every wallet that held it, each wallet counting only the entries inside its own holding intervals, so a new
+  holder proves that the seat's agent did three accepted jobs while the seat was connected to that wallet; a claim by
+  an earlier or later holder of the same seat blocks nothing. An entry counts when its block lies inside a holding
+  interval of the seat and its agent was bound to that seat by an `AgentBound` log at or before the entry's block, any
+  such binding, not only the latest: a later registration of another agent to the seat neither erases earlier work nor
+  claims it. Entries are counted, not distinct jobs; a log whose second data word is not 1 counts nothing; nothing is
+  revoked; the posting block of an entry is the fact, work time is not a chain fact.
+- **Fixture:** `templates/fixtures/T6-operator-reference.json` is these texts composed for the synthetic claimant
+  `0x…c1a1` at `<TO>` = 26,237,654; the golden test reproduces it byte for byte, and its canonical document hashes to
+  the plane's `questionHash` `0x4794f9eb3607338a2d29cc2671d095296ee7c0ad234325945df1122cfaabb481`
+  (`reference/plane/`; free check judged true with no blockers, quote admitted, 2026-10-21). The texts are final: the
+  owner's cross audit (Codex) and the lab oracle run of 2026-10-21 (eleven members, quorum 7, six reference wallets: 65
+  of 66 validated answers correct, none wrong, one capacity failure) passed them, and no further lab run is made.
+- Measured on 2026-10-21 (blocks 26,013,352 to 26,237,549): 28,328 `NewFeedback` entries by the batcher for 952 agents,
+  471 rejections (second data word 0); 1,117 agents bound to seats by the adapter; 847 agents with three or more
+  entries.
 - `CATALOG.md` row 601: "Swarmed: ran an IdentityMD seat through at least 3 accepted swarm jobs while holding it;
   panel, T6, living window from the collection's creation block to the request block − 64; about 850 agents qualify
   (2026-10-21)".
@@ -441,8 +514,20 @@ at mint; transferable."), `image` (`data:image/svg+xml,<percent-encoded SVG>`; t
   `minPanelSize`, `minQuorum` (the registry's acceptance minima, not the signed values), `requestId` (the Intake's
   id), `oracleRequestId` (the plane's signed id), `target`, `name`. The spec body stays readable through `specOf(id)`.
 - Every spec string (`name`, and `item` where it is ever printed) is escaped in JSON (`"` and `\` escaped; control
-  bytes, `<`, `>` and `&` as `\u00xx`) and never reaches the SVG; a hostile spec name cannot break the JSON or the
-  image (escaping tests, a renderer-only hostile case).
+  bytes, `<`, `>`, `&` and `'` as `\u00xx`, the single quote as `\u0027`) and never reaches the SVG; a hostile
+  spec name cannot break the JSON or the image (escaping tests, a renderer-only hostile case).
+- The record's `minPanelSize` / `minQuorum` are 11 / 7 for kinds 3, 5 and 6 and 5 / 3 for kinds 1, 2 and 4, equal to
+  the Composer's panel constants; a test cross-checks the two so they cannot drift.
+- **A rendering is not a credential.** `tokenURIOf(registry, tokenId)` renders whatever registry it is given and the
+  output names no registry; its NatSpec and `README.md` "How to verify a card" say so (`hasTrait` on the Registry is
+  the credential; the site's preview for a wallet without a card relies on this view).
+- **A hostile registry fails cleanly.** Every read of a registry reply is bounded by the reply's data region before it
+  is read (the `specOf` reply's head and name offsets, or the typed ABI decoder), copies are bounded to the words read,
+  an id whose family lies outside 1 to 13 is skipped, and at most 25 catalog ids are read from `traitsOf`. A mock
+  registry whose `specOf` reply carries a huge head offset, a negative name offset or a 1 MB body makes `tokenURIOf`
+  revert cleanly inside a 5,000,000-gas call, never a panic or an exhausted call; a `traitsOf` with id 50 or 1400
+  renders without a panic. The whole `verifiedSpecsOf` array may be read before the 32-entry cap (unreadable at about
+  124,000 verified specs, which would cost that claimant about 62,000 IMD in oracle fees; `DISCLOSURE.md` states it).
 - Integers are exact decimal digits; the document is one line without `\n` or `\r`.
 
 ### 5.2 The hive (the owner's approved design; numbers are normative, the serialisation is the builder's)
@@ -499,7 +584,8 @@ copied; mirror only its splice loop and golden-test method).
 specs each at the `validateSpec` maximum: `item` 256 bytes, `name`, `arg`, `fixedArg`, `sumArg` 32 bytes,
 `fixedVal` and `threshold` at `uint256` max, the window at `uint64` width, every spec registered and verified through
 the test Intake) is measured cold by a test and bounded: the target is 8,000,000 gas; the bound that must not be
-exceeded is 10,317,448 (the live deployment's measurement). `test/NOTES.md` reports the number. Known levers: a
+exceeded is 10,317,448 (the measurement of the deployment of 2026-10-20; the deployment of 2026-10-21 measured
+10,023,370 with a 41,181-byte URI). `test/NOTES.md` reports the number. Known levers: a
 growable buffer, reading only what is printed, a tabled Base64 encoder.
 
 ## 6. Build, size, determinism
@@ -511,7 +597,9 @@ growable buffer, reading only what is printed, a tabled Base64 encoder.
   reviewed source after the launch (`immutableReferences` empty for all three artifacts; a test deploys twice and
   compares runtime bytes).
 - **Size budget (hard).** The plane deploys the three contracts in one mainnet transaction under the 16,777,216-gas
-  cap; the live build's 69,656 runtime bytes used 16,330,676 of it. The three runtimes together are at most
+  cap; the build of 2026-10-20 used 16,330,676 of it for 69,656 runtime bytes, the build of 2026-10-21 16,009,263 for
+  68,086 (Registry 20,465, Composer 24,068, Renderer 23,553: with the grammar of 3.6 the Composer sat 508 bytes under
+  EIP-170). The three runtimes together are at most
   **69,800 bytes**, each under EIP-170's 24,576, each init code under EIP-3860's 49,152 (the registry does not embed
   the helpers' creation code; they are deployed first and passed in). Prefer deleting over adding; `optimizer_runs`
   stays 200; `test/NOTES.md` records the three sizes and their sum, and a test pins the sum.
@@ -536,20 +624,30 @@ Every invariant of `CONCEPT.md` section 6 has a unit, fuzz or invariant test (`f
 expected reverts). In addition, by name:
 
 1. Fees: a mint raises the executor's IMD balance by exactly 0.1 IMD and leaves the registry's at zero; a
-   registration by 6.4 IMD; on a mainnet fork at a pinned block `previewBridge()` on the executor reports the fee as
-   pending.
+   registration by exactly 6.4 IMD; a failing fee transfer reverts the whole call; on a mainnet fork at a pinned block
+   `previewBridge()` after a mint reports a sendable amount that includes the forwarded fee up to the executor's
+   limits.
 2. Abandon: a stranger's `abandon` of a shared fact at day 15 reverts `TooEarly`, at day 32 succeeds and clears the
    pair; the claimant's personal abandon at day 32 succeeds; a stranger's personal abandon at day 32 reverts
    `NotClaimant`.
 3. Dates: an attestation issued before the request, one issued two days after it, and one valid for 31 days each miss
-   with 7 and clear the pair; one issued 23 hours after the request and valid for 30 days passes.
-4. `RequestIdTaken`: a mock Intake that returns a used id makes the request revert.
+   with 7 and clear the pair; one issued 23 hours after the request and valid for 30 days passes; at the exact second
+   `requestedAt + 31 days` a delivery still verifies and `abandon` reverts `TooEarly`; one second later `abandon`
+   succeeds and a delivery misses with 7 (both orderings, personal and shared).
+4. `RequestIdTaken`: a mock Intake that returns a used id makes the whole `upgrade` revert, nothing pulled and nothing
+   approved; an abandoned id followed by a successor request for the same pair: a late callback for the old id is
+   reason 1 and the successor's reverse index is untouched.
 5. 601: the window in the composed body equals the request block minus 64; an attestation for an earlier window of the
-   same wallet misses with 6 or 10; a true verdict lights 601 and `traitsOf` lists it; `hasDirectTrait(…, 601)` is
-   false for every wallet; `validateSpec` refuses kind 6.
-6. Constructor: a codeless renderer, composer or executor reverts `DependencyHasNoCode` on a chain where the other
-   dependencies have code and on the floor alike; the floor skips the Curator, IMD and Intake calls only when all
-   three lack code; `decimals() != 18` reverts.
+   same wallet misses with 6 or 10; a delivery after the head advanced by more than 64 blocks verifies against the
+   stored window, and `tokenURI` and `verified()` a day later print it; on a chain other than 1 the window's `toBlock`
+   is `mainnetHeightBound() - 64` and never below `fromBlock`; a true verdict lights 601 and `traitsOf` lists it;
+   `hasDirectTrait(…, 601)` is false for every wallet; `validateSpec` refuses kind 6; the T6 golden (item 11) with every
+   `definitions` value at most 512 characters.
+6. Constructor: a codeless renderer or composer reverts `DependencyHasNoCode` on the floor and off it; a codeless
+   executor reverts off the floor and is accepted on the floor; over all eight coded/codeless combinations of Curator,
+   IMD and Intake, each with a coded and a codeless executor, the floor (no external call, no executor check) holds only
+   when all three lack code; `decimals() != 18` reverts; the three creation codes deploy on an empty chain with the
+   mainnet arguments, as the launch's probe does.
 7. Transfers: with the mock curator, flip a membership after the mint and the card's trait stays; after `transferFrom`
    the minter's `upgrade` still lands on the card; a buyer with its own card updates only its own; a buyer without a
    card still claims facts for its own wallet and can mint later; nothing the holder calls changes `claimantOf`,
@@ -564,23 +662,31 @@ expected reverts). In addition, by name:
    kind-3 event and a non-address grouping key with `BadSpec("item")` / `BadSpec("arg")`; `event Receipt(address
    indexed account, address indexed sender, uint256 value) anonymous` grouped by `account` is the regression;
    `Transfer` grouped by `to` composes "topic 2".
-10. Specs: `toBlock = block.number - 1` reverts, `block.number - 64` passes; two registrations in one block with the
-    wrong `expectedId` revert, `expectedId 0` always registers; the maximal spec registers, composes and fits the body
-    caps (fuzz); ids end at 65,534.
+10. Specs: `toBlock = block.number - 1` reverts, `block.number - 64` passes, and on chain 1 a wrong `blockNumber`
+    argument changes nothing; two registrations in one block with the wrong `expectedId` revert, `expectedId 0` always
+    registers; the maximal spec registers, composes and fits the body caps (fuzz); ids end at 65,534. The rules of 3.6:
+    `Deposited` with `arg = "amount"` (a data field) and `arg = "zzNotAField"` revert `BadSpec("arg")`; `fixedArg =
+    "hour"` on `Deposited` passes and `fixedArg = "amount"` reverts; `sumArg = "weightAdded"` passes and `sumArg =
+    "nothing"` reverts; an item padded with English words reverts `BadSpec("item")`; `anonymous` reverts for kinds 1, 2
+    and 3; the catalog's items and the fixtures' items pass; every guard reverts before any fee is pulled.
 11. Composer goldens: every fixture body byte for byte; every fixture's canonical-document keccak equal to
     `reference/plane/questionHashes.json`; the T6 fixture.
 12. Attestations: signature recovery over the five served attestations in `reference/attestations/` (three under the
     zero domain, two under their consumer's domain; the loader maps the JSON `answerType` name to its code and rejects
     unknown names).
 13. Renderer: the goldens (6.1); the maximum-state gas (5.3); the preview path for a wallet without a card that
-    the site relies on (`docs/SITE.md` row S-6) is documented in `test/NOTES.md` and exercised by a test.
+    the site relies on (`docs/SITE.md` row S-6) is documented in `test/NOTES.md` and exercised by a test; the hostile
+    registry cases of 5.1 inside a 5,000,000-gas call; a name with `'` renders as `\u0027`; the panel minima
+    cross-checked against the Composer's constants.
 14. Artifacts: all three `immutableReferences` empty; two deployments identical in runtime bytes; the three sizes under
     EIP-170 and their sum under 69,800 (pinned); no forbidden byte in the data tables.
 15. Fork tests against mainnet at a pinned recent block (the real Curator, IMD, Intake v2, executor; a request
     completed by the real `complete` under the real stipend; a mint whose fee lands on the executor), behind
     `SWORN_FORK_RPC`, skipped when unset; plain `forge test` stays hermetic.
 16. `test/NOTES.md`: one line per item of sections 3 to 7 with the test that pins it, the three sizes and their sum,
-    the maximum-state gas, every place the builder chose between two readings of this file and why.
+    the maximum-state gas, the worst-case cold `onResult` gas, every place the builder chose between two readings of
+    this file and why, and the generator's build record (its commit and the SHA-256 of every generated table and golden
+    after the run, with the tiling test's result).
 
 ## 8. Deployment
 
@@ -590,8 +696,8 @@ imd 0xD34a99Bc0f67aE1bbd63C660e6d0b0dd03E263B7, intake 0xa43e6F75ee006411F79Ac1C
 0x5598Aa9146215Bc13eb26f2c692Ad1461Fd32982, renderer $contract:Renderer, composer $contract:Composer, burnExecutor
 0xe29386719C155B6847aD5a4E97C6674f10ffc750`. The pipeline allows only static address, uint, bool and bytes32
 arguments, at most 16, and a passive constructor (stores, may read views, creates nothing, moves nothing, takes no
-callback); its factory probe deploys the three creation codes on an empty chain with these same arguments, which is
-what the floor branch of 3.9 is for. `script/Deploy.s.sol` deploys the three in that order with the chain's constants
+callback); its factory probe deploys the three creation codes on an empty chain with these same arguments, where
+the BurnExecutor has no code either, which is what the floor branch of 3.9 is for. `script/Deploy.s.sol` deploys the three in that order with the chain's constants
 (`deployForChain()`: Sepolia's set on 11155111, mainnet's everywhere else) and `launch.json` describes the same shape.
 The deployed runtime code is compared with a clean rebuild of the reviewed commit before any address is published
 (`sworn-verify`: runtime bytes, creation code, the seven decoded constructor arguments, the seven getters, name and
@@ -609,15 +715,20 @@ are live, and published by the workflow's hosting stage (IPFS under the site lab
 
 ## 10. Documents the builder writes
 
-- `README.md`: what Sworn is, the status line (this deployment on Ethereum mainnet; the two earlier deployments were
+- `README.md`: what Sworn is, the status line (this deployment on Ethereum mainnet; the three earlier deployments were
   tests, never announced, no version names), the reading order, the interface summary (section 2 as built), the
-  build commands, "The card image" (5.2 as built), "How to verify a card" (the third-party rerun of every recipe from
+  build commands, "The card image" (5.2 as built), "How to verify a card" (a rendering is not a credential, `hasTrait` is; the third-party rerun of every recipe from
   the metadata alone, the served attestation by `oracleRequestId`, the rebuild comparison, the seven getters).
-- `CATALOG.md` section 7 (the name table with Swarmed) and section 3 (row 601); `CONCEPT.md`, `INTEGRATION.md`,
-  `TEMPLATES.md` (T6) brought to the delivered tree where this file changed them, without the words of 3.8.
-- `DISCLOSURE.md`: a new section "Limits of this deployment" on top (the single attester; the living window's
-  dependence on the batcher and adapter addresses; the oracle price per claim; the Intake's owner powers); the
-  earlier sections stay as history.
+- `CATALOG.md` section 7 (the name table with Swarmed), section 3 (row 601) and section 5 (the grammar and field
+  rules of 3.6, the catalog windows' exemption); `CONCEPT.md`, `INTEGRATION.md` (the stored window in the pending
+  record, the strict abandon boundary, the views that trust their arguments), `TEMPLATES.md` (T6 with its eight keys;
+  the T4 note) brought to the delivered tree where this file changed them, without the words of 3.8.
+- `DISCLOSURE.md`: a new section "Limits of this deployment" on top: the single attester; the living window's
+  dependence on the batcher and adapter addresses and on archive RPC access; the oracle price per claim; the Intake's
+  owner powers; the fee path (forwarded to an executor whose owner can change token, OFT, destination and options and
+  can rescue funds; bridging and the Base burn are separate, permissionless, asynchronous actions that anyone may or
+  may not take); a rendering is not a credential; the unbounded `verifiedSpecsOf` read and its cost. The earlier
+  sections stay as history.
 - `test/NOTES.md` (7.16); `web/TEST-NOTES.md` (`docs/SITE.md`).
 - `DEPLOYMENTS.md` is written by the entrant after the launch, not by the builder.
 
@@ -626,28 +737,52 @@ are live, and published by the workflow's hosting stage (IPFS under the site lab
 1. `forge build --sizes`, `forge fmt --check`, `forge test` offline, the generator's `--check` and unit test, all green
    on a clean clone; every test of section 7 present and named in `test/NOTES.md`; the three sizes and their sum
    under the budget; the maximum-state gas reported.
-2. Every fixture reproduced byte for byte; every `questionHash` equal to the plane's; the grep of 3.8 prints nothing.
+2. Every fixture reproduced byte for byte, T6 included; every `questionHash` equal to the plane's; the greps of 3.8
+   print nothing.
 3. The surface of section 2 complete; nothing of 3.9's seven arguments missing; no `immutable`, `payable`,
    `receive`, `fallback`, `tx.origin`, owner, setter or upgrade path anywhere.
-4. Independent adversarial review of the delivered tree against this file (the workflow's review step), then the
-   owner's cross audit (Codex) of the delivered diff before the launch; a One Dollar Audit of the new Registry after
-   the launch (its dispositions in `audits/`).
+4. The workflow's own independent adversarial review of the delivered tree against this file, inside the workflow
+   and before its deployment step; no external review between the build and the deployment (the owner's decision of
+   2026-10-21); the owner's cross audit (Codex) of the delivered tree after the deployment and before any
+   announcement; a One Dollar Audit of each of the three new contracts after the launch (their dispositions in
+   `audits/`). No lab oracle run.
 5. `sworn-verify` GATE: PASS with seven getters on the three mainnet contracts; `DEPLOYMENTS.md` section written the
    same night; `site-check pages` PASS at 1280 and 390 px on the hosted site; the wallet scenarios of `docs/SITE.md`.
 
 ## 12. Provenance and decisions
 
-This file folds in the decisions of the two earlier cuts (`docs/V2.md` and `docs/V3.md` on `main` at tag
-`v3-base`) as absolute statements: from the second cut the price cap and zero-price rules, the 31-day abandon, clear
-then check, exact-head kind-3 answers, `expectedId`, `totalSupply`, the unsigned `onFailure`, transferable cards with
-the frozen direct snapshot, kind-3 panel 11 / 7, the finality margin, the derived topic position and the
-non-anonymous rule, the shrunk community record, the tiling test, the constructor checks, no version names in public
-texts; from the third cut the pool's removal and every fee burned, the permissionless shared abandon, the bounded
-dates, `RequestIdTaken`, Swarmed as the kind-6 operator fact with the living window, the seven-argument constructor,
-the unconditional code checks, the site rows F-28 to F-50. Kept from the beginning: ids, rules, windows, thresholds,
+This file folds in the decisions of the earlier cuts (`docs/V2.md`, and `docs/V3.md` as built and launched on
+2026-10-21, both on `main`, the latter at tag `v3-base` = `092cc28447d29a5f96ecd35b866e470513ca06f8`, items 1 to 34)
+as absolute statements: from the second cut the price cap and zero-price rules, the 31-day abandon, clear then check,
+exact-head kind-3 answers, `expectedId`, `totalSupply`, the unsigned `onFailure`, transferable cards with the frozen
+direct snapshot, kind-3 panel 11 / 7, the finality margin, the derived topic position and the non-anonymous rule, the
+shrunk community record, the tiling test, the constructor checks, no version names in public texts; from the third
+cut the pool's removal and every fee forwarded to the executor ("for bridging and burning on Base", never "burned"),
+the removal greps with their exceptions, the permissionless shared abandon, the bounded dates and the strict abandon
+boundary, `RequestIdTaken`, Swarmed as the kind-6 operator fact with the living window kept per request, its eight
+`definitions` keys under 512 characters and its attribution policy, the seven-argument constructor, the site rows F-21
+to F-50; from the One Dollar Audits of the deployment of 2026-10-20 (jobs 1042, 1043, 1044 in `audits/`) the spec
+field rules, the item grammar, `block.number` on chain 1, the renderer's bounds, family check, id cap and quote escape,
+the panel-minima cross-check and the sentence that a rendering is not a credential. From the launch of 2026-10-21
+(#2362, `DEPLOYMENTS.md`): the executor code check inside the floor branch (3.9), the living window off mainnet (4.2),
+and the T6 fixture with the plane's `questionHash`. Kept from the beginning: ids, rules, windows, thresholds,
 templates, fixtures, the questionHash document, the card model, the card design, the compiler settings. What the
 earlier cuts said about regenerating owner-written tables or keeping owner-written files is void here: there are
 none.
+
+One file of this branch comes from an earlier delivery, as data: `templates/fixtures/T6-operator-reference.json`,
+from the swarm's tree of 2026-10-21 (commit `e462b06`). It is the text of 4.2 composed for the synthetic claimant,
+equal to what the live Composer returns, and the plane admitted it with the `questionHash` of 4.2; it fixes the T6
+wording byte for byte as the other fixtures fix theirs (D3). No code comes from an earlier tree.
+
+Decisions of the third cut that bind this build (the owner, 2026-10-21):
+
+- Q-A, the gate's shape: the workflow (build, the swarm's own review, deployment, site, hosting), one payment, no
+  external review between the build and the deployment; Codex reviews the delivered tree after the deployment and
+  before any announcement (11.4);
+- Q-B, the attribution policy of 4.2: the fact is the wallet's; each holder counts the entries inside its own holding
+  intervals; any binding at or before the entry's block;
+- Q-C, no lab run: the lab oracle run of 2026-10-21 stands for the recipe; none is made for this build.
 
 Decisions the owner took for this branch (2026-10-21), with the default applied here:
 
@@ -656,10 +791,10 @@ Decisions the owner took for this branch (2026-10-21), with the default applied 
 - D2 `docs/V2.md` and `docs/V3.md` are not on this branch (they are diffs against code that is not here); this file
   is self-contained, and the cross audit checks that nothing of theirs is missing;
 - D3 the question bodies stay byte-exact to the fixtures (the recipes do not change; the stored 1201 answer is the
-  reference), the kind-6 text follows the third-cut audit's final wording;
+  reference), the kind-6 body included (its fixture, 4.2);
 - D4 the card keeps the approved design by its numbers (5.2); the SVG bytes and the goldens are the builder's;
 - D5 the public surface keeps the live names and types for everything that survives the pool's removal (section 2),
   so integrators and the site keep working;
-- D6 the site is rebuilt from `docs/SITE.md` with the rows marked for this build there;
+- D6 the site is rebuilt from `docs/SITE.md` with the rows marked for this build there (S-1 to S-36);
 - D7 one workflow (contracts, independent review, deployment, site, hosting) is the planned order; a plain contracts
   job is the fallback.

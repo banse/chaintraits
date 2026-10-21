@@ -51,8 +51,8 @@ Mirrors the THE LIST record NFT (`reference/list-record/`):
 ## 4. Flows
 
 **Mint the card.** `mintCard()`: one transaction by the claimant, 0.1 IMD pulled from the claimant and transferred in
-the same transaction to the BurnExecutor V2, where it waits to be burned (the claimant has approved the registry; IMD
-has no `permit`). The card appears with every direct-read trait the wallet qualifies for, frozen at that block.
+the same transaction to the BurnExecutor V2, which holds it for bridging and burning on Base (the claimant has
+approved the registry; IMD has no `permit`). The card appears with every direct-read trait the wallet qualifies for, frozen at that block.
 
 **Upgrade with oracle traits.** `upgrade(uint16[] traitIds, uint256 maxPrice)`: one transaction, k Intake requests,
 k x `priceOf` (reverts when `priceOf > maxPrice`). For each trait the registry composes the body from the trait's
@@ -76,7 +76,7 @@ attach to the claimant; the card renders them when minted). `composeBody(traitId
 returns the exact body and its `questionHash`, so a front end or a third party can preview and quote a request for
 free before paying.
 
-**Register a spec.** `registerSpec(Spec, expectedId)` by anyone, 6.4 IMD transferred to the BurnExecutor V2 (burned); guards in `CATALOG.md` section 5 and `docs/REBUILD.md` 3.6; emits
+**Register a spec.** `registerSpec(Spec, expectedId)` by anyone, 6.4 IMD transferred to the BurnExecutor V2 (for bridging and burning on Base); guards in `CATALOG.md` section 5 and `docs/REBUILD.md` 3.6; emits
 `SpecRegistered(id, registrant)`. From then on `upgrade` accepts the new id for every wallet, paid by the claimant.
 At the 0.5 IMD oracle price, registration plus the first claim costs 6.9 IMD, excluding gas.
 
@@ -93,7 +93,8 @@ and in the attestation the plane serves at `/oracle/requests/<oracleRequestId>/a
 
 **Fees.** The registry takes two fees, 0.1 IMD at `mintCard` and 6.4 IMD at `registerSpec`, and transfers each in
 the same transaction to the IMD BurnExecutor V2 (`0xe29386719C155B6847aD5a4E97C6674f10ffc750`), whose pending amount
-is its IMD balance; anyone bridges and burns it on Base by paying the LayerZero fee. Oracle prices go to the Intake.
+is its IMD balance; anyone may bridge it to Base, where it is burned, by paying the LayerZero fee. The registry
+promises the forward, not the burn. Oracle prices go to the Intake.
 The registry never holds IMD at rest, never handles ETH, has no `payable` function and nothing that moves money it
 holds (`docs/REBUILD.md` 3.8).
 

@@ -1,0 +1,98 @@
+{
+ "checkedAt": "2026-10-21T08:40Z",
+ "fixture": "T6-operator-reference",
+ "http": 200,
+ "input": {
+  "question": "Up to block 26237654 on Ethereum mainnet, did the wallet 0x000000000000000000000000000000000000c1a1 operate an IdentityMD seat through at least 3 accepted Identity.md swarm jobs while it held that seat? Answer true or false.",
+  "panelSize": 11,
+  "answerType": "bool",
+  "evidence": "panel",
+  "chainId": 1
+ },
+ "response": {
+  "action": "oracle.request",
+  "request": {
+   "v": 1,
+   "question": "Up to block 26237654 on Ethereum mainnet, did the wallet 0x000000000000000000000000000000000000c1a1 operate an IdentityMD seat through at least 3 accepted Identity.md swarm jobs while it held that seat? Answer true or false.",
+   "chainId": 1,
+   "window": {
+    "hours": 24
+   },
+   "answerType": "bool",
+   "evidence": "panel",
+   "panelSize": 11,
+   "quorum": 8,
+   "validForSeconds": 86400
+  },
+  "proposed": {
+   "answerType": {
+    "value": "bool",
+    "confidence": 1
+   },
+   "evidence": {
+    "value": "chain",
+    "confidence": 0.92
+   },
+   "chainId": {
+    "value": 1,
+    "confidence": 1
+   },
+   "toleranceBps": {
+    "value": 0,
+    "confidence": 0.88
+   },
+   "head": {
+    "value": 1,
+    "confidence": 0.97
+   }
+  },
+  "judged": true,
+  "blockers": [],
+  "suggestions": [
+   {
+    "code": "wording",
+    "detail": "It may be read more than one way. Naming the period, the unit or the term you mean makes a split less likely."
+   },
+   {
+    "code": "not_answerable",
+    "detail": "No one can answer this from public sources today: it may ask about the future, a matter of opinion, or something that is not public."
+   },
+   {
+    "code": "evidence",
+    "detail": "This reads as answered from blockchain data; you chose public sources."
+   }
+  ],
+  "online": 1024,
+  "limits": {
+   "minPanelSize": 5,
+   "maxPanelSize": 100
+  },
+  "chains": [
+   {
+    "id": 1,
+    "name": "Ethereum mainnet"
+   },
+   {
+    "id": 56,
+    "name": "BNB Chain"
+   },
+   {
+    "id": 4663,
+    "name": "Robinhood Chain"
+   },
+   {
+    "id": 8453,
+    "name": "Base"
+   },
+   {
+    "id": 42161,
+    "name": "Arbitrum One"
+   },
+   {
+    "id": 11155111,
+    "name": "Sepolia"
+   }
+  ]
+ },
+ "route": "POST /requests/check"
+}

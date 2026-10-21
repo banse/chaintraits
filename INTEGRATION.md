@@ -63,10 +63,12 @@ the two helpers, deployed first from the same commit and passed in as static add
 the registry's init code would exceed EIP-3860). The launch pipeline allows
 only static address, uint, bool and bytes32 arguments, at most 16; "passive" means the constructor stores its
 arguments and may read views, but creates no contract, moves no funds and takes no external callback.
-The seven nonzero-address checks and the code checks of the renderer, the composer and the executor always apply.
-The dependency reads are skipped **only when all three of Curator, IMD and Intake lack code**: this empty-chain floor
-makes no external call, so the pipeline's factory probe can deploy the three creation codes with their actual launch
-arguments. If any of the three has code, the Curator must answer `isSettled() == true`, IMD must report 18 decimals,
+The seven nonzero-address checks and the code checks of the renderer and the composer always apply. The
+**empty-chain floor** is the case where all three of Curator, IMD and Intake lack code: there the constructor makes no
+external call and does not require code at the executor either, so the pipeline's factory probe, which deploys only the
+three creation codes on an otherwise empty chain with their actual launch arguments, can construct the registry (an
+unconditional executor check made that probe fail with "application 2 constructor failed" on 2026-10-21). Outside the
+floor the executor must have code. If any of the three has code, the Curator must answer `isSettled() == true`, IMD must report 18 decimals,
 and the Intake must quote a nonzero `priceOf(ACTION, imd)`; an unavailable call reverts. The executor is never called
 by the constructor. The deployer must verify the addresses, helper code and operational dependencies before launch: a
 floor probe is not that verification. The registry has no setter for any dependency.
@@ -302,7 +304,9 @@ not the Intake id.)
 ### 4b. Transition table (every pending request ends in exactly one row)
 
 The pending record is `pending[requestId] = (address claimant, uint16 traitId, uint64 requestedAt, bytes32
-questionHash)`; for a shared-fact request `claimant == address(0)` and `traitId` is the fact id. The reverse index is
+questionHash, uint64 fromBlock, uint64 toBlock)`, the window being the one the body was composed with (for 601 the
+living window of that request; the callback compares the attestation's window with it, never with a window recomputed
+at the current head); for a shared-fact request `claimant == address(0)` and `traitId` is the fact id. The reverse index is
 `pendingOf[claimant][traitId] = requestId` (for shared facts `sharedPending[factId]`). "Clear" means: delete
 `pending[requestId]`, and delete the reverse index **only if it still equals this `requestId`**.
 
@@ -314,18 +318,23 @@ questionHash)`; for a shared-fact request `claimant == address(0)` and `traitId`
 | `onResult`, any other reason 2 to 10 | Intake | clear | nothing | `Missed` |
 | `onResult` or `onFailure`, `requestId` unknown (abandoned, consumed, never ours) | Intake | nothing | nothing | `Missed(reason 1)` |
 | `onFailure` (status 1 or 2) | Intake | clear | nothing; the pair may be requested again | `NoVerdict` |
-| `abandon(requestId)` at `requestedAt + 31 days` or later, personal | stored claimant only | clear | nothing | `Abandoned` |
-| `abandon(requestId)` at `requestedAt + 31 days` or later, shared (`claimant == 0`) | anyone | clear | nothing | `Abandoned` |
+| `abandon(requestId)` when `block.timestamp > requestedAt + 31 days` (strictly later), personal | stored claimant only | clear | nothing | `Abandoned` |
+| `abandon(requestId)` when `block.timestamp > requestedAt + 31 days` (strictly later), shared (`claimant == 0`) | anyone | clear | nothing | `Abandoned` |
 | `abandon` of a personal request after the deadline by a stranger | anyone but its claimant | revert `NotClaimant()` | | |
-| `abandon` earlier | anyone | revert `TooEarly()` | | |
+| `abandon` earlier, including the exact second `requestedAt + 31 days` | anyone | revert `TooEarly()` | | |
 | late callback for an abandoned request | Intake | as the unknown-id row: the successor request's reverse index is untouched, because the index is cleared only when it equals the stale id | | `Missed(reason 1)` |
 | not called back, not abandoned | | stays pending; at most one pending request per pair, so a new `upgrade` for the pair reverts | | |
 
 A miss never blocks a claimant-paid retry. Requests are made by the claimant for the claimant (a shared fact by
 whoever pays, for everyone), so a third party cannot create a miss in someone else's name. Abandoning returns no
-price; the bounded dates (check 5) make every attestation of a request dead before the day anyone may abandon it, so
-a late answer never settles an abandoned request, and a valid answer inside its dates still settles a request that
-has not been abandoned.
+price; the bounded dates (check 5) make the latest second an attestation of a request can be valid `requestedAt +
+31 days`, when no abandon is possible yet, so a valid answer and an abandon are never both possible at one second, a
+late answer never settles an abandoned request, and a valid answer inside its dates still settles a request that has
+not been abandoned.
+
+**The Composer's views trust their arguments.** `compose`, `catalogSpec` and `directSnapshot` take the curator, the
+claimant, the consumer and the spec as given: the Registry passes only its pinned addresses and stored, validated
+specs. A direct call with other arguments composes or reads what the caller asked for and binds nothing.
 
 Measured traps that shaped these rules: panel members mis-convert decimal block numbers (hence hex in every text);
 `rpc.flashbots.net` and `cloudflare-eth.com` answer `null` for mined transactions (hence "null is not evidence" in
