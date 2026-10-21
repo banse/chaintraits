@@ -57,11 +57,41 @@
   depends on message delivery and the configured receiver. Operators must monitor dependency configuration and
   eventual delivery/burns. The fork tests exercise the source-chain send and refunds, not Base execution.
 
-## Known issues of v1 (from the One Dollar Audit of 2026-10-19)
+## Limits of this deployment (from the One Dollar Audit of 2026-10-21)
 
-**2026-10-19: v1 stays deployed as it is.** No contract has an owner, a setter or an upgrade path, so each item below
-is a fact of the live registry until a v2 is deployed. Whether a v2 follows is decided in issue #1 (open); the fix
-issues are written for it. Addresses and provenance: `DEPLOYMENTS.md`; the full report, the swarm's launch audit and
+**2026-10-21: the registry deployed on 2026-10-20 (launch #2341, `DEPLOYMENTS.md`) stays as it is.** It has no owner, no
+setter and no upgrade path. The One Dollar Audit of its Registry (job 1042: 3 high, 3 medium, 7 low, 5 informational;
+report and the disposition of every finding in `audits/2026-10-21-onedollaraudit-1042.md`) found no way for a third party
+to take funds or to write a false fact. Its three highs are limits the entrant chose and wrote down before the launch;
+in plain words:
+
+- **"Armed" (601) means held an IDMD seat at the mint block, borrowed or not (F-1).** The seat snapshot is taken once,
+  in `mintCard`; the IDMD collection keeps no holding history, so a seat passed from wallet to wallet lights 601 on each
+  card it visits (one card per wallet, 0.1 IMD plus gas each). A contract that gates on 601 gates on "had access to a
+  seat when minting", nothing more.
+- **A Curator member can spend the pool on a fact that is false, once a day (F-2, F-4).** A sponsored request that ends
+  without a verified trait gives its trait reservation back, and only verified traits count toward the lifetime limit of
+  nine; one draw per wallet per UTC day, at most an eighth of the pool and 2 IMD each, bounds it. The pool is made of
+  mint fees, registrations and donations, never of user deposits; it holds 0.1 IMD on 2026-10-21, below the size at
+  which any draw is possible at the 0.5 IMD price. Donate to the pool knowing that members, not the donor, decide what
+  it pays for.
+- **A shared fact's pending request can be released only by the wallet that paid for it, 31 days later (F-3).** If the
+  Intake never completed a request, the fact id would stay blocked until that payer calls `abandon`. The Intake
+  completes every request (a verdict or a failure, both clear the pair), and the entrant requests the catalog's one
+  shared fact (1201) from its own wallet, after which the stored answer closes the request path for good. A community
+  T3 spec keeps this limit for its own fact.
+
+Also from this audit: one fixed attester key signs every oracle fact and the panel numbers are its own (F-6; the
+registry checks the quorum it was built with, issue #20); an attestation issued long after its request can still be
+valid after an `abandon`, in which case it lands as `Missed` and the fee is spent (F-7). The next-cut list is at the end
+of the disposition file; no next cut is planned.
+
+## Known issues of the test deployment (2026-10-18, from the One Dollar Audit of 2026-10-19)
+
+**This section describes the test deployment of 2026-10-18 (Registry `0x39bec7648259d5a128c29b24951eabcd4d1f95a6`, swarm
+launch #2147, never announced), replaced on 2026-10-20.** The items below were fixed in the live registry (`docs/V2.md`
+items 1 to 27, `audits/2026-10-18-swarm-launch-audit-c3792acf.md`) and stay facts of the test registry, which has no
+owner, setter or upgrade path. Addresses and provenance: `DEPLOYMENTS.md`; the full report, the swarm's launch audit and
 the disposition of every finding: `audits/`.
 
 - **A sponsor-pool claim pays whatever the Intake quotes, with no cap (H-1, issue #6).** `claimSponsored` and
@@ -87,6 +117,8 @@ read a new spec's id from `SpecRegistered` and check `specOf` before paying for 
 
 ## Audits
 
-The reviews of this code and the disposition of every finding are in `audits/README.md`; the One Dollar Audit of the
-deployed v1 Registry (2026-10-19: 1 high, 5 medium, 7 low) is `audits/2026-10-19-onedollaraudit-1033.md`. v1 stays
-deployed as it is; the fixes go into a v2 redeploy, tracked in the issues.
+The reviews of this code and the disposition of every finding are in `audits/README.md`. The One Dollar Audit of the
+live Registry (2026-10-21, job 1042: 3 high, 3 medium, 7 low) is `audits/2026-10-21-onedollaraudit-1042.md`; the one of
+the test deployment's Registry (2026-10-19, job 1033: 1 high, 5 medium, 7 low) is `audits/2026-10-19-onedollaraudit-1033.md`,
+whose accepted fixes are in the live registry (`docs/V2.md`). The audits of the Composer and the Renderer (jobs 1043,
+1044) follow when they complete.
