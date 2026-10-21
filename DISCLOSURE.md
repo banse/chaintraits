@@ -77,8 +77,9 @@ in plain words:
   it pays for.
 - **A shared fact's pending request can be released only by the wallet that paid for it, 31 days later (F-3).** If the
   Intake never completed a request, the fact id would stay blocked until that payer calls `abandon`. The Intake
-  completes every request (a verdict or a failure, both clear the pair), and the entrant requests the catalog's one
-  shared fact (1201) from its own wallet, after which the stored answer closes the request path for good. A community
+  completes every request (a verdict or a failure, both clear the pair), and the entrant requested the catalog's one
+  shared fact (1201) from its own wallet on 2026-10-21 (stored at block 26,237,440: 32 addresses), so the stored answer
+  closes the request path for good. A community
   T3 spec keeps this limit for its own fact.
 
 Also from this audit: one fixed attester key signs every oracle fact and the panel numbers are its own (F-6; the
