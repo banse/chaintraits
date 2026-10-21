@@ -1,7 +1,0 @@
-{
-  "regularFiles": 316,
-  "regularFileBytes": 5118298,
-  "gzipSnapshotBytes": 1618618,
-  "limitBytes": 8388608,
-  "note": "Conservative regular-file snapshot check; the publisher builds the final Git submission bundle."
-}

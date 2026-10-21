@@ -2,7 +2,7 @@
 
 The product is **Sworn** (collection symbol `SWORN`, named 2026-10-16). These pages say *the registry* and *the
 card*; the per-wallet facts are *traits*. Family display names are the final names of `CATALOG.md` section 7:
-Spawned, Zero-Shot, Hopper, Bullfrog, Benchmarked, Armed, Uptime, Holdout, Final Token, Hotfix, PID, Top Weights,
+Spawned, Zero-Shot, Hopper, Bullfrog, Benchmarked, Swarmed, Uptime, Holdout, Final Token, Hotfix, PID, Top Weights,
 Pretrained.
 
 ## 1. In one paragraph
@@ -21,9 +21,9 @@ What it is not: not an eligibility list, not a sybil verdict, not a token.
 
 | class | how the fact is established | cost to the claimant |
 |---|---|---|
-| **direct read** | the registry calls a view of the settled Curator (or IDMD `balanceOf`) when rendering or when asked | gas only; no transaction at all for `hasTrait` |
+| **direct read** | the registry reads a view of the settled Curator: once at mint, frozen on the card; live for a wallet without a card | gas only; no transaction at all for `hasTrait` |
 | **chain-proven** | an IMD oracle question with `evidence: chain`, one of the deployer's recipes, rerun by the deployer before it is signed; the attestation is verified in the registry's callback | the Intake's price (0.5 IMD on 2026-10-12) + gas |
-| **panel-attested** | an IMD oracle question with `evidence: panel`: a pinned RPC read every member repeats | the same price + gas |
+| **panel-attested** | an IMD oracle question with `evidence: panel`: a pinned RPC read every member repeats (1301), or the operator fact's log and state reads across three contracts (601, `docs/REBUILD.md` 4.2) | the same price + gas |
 | **shared fact** | one chain-proven question whose answer serves many wallets (the Top Weights list, 1201) | paid once by whoever asks first |
 
 ## 3. One card per wallet: claimant and holder
@@ -32,10 +32,10 @@ Mirrors the THE LIST record NFT (`reference/list-record/`):
 
 - `tokenOf(wallet)` is the wallet's card (0 = none). `claimantOf(tokenId)` is the wallet that minted it and never
   changes. `mintedAtBlock(tokenId)` is immutable. `ownerOf(tokenId)` is the holder and may differ after a sale.
-- **Direct-read traits are computed live** in `tokenURI` and `hasTrait` from the Curator's views and IDMD
-  `balanceOf`. No per-trait action, no storage, no oracle. Families 1 to 5 read the settled Curator and never change;
-  the Armed trait (601, working name Operator) reads live IDMD ownership and changes when an IDMD moves. It is a live fact, not a
-  historical one, and the card says so.
+- **Direct-read traits (families 1 to 5) are read from the Curator's views**: once at `mintCard` and frozen on the
+  card (`frozenDirect`), live for a wallet without a card (`hasDirectTrait`). No per-trait action, no oracle. Trait
+  601 (Swarmed, family 6) is not a direct read: it is the sworn operator fact of kind 6 (`docs/REBUILD.md` 4.2),
+  stored like every oracle trait.
 - **Oracle traits are stored per `(claimant, traitId)`** once an attestation is verified in the callback:
   `verified[claimant][traitId] = (bytes32 requestId, bytes32 oracleRequestId, uint64 fromBlock, uint64 toBlock)`
   (the README's `verified()` returns exactly this tuple; `requestId` is the Intake's id, `oracleRequestId` the plane's
@@ -50,8 +50,9 @@ Mirrors the THE LIST record NFT (`reference/list-record/`):
 
 ## 4. Flows
 
-**Mint the card.** `mintCard()`: one transaction by the claimant, 0.1 IMD into the registry (the claimant has
-approved the registry; IMD has no `permit`). The card appears with every direct-read trait the wallet qualifies for.
+**Mint the card.** `mintCard()`: one transaction by the claimant, 0.1 IMD pulled from the claimant and transferred in
+the same transaction to the BurnExecutor V2, where it waits to be burned (the claimant has approved the registry; IMD
+has no `permit`). The card appears with every direct-read trait the wallet qualifies for, frozen at that block.
 
 **Upgrade with oracle traits.** `upgrade(uint16[] traitIds, uint256 maxPrice)`: one transaction, k Intake requests,
 k x `priceOf` (reverts when `priceOf > maxPrice`). For each trait the registry composes the body from the trait's
@@ -65,16 +66,17 @@ the two callbacks. Minutes later the writer calls `Intake.complete`, which calls
 `verified[claimant][traitId]`, clears the pending pair, and emits `MetadataUpdate(tokenOf[claimant])` only if the
 claimant has a card (id 0 is never emitted). Every other outcome clears the pending pair and stores nothing (the
 transition table in `INTEGRATION.md` section 4b); the price is spent either way, and the claimant may request the
-trait again. After `14 days` (`block.timestamp` since `requestedAt`) only the stored claimant may call
+trait again. After 31 days (`ABANDON_AFTER`; `block.timestamp` since `requestedAt`) only the stored claimant may call
 `abandon(requestId)` to clear a personal pair the plane never completed; a stranger gets `NotClaimant()`.
-Anyone may abandon a shared fact, whose claimant is zero. Abandoning returns no price and restores no sponsored
-allowance; a late valid answer can still settle a request left pending. At most one pending request per `(claimant, traitId)`; duplicate ids in one `upgrade`
+Anyone may abandon a shared fact, whose claimant is zero. Abandoning returns no price; the dates of an attestation are bounded to its request
+(`docs/REBUILD.md` 3.4), so every answer a request can receive is dead before that day and a late answer never
+settles an abandoned request. At most one pending request per `(claimant, traitId)`; duplicate ids in one `upgrade`
 call revert; an already verified trait cannot be requested again. A wallet without a card may upgrade too (the traits
 attach to the claimant; the card renders them when minted). `composeBody(traitId, claimant)` is a public view that
 returns the exact body and its `questionHash`, so a front end or a third party can preview and quote a request for
 free before paying.
 
-**Register a spec.** `registerSpec(Spec)` by anyone, 6.4 IMD into the registry; guards in `CATALOG.md` section 5; emits
+**Register a spec.** `registerSpec(Spec, expectedId)` by anyone, 6.4 IMD transferred to the BurnExecutor V2 (burned); guards in `CATALOG.md` section 5 and `docs/REBUILD.md` 3.6; emits
 `SpecRegistered(id, registrant)`. From then on `upgrade` accepts the new id for every wallet, paid by the claimant.
 At the 0.5 IMD oracle price, registration plus the first claim costs 6.9 IMD, excluding gas.
 
@@ -89,60 +91,11 @@ miss; the fact can be requested again). `applySharedFact(factId, address[] calld
 `msg.sender`; gas only; once per claimant and fact. The list is public: it is in the `complete` transaction's calldata
 and in the attestation the plane serves at `/oracle/requests/<oracleRequestId>/attestation`, so anyone can supply it.
 
-**Sponsor pool.** The pool is the registry's IMD balance (`pool()`), fed by mint fees, spec fees, `sponsor(amount)`
-and any plain transfer. It is spent only on the **catalog's chain traits** (701, 801, 901, 1001, 1101 to 1105), only
-for the caller's own wallet, and only once per `(wallet, traitId)` ever (`poolUsed`), whatever the outcome:
-
-- `upgradeSponsored(idmdTokenId, traitIds[])`: the holder of IDMD `idmdTokenId` (checked by `ownerOf`) must also be
-  a list member (`firstHourOf(msg.sender).hasJoined`). Exactly one catalog chain id per call; **nine requests per
-  IDMD token over its lifetime**, tracked by `idmdSponsored` even across transfers; reverts if the pool cannot
-  cover `priceOf`.
-- `claimSponsored(traitId)`: from launch, with no 30-day wait, any Curator member (`firstHourOf(msg.sender)
-  .hasJoined`) draws one pool-funded request for one catalog chain trait of their own; reverts when `poolUsed`, when
-  the trait is verified or pending, or when the pool is below `priceOf`.
-
-Both paths share **one pool-funded request per wallet per UTC day**, computed as `block.timestamp / 1 days` and
-stored in the public `uint64 lastPoolDay(wallet)`. The zero default is unused on the launch chain in 2026. A request
-for another trait on the same day reverts `PoolDailyLimit(wallet)`; switching paths or IDMD tokens cannot bypass it.
-The once-per-pair rule across nine eligible ids means **nine per wallet over its lifetime**, across both paths.
-Empty sponsored arrays revert `NoTraits`, arrays longer than one revert `TooManyTraits`, and the tenth IDMD-funded
-request reverts `IdmdSponsorExhausted(tokenId)`. A transaction that reverts rolls back every allowance; an accepted
-request consumes them even if the eventual callback fails or the request is abandoned. Paid `upgrade` and
-`requestSharedFact` neither consume nor check these limits.
-
-**Burn on a free claim.** Both pool entry points are payable. After the existing checks and oracle request,
-`previewBridge()` reads BurnExecutor V2's whole bridgeable balance with a 600,000-gas cap (`PREVIEW_GAS`: the
-executor answers zeros instead of reverting when its inner OFT quote runs out of gas, which happens below about
-272,000 gas at the CALL on 2026-10-16, block 26,202,500; a cold trace at block 26,202,203 needs 264,408; the cap is
-2.2 times that). At least 69 IMD and a quote at most 0.005 ETH requires the caller to attach the quote
-(`BurnFeeRequired(nativeFee)` otherwise). The registry calls `bridgeToBaseBurnReceiver(amount, msg.sender)` with
-all attached ETH and an 800,000 CALL gas argument (2,300 stipend on top for nonzero value). The executor re-quotes,
-pays the fee and returns the surplus over its own quote (a call first, a forced send if the claimant rejects it);
-a claimant should attach exactly the fee quoted in the same block, since the executor keeps the whole attachment if
-its quote rose. This uses IMD already held by the executor, not an extra charge against the pool or claimant.
-
-Reverting preview (skip code 1), reverting bridge (2), quote above cap (3), amount below 69 IMD, or an unset
-executor all let the oracle request proceed. The registry returns `msg.value` on a skip, with a plain call only
-for a nonzero amount and with success required; it never returns it a second time after executor success.
-Insufficient fee or a rejected nonzero registry refund rolls the transaction back. A nonpayable contract claimant
-can therefore send nothing when no burn is due or the exact fee when it is, and can receive a forced surplus
-refund from a successful executor. Its rejection of a registry refund still reverts its own claim.
-
-At the pinned mainnet block 26,202,203 the corrected preview returns the executor's real quote and the fork test's
-cold sponsored claim burns through the real executor and OFT. The rule stays best effort and promises no future
-liveness: a quote needing more than `PREVIEW_GAS` or above the fee cap, or an executor/bridge revert, is a skip
-that does not block the oracle request. Outside the all-four-empty dependency floor, the constructor rejects a nonzero executor without code
-(`ExecutorHasNoCode()`), because a preview that returns nothing cannot be decoded and would revert every sponsored
-claim for ever; a coded executor returning fewer than three words still reverts a claim (residual).
-`BurnTriggered` records a bridge submission; the Base burn is asynchronous. The registry's executor address is
-fixed, but the executor, OFT and destination configuration remain dependencies controlled by their respective
-owners; those dependencies may call the claimant. `INTEGRATION.md` section 5b describes operation and monitoring.
-
-Community specs, panel traits and shared facts are never paid by the pool; a claimant pays for those. **This is the
-economic policy, stated:** the pool is an irrevocable donation that any member may draw once per catalog trait for
-themselves. Draining it needs member wallets and mainnet gas for every 0.5 IMD burnt (at most nine requests per
-member), there is no recipient other than the Intake, and a remainder below the price stays in the contract. Nothing
-in the registry can withdraw or migrate pool money; a successor contract starts its own pool.
+**Fees.** The registry takes two fees, 0.1 IMD at `mintCard` and 6.4 IMD at `registerSpec`, and transfers each in
+the same transaction to the IMD BurnExecutor V2 (`0xe29386719C155B6847aD5a4E97C6674f10ffc750`), whose pending amount
+is its IMD balance; anyone bridges and burns it on Base by paying the LayerZero fee. Oracle prices go to the Intake.
+The registry never holds IMD at rest, never handles ETH, has no `payable` function and nothing that moves money it
+holds (`docs/REBUILD.md` 3.8).
 
 ## 5. Rendering
 
@@ -166,7 +119,7 @@ in the registry can withdraw or migrate pool money; a successor contract starts 
   `verifiedSpecsOf(claimant)`, **at most the
   first 32**, each with its spec name, plus a `community_count` attribute with the full count, so metadata stays bounded whatever a claimant
   buys; `verifiedSpecsOf` returns every id. Only the claimant can add to that index (`upgrade` and `applySharedFact`
-  act for `msg.sender`; the pool never funds community traits), and an id is appended once (a second verification of
+  act for `msg.sender`), and an id is appended once (a second verification of
   the same pair is impossible: a verified trait cannot be requested or applied again).
 - `tokenURI` returns `data:application/json;base64,...` with the SVG percent-encoded inside, built from the
   envelope by splicing per-card values at fixed offsets; the image value is assembled from precomputed,
@@ -180,24 +133,23 @@ in the registry can withdraw or migrate pool money; a successor contract starts 
 
 ## 6. Contracts
 
-Three contracts: `Registry`, `Renderer` and `Composer`; the registry's constructor takes eight arguments.
+Three contracts: `Registry`, `Renderer` and `Composer`; the registry's constructor takes seven arguments.
 
 | contract | role | constructor |
 |---|---|---|
-| `Registry` (`ERC721("Sworn", "SWORN")`) | ERC-721 + IERC4906; catalog table; `mintCard`, `upgrade`, `hasTrait`; Intake consumer (`onResult`, `onFailure`); specs; shared facts; sponsor pool | eight static addresses `(curator, idmd, imd, intake, attester, renderer, composer, burnExecutor)` stored in storage (no `immutable`); the renderer and the composer are deployed first and passed in as static addresses (the registry creates no contract: with both helpers embedded its init code exceeded EIP-3860, see README "What was built, and where it deviates from the brief"); records `deployedAt = block.timestamp`; zero `burnExecutor` disables the rule and is exempt from the zero-address check; outside the all-four-empty dependency floor, requires IDMD code, `curator.isSettled()` true, `intake.priceOf(ACTION, imd)` nonzero and code at a nonzero executor |
+| `Registry` (`ERC721("Sworn", "SWORN")`) | ERC-721 + IERC4906; catalog table; `mintCard`, `upgrade`, `hasTrait`; Intake consumer (`onResult`, `onFailure`); specs; shared facts | seven static addresses `(curator, imd, intake, attester, renderer, composer, burnExecutor)` stored in storage (no `immutable`), every one nonzero; the renderer and the composer are deployed first and passed in as static addresses (the registry creates no contract: with both helpers embedded its init code would exceed EIP-3860); `renderer`, `composer` and `burnExecutor` must have code, always; outside the floor (all three of Curator, IMD and Intake codeless) it requires `curator.isSettled()` true, `imd.decimals() == 18` and `intake.priceOf(ACTION, imd)` nonzero |
 | `Renderer` | template `bytes constant` + offsets as constants + splice + Base64 | none |
 | `Composer` | the five templates, body and canonical-document serialisers, catalog specs, spec guards, name table, catalog enumeration and direct-read predicates; views only, never called inside `onResult` | none |
-| interfaces | `IWhitelistCurator` (in `src/interfaces/`), `IIntake` (v2: `requestWithFailure`), `IOracleConsumer` (`onResult`, `onFailure`), `IBurnExecutor` (`tokenBalance`, `previewBridge`, `bridgeToBaseBurnReceiver`) | |
+| interfaces | `IWhitelistCurator` (written by the builder from the verified ABI `reference/abi/WhitelistCurator.json`), `IIntake` (v2: `requestWithFailure`, from `reference/IntakeV2.sol`), `IOracleConsumer` (`onResult`, `onFailure`); the executor needs no interface: the registry only transfers IMD to it | |
 
-The constructor skips dependency checks only when **all four of Curator, IDMD, IMD and Intake lack code**.
-This is the pipeline's empty-chain floor: no external constructor calls, including no executor call or code check.
-If any of the four has code, all checks run; a missing IDMD reverts `DependencyHasNoCode()`. The seven nonzero-address
-checks always apply. The factory probe deploys Renderer, Composer and Registry in order, but operational launch
-still requires the deployer to verify every address and both helpers. `deployForChain()` uses the Sepolia set on
-11155111 (including its nonzero V1 executor, whose preview reverts and skips with code 1); every other chain uses
-the mainnet constants. The launch manifest rejects a zero executor. Parameters are in `INTEGRATION.md` section 1.
+The constructor skips its dependency reads only when **all three of Curator, IMD and Intake lack code**: the
+pipeline's empty-chain floor, no external call at all. If any of the three has code, all three reads run. The code
+checks of the renderer, the composer and the executor and the seven nonzero-address checks always apply. The factory
+probe deploys Renderer, Composer and Registry in order, but operational launch still requires the deployer to verify
+every address and both helpers. `deployForChain()` uses the Sepolia set on 11155111 and the mainnet constants on
+every other chain. Parameters are in `INTEGRATION.md` section 1.
 
-Ownerless, no upgrade, no pause, no fee switch, no `receive`, no `fallback`, no `immutable`, no `tx.origin`. Solidity
+Ownerless, no upgrade, no pause, no fee switch, no `payable`, no `receive`, no `fallback`, no `immutable`, no `tx.origin`. Solidity
 0.8.24, Foundry, OpenZeppelin from `lib/` (ERC721, ECDSA.tryRecover, MessageHashUtils, ReentrancyGuard; **not** the
 `EIP712` base, which holds immutables: the domain separator is computed at verification time, `INTEGRATION.md`
 section 4). `hasTrait(wallet, unknownId)` returns false, never reverts; `hasTrait(address(0), id)` returns false
@@ -235,20 +187,17 @@ section 4). `hasTrait(wallet, unknownId)` returns false, never reverts; `hasTrai
    registry.
 8. `tokenURI` is pure over the registry's storage, the Curator's views and IDMD `balanceOf`; the renderer output
    decodes to the golden bytes; a hostile spec name cannot break the JSON or the SVG (escaping tests).
-9. The registry's IMD balance never decreases except through `requestWithFailure` on `claimSponsored` or
-   `upgradeSponsored`; a claimant-paid request leaves the balance unchanged; `abandon` releases a pending pair only
-   after 14 days, by its claimant for personal requests or anyone for a shared fact; both pool paths open at launch, only for list members, once per wallet per UTC day and once per
-   pair ever (nine per wallet); `upgradeSponsored` requires IDMD ownership, exactly one trait per call and at most
-   nine requests per IDMD token over its lifetime; the pool funds only the nine catalog chain traits, never a panel, shared or community
-   trait; one pending request per pair and per fact id; `sharedFact` holds a hash and a length, never a list.
+9. The registry's IMD balance is zero after every transaction it makes: a fee reaches the executor in the
+   transaction that pulls it, and a claimant-paid request pulls and forwards in one transaction; `abandon` releases a
+   pending pair only after 31 days, by its claimant for personal requests or anyone for a shared fact; one pending
+   request per pair and per fact id; `sharedFact` holds a hash and a length, never a list.
 10. Curator-derived direct-read traits (families 1 to 5) for a non-member are all false (`firstHourOf` returns
-    `(0, false)`): a non-member never renders as an hour-0 Zero-Shot. 601 is independent of membership.
+    `(0, false)`): a non-member never renders as an hour-0 Zero-Shot. 601 (Swarmed) is an oracle fact and independent
+    of membership.
 11. Any address can call `hasTrait` and `tokenURI` for any wallet; no function depends on `tx.origin`.
 
-12. After each accepted free claim the registry's ETH balance equals its balance before. Only `msg.value` can be
-    forwarded or refunded; pre-existing ETH is not a precondition and cannot be spent. Unsolicited ETH during a
-    call is outside this invariant. Failed bridge attempts preserve the oracle request and return all attached
-    ETH if the caller accepts the refund; successful attempts leave refunds to the executor.
+12. The registry never receives or holds ETH: no function is `payable`, there is no `receive` or `fallback`; its ETH
+    balance is zero unless force-sent, and nothing can spend it.
 
 Harness discipline (not a product invariant): invariant handlers guard expected reverts (a second `mintCard`, a
 duplicate pending pair), because `fail_on_revert = true` is kept.

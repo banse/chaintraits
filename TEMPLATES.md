@@ -1,9 +1,10 @@
-# TEMPLATES.md: the five question templates
+# TEMPLATES.md: the question templates
 
-These are the templates of the Sworn registry. Community specs and the v1 oracle traits (`CATALOG.md` section 3) compose their question bodies from exactly these five templates, one per
-recipe kind, so the stored parameters and the text can never disagree. The v4 pool recipes (`v4-volume-rank`,
-`univ4-spot`) are not wallet facts and are not offered; a fees-paid panel text was considered, never ran end to end, and is not offered. T2 shares T1's shape with a sum instead of a
-count. **Checked and quoted 2026-10-12, 00:00 UTC (round 2):** all ten fixture bodies passed `POST /requests/check`
+These are the templates of the Sworn registry. Community specs and the catalog's oracle traits (`CATALOG.md` section 3)
+compose their question bodies from exactly these templates, one per recipe kind, so the stored parameters and the
+text can never disagree: T1 to T5 below for kinds 1 to 5, and T6, the catalog-only operator fact 601, in
+`docs/REBUILD.md` 4.2. The plane's market recipes (`v4-volume-rank`, `univ4-spot`) are not wallet facts and are not
+offered. T2 shares T1's shape with a sum instead of a count. **Checked and quoted 2026-10-12, 00:00 UTC (round 2):** all ten fixture bodies passed `POST /requests/check`
 with no blockers (the two T5 bodies carry the plane's usual "reads as chain evidence" suggestion, ignored by design)
 and were admitted by a free `POST /requests/quote`, each with its canonical window pinned unchanged and the hash of its
 last block as `toBlockHash`. The ten check responses and the ten quote records are vendored under
@@ -45,7 +46,7 @@ window in hex, `<FN>` a `function name(address) view returns (uint256)` item, `<
 > deduplicate by transaction. Block numbers are hex."
 > definitions.window: "The pinned window is the whole evidence; events outside it do not count."
 
-Spec fields: `<C>`, `<EVENT>`, `<ARG>`, optional `<FARG>`+`<FVAL>`, `<N>`, window. v1 traits 701, 801, 901, 1001,
+Spec fields: `<C>`, `<EVENT>`, `<ARG>`, optional `<FARG>`+`<FVAL>`, `<N>`, window. catalog traits 701, 801, 901, 1001,
 1101 to 1105 use it with the Curator's events above and `<N>` = 1.
 
 ### T2 log-sum, personal (`evidence: chain`, `answerType: uint256`)
@@ -63,49 +64,45 @@ Spec fields: `<C>`, `<EVENT>`, `<ARG>`, optional `<FARG>`+`<FVAL>`, `<N>`, windo
 >
 > Fixture: `templates/fixtures/T2-log-sum-composed.json` (composed from this template; checked and quoted 2026-10-12).
 
-Spec fields: as T1 plus `<SUMARG>`. No v1 trait uses it; wave-two families (degen volume, whale receiver by sum) do.
+Spec fields: as T1 plus `<SUMARG>`. No catalog trait uses it; wave-two families (degen volume, whale receiver by sum) do.
 
-### T3 log-rank, shared fact (`evidence: chain`, `answerType: address[]`, `head <= 32`)
+### T3 log-rank, shared fact (`evidence: chain`, `answerType: address[]`, `head <= 32`, panel 11 / quorum 7)
 
 > question: "Within the request's pinned block window (fromBlock `<FROM>` to toBlock `<TO>`, both inclusive) on
 > Ethereum mainnet, sum the `<SUMARG>` argument of the `<EVENT>` events emitted by the contract `<C>` grouped by the
-> indexed `<ARG>` argument. Return the `<N>` keys with the largest sums, descending by sum, ties by address ascending
-> (lowercase hex)."
->
-> definitions.method: "eth_getLogs over exactly the pinned window, group by the indexed argument, sum in raw units,
-> sort as stated; include a few positions beyond `<N>`; agreement is on the first `<N>`."
-
-Spec fields: `<C>`, `<EVENT>`, `<ARG>` (groupBy), `<SUMARG>`, `<N>` (head, at most 32), window. v1 trait 1201 uses it:
-`Deposited`, groupBy `contributor`, sum `weightAdded`, head 32, `W_LIFE`.
-
-**Measured on mainnet (2026-10-18, three paid attempts of the 1201 question at panel 5 / quorum 3) and the wording
-for v2 and for community specs.** Attempts one and two (`cb72b826`, `4ee4290d`) ended with two right and two wrong
-answers each: the wrong ones, byte-identical across two seats and both attempts, listed 32 *amount words*
-(`0x…016345785d8a0000` = 0.1 ETH) instead of contributors, so the seats' `log-rank` recipe had grouped the logs by a
-data field although its declared `groupBy` was `contributor`; a third wrong answer came from a truncated
-`eth_getLogs`. The third attempt (`03ccc51e`), whose `definitions.method` spelled the sort and tie rule out, was
-answered right by all four seats within 15 s. The negative case is kept in
-`templates/fixtures/negative/1201-grouped-by-data-field.json`. The v1 text above is composed on-chain by
-`Composer.canonical` and cannot change; **v2 and every community spec written by hand use this wording instead:**
-
-> question: "… grouped by the **indexed `<ARG>` argument (topic `<K>` of the log), never by a data field** …"
+> indexed `<ARG>` argument (topic `<K>` of the log), never by a data field. Return the `<N>` keys with the largest
+> sums, descending by sum, ties by address ascending (lowercase hex)."
 >
 > definitions.method: "eth_getLogs over exactly the pinned window; group by the indexed `<ARG>` argument (the log's
 > topic `<K>`, an address: left-pad 12 zero bytes), never by a data word; sum `<SUMARG>` in raw units; sort descending
 > by sum and break ties by lowercase address ascending; include positions beyond `<N>`, agreement is on the first
 > `<N>`. An entry that is not an address (12 leading zero bytes) is a wrong answer."
+>
+> Fixture: `templates/fixtures/1201-top-32.json` (`contributor` = topic 1); the Composer emits this text for 1201 and
+> for every community T3 spec.
 
-`<K>` is the argument's position among the event's **indexed** parameters, 1-based, read from the `item` signature:
-`contributor` in `Deposited(address indexed contributor, …)` is topic 1 (the 1201 text), `to` in
-`Transfer(address indexed from, address indexed to, uint256 value)` is topic 2. v2's Composer derives it (V2.md item
-18, after the cross audit of 2026-10-19 found a fixed "topic 1" wrong for a second indexed address); the grouping key
-must be an `address`-typed indexed parameter, and the event must be **non-anonymous**: an anonymous event carries no
-signature hash in topic 0, so its indexed arguments start at topic 0 and `<K>` would name the wrong one. v2's
-`validateSpec` rejects a kind-3 `item` that ends in `anonymous` with `BadSpec("item")` (recheck 2026-10-20, R-M1);
-`<K>` counts indexed parameters of every type, not only addresses.
+Spec fields: `<C>`, `<EVENT>`, `<ARG>` (groupBy), `<SUMARG>`, `<N>` (head, at most 32), window. Catalog trait 1201 uses it:
+`Deposited`, groupBy `contributor`, sum `weightAdded`, head 32, `W_LIFE`.
 
-With 5 / 3 and that error rate a ranked question passes about one attempt in two or three, each attempt at the full
-price; issue #18 raises the kind-3 panel to 11 / 7 in v2 (`INTEGRATION.md` section 4 says what the consumer checks).
+`<K>` is the argument's position among the event's **indexed** parameters, 1-based, counting indexed parameters of
+every type, read from the `item` signature: `contributor` in `Deposited(address indexed contributor, …)` is topic 1,
+`to` in `Transfer(address indexed from, address indexed to, uint256 value)` is topic 2. The Composer derives it. The
+grouping key must be an `address`-typed indexed parameter, and the event must be **non-anonymous**: an anonymous event
+carries no signature hash in topic 0, so its indexed arguments start at topic 0 and `<K>` would name the wrong one.
+`validateSpec` rejects a kind-3 `item` that ends in `anonymous` with `BadSpec("item")` and a grouping key that is not
+an address-typed indexed parameter with `BadSpec("arg")`, before `registerSpec` takes the fee.
+
+**Why the wording is this exact (measured on mainnet, 2026-10-18, three paid attempts of the 1201 question at panel
+5 / quorum 3 with an earlier, shorter text).** Attempts one and two (`cb72b826`, `4ee4290d`) ended with two right
+and two wrong answers each: the wrong ones, byte-identical across two seats and both attempts, listed 32 *amount
+words* (`0x…016345785d8a0000` = 0.1 ETH) instead of contributors, so the seats' `log-rank` recipe had grouped the logs
+by a data field although its declared `groupBy` was `contributor`; a third wrong answer came from a truncated
+`eth_getLogs`. The third attempt (`03ccc51e`), whose `definitions.method` spelled the sort and tie rule out, was
+answered right by all four seats within 15 s; its answer is the stored 1201 fact of the live registry and the
+reference for the next deployment's first 1201 request. The negative case is kept in
+`templates/fixtures/negative/1201-grouped-by-data-field.json`. With 5 / 3 a ranked question passed about one attempt
+in two or three, each at the full price; the kind-3 panel is therefore 11 / 7 (`INTEGRATION.md` section 4 says what
+the consumer checks).
 
 ### T4 call-compare (`evidence: chain`, `answerType: bool`)
 
@@ -119,7 +116,7 @@ price; issue #18 raises the kind-3 panel to 11 / 7 in v2 (`INTEGRATION.md` secti
 > Fixture: `templates/fixtures/T4-call-compare-reference.json` (`pointsOf`, `>=`, 1000, `W_LIFE`).
 
 Spec fields: `<C>`, `<FN>` (one address argument, one uint256 return), `<OP>`, `<N>`, window (its last block is the
-state read). No v1 trait uses it (the registry reads the Curator's views directly); wave-two bagholder and
+state read). No catalog trait uses it (the registry reads the Curator's views directly); wave-two bagholder and
 diamond-hands facts do.
 
 ### T5 panel nonce (`evidence: panel`, `answerType: bool`, panel 11 / quorum 7)
@@ -147,13 +144,13 @@ the same claimant, and a panel that mixes them disagrees. The predicate is the n
 > definitions.window: "The window is the single block `<B>`; it fixes which chain state to read. It is not a time
 > range, and the current (latest) nonce is not the answer."
 
-v1 trait 1301: `<B>` 25769870, `<BH>` 0x189378e, `<HASH>` as in `CATALOG.md` section 1, `<N>` 20, `<NH>` 0x14; fixture
+catalog trait 1301: `<B>` 25769870, `<BH>` 0x189378e, `<HASH>` as in `CATALOG.md` section 1, `<N>` 20, `<NH>` 0x14; fixture
 `templates/fixtures/1301-not-born-yesterday.json`. **Community T5 specs** use the same text with one verbatim change in
 the question's parenthesis: `(hex <BH>, block hash <HASH>; the block in which the WhitelistCurator contract
 0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91 was deployed)` becomes `(hex <BH>; the last block of the spec's window)`;
 `<B>` is the spec's `toBlock` (equal to its `fromBlock`); the definitions are unchanged. Fixture:
 `templates/fixtures/T5-community-composed.json`. A contract cannot read the hash of a block older than 256 blocks; the
-plane pins `toBlockHash` itself. Panel specs are never paid by the sponsor pool.
+plane pins `toBlockHash` itself.
 
 ## The request body
 
@@ -168,7 +165,7 @@ their fixed values:
 | `window` | `{"fromBlock": <int>, "toBlock": <int>}` (decimal integers in JSON; hex in the text) |
 | `answerType` | `uint256`, `address[]` or `bool` as the template says |
 | `evidence` | `chain` (T1 to T4) or `panel` (T5) |
-| `panelSize`, `quorum` | 5, 3 for chain; 11, 7 for panel |
+| `panelSize`, `quorum` | 5, 3 for kinds 1, 2, 4; 11, 7 for kinds 3, 5, 6 |
 | `validForSeconds` | 2592000 |
 | `head` | T3 only: the list length the registry reads, at most 32 |
 | `definitions` | an object of ASCII strings, each at most 512 characters, keys as each template lists |
@@ -183,5 +180,4 @@ the fixtures. (The Intake accepts any byte-exact JSON; the sorted form only make
 when it is `panel`, serialised as RFC 8785 canonical JSON (sorted keys, no whitespace). The registry computes it when
 it composes a body and the callback compares it with the attestation (`INTEGRATION.md` section 4, check 7);
 `reference/plane/questionHashes.json` holds the plane's value and the canonical document for every fixture.
-`consumer` is excluded, so changing its chain does not change the canonical question hash. Composer's `compose`
-and internal `encodeBody` are views; the external selector of `compose` is unchanged.
+`consumer` is excluded, so changing its chain does not change the canonical question hash.

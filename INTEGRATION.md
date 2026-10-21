@@ -16,12 +16,12 @@ panels (section 3).
 | what | address |
 |---|---|
 | WhitelistCurator (THE LIST) | `0xcB0b0531e86A9aC36Fa865cA8e3dbccF047FDA91` |
-| IdentityMD collection (IDMD, ERC-721, 2,000 tokens) | `0x0000eC93127BAA929E58E97dd0095A2BFb38ec1D` |
+| IdentityMD collection (IDMD, ERC-721, 2,000 tokens; read by the Swarmed recipe only, not a constructor argument) | `0x0000eC93127BAA929E58E97dd0095A2BFb38ec1D` |
 | IMD token (ERC-20, 18 decimals, a LayerZero OFT, **no `permit`**) | `0xD34a99Bc0f67aE1bbd63C660e6d0b0dd03E263B7` |
 | **IMD Intake v2** (pay and ask in one transaction; the one the registry uses) | `0xa43e6f75ee006411f79ac1c84120606c2330de82` |
 | IMD Intake v1 (legacy; `/health.intake.chains[].legacyIntakes`; still priced and still completed) | `0x1397434cd35e8a9c8ac312a61d3a285eb31dea56` |
 | oracle attester (signs attestations) | `0x5598aa9146215bc13eb26f2c692ad1461fd32982` |
-| IMD BurnExecutor V2 (free-claim bridge) | `0xe29386719C155B6847aD5a4E97C6674f10ffc750` |
+| IMD BurnExecutor V2 (where every fee goes; section 5b) | `0xe29386719C155B6847aD5a4E97C6674f10ffc750` |
 | Intake writer (calls `complete`) | `0x3d3c0df7c1a17d384545e9d7c8228897bd9625cb` |
 
 Intake v2 was deployed through CREATE2 at the same address on every chain the plane serves; `/health` lists it as
@@ -31,12 +31,11 @@ mainnet addresses return `priceOf` 0.5 IMD, `callbackGas` 200,000 and the same w
 Sepolia Intake v2's `callbackGas` is 1,000,000; the unit tests still prove delivery with mainnet's stricter
 200,000 stipend. The Intake owner can change these values; read them before launch and monitor them afterwards.
 
-On Sepolia (11155111), `Deploy.deployForChain()` uses Curator
-`0x0919ba50b206C3F31D516De818b1fBc7dA21653D`, IDMD `0x2C3013c90a1Bb65573aae9a7C64fafB82697E4e4`,
-TestIMD `0x44a1Cd38474FB1748400E7DEb5F8D786ccE3F89A` and BurnExecutor V1
-`0x097A19e0f021BBA5072701132625ad2401043A2E`, with the same Intake v2 and attester as above. Every other chain
-selects the mainnet constants. `run()` calls this function; no environment or caller-dependent choice is involved.
-The Sepolia V1 has code but its `previewBridge()` reverts, so the burn rule skips with code 1 there.
+On Sepolia (11155111), `Deploy.deployForChain()` uses Curator `0x0919ba50b206C3F31D516De818b1fBc7dA21653D` (a mock),
+TestIMD `0x44a1Cd38474FB1748400E7DEb5F8D786ccE3F89A` and BurnExecutor V1 `0x097A19e0f021BBA5072701132625ad2401043A2E`
+(it has code, which is all the constructor asks of it), with the same Intake v2 and attester as above. Every other
+chain selects the mainnet constants. `run()` calls this function; no environment or caller-dependent choice is
+involved.
 
 Two evidence choices never follow the deployment chain:
 
@@ -54,29 +53,25 @@ Two evidence choices never follow the deployment chain:
 On 2026-10-16 the off-mainnet bound ran about **76,400 blocks (10.6 days)** above mainnet's head. An unmined
 window can register, and paid requests for it are not refunded. Integrators must check the real mainnet head
 and the window's age before registration or payment; this ownerless registry cannot tighten the bound later.
-The `curator` constructor argument still feeds the constructor's settlement check (outside the empty dependency
-floor), direct reads 101 to 503 and the sponsored membership check; 601 reads IDMD. Those reads use the
-deployment chain's dependencies, while the body consumer and EIP-712 domain also use the deployment chain.
+The `curator` constructor argument feeds the constructor's settlement check (outside the floor) and the direct
+reads 101 to 503; 601 is an oracle fact. Those reads use the deployment chain's dependencies, while the body consumer
+and EIP-712 domain also use the deployment chain.
 
-The launch is three contracts, `Renderer`, `Composer` and `Registry`. The registry takes eight constructor arguments,
-`(curator, idmd, imd, intake, attester, renderer, composer, burnExecutor)`: the original five external addresses,
-the burn executor and the two helpers,
-deployed first from the same commit and passed in as static addresses (README, "What was built, and where it deviates
-from the brief": with both helpers embedded the registry's init code exceeded EIP-3860). The launch pipeline allows
+The launch is three contracts, `Renderer`, `Composer` and `Registry`. The registry takes seven constructor arguments,
+`(curator, imd, intake, attester, renderer, composer, burnExecutor)`: four external addresses, the burn executor and
+the two helpers, deployed first from the same commit and passed in as static addresses (with both helpers embedded
+the registry's init code would exceed EIP-3860). The launch pipeline allows
 only static address, uint, bool and bytes32 arguments, at most 16; "passive" means the constructor stores its
 arguments and may read views, but creates no contract, moves no funds and takes no external callback.
-The seven nonzero-address checks always apply. Dependency checks are skipped **only when all four of Curator,
-IDMD, IMD and Intake lack code**. This empty-chain floor also skips the executor code check and makes no external
-call, so the pipeline's factory probe can deploy the three creation codes with their actual launch arguments.
-If any of those four has code, IDMD must have code (`DependencyHasNoCode()`), the Curator must answer
-`isSettled() == true` (`"Curator not settled"`), the Intake must quote a nonzero `priceOf(ACTION, imd)`
-(`"Intake price"`), and a nonzero executor must have code (`ExecutorHasNoCode()`). Unavailable Curator or Intake
-calls also revert. The executor is never called by the constructor. Zero still disables the burn rule at the
-contract level, but the mainnet and Sepolia launch sets both use nonzero executors; the launch manifest rejects
-zero. The deployer must verify the addresses, helper code and operational dependencies before launch: a floor
-probe is not that verification. The registry has no setter for any dependency.
+The seven nonzero-address checks and the code checks of the renderer, the composer and the executor always apply.
+The dependency reads are skipped **only when all three of Curator, IMD and Intake lack code**: this empty-chain floor
+makes no external call, so the pipeline's factory probe can deploy the three creation codes with their actual launch
+arguments. If any of the three has code, the Curator must answer `isSettled() == true`, IMD must report 18 decimals,
+and the Intake must quote a nonzero `priceOf(ACTION, imd)`; an unavailable call reverts. The executor is never called
+by the constructor. The deployer must verify the addresses, helper code and operational dependencies before launch: a
+floor probe is not that verification. The registry has no setter for any dependency.
 The writer is not a constructor argument: the registry trusts the Intake as `msg.sender` of the callback and the
-attester as the signer, never the writer. **Store the eight addresses in ordinary storage, not `immutable`:** immutables
+attester as the signer, never the writer. **Store the seven addresses in ordinary storage, not `immutable`:** immutables
 are patched into the runtime code at deployment, and the launch check compares the deployed runtime code with a clean
 rebuild byte for byte. The same holds for the renderer (`bytes constant`, never an SSTORE2 pointer in an immutable)
 and for the EIP-712 domain (section 4: computed at verification time, never OpenZeppelin's `EIP712` base, which holds
@@ -89,19 +84,19 @@ The registry is ownerless, so none of these has a remedy inside it; each needs a
 - The Intake's owner can `setPrice(action, IMD, 0)`: `request` then reverts `ActionNotSold` and every `upgrade`
   reverts. It can `setCallbackGas` below what `onResult` needs: every callback then fails and no oracle trait can ever
   be verified. It can `setWriter`, `setPayTo`, `setSigner`. The plane can retire v2 for a v3 as it retired v1.
-- The attester `0x5598…` is fixed at construction; if the plane rotates the key, every later attestation is a miss.
-  `claimSponsored` keeps spending the current Intake price of pool money per request on
-  answers that cannot verify. Their daily and lifetime limits still apply, but neither a miss nor a key rotation
-  refunds the price or restores an allowance. Operators must monitor the attester and stop directing users to
-  these requests after a rotation; there is no registry pause or setter.
+- The attester `0x5598…` is fixed at construction; if the plane rotates the key, every later attestation is a miss,
+  and every claimant keeps paying the Intake price for answers that cannot verify; neither a miss nor a key rotation
+  refunds the price. Operators must monitor the attester and stop directing users to these requests after a
+  rotation; there is no registry pause or setter.
 - The plane may change the attestation struct or the action version string. It did change the struct once before
   2026-10-10 (an earlier record shows a shape without the three panel fields); every completion measured since (five,
   on both Intakes, `reference/intake/completions.json`) carries the 15-field shape, and the registry accepts only that.
 - The plane may change the canonical question document behind `questionHash` (section 4, check 7); every later
   attestation then misses with reason 10. A live mainnet consumer (`SwarmFeed`, the one behind the Intake v2
   completions) recomputes the same document onchain, so the format is relied upon beyond this registry.
-- The Curator is settled and its state is final. IDMD's code is immutable, but ownership is live: the Armed trait
-  (601) changes when an IDMD moves, by design (`CATALOG.md` section 3).
+- The Curator is settled and its state is final. The Swarmed recipe (601) reads the IdentityMD collection, the
+  ERC-8004 adapter and the reputation registry's batcher by address; a change of the plane's batcher or adapter
+  changes what a panel can find from that block on, and a verified 601 stays verified.
 
 ## 2. Asking: `Intake.requestWithFailure`
 
@@ -252,7 +247,7 @@ runtime bytes).
    `a.answer.length == 32` (otherwise reason 9). The expected kind comes from the pending trait, not the untrusted
    `a.answerType`. Only then check `a.chainId == QUESTION_CHAIN_ID` (1), followed by the recovered signer == attester.
 3. `a.answerType` equals the template's type; `a.agreed >= a.quorum`, `a.quorum >= the template's quorum` (3 for
-   chain, 7 for panel), `a.panelSize >= the template's panel size`.
+   kinds 1, 2, 4; 7 for kinds 3, 5, 6), `a.panelSize >= the template's panel size` (5, or 11).
 
    **The plane can attest below its own quorum, and the consumer then pays for nothing.** Measured 2026-10-18 on two
    paid T3 requests of this registry (plane ids `cb72b826`, `4ee4290d`, panel 5 / quorum 3): four seats answered, two
@@ -261,12 +256,13 @@ runtime bytes).
    the answer, although in `4ee4290d` the two seats that agreed with each other had agreed on the wrong list. The
    registry's check `a.agreed >= a.quorum` rejected both (`Missed`, reason 5), 0.5 IMD each, gone. The third attempt
    (`03ccc51e`, `agreed 4`) was stored. Keep this check in every consumer; it is the only thing between a
-   below-quorum panel and a permanent, write-once fact. Expect a ranked shared fact to take one to three attempts at
-   5 / 3, each at the full price, until the kind-3 panel is raised (issue #18) and the question text names the
-   indexed argument explicitly (`TEMPLATES.md`, T3).
+   below-quorum panel and a permanent, write-once fact. The kind-3 panel is therefore 11 / 7 and the question text names the
+   indexed argument explicitly (`TEMPLATES.md`, T3); every attempt costs the full price.
 4. `a.fromBlock` and `a.toBlock` equal the pending request's window (the trait's canonical window or the spec's).
 5. `block.timestamp <= a.expiresAt` and `a.issuedAt <= block.timestamp + 1 hours` (the plane's clock may run ahead of
-   block time; a stricter lower bound would turn clock skew into an unrecoverable miss).
+   block time; a stricter lower bound would turn clock skew into an unrecoverable miss); and the dates are bounded to
+   the request: `a.issuedAt >= p.requestedAt`, `a.issuedAt <= p.requestedAt + 1 days`, `a.expiresAt <= a.issuedAt +
+   2,592,000` (`docs/REBUILD.md` 3.4; a miss is reason 7).
 6. After the question-hash check (7), the decoded answer passes the rule: `>= threshold`, `== true`, or (T3) the envelope is canonical (check 8).
 7. **`a.questionHash == pending.questionHash`.** The plane's `questionHash` is
    `keccak256(canonical JSON document)` where the document is the request body reduced to
@@ -318,18 +314,18 @@ questionHash)`; for a shared-fact request `claimant == address(0)` and `traitId`
 | `onResult`, any other reason 2 to 10 | Intake | clear | nothing | `Missed` |
 | `onResult` or `onFailure`, `requestId` unknown (abandoned, consumed, never ours) | Intake | nothing | nothing | `Missed(reason 1)` |
 | `onFailure` (status 1 or 2) | Intake | clear | nothing; the pair may be requested again | `NoVerdict` |
-| `abandon(requestId)` at `requestedAt + 31 days` or later, personal (paid or sponsored) | stored claimant only | clear | nothing | `Abandoned` |
-| `abandon(requestId)` at `requestedAt + 31 days` or later, shared (`claimant == 0`) | the payer only | clear | nothing | `Abandoned` |
+| `abandon(requestId)` at `requestedAt + 31 days` or later, personal | stored claimant only | clear | nothing | `Abandoned` |
+| `abandon(requestId)` at `requestedAt + 31 days` or later, shared (`claimant == 0`) | anyone | clear | nothing | `Abandoned` |
 | `abandon` of a personal request after the deadline by a stranger | anyone but its claimant | revert `NotClaimant()` | | |
 | `abandon` earlier | anyone | revert `TooEarly()` | | |
 | late callback for an abandoned request | Intake | as the unknown-id row: the successor request's reverse index is untouched, because the index is cleared only when it equals the stale id | | `Missed(reason 1)` |
 | not called back, not abandoned | | stays pending; at most one pending request per pair, so a new `upgrade` for the pair reverts | | |
 
-A miss never blocks a claimant-paid retry. The pool's once-per-pair rule is about pool money (`poolUsed`), set when
-the pool funds a request, whatever the outcome (`CONCEPT.md` section 4). Pool-funded requests are made by the claimant
-for the claimant, so a third party cannot create a miss in someone else's name or discard a late answer by
-abandoning it. Abandoning returns no price and restores neither the daily allowance nor `poolUsed` or the IDMD
-counter. A valid late callback still settles a request that its claimant has left pending.
+A miss never blocks a claimant-paid retry. Requests are made by the claimant for the claimant (a shared fact by
+whoever pays, for everyone), so a third party cannot create a miss in someone else's name. Abandoning returns no
+price; the bounded dates (check 5) make every attestation of a request dead before the day anyone may abandon it, so
+a late answer never settles an abandoned request, and a valid answer inside its dates still settles a request that
+has not been abandoned.
 
 Measured traps that shaped these rules: panel members mis-convert decimal block numbers (hence hex in every text);
 `rpc.flashbots.net` and `cloudflare-eth.com` answer `null` for mined transactions (hence "null is not evidence" in
@@ -340,8 +336,8 @@ and rejects unknown names.
 
 ## 5. Paying
 
-- Card mint: 0.1 IMD from the claimant to the registry (`transferFrom`; the claimant approves the registry first; IMD
-  has no `permit`).
+- Card mint: 0.1 IMD pulled from the claimant (`transferFrom`; the claimant approves the registry first; IMD has no
+  `permit`) and transferred in the same transaction to the BurnExecutor V2 (section 5b).
 - Oracle trait: `priceOf` per request read in the same transaction, pulled from the claimant, approved to the Intake,
   paid in `requestWithFailure`. `upgrade` and `requestSharedFact` take a `maxPrice` argument and revert when `priceOf`
   exceeds it, so a price change between the user's approval and inclusion never pulls more than the user agreed to.
@@ -349,118 +345,22 @@ and rejects unknown names.
   without transfer hooks (its verified ABI is vendored; the token's internals are an assumption the tests probe with a
   malicious mock); the order is fee, then state, then mint, and a reentrancy guard covers every function that moves
   IMD.
-- `registerSpec`: 1 IMD to the registry. `sponsor(amount)`: any amount.
-- **The pool is the registry's IMD balance.** There is no separate counter: `pool()` returns `IMD.balanceOf(this)`.
-  Fees, sponsorships and plain `IMD.transfer(registry, x)` donations are the same thing; the balance only ever leaves
-  through `requestWithFailure` on the pool-funded path (`claimSponsored`), and a claimant-paid
-  request pulls and forwards in one transaction, so the balance after equals the balance before. Pool money is an
-  irrevocable donation: nobody can withdraw it, and a remainder below `priceOf` stays until someone adds to it.
+- `registerSpec`: 6.4 IMD pulled from the registrant and transferred in the same transaction to the BurnExecutor V2.
+- **The registry holds no IMD.** A fee leaves in the transaction that pulls it; a claimant-paid request pulls and
+  forwards in one transaction; so the registry's balance is zero after every transaction it makes. There is no
+  function that moves IMD the registry holds and no function that takes ETH.
 
-## 5b. BurnExecutor V2 on sponsored claims
+## 5b. BurnExecutor V2 as the fee sink
 
-`claimSponsored` is the only payable registry entry point. All paid IMD paths remain
-non-payable. `IBurnExecutor` declares the three selectors the integration uses or exposes for quoting:
-
-```solidity
-function tokenBalance() external view returns (uint256);
-function previewBridge() external view
-    returns (uint256 amountToSend, uint256 minAmountToReceive, uint256 nativeFee);
-function bridgeToBaseBurnReceiver(uint256 requested, address refundTo) external payable;
-```
-
-The deployed bridge function also returns receipt structs; the registry intentionally ignores them. Its selector
-and argument encoding are unchanged by omitting return types from this narrow interface. `tokenBalance()` is a
-client-facing view of raw holdings. The registry bases the threshold on the **bridgeable amount from the whole
-balance preview**, which accounts for OFT limits and dust, not on raw `tokenBalance()`.
-
-All existing pool checks, allowance effects and the Intake request occur first. The registry then tries the
-preview with **`PREVIEW_GAS` = 600,000 gas**. The cap is sized from a measurement of the deployed executor on
-2026-10-16: it catches its inner `quoteOFT`/`quoteSend` running out of gas and returns `(0,0,0)` rather than
-reverting, so an `eth_call` at block 26,202,500 answers zeros below about 272,000 gas at the CALL and the real
-quote above it, and a cold fork trace at block 26,202,203 shows 264,408 gas. 600,000 is 2.2 times that need and
-below `BURN_GAS`; the previous 200,000 cap read zeros on mainnet and never burned. The registry does not copy
-revert data into events. If the preview returns at least
-`BURN_MIN = 69 ether` (69 IMD, 18 decimals) and `nativeFee <= BURN_FEE_CAP = 0.005 ether`, it requires
-`msg.value >= nativeFee` or reverts `BurnFeeRequired(nativeFee)`. On that revert, the earlier Intake request,
-IMD payment and both pool allowance counters roll back too.
-
-With sufficient ETH the registry tries `bridgeToBaseBurnReceiver(amountToSend, msg.sender)`, forwarding **all
-`msg.value`** with **`BURN_GAS = 800_000` as the CALL gas argument**. Nonzero value adds the EVM's 2,300-gas stipend;
-EIP-150 may reduce forwarding if the outer transaction has insufficient gas. The executor quotes again, pays
-LayerZero, and returns the surplus over *its* quote to `refundTo` (a 100,000-gas call first, a forced send if that
-fails). A claimant should attach exactly the `nativeFee` quoted by `previewBridge()` in the same block: if the
-executor's own quote at bridge time is higher than the registry's preview, the executor keeps the whole attachment
-up to its quote and refunds only what is left, and if it is higher than the attachment the bridge reverts and the
-registry skips with code 2 and returns the attachment. A successful registry call emits
-`BurnTriggered(claimant, amountToSend, nativeFee)`. Those fields are the registry's preview, not a promise that
-Base delivery has completed. Inspect the executor's `TokensBridgedForBurn` and the OFT receipt for actual send
-amounts and the LayerZero GUID.
-
-| outcome | event | native ETH handling | oracle request |
-|---|---|---|---|
-| executor unset | none | return all `msg.value` | pending |
-| preview reverts, including exhausted preview gas | `BurnSkipped(claimant, 1)` | return all `msg.value` | pending |
-| preview amount below 69 IMD (including zero) | none | return all `msg.value` | pending |
-| amount due, quote above 0.005 ETH | `BurnSkipped(claimant, 3)` | return all `msg.value` | pending |
-| amount due, quote within cap, attached ETH below quote | `BurnFeeRequired(nativeFee)` revert | entire transaction rolls back | not created |
-| bridge reverts, including exhausted call gas | `BurnSkipped(claimant, 2)` | return all `msg.value` | pending |
-| bridge succeeds | `BurnTriggered(claimant, amount, nativeFee)` | executor spends fee and force-refunds surplus; registry refunds nothing | pending |
-
-A **registry refund** is a plain `msg.sender.call{value: msg.value}("")`, performed only for a nonzero amount.
-Failure reverts `BurnRefundFailed()` and the whole transaction. A nonpayable contract therefore works with no
-value on a no-burn path and with an exact fee on a successful burn; executor surplus refunds are also
-unrejectable. It cannot reject a nonzero registry refund and still complete that claim. Both sponsored entry
-points retain `nonReentrant`, covering the bridge and refund interactions. The executor's refund helper may try
-a call before forcing the transfer, and the OFT/LayerZero dependencies may also call the claimant: no
-no-callback guarantee is made.
-
-The registry's native balance after an accepted free claim equals its balance before. It forwards or returns
-only this call's `msg.value`, never its full balance, and does not require an initially empty balance. ETH
-force-sent during execution is outside this accounting invariant. There is no `receive` or `fallback` and no ETH
-withdrawal mechanism; an unsolicited pre-existing balance is not swept.
-
-### Dependencies, deployment and operation
-
-The registry remains ownerless and non-upgradeable. Its eighth constructor argument is stored as
-`IBurnExecutor public burnExecutor`, without an immutable or setter. `Deploy.BURN_EXECUTOR` is the mainnet V2
-address above. `run()` calls `deployForChain()`, selecting the nonzero Sepolia V1 on chain 11155111 and the
-mainnet constants on every other chain (section 1). The six-argument `deploy` still accepts an explicit zero to
-disable the rule, though the launch manifest does not. The constructor never calls the executor. Outside the
-all-four-empty dependency floor it reverts `ExecutorHasNoCode()` for a nonzero executor address without code: the three preview return words are decoded outside the registry's
-`try`/`catch`, so an executor that returns no data would revert `claimSponsored` for every
-wallet for ever, and an ownerless registry cannot repair that. Residual: a coded executor that returns fewer than
-three words still reverts a claim; no low-level call is added for it. The offline deploy-script test installs a
-mock at both executor constants with `deployCodeTo` before checking the script's chain selections.
-
-**The external dependencies are owner-configurable.** The executor's owner can call `setBridgeConfig` to change
-the token, OFT, destination endpoint id, Base receiver and options; `setBaseBurnReceiver`, `setExtraOptions` and
-`setMinBridgeAmount` change individual settings. It can rescue tokens and ETH. The OFT owner/configuration
-authorities control peers and LayerZero configuration; the configured destination receiver is not fixed by
-this registry. A registry deployment does not confer ownership of any of these contracts. The operator must
-verify these settings and their owners before launch, then monitor configuration events, quotes, zero previews,
-skip rates, executor token balances, receipts and eventual Base burns. Do not infer current destination or
-ownership from a constant in the executor's source. There is no new token or executor deployment in this step.
-
-**At the pinned block the rule burns; it stays best effort.** At block **26,202,203**, hash
-`0x21d8ce848d55043d0539b2c88ca2c5dd6c0e9072137ae295a5906bc0cabae2bd`, the executor holds
-`454939975535748811691` IMD units and the preview quotes `454939975000000000000` units for `219261761563315`
-wei. With `PREVIEW_GAS` the registry's preview returns that quote, and the fork tests
-(`test/fork/BurnRule.fork.t.sol`, opt-in, `--fork-block-number 26202203`) make a cold sponsored claim (no quote
-read before it, so nothing is warm) burn through the real executor, OFT and endpoint: `BurnTriggered(claimant,
-454939975000000000000, 219261761563315)`, `tokenBalance()` afterwards equal to the pinned balance minus the
-amount (the shared-decimal dust), the registry's ETH balance unchanged, the executor keeping nothing, the surplus
-back to the claimant from the executor; the same claim with the exact fee from a nonpayable contract succeeds;
-the same claim without the fee reverts `BurnFeeRequired(219261761563315)` with no oracle request. Separate fork
-assertions execute the real bridge and OFT directly with the 800,000 CALL gas argument, exact fees and surplus
-force-refunds to a nonpayable recipient. They do not mock or replace the executor, OFT or LayerZero code, and do
-not execute the asynchronous Base delivery. This is the behaviour at one block, not a promise of future liveness:
-a future quote needing more than `PREVIEW_GAS` is a skip with code 1 and one above `BURN_FEE_CAP` a skip with
-code 3; a failing bridge is a skip with code 2; none blocks the claim, and the caller still must satisfy the fee
-and refund requirements above. The Base burn is asynchronous and depends on LayerZero delivery and the configured
-receiver.
-
-Verified executor source, ABI and provenance are in `reference/burn/` as reference data, not build dependencies.
-The source was retrieved from [Sourcify](https://sourcify.dev/server/v2/contract/1/0xe29386719C155B6847aD5a4E97C6674f10ffc750?fields=all)
+The registry's only relation to the IMD BurnExecutor V2 (`0xe29386719C155B6847aD5a4E97C6674f10ffc750`) is a
+`safeTransfer` of each fee to it, in the transaction that pulls the fee. The executor's pending amount is its IMD
+balance: anyone may call its `bridgeToBaseBurnReceiver(amount, refundTo)` with the LayerZero fee that `previewBridge()`
+quotes, and the IMD is burned on Base after delivery; the registry never calls the executor, holds no interface to it
+and makes no promise about when a burn happens. The executor's owner can change its token, OFT, destination and
+options and can rescue funds; the OFT and LayerZero have their own configuration authorities. A registry deployment
+confers no ownership of any of these, and `DISCLOSURE.md` names them as dependencies the registry cannot repair.
+Verified executor source, ABI and provenance are in `reference/burn/` as reference data, not build dependencies; the
+source was retrieved from [Sourcify](https://sourcify.dev/server/v2/contract/1/0xe29386719C155B6847aD5a4E97C6674f10ffc750?fields=all)
 and its reported onchain runtime matched `eth_getCode`; this is not an independent security audit.
 
 ## 6. The Curator's views the registry reads (all `view`, all frozen since the Curator settled)
@@ -471,7 +371,7 @@ and its reported onchain runtime matched `eth_getCode`; this is not an independe
 | `txCountOf(address)` | `uint256` deposits | 301 to 303 |
 | `contributedBy(address)` | `uint256` wei, the largest single send (`highWater`) | 401 to 404 |
 | `pointsOf(address)` | `uint256` points (1000 x sqrt(weight in ETH)) | 501 to 503 |
-| `isSettled()` | `bool`, true since hour 66 | sanity check in the constructor outside the all-four-empty floor, nothing else |
+| `isSettled()` | `bool`, true since hour 66 | sanity check in the constructor outside the floor, nothing else |
 
-Never read `contributors(address)` for the hour: its fourth word is `firstHour + 1`. IDMD: `balanceOf(address)` for
-the Armed trait (601, live; guard `address(0)`, whose `balanceOf` reverts in OpenZeppelin).
+Never read `contributors(address)` for the hour: its fourth word is `firstHour + 1`. Guard `address(0)` in every
+read: `hasTrait(address(0), id)` is false (OpenZeppelin's `balanceOf(0)` reverts).
