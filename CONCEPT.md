@@ -54,8 +54,8 @@ Mirrors the THE LIST record NFT (`reference/list-record/`):
 the same transaction to the BurnExecutor V2, which holds it for bridging and burning on Base (the claimant has
 approved the registry; IMD has no `permit`). The card appears with every direct-read trait the wallet qualifies for, frozen at that block.
 
-**Upgrade with oracle traits.** `upgrade(uint16[] traitIds, uint256 maxPrice)`: one transaction, k Intake requests,
-k x `priceOf` (reverts when `priceOf > maxPrice`). For each trait the registry composes the body from the trait's
+**Upgrade with oracle traits.** `upgrade(uint16[] traitIds, uint256 maxPrice)` with exactly one id: one transaction,
+one Intake request, one `priceOf` (reverts when `priceOf > maxPrice`). For the trait the registry composes the body from the trait's
 template (`TEMPLATES.md`) with `msg.sender` as the claimant and itself as the `consumer` on the deployment
 chain (`consumer.chainId = block.chainid`); the question's `chainId` remains 1, Ethereum mainnet. It computes the plane's
 `questionHash` of that body (`INTEGRATION.md` section 4, check 7), stores
@@ -176,9 +176,10 @@ section 4). `hasTrait(wallet, unknownId)` returns false, never reverts; `hasTrai
    a trait and never reverts the callback for an envelope that decodes (no unchecked `abi.decode`); each records a
    `Missed` event with its reason code. An attestation signed for another consumer or another chain is never
    accepted, whatever else it says.
-5. `onResult` and `onFailure` from any sender but the Intake are rejected; `onResult` fits in the Intake's callback
-   gas stipend (measured in a gas test at 200,000 with margin, worst case: cold storage, a community id appended, a
-   card to refresh).
+5. `onResult` and `onFailure` from any sender but the Intake are rejected; both fit in the Intake's callback gas
+   stipend of 200,000 under today's schedule and under Glamsterdam's, with 25,000 to spare (a delivery writes no slot
+   that holds zero before it; worst case: cold storage, a community id appended, a card to refresh); a true verdict
+   that still arrives undelivered is stored by anyone through `settle`, with the same checks.
 6. Tiers are monotone: `hasTrait(c, 303)` implies `hasTrait(c, 302)` and `hasTrait(c, 301)`; `hasTrait(c, 202)`
    implies `hasTrait(c, 201)`; likewise 4xx and 5xx. The PID family (11xx, working name Ordinal) is not a tier family.
 7. A registered spec never changes; the body sent to the Intake is a deterministic function of the spec and the

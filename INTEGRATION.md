@@ -75,7 +75,10 @@ and the Intake must quote a nonzero `priceOf(ACTION, imd)`; an unavailable call 
 by the constructor. The deployer must verify the addresses, helper code and operational dependencies before launch: a
 floor probe is not that verification. The registry has no setter for any dependency.
 The writer is not a constructor argument: the registry trusts the Intake as `msg.sender` of the callback and the
-attester as the signer, never the writer. **Store the seven addresses in ordinary storage, not `immutable`:** immutables
+attester as the signer. On status 0 Intake v2 does not check that the first word of `args` is the request being
+completed (it checks that only for failures), so the registry trusts the plane's writer for that id: a writer that
+pairs one request's completion with another request's attestation can strand the first request until `abandon`,
+which it can do anyway by never completing it. **Store the seven addresses in ordinary storage, not `immutable`:** immutables
 are patched into the runtime code at deployment, and the launch check compares the deployed runtime code with a clean
 rebuild byte for byte. The same holds for the renderer (`bytes constant`, never an SSTORE2 pointer in an immutable)
 and for the EIP-712 domain (section 4: computed at verification time, never OpenZeppelin's `EIP712` base, which holds
@@ -86,8 +89,9 @@ seven immutables).
 The registry is ownerless, so none of these has a remedy inside it; each needs a successor contract.
 
 - The Intake's owner can `setPrice(action, IMD, 0)`: `request` then reverts `ActionNotSold` and every `upgrade`
-  reverts. It can `setCallbackGas` below what `onResult` needs: every callback then fails and no oracle trait can ever
-  be verified. It can `setWriter`, `setPayTo`, `setSigner`. The plane can retire v2 for a v3 as it retired v1.
+  reverts. It can `setCallbackGas` below what `onResult` needs: every true verdict then arrives as `delivered ==
+  false`, stays pending, and anyone stores it with `settle` (`docs/REBUILD.md` 3.4) before the attestation expires.
+  It can `setWriter`, `setPayTo`, `setSigner`. The plane can retire v2 for a v3 as it retired v1.
 - The attester `0x5598…` is fixed at construction; if the plane rotates the key, every later attestation is a miss,
   and every claimant keeps paying the Intake price for answers that cannot verify; neither a miss nor a key rotation
   refunds the price. Operators must monitor the attester and stop directing users to these requests after a
@@ -169,8 +173,11 @@ transaction. A callback that reverts or runs out of gas is simply `delivered == 
   `signature` (its scheme is undocumented; the Intake and the writer authenticate the call). A claimant may request
   the same trait again afterwards.
 
-- `onResult` must finish well inside 200,000 gas: one `ecrecover` (3,000), the digest, a few `sload`s, three or four
-  `sstore`s, two events. The only loop is the `head`-bounded envelope check of T3 (at most 64 words).
+- `onResult` must finish well inside 200,000 gas under today's schedule and under Glamsterdam's (`docs/REBUILD.md`
+  3.11): one `ecrecover` (3,000), the digest, a few `sload`s, writes only to slots that already hold a nonzero value
+  (one slot written from zero costs about 110,950 gas under Glamsterdam), two events. The only loop is the
+  `head`-bounded envelope check of T3 (at most 32 words). A true verdict that still arrives as `delivered == false`
+  is stored by anyone through `settle(requestId, a, signature)` with the `args` of that `complete` transaction.
 - `onResult` and `onFailure` never revert on an ABI-valid envelope with bad content; they record a miss
   (`Missed(requestId, traitId, reason)`) and return. Calldata that does not decode as the declared tuple fails in
   Solidity's decoder before the function body runs; the Intake records that as `delivered == false`. The promise is
@@ -286,7 +293,8 @@ runtime bytes).
    for all ten fixtures (`reference/plane/questionHashes.json`).
 8. **Decode defensively, never revert.** `a.answer` for `bool` and `uint256` must be exactly 32 bytes (and for `bool`
    the word 0 or 1); otherwise reason 9. For `address[]` (T3) the callback does not decode the list; it checks the
-   canonical envelope: `answer.length == 64 + 32 * n`, word 0 == `0x20`, word 1 == `n`, `1 <= n <= 64`, and the upper
+   canonical envelope: `answer.length == 64 + 32 * n`, word 0 == `0x20`, word 1 == `n`, `n` equal to the fact's
+   `head` exactly, and the upper
    12 bytes of every element word are zero. A malformed envelope is reason 9 and **does not store the shared fact**,
    so the fact can be requested again. On success it stores `(requestId, keccak256(a.answer), n)`, nothing else.
    A plain `abi.decode` on hostile bytes reverts, and a revert in `onResult` is a permanent `delivered == false`.
@@ -320,6 +328,10 @@ at the current head); for a shared-fact request `claimant == address(0)` and `tr
 | `onResult`, any other reason 2 to 10 | Intake | clear | nothing | `Missed` |
 | `onResult` or `onFailure`, `requestId` unknown (abandoned, consumed, never ours) | Intake | nothing | nothing | `Missed(reason 1)` |
 | `onFailure` (status 1 or 2) | Intake | clear | nothing; the pair may be requested again | `NoVerdict` |
+| `onResult` that ran out of gas or reverted (`delivered == false` at the Intake) | Intake | nothing: the revert undoes the call, the pair stays pending | nothing | none |
+| `settle(requestId, a, signature)`, all nine checks pass | anyone | clear | as the two "all checks pass" rows | as those rows |
+| `settle` with any reason 2 to 10 | anyone | revert `NotSettleable(requestId, reason)`; the pair stays pending | | |
+| `settle` of an id that is not pending | anyone | revert `NotPending(requestId)` | | |
 | `abandon(requestId)` when `block.timestamp > requestedAt + 31 days` (strictly later), personal | stored claimant only | clear | nothing | `Abandoned` |
 | `abandon(requestId)` when `block.timestamp > requestedAt + 31 days` (strictly later), shared (`claimant == 0`) | anyone | clear | nothing | `Abandoned` |
 | `abandon` of a personal request after the deadline by a stranger | anyone but its claimant | revert `NotClaimant()` | | |

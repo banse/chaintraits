@@ -128,7 +128,7 @@ through `onFailure` and is recorded as `NoVerdict`.
 |---|---|---|
 | T1 log-count | `uint256` (code 3) | `value >= threshold` (1 for every catalog trait) |
 | T2 log-sum | `uint256` (code 3) | `value >= threshold` |
-| T3 log-rank (shared fact) | `address[]` (code 4) | the callback checks the canonical `abi.encode(address[])` envelope (offset `0x20`, length `n` with `1 <= n <= 64`, clean address words) and stores only `(requestId, keccak256(a.answer), n)` under the fact id (the list does not fit the 200,000-gas stipend); a bad envelope is a miss and stores nothing. `applySharedFact(factId, address[] list)` recomputes `keccak256(abi.encode(list))`, compares, and marks `msg.sender` if `list[0..min(head, n))` contains it |
+| T3 log-rank (shared fact) | `address[]` (code 4) | the callback checks the canonical `abi.encode(address[])` envelope (offset `0x20`, length `n` equal to the fact's `head` exactly, clean address words) and stores only `(requestId, keccak256(a.answer), n)` under the fact id (the list does not fit the 200,000-gas stipend); a bad envelope is a miss and stores nothing. `applySharedFact(factId, address[] list)` recomputes `keccak256(abi.encode(list))`, compares, and marks `msg.sender` if `list[0..min(head, n))` contains it |
 | T4 call-compare | `bool` (code 0) | `value == true` |
 | T5 panel nonce | `bool` (code 0) | `value == true` |
 | T6 operator fact (601 only) | `bool` (code 0) | `value == true`; the attested window must equal the one the request was asked with |
@@ -155,7 +155,7 @@ trait in section 3 names its template there (T1, T3, T5).
 |---|---|---|
 | `kind` | uint8: 1 T1, 2 T2, 3 T3, 4 T4, 5 T5 | one of the five; kind 6 is the catalog's operator fact (601) and cannot be registered |
 | `target` | address | nonzero for T1 to T4; must be zero for T5 (`validateSpec` reverts `BadSpec("target")` otherwise, as the struct comment says) |
-| `item` | string | a signature, never prose (the panel is a set of LLM agents, so text inside the signature is an injection path). T1 to T3: exactly `event Name(param, param, …)`: `Name` an identifier `[A-Za-z_][A-Za-z0-9_]*` of at most 32 bytes; each `param` is `type name` or `type indexed name`, single spaces, `type` from the closed list `address`, `bool`, `string`, `bytes`, `bytes1` to `bytes32`, `uint8` to `uint256` and `int8` to `int256` in steps of 8, each optionally followed by `[]`, `name` an identifier of at most 32 bytes; nothing before `event `, nothing after `)`. **`anonymous` is refused for every event kind** (an anonymous event has no signature topic, so neither the T1/T2 topic filter nor the T3 grouping topic would be right). T4: exactly `function name(address) view returns (uint256)` with `name` an identifier of at most 32 bytes. At most 256 bytes; every miss reverts `BadSpec("item")` |
+| `item` | string | a signature, never prose (the panel is a set of LLM agents, so text inside the signature is an injection path). T1 to T3: exactly `event Name(param, param, …)`: `Name` an identifier `[A-Za-z_][A-Za-z0-9_]*` of at most 32 bytes; each `param` is `type name` or `type indexed name`, single spaces, `type` from the closed list `address`, `bool`, `string`, `bytes`, `bytes1` to `bytes32`, `uint8` to `uint256` and `int8` to `int256` in steps of 8, each optionally followed by `[]`, `name` an identifier of at most 32 bytes; nothing before `event `, nothing after `)`. **`anonymous` is refused for every event kind** (an anonymous event has no signature topic, so neither the T1/T2 topic filter nor the T3 grouping topic would be right). **At most three `indexed` parameters** (a log carries topic 0 and three indexed arguments; a fourth could never be answered). T4: exactly `function name(address) view returns (uint256)` with `name` an identifier of at most 32 bytes. At most 256 bytes; every miss reverts `BadSpec("item")` |
 | `arg` | string | T1, T2: an `indexed` parameter of `item` of type `address` (the claimant filter, a topic); T3: the groupBy key, an `indexed` parameter of `item` of type `address`; otherwise `BadSpec("arg")`; an identifier of at most 32 bytes; empty for T4 and T5 |
 | `fixedArg`, `fixedVal` | string, uint256 | optional second filter (T1, T2): when set, an `indexed` parameter of `item` of any type (its value is a topic), otherwise `BadSpec("fixedArg")`; empty string = none and requires `fixedVal == 0` (`BadSpec` otherwise) |
 | `sumArg` | string | T2 and T3 only: a parameter of `item`, indexed or data, otherwise `BadSpec("sumArg")` |
@@ -204,7 +204,7 @@ unaffected.
 
 ## 6. Fees and sharing
 
-`mintCard()` 0.1 IMD, once per wallet; `upgrade(traitIds[], maxPrice)` k x `priceOf` to the Intake (reverts if
+`mintCard()` 0.1 IMD, once per wallet; `upgrade(traitIds[], maxPrice)` with exactly one id, one `priceOf` to the Intake (reverts if
 `priceOf > maxPrice` or `priceOf == 0`); `requestSharedFact(factId, maxPrice)` one `priceOf` by anyone, at most one
 pending per fact id, refused once stored; `applySharedFact(factId, list)` gas only; `registerSpec(spec, expectedId)`
 6.4 IMD; `abandon(requestId)` strictly later than 31 days after the request (a personal pair by its claimant, a shared

@@ -93,7 +93,7 @@ function hasDirectTrait(address wallet, uint16 traitId) view returns (bool);  //
 function traitsOf(address wallet) view returns (uint16[] memory ids);         // every true catalog id, all tiers, no specs
 function verifiedSpecsOf(address wallet) view returns (uint16[] memory);      // every verified community id, in order
 function traitName(uint16 traitId) view returns (string memory);
-function upgrade(uint16[] calldata traitIds, uint256 maxPrice);               // k oracle requests, k x priceOf
+function upgrade(uint16[] calldata traitIds, uint256 maxPrice);               // exactly one id: one request, one priceOf (3.3)
 function abandon(bytes32 requestId);
 function verified(address claimant, uint16 traitId) view
     returns (bytes32 requestId, bytes32 oracleRequestId, uint64 fromBlock, uint64 toBlock);
@@ -107,6 +107,9 @@ function attestationDigest(OracleAttestation calldata a) view returns (bytes32);
 function onResult(bytes32 requestId, OracleAttestation calldata a, bytes calldata signature);
 function onFailure(bytes32 requestId, uint8 status, bytes32 reason, uint16 agreed, uint16 answered,
     bytes calldata signature);
+
+// a signed true verdict the Intake could not deliver (anyone; 3.4)
+function settle(bytes32 requestId, OracleAttestation calldata a, bytes calldata signature);
 
 // community specs
 function registerSpec(Spec calldata spec, uint256 expectedId) returns (uint16 traitId);  // 6.4 IMD, forwarded to the executor
@@ -131,8 +134,9 @@ ERC-4906 `MetadataUpdate(uint256)` on every transfer and every verified upgrade 
 Errors: `AlreadyMinted(address)`, `AlreadyPending(address, uint16)`, `AlreadyVerified(address, uint16)`,
 `DependencyHasNoCode()`, `FactAlreadyStored(uint16)`, `FactNotStored(uint16)`, `ListMismatch()`, `NoCard(uint256)`,
 `NoTraits()`, `NotASharedFact(uint16)`, `NotAnOracleTrait(uint16)`, `NotClaimant()`, `NotInList()`, `NotIntake()`,
-`NotPending(bytes32)`, `PriceAboveMax(uint256 price, uint256 maxPrice)`, `RequestIdTaken(bytes32)`, `TooEarly()`,
-`UnexpectedSpecId(uint256 expected, uint256 next)`, `ZeroAddress()`, `ZeroPrice()`, plus OpenZeppelin's ERC-721,
+`NotPending(bytes32)`, `NotSettleable(bytes32 requestId, uint8 reason)`, `PriceAboveMax(uint256 price, uint256
+maxPrice)`, `RequestIdTaken(bytes32)`, `TooEarly()`, `TooManyTraits(uint256 count)`, `UnexpectedSpecId(uint256
+expected, uint256 next)`, `ZeroAddress()`, `ZeroPrice()`, plus OpenZeppelin's ERC-721,
 `SafeERC20` and reentrancy errors and the Composer's `BadSpec(string field)` surfacing through `registerSpec`.
 
 ### 2.2 Composer (views only; never called inside `onResult`)
@@ -199,14 +203,17 @@ Errors: `NoCard(uint256)`, `UnknownTrait(uint16)`. The registry's `tokenURI(toke
 ### 3.3 Oracle traits: asking
 
 - Oracle ids are the catalog's 601, 701, 801, 901, 1001, 1101 to 1105, 1301 and every registered community id of
-  kinds 1, 2, 4 and 5. `upgrade(traitIds, maxPrice)`: for each id, in order: not a shared-fact id (`NotASharedFact`
-  for 1201 and every kind-3 spec), an oracle id (`NotAnOracleTrait` for a direct id or an unknown id), not verified
-  (`AlreadyVerified`), not pending (`AlreadyPending`), no duplicate inside the call; an empty array reverts
-  `NoTraits`. The price is `intake.priceOf(ACTION, imd)` read in the same transaction: zero reverts `ZeroPrice`,
-  above `maxPrice` reverts `PriceAboveMax`. The registry pulls `k x price` from `msg.sender`, approves the Intake per
-  request (`forceApprove` per iteration: Intake v2 pulls inside `request`, so each approval is consumed before the
-  next is set) and calls `requestWithFailure(ACTION, body, (this, onResult.selector), onFailure.selector, imd,
-  price)` once per id. A wallet without a card may upgrade (the traits attach to the claimant; the card renders them
+  kinds 1, 2, 4 and 5. `upgrade(traitIds, maxPrice)`: the id is not a shared-fact id (`NotASharedFact` for 1201 and
+  every kind-3 spec), an oracle id (`NotAnOracleTrait` for a direct id or an unknown id), not verified
+  (`AlreadyVerified`), not pending (`AlreadyPending`). **One id per call:** the array keeps the live signature (D5),
+  an empty array reverts `NoTraits` and more than one id reverts `TooManyTraits(count)` (the owner, 2026-10-21: a
+  batch saves no IMD, since every id is its own oracle request at the full price, saves about 5 % gas, and under
+  Glamsterdam the eleven catalog ids in one call exceed the transaction cap, 3.11; the site queues one transaction
+  per fact). The price is `intake.priceOf(ACTION, imd)` read in the same transaction: zero reverts `ZeroPrice`,
+  above `maxPrice` reverts `PriceAboveMax`. The registry pulls `price` from `msg.sender`, approves exactly `price` to
+  the Intake (`forceApprove`; Intake v2 pulls inside `request`, so the approval is consumed in the call) and calls
+  `requestWithFailure(ACTION, body, (this, onResult.selector), onFailure.selector, imd, price)`. A wallet without a
+  card may upgrade (the traits attach to the claimant; the card renders them
   when minted).
 - The body is `Composer.compose(traitId, specOf(traitId), msg.sender, address(this), curator)`: byte-exact to
   `TEMPLATES.md` and the fixtures for the catalog ids, with `consumer = {block.chainid, address(this)}`; the
@@ -261,10 +268,20 @@ Errors: `NoCard(uint256)`, `UnknownTrait(uint16)`. The registry's `tokenURI(toke
   clears the pending pair, emits `NoVerdict(requestId, traitId, status, reason, agreed, answered)`, verifies no
   signature (the plane documents none; `NoVerdict` is Intake-attributed), marks nothing. The pair may be requested
   again.
-- `onResult` fits the Intake's mainnet callback stipend of 200,000 gas in the worst case (cold storage, a community
-  id appended, a card to refresh), measured by a test that delivers through a mock Intake's real
-  `call{gas: 200000}`; neither callback ever reverts on an envelope that decodes (a revert is a permanent
-  `delivered == false` at the Intake).
+- Both callbacks fit the Intake's mainnet callback stipend of 200,000 gas under today's schedule and under
+  Glamsterdam's, with at least 25,000 gas to spare, on every path (3.11 rule 1: a delivery writes no slot that holds
+  zero before it), measured by tests that deliver through a mock Intake's real `call{gas: 200000}`; neither callback
+  ever reverts on an envelope that decodes (a revert is a permanent `delivered == false` at the Intake).
+- `settle(requestId, a, signature)` by anyone, for a true verdict the Intake could not deliver (its `Completed`
+  event says `delivered == false`; the attestation and the signature are the `args` of that `complete` transaction
+  and are served by the plane): the request is pending (`NotPending(requestId)` otherwise); the nine checks below run
+  in the same order and any reason reverts `NotSettleable(requestId, reason)`, so a miss is never applied here
+  (misses and failures come from the Intake only); then the same clear, the same writes and the same events as a
+  successful `onResult`. An attestation that passes the nine checks for the pending record is accepted whoever
+  submits it and whichever oracle request produced it: the `questionHash` binds the claimant and the window and
+  `issuedAt >= requestedAt` keeps earlier answers out, so this gives no power beyond a paid retry; an attestation is
+  applied once (a replay is reason 1 or `NotPending`). `settle` has no stipend and its caller pays the gas; it is the
+  registry's answer to a lowered `callbackGas` and to any later repricing (3.11).
 
 ### 3.5 Shared facts (kind 3: 1201 and every kind-3 community spec)
 
@@ -297,11 +314,13 @@ Errors: `NoCard(uint256)`, `UnknownTrait(uint16)`. The registry's `tokenURI(toke
   `type` from the closed list `address`, `bool`, `string`, `bytes`, `bytes1` to `bytes32`, `uint8` to `uint256` and
   `int8` to `int256` in steps of 8, each optionally followed by `[]`, and `name` an identifier of at most 32 bytes;
   nothing before `event `, nothing after `)`. `anonymous` is refused for every event kind (an anonymous event has no
-  topic 0, so neither the T1/T2 topic filter nor the T3 grouping topic would be right). A function item (kind 4) is
-  exactly `function name(address) view returns (uint256)` with `name` an identifier of at most 32 bytes. Misses revert
-  `BadSpec("item")`. If the parser does not fit the size budget as written, the builder keeps the two guarantees that
-  matter (no text outside the grammar's tokens; every identifier at most 32 bytes) in the smallest form that fits and
-  records it in `test/NOTES.md`.
+  topic 0, so neither the T1/T2 topic filter nor the T3 grouping topic would be right). An event declares at most
+  three `indexed` parameters (`BadSpec("item")`): a log carries topic 0 and at most three indexed arguments, so a spec
+  on a fourth would register, take its fee and never be answered (the audit of the first delivery, 2026-10-21). A
+  function item (kind 4) is exactly `function name(address) view returns (uint256)` with `name` an identifier of at
+  most 32 bytes. Misses revert `BadSpec("item")`. If the parser does not fit the size budget as written, the builder
+  keeps the two guarantees that matter (no text outside the grammar's tokens; every identifier at most 32 bytes) in
+  the smallest form that fits and records it in `test/NOTES.md`.
 - **A spec names only real fields.** Kinds 1 and 2: `arg` is an `indexed` parameter of `item` of type `address` (the
   claimant filter, a topic); `fixedArg`, when set, an `indexed` parameter of `item` of any type (its value is a topic);
   `sumArg` (kinds 2 and 3) a parameter of `item`, indexed or data. Kind 3: the grouping key `arg` is an `indexed`
@@ -377,10 +396,54 @@ Errors: `NoCard(uint256)`, `UnknownTrait(uint16)`. The registry's `tokenURI(toke
 
 ### 3.10 What can kill it (accepted; the audit record)
 
-`INTEGRATION.md` section 1, "What can kill the registry", stands: the Intake's owner can zero the price or lower the
-callback gas, the attester can rotate, the plane can change the attestation struct or the canonical document, the
-batcher or adapter behind the operator recipe can change; the registry has no remedy and a successor contract is the
-answer. `DISCLOSURE.md` says so for every deployment.
+`INTEGRATION.md` section 1, "What can kill the registry", stands: the Intake's owner can zero the price (a lowered
+callback gas no longer kills it: `settle` stores the verdict, 3.4), the attester can rotate, the plane can change the
+attestation struct or the canonical document, the batcher or adapter behind the operator recipe can change; the
+registry has no remedy and a successor contract is the answer. `DISCLOSURE.md` says so for every deployment.
+
+### 3.11 Glamsterdam: every call works under the next mainnet gas schedule
+
+Glamsterdam, Ethereum's next hard fork, reprices the creation of state. Sepolia runs it since 2026-10-06 13:53:36 UTC
+(activation timestamp 1791294816); mainnet has no date yet. **Every function call into the three contracts works
+under both schedules, today's mainnet schedule and Glamsterdam's as Sepolia runs it.** The deployment is exempt: it
+happens before the fork, through the launch pipeline (section 8). Measured on Sepolia on 2026-10-21 with `eth_call` and
+`eth_estimateGas`: a storage slot written from zero costs about 110,950 gas (22,100 today), a write to a slot that
+already holds a nonzero value about 12,100 (5,000 today); cold reads, compute, memory, calldata and logs cost what
+they cost today. On the first delivery of this specification (commit `fd7d7bde`, swarm job 6571be23), measured with
+state overrides and a stand-in Intake that calls with a fixed stipend as Intake v2 does, every true verdict became
+undeliverable:
+
+| call | today's mainnet schedule | Glamsterdam (Sepolia) |
+|---|---:|---:|
+| `onResult` inside the 200,000 stipend: 701 / first community id of a card holder / 1201 with 32 addresses | 134,910 / 186,547 / 158,606 | 516,008 / 743,685 / 627,624: every one fails |
+| `onFailure` inside the 200,000 stipend | | 58,460 |
+| `mintCard` | 249,100 | 869,834 |
+| `upgrade([701])` / `upgrade([601])` | 1,135,469 / 3,326,064 | 1,857,625 / 4,050,215 |
+| `upgrade` of seven catalog ids / of all eleven | 10,091,996 / not measured | 15,037,860 / 21,983,059, over the 16,777,216 transaction cap |
+| `registerSpec` (a kind-1 spec) | 606,353 | 1,848,008 |
+| `transferFrom` to a wallet without a card / `applySharedFact` (32 addresses) / `abandon` | 60,615 / 93,442 / 44,333 | 157,752 / 266,640 / 67,379 |
+| `tokenURI`, `hasTrait`, `traitsOf`, `composeBody` | | unchanged within 1 % |
+
+The live deployment of 2026-10-21 (#2362) fails the same way: 297,579 / 525,519 / 533,640 for the three deliveries.
+
+1. **The Intake's callbacks.** `onResult` and `onFailure` finish inside 200,000 gas under both schedules on every
+   path, with at least 25,000 gas to spare, the worst cases included (cold storage; the first community id of a
+   wallet that holds a card; a shared fact with a head of 32; an ABI-valid 262,144-byte field). One slot written from
+   zero costs more than half the stipend under Glamsterdam, so **a delivery writes no slot that holds zero before
+   it**: every slot it writes already holds a nonzero value, created by the request the claimant pays for or kept
+   from an earlier request, and a slot so prepared never reads as a verified trait, a listed community id or a stored
+   fact in any view. The layout is the builder's choice; `test/NOTES.md` records it.
+2. **One id per `upgrade`** (3.3), so no call grows with its input beyond the bounds the grammar already sets: every
+   call at its largest input uses at most 15,000,000 gas under the Glamsterdam schedule (the transaction cap has been
+   16,777,216 since Fusaka; 601 is the costliest single request).
+3. 3. **`settle`** (3.4) applies a signed true verdict the Intake could not deliver, so neither a lowered
+   `callbackGas` nor a later repricing leaves a paid verdict unstorable.
+4. **How it is checked.** Foundry's EVM (`evm_version = "cancun"`) does not charge the Glamsterdam price, so the tests
+   check structure: each callback path runs under a state-diff recording and asserts that no slot goes from zero to
+   nonzero, and its Glamsterdam gas is computed as the measured gas plus 89,000 per slot written from zero (none, by
+   rule 1) plus 7,200 per other storage write, which must leave the 25,000 spare; the costliest call of each kind is
+   computed the same way against 15,000,000. The entrant reproduces the numbers on the delivered runtime with
+   `eth_call` against a Sepolia RPC, as the table above was measured (11.2).
 
 ## 4. Composer: templates, the canonical document, the operator recipe
 
@@ -657,7 +720,8 @@ expected reverts). In addition, by name:
    and mirrors the one-completion rule; `onResult`, `onFailure`, malformed envelopes (an ABI-valid 262,144-byte
    signature or answer still ends as a miss under the stipend), the transition table of `INTEGRATION.md` section 4b,
    the diagnostic precedence, a replay (reason 1), the worst-case gas; after a `Missed` delivery `pendingOf` is zero
-   and a new request for the same trait succeeds.
+   and a new request for the same trait succeeds. `upgrade` with two ids reverts `TooManyTraits(2)` and with none
+   `NoTraits`, nothing pulled.
 9. Kind 3: a decoded list shorter or longer than `head` misses with 9 and stores nothing; `applySharedFact` with a
    list that hashes right and a sender outside the head reverts `NotInList`; `registerSpec` refuses an anonymous
    kind-3 event and a non-address grouping key with `BadSpec("item")` / `BadSpec("arg")`; `event Receipt(address
@@ -669,7 +733,9 @@ expected reverts). In addition, by name:
     `Deposited` with `arg = "amount"` (a data field) and `arg = "zzNotAField"` revert `BadSpec("arg")`; `fixedArg =
     "hour"` on `Deposited` passes and `fixedArg = "amount"` reverts; `sumArg = "weightAdded"` passes and `sumArg =
     "nothing"` reverts; an item padded with English words reverts `BadSpec("item")`; `anonymous` reverts for kinds 1, 2
-    and 3; the catalog's items and the fixtures' items pass; every guard reverts before any fee is pulled.
+    and 3; an event with four `indexed` parameters reverts `BadSpec("item")` for kinds 1, 2 and 3 (`arg` or
+    `fixedArg` on the fourth); the catalog's items and the fixtures' items pass; every guard reverts before any fee is
+    pulled.
 11. Composer goldens: every fixture body byte for byte; every fixture's canonical-document keccak equal to
     `reference/plane/questionHashes.json`; the T6 fixture.
 12. Attestations: signature recovery over the five served attestations in `reference/attestations/` (three under the
@@ -685,9 +751,23 @@ expected reverts). In addition, by name:
     completed by the real `complete` under the real stipend; a mint whose fee lands on the executor), behind
     `SWORN_FORK_RPC`, skipped when unset; plain `forge test` stays hermetic.
 16. `test/NOTES.md`: one line per item of sections 3 to 7 with the test that pins it, the three sizes and their sum,
-    the maximum-state gas, the worst-case cold `onResult` gas, every place the builder chose between two readings of
+    the maximum-state gas, the worst-case cold `onResult` gas under both schedules (3.11), the storage layout that
+    keeps a delivery free of slots written from zero, every place the builder chose between two readings of
     this file and why, and the generator's build record (its commit and the SHA-256 of every generated table and golden
     after the run, with the tiling test's result).
+17. Glamsterdam (3.11): every `onResult` path (catalog, community first entry with a card, 601, shared fact of 32,
+    each miss reason, the 262,144-byte fields) and `onFailure` run under a state-diff recording: no slot goes from zero
+    to nonzero, and the computed Glamsterdam gas (measured + 89,000 x slots written from zero + 7,200 x other storage
+    writes) leaves at least 25,000 of the 200,000 stipend; the costliest call of each external function (601, a kind-2
+    spec at the field limits, `registerSpec` of the maximal spec, `mintCard`, `applySharedFact` of 32) computed the
+    same way stays under 15,000,000; a prepared slot reads as nothing in `hasTrait`, `verified`, `verifiedSpecsOf`,
+    `traitsOf`, `sharedFact` and `tokenURI` after a miss, a failure and an abandon.
+18. `settle`: a true verdict whose delivery runs out of gas (a mock Intake with a 60,000 stipend) leaves the request
+    pending and stores nothing; `settle` with that attestation by a stranger stores it with the same events as
+    `onResult`; a second `settle`, a `settle` after the Intake's own delivery, after `abandon` or for an unknown id
+    reverts `NotPending`; a false verdict, a wrong signer, a wrong window and an early `issuedAt` revert
+    `NotSettleable` with reasons 8, 2, 6 and 7 and leave the request pending; a shared fact settles and
+    `applySharedFact` works on it.
 
 ## 8. Deployment
 
@@ -739,7 +819,8 @@ are live, and published by the workflow's hosting stage (IPFS under the site lab
    on a clean clone; every test of section 7 present and named in `test/NOTES.md`; the three sizes and their sum
    under the budget; the maximum-state gas reported.
 2. Every fixture reproduced byte for byte, T6 included; every `questionHash` equal to the plane's; the greps of 3.8
-   print nothing.
+   print nothing; the measurement of 3.11 on the delivered runtime against a Sepolia RPC: every `onResult` path
+   delivered inside 200,000 with 25,000 to spare, `onFailure` likewise, every user call under 15,000,000.
 3. The surface of section 2 complete; nothing of 3.9's seven arguments missing; no `immutable`, `payable`,
    `receive`, `fallback`, `tx.origin`, owner, setter or upgrade path anywhere.
 4. The workflow's own independent adversarial review of the delivered tree against this file, inside the workflow
@@ -766,10 +847,12 @@ to F-50; from the One Dollar Audits of the deployment of 2026-10-20 (jobs 1042, 
 field rules, the item grammar, `block.number` on chain 1, the renderer's bounds, family check, id cap and quote escape,
 the panel-minima cross-check and the sentence that a rendering is not a credential. From the launch of 2026-10-21
 (#2362, `DEPLOYMENTS.md`): the executor code check inside the floor branch (3.9), the living window off mainnet (4.2),
-and the T6 fixture with the plane's `questionHash`. Kept from the beginning: ids, rules, windows, thresholds,
-templates, fixtures, the questionHash document, the card model, the card design, the compiler settings. What the
-earlier cuts said about regenerating owner-written tables or keeping owner-written files is void here: there are
-none.
+and the T6 fixture with the plane's `questionHash`. From the audit of this specification's first delivery (2026-10-21:
+swarm job 6571be23, commit `fd7d7bde`, deployed on Sepolia at Registry `0x6b69e5644a7caaf6e2d189bd57abfdaa74ac4fb8`; a
+12-agent solidity-auditor pass): the Glamsterdam rules of 3.11, `settle`, one id per `upgrade` and the refusal of a
+fourth indexed parameter (D8). Kept from the beginning: ids, rules, windows, thresholds, templates, fixtures, the
+questionHash document, the card model, the card design, the compiler settings. What the earlier cuts said about
+regenerating owner-written tables or keeping owner-written files is void here: there are none.
 
 One file of this branch comes from an earlier delivery, as data: `templates/fixtures/T6-operator-reference.json`,
 from the swarm's tree of 2026-10-21 (commit `e462b06`). It is the text of 4.2 composed for the synthetic claimant,
@@ -796,6 +879,10 @@ Decisions the owner took for this branch (2026-10-21), with the default applied 
 - D4 the card keeps the approved design by its numbers (5.2); the SVG bytes and the goldens are the builder's;
 - D5 the public surface keeps the live names and types for everything that survives the pool's removal (section 2),
   so integrators and the site keep working;
-- D6 the site is rebuilt from `docs/SITE.md` with the rows marked for this build there (S-1 to S-36);
+- D6 the site is rebuilt from `docs/SITE.md` with the rows marked for this build there (S-1 to S-38);
 - D7 one workflow (contracts, independent review, deployment, site, hosting) is the planned order; a plain contracts
-  job is the fallback.
+  job is the fallback;
+- D8 (later the same day, after the audit of the first delivery) every function call works under Glamsterdam's gas
+  schedule, the deployment excepted (3.11); a public `settle` stores a signed true verdict the Intake could not
+  deliver (3.4); `upgrade` takes one id, since a batch saves no IMD (3.3); an event with a fourth indexed parameter
+  is refused before the fee (3.6).
