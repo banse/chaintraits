@@ -1,0 +1,26 @@
+{
+  "kind": "evm_contracts",
+  "contracts": [
+    {
+      "contract": "Renderer",
+      "constructorArgs": []
+    },
+    {
+      "contract": "Composer",
+      "constructorArgs": []
+    },
+    {
+      "contract": "Registry",
+      "constructorArgs": [
+        "0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91",
+        "0xd34a99bc0f67ae1bbd63c660e6d0b0dd03e263b7",
+        "0xa43e6f75ee006411f79ac1c84120606c2330de82",
+        "0x5598aa9146215bc13eb26f2c692ad1461fd32982",
+        "$contract:Renderer",
+        "$contract:Composer",
+        "0xe29386719C155B6847aD5a4E97C6674f10ffc750"
+      ]
+    }
+  ],
+  "notes": "Sworn is an ownerless registry of wallet facts. Renderer and Composer are deployed first and referenced by Registry. Registry uses the approved Ethereum mainnet curator, existing IMD token, Intake, attester and BurnExecutor V2 addresses. All contracts are configured at construction; deployment sends no ETH and requires no initialization calls."
+}
