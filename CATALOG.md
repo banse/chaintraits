@@ -153,7 +153,7 @@ trait in section 3 names its template there (T1, T3, T5).
 |---|---|---|
 | `kind` | uint8: 1 T1, 2 T2, 3 T3, 4 T4, 5 T5 | one of the five; kind 6 is the catalog's operator fact (601) and cannot be registered |
 | `target` | address | nonzero for T1 to T4; must be zero for T5 (`validateSpec` reverts `BadSpec("target")` otherwise, as the struct comment says) |
-| `item` | string | the event item (T1 to T3) or function item (T4); charset `[A-Za-z0-9_ ,()[]]`, at most 256 bytes, must start with `event ` or `function ` as the kind requires. v1 accepts a trailing `anonymous`; **v2 rejects it for kind 3** (`BadSpec("item")`, `docs/V2.md` item 18: an anonymous event has no signature topic, so the grouping topic would be wrong) |
+| `item` | string | the event item (T1 to T3) or function item (T4); charset `[A-Za-z0-9_ ,()[]]`, at most 256 bytes, must start with `event ` or `function ` as the kind requires; **a kind-3 item must not end in `anonymous`** (`BadSpec("item")`: an anonymous event has no signature topic, so the grouping topic would be wrong) |
 | `arg` | string | indexed argument that equals the claimant (T1, T2) or the groupBy key (T3); ASCII `[A-Za-z0-9_]`, at most 32 |
 | `fixedArg`, `fixedVal` | string, uint256 | optional second indexed filter (T1, T2); empty string = none and requires `fixedVal == 0` (`BadSpec` otherwise) |
 | `sumArg` | string | T2 and T3 only |
