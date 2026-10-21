@@ -1,0 +1,154 @@
+[
+  {
+    "name": "empty",
+    "ids": [],
+    "count": 0,
+    "token": "1",
+    "hostile": false
+  },
+  {
+    "name": "single",
+    "ids": [
+      101
+    ],
+    "count": 0,
+    "token": "1",
+    "hostile": false
+  },
+  {
+    "name": "partials1",
+    "ids": [
+      201,
+      301,
+      401,
+      501
+    ],
+    "count": 13,
+    "token": "1",
+    "hostile": false
+  },
+  {
+    "name": "partials2",
+    "ids": [
+      302,
+      402,
+      502
+    ],
+    "count": 26,
+    "token": "1",
+    "hostile": false
+  },
+  {
+    "name": "partials3",
+    "ids": [
+      403
+    ],
+    "count": 39,
+    "token": "1",
+    "hostile": false
+  },
+  {
+    "name": "rare",
+    "ids": [
+      202,
+      801,
+      901,
+      1001,
+      1101,
+      1201
+    ],
+    "count": 0,
+    "token": "1",
+    "hostile": false
+  },
+  {
+    "name": "ordinal1000",
+    "ids": [
+      1102
+    ],
+    "count": 0,
+    "token": "1",
+    "hostile": false
+  },
+  {
+    "name": "ordinal10000",
+    "ids": [
+      1103
+    ],
+    "count": 0,
+    "token": "1",
+    "hostile": false
+  },
+  {
+    "name": "ordinal19522",
+    "ids": [
+      1104
+    ],
+    "count": 0,
+    "token": "1",
+    "hostile": false
+  },
+  {
+    "name": "first1000",
+    "ids": [
+      1105
+    ],
+    "count": 0,
+    "token": "1",
+    "hostile": false
+  },
+  {
+    "name": "short_path",
+    "ids": [],
+    "count": 40,
+    "token": "1",
+    "hostile": false
+  },
+  {
+    "name": "six_segments",
+    "ids": [],
+    "count": 8192,
+    "token": "1",
+    "hostile": false
+  },
+  {
+    "name": "wide",
+    "ids": [
+      101,
+      201,
+      202,
+      301,
+      302,
+      303,
+      401,
+      402,
+      403,
+      404,
+      501,
+      502,
+      503,
+      601,
+      701,
+      801,
+      901,
+      1001,
+      1101,
+      1102,
+      1103,
+      1104,
+      1105,
+      1201,
+      1301
+    ],
+    "count": 32,
+    "token": "115792089237316195423570985008687907853269984665640564039457584007913129639935",
+    "hostile": true
+  },
+  {
+    "name": "escaping",
+    "ids": [],
+    "count": 1,
+    "token": "1",
+    "hostile": true
+  }
+]

@@ -1,5 +1,21 @@
 # Disclosure
 
+## Limits of this deployment
+
+This section applies to the independent implementation in this tree, intended for Ethereum mainnet. No deployment or paid oracle run was performed in this assignment. The earlier sections below are historical records.
+
+- One fixed attester signs every oracle fact. Signed panel counts are assertions of that key; the Registry checks the specified minimum panel, quorum and agreement. Key rotation, a changed canonical question document, or a changed attestation schema requires a successor deployment.
+- Swarmed uses the fixed collection, adapter, reputation registry and batcher addresses in T6. Complete archive logs and historical state are necessary. A different adapter or batcher changes future coverage; unavailable data must produce no verdict. Attribution belongs to each wallet's own holding intervals, and accepted entries rather than distinct jobs are counted.
+- Every oracle attempt costs the Intake's current IMD price. A false, refused, expired, malformed or missing answer gives no refund. `settle` can recover a pending signed true answer after failed delivery; it cannot recover an absent or expired signature.
+- The Intake's owner controls its price, callback stipend, writer and payment configuration. The Registry cannot repair or pause those dependencies. Price zero disables requests. Lowered gas can prevent automatic delivery even though a valid signature remains manually settleable.
+- Mint and registration fees are forwarded to the BurnExecutor for bridging and burning on Base. The Registry promises the forward. The executor's owner can change the token, OFT, destination, options and limits and can rescue funds. Bridging requires a separate permissionless call and native message fee; Base execution is asynchronous. Neither action is guaranteed to occur, and these contracts confer no executor authority.
+- A rendering is not a credential. The Renderer accepts the supplied registry, including preview adapters. Verify `hasTrait` on the canonical Registry; a transferred card remains about its claimant.
+- `verifiedSpecsOf` reads the entire verified community list. Rendering caps metadata entries at 32 and rings at 39 but still reads that full list for its count. Each verified id requires a predecessor read; the read grows with successful claims and can eventually exceed an RPC's view-gas allowance; registration ids themselves end at 65,534.
+- Off mainnet the timestamp-derived mainnet height bound can exceed the true head. Verify the actual evidence window independently before registration and payment.
+- There is no administrator, mutation of registered specs, upgrade path, withdrawal or recovery for unsolicited assets. Known IMD semantics and the settled Curator are dependency assumptions. The local tests are not an independent audit; the entrant's review and runtime-verification gate remain deployment responsibilities.
+
+## Historical disclosures
+
 - The entrant operates three IMD worker seats (IDMD #420, #3 and #7). They may be assigned any swarm job on this
   repository; the entry says so, and the seats are not excluded onchain, because an onchain list would name wallets.
 - The entrant's seats and wallets abstain from the sponsor pool's upgrades and never appear in a showcase, a

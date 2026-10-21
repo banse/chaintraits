@@ -59,7 +59,7 @@ one Intake request, one `priceOf` (reverts when `priceOf > maxPrice`). For the t
 template (`TEMPLATES.md`) with `msg.sender` as the claimant and itself as the `consumer` on the deployment
 chain (`consumer.chainId = block.chainid`); the question's `chainId` remains 1, Ethereum mainnet. It computes the plane's
 `questionHash` of that body (`INTEGRATION.md` section 4, check 7), stores
-`pending[requestId] = (claimant, traitId, requestedAt, questionHash)` plus the reverse index
+`pending[requestId] = (claimant, traitId, requestedAt, questionHash, fromBlock, toBlock)` plus the reverse index
 `pendingOf[claimant][traitId] = requestId`, and calls `Intake.requestWithFailure` with `onResult` and `onFailure` as
 the two callbacks. Minutes later the writer calls `Intake.complete`, which calls `onResult` (a result) or `onFailure`
 (a refusal or a panel without a verdict); the registry verifies (`INTEGRATION.md` section 4), writes
@@ -165,8 +165,7 @@ section 4). `hasTrait(wallet, unknownId)` returns false, never reverts; `hasTrai
 3. A `verified[c][t]` entry exists only after an attestation that passed every check in `INTEGRATION.md` section 4
    and whose pending record named exactly `(c, t)` with the `questionHash` of the body the registry composed for
    `(c, t)`, or, for any T3 id, after `applySharedFact` matched the stored hash and found `c` within `head`.
-   `hasTrait(c, t)` equals the live rule for direct-read traits and the `verified` entry for oracle traits, card or no
-   card.
+   `hasTrait(c, t)` uses the frozen direct snapshot when a card exists, live direct rules otherwise, and stored verified entries for oracle traits.
 4. An attestation is consumed once: one pending request is consumed once (its first callback clears it, and any later
    callback for that request id is reason 1 and touches nothing). The same signed evidence is not tied to one request:
    it may satisfy another pending request whose canonical question is identical (same `questionHash`, which binds
@@ -183,11 +182,9 @@ section 4). `hasTrait(wallet, unknownId)` returns false, never reverts; `hasTrai
 6. Tiers are monotone: `hasTrait(c, 303)` implies `hasTrait(c, 302)` and `hasTrait(c, 301)`; `hasTrait(c, 202)`
    implies `hasTrait(c, 201)`; likewise 4xx and 5xx. The PID family (11xx, working name Ordinal) is not a tier family.
 7. A registered spec never changes; the body sent to the Intake is a deterministic function of the spec and the
-   claimant (golden tests per template against `templates/fixtures/`), and the registry's
-   `questionHashOf(canonicalDocument)`, which takes the canonical document of `INTEGRATION.md` section 4, check 7,
-   not the body, equals the plane's value for every fixture (`reference/plane/questionHashes.json`); registration fees stay in the
-   registry.
-8. `tokenURI` is pure over the registry's storage, the Curator's views and IDMD `balanceOf`; the renderer output
+   claimant (golden tests per template against `templates/fixtures/`), and the Composer's returned question hash, which hashes the canonical document of `INTEGRATION.md` section 4, check 7,
+   not the body, equals the plane's value for every fixture (`reference/plane/questionHashes.json`); registration fees are forwarded to the BurnExecutor for bridging and burning on Base.
+8. `tokenURI` renders the Registry's claimant, frozen direct traits, stored facts and specs; the renderer output
    decodes to the golden bytes; a hostile spec name cannot break the JSON or the SVG (escaping tests).
 9. The registry's IMD balance is zero after every transaction it makes: a fee reaches the executor in the
    transaction that pulls it, and a claimant-paid request pulls and forwards in one transaction; `abandon` releases a

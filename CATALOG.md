@@ -78,8 +78,7 @@ windows unchanged in the free quotes of 2026-10-12 (`reference/plane/quotes/`).
 | 301 / 302 / 303 | Climber >= 3 / 5 / 10 | direct | `txCountOf(A) >= 3 / 5 / 10` | live | from the view; at most 2,037 wallets made more than one deposit |
 | 401 / 402 / 403 / 404 | Capital >= 1 / 10 / 100 / 800 ETH | direct | `contributedBy(A) >= 1e18 / 1e19 / 1e20 / 8e20` (the view returns `contributors(A).highWater`, the largest single send in wei) | live | snapshot of 15,576 wallets: median 0.45 ETH, p90 14, p99 98.8, max 1,000 (the cap) |
 | 501 / 502 / 503 | Scoreboard >= 1,000 / 3,162 / 10,000 | direct | `pointsOf(A) >= 1000 / 3162 / 10000` (points = 1000 x sqrt(weight in ETH)) | live | from the view |
-| 601 | Operator | panel, T6 bool, **living window** | operated an IdentityMD seat (`0x0000eC93127BAA929E58E97dd0095A2BFb38ec1D`) through at least 3 accepted Identity.md swarm jobs while holding it: the recipe of `docs/REBUILD.md` 4.2 (seats held, every agent bound to the seat at or before an entry's block, accepted `NewFeedback` entries inside the
-wallet's own holding intervals; each holder counts only its own intervals, a claim by another holder blocks nothing); independent of THE LIST membership; catalog-only (kind 6 is not registrable) | 25,090,085 to the request block − 64 | about 850 agents (2026-10-21) |
+| 601 | Swarmed | panel, T6 bool, **living window** | operated an IdentityMD seat (`0x0000eC93127BAA929E58E97dd0095A2BFb38ec1D`) through at least 3 accepted Identity.md swarm jobs while holding it: the recipe of `docs/REBUILD.md` 4.2 (seats held, every agent bound to the seat at or before an entry's block, accepted `NewFeedback` entries inside the wallet's own holding intervals; each holder counts only its own intervals, a claim by another holder blocks nothing); independent of THE LIST membership; catalog-only (kind 6 is not registrable) | 25,090,085 to the request block − 64 | about 850 agents (2026-10-21) |
 | 701 | Still here | chain, T1 log-count >= 1 | `Deposited` with `contributor` = A | `W_JUDGED` | 3,936 |
 | 801 | Last stand | chain, T1 log-count >= 1 | `Deposited` with `contributor` = A and `hour` = 64 | `W_LIFE` | 7 |
 | 901 | The last one in | chain, T1 log-count >= 1 | `Deposited` with `contributor` = A and `hour` = 65 | `W_LIFE` | 1 |
@@ -148,7 +147,7 @@ trait in section 3 names its template there (T1, T3, T5).
 
 ## 5. Spec registration (community traits)
 
-`registerSpec(Spec)` by anyone, 6.4 IMD into the registry, returns the new id (10001 upward), emits
+`registerSpec(Spec, expectedId)` by anyone, 6.4 IMD forwarded to the BurnExecutor for bridging and burning on Base, returns the new id (10001 upward), emits
 `SpecRegistered(id, registrant)`. The spec is immutable. Fields:
 
 | field | type | guard |
@@ -238,7 +237,7 @@ Community spec registration costs 6.4 IMD, forwarded to the BurnExecutor V2 for 
 | 1301 | Not born yesterday | Pretrained |
 | product, symbol, X handle | the registry | Sworn, SWORN, (handle not given) |
 
-The final names are the `traitName` table of `Composer`, the `name` of every catalog `Spec` (`catalogSpec`), the
+The final names are the `traitName` table of `Renderer`, the `name` of every catalog `Spec` (`catalogSpec`), the
 `FAMILIES` of `tools/gen_template.py` (the thirteen family `trait_type`s of the metadata and the card's labels) and
 the collection strings `ERC721("Sworn", "SWORN")` with metadata names `Sworn #<tokenId>`. The rename (2026-10-16)
 replaced this table and the collection strings; it touched no rule, id or window. Section 3 keeps the working names

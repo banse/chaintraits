@@ -43,7 +43,7 @@ Two evidence choices never follow the deployment chain:
 
 - Catalog oracle questions always name `Composer.MAINNET_CURATOR`,
   `0xcB0b0531e86A9aC36Fa865cA8e3dbccF047FDA91`, including the deploy-block parenthesis of trait 1301.
-  `specOf` returns that target for catalog oracle traits except 1301, whose T5 target stays zero.
+  `catalogSpec(id, curator)` returns the supplied Curator as the target, except 1301 (zero) and 601 (the collection). Catalog question text always names the mainnet Curator.
 - Community windows use mainnet height `H`: `block.number` on chain 1, otherwise
   `Composer.mainnetHeightBound()`. T1 to T4 require `fromBlock <= toBlock`, at least 7,200 inclusive blocks and
   `toBlock <= H - 64`; T5 requires `fromBlock == toBlock` and `toBlock + 7200 <= H`. Off mainnet the bound is
@@ -398,3 +398,9 @@ and its reported onchain runtime matched `eth_getCode`; this is not an independe
 
 Never read `contributors(address)` for the hour: its fourth word is `firstHour + 1`. Guard `address(0)` in every
 read: `hasTrait(address(0), id)` is false (OpenZeppelin's `balanceOf(0)` reverts).
+
+## Delivered storage and rendering views
+
+The implementation retains closed request records as tombstones and clears pending state logically. State 1 is pending, 2 verified, and 3 closed without a fact; every pending getter returns zero outside state 1. A pair points to its current request, and a late callback changes only its own record, never a successor's index. Requests prepare the result words and community link slots before the Intake can deliver; only state 2 exposes them. `test/NOTES.md` documents the layout and measurements.
+
+`renderSpec(uint16)` is an additional Registry view returning `(kind, target, name)` for bounded metadata reads. The Renderer supports that view and the original `specOf` return tuple. `tokenURIOf` trusts the supplied registry's facts; the Composer's direct public views likewise trust their explicit arguments. Neither constitutes a credential for the canonical Registry.
