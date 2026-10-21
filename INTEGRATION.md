@@ -45,7 +45,7 @@ Two evidence choices never follow the deployment chain:
   `specOf` returns that target for catalog oracle traits except 1301, whose T5 target stays zero.
 - Community windows use mainnet height `H`: `block.number` on chain 1, otherwise
   `Composer.mainnetHeightBound()`. T1 to T4 require `fromBlock <= toBlock`, at least 7,200 inclusive blocks and
-  `toBlock < H`; T5 requires `fromBlock == toBlock` and `toBlock + 7200 <= H`. Off mainnet the bound is
+  `toBlock <= H - 64`; T5 requires `fromBlock == toBlock` and `toBlock + 7200 <= H`. Off mainnet the bound is
   15,537,395 through timestamp 1,663,224,191, then
   `15,537,395 + (block.timestamp - 1,663,224,191) / 12`, rounded down. The anchor is the second proof-of-stake
   block, slot 4,700,014. With 12-second slots and a correct clock this is never below real mainnet height;
@@ -90,7 +90,7 @@ The registry is ownerless, so none of these has a remedy inside it; each needs a
   reverts. It can `setCallbackGas` below what `onResult` needs: every callback then fails and no oracle trait can ever
   be verified. It can `setWriter`, `setPayTo`, `setSigner`. The plane can retire v2 for a v3 as it retired v1.
 - The attester `0x5598…` is fixed at construction; if the plane rotates the key, every later attestation is a miss.
-  `claimSponsored` and `upgradeSponsored` keep spending the current Intake price of pool money per request on
+  `claimSponsored` keeps spending the current Intake price of pool money per request on
   answers that cannot verify. Their daily and lifetime limits still apply, but neither a miss nor a key rotation
   refunds the price or restores an allowance. Operators must monitor the attester and stop directing users to
   these requests after a rotation; there is no registry pause or setter.
@@ -177,7 +177,7 @@ transaction. A callback that reverts or runs out of gas is simply `delivered == 
   Solidity's decoder before the function body runs; the Intake records that as `delivered == false`. The promise is
   therefore scoped to envelopes that decode, and the tests exercise the two cases separately.
 - A request the plane never completes (three of the first seven Ethereum requests stayed `admitted`) stays pending
-  until `abandon(requestId)` after 14 days.
+  until `abandon(requestId)` after 31 days.
 
 The registry checks `msg.sender == intake` first in both functions. For a pending result, it bounds both dynamic
 fields directly in calldata before copying signature bytes or hashing the answer. Even an ABI-valid 262,144-byte
@@ -281,7 +281,7 @@ runtime bytes).
    parameters it composes the body from, at request time, and stores the hash in the pending record; the callback
    compares one word. This binds the attestation to the exact question the registry asked, so a writer that pairs
    claimant A's attestation with claimant B's request, or one trait's with another's, produces a miss, not a trait.
-   The golden test asserts that the `questionHash` of the canonical document (`questionHashOf(canonicalDocument)`,
+   The golden test asserts that the `questionHash` of the canonical document (`keccak256(canonicalDocument)`,
    the keccak of the document, never of the body: the body's keccak is a different value) equals the plane's value
    for all ten fixtures (`reference/plane/questionHashes.json`).
 8. **Decode defensively, never revert.** `a.answer` for `bool` and `uint256` must be exactly 32 bytes (and for `bool`
@@ -318,8 +318,8 @@ questionHash)`; for a shared-fact request `claimant == address(0)` and `traitId`
 | `onResult`, any other reason 2 to 10 | Intake | clear | nothing | `Missed` |
 | `onResult` or `onFailure`, `requestId` unknown (abandoned, consumed, never ours) | Intake | nothing | nothing | `Missed(reason 1)` |
 | `onFailure` (status 1 or 2) | Intake | clear | nothing; the pair may be requested again | `NoVerdict` |
-| `abandon(requestId)` at `requestedAt + 14 days` or later, personal (paid or sponsored) | stored claimant only | clear | nothing | `Abandoned` |
-| `abandon(requestId)` at `requestedAt + 14 days` or later, shared (`claimant == 0`) | anyone | clear | nothing | `Abandoned` |
+| `abandon(requestId)` at `requestedAt + 31 days` or later, personal (paid or sponsored) | stored claimant only | clear | nothing | `Abandoned` |
+| `abandon(requestId)` at `requestedAt + 31 days` or later, shared (`claimant == 0`) | the payer only | clear | nothing | `Abandoned` |
 | `abandon` of a personal request after the deadline by a stranger | anyone but its claimant | revert `NotClaimant()` | | |
 | `abandon` earlier | anyone | revert `TooEarly()` | | |
 | late callback for an abandoned request | Intake | as the unknown-id row: the successor request's reverse index is untouched, because the index is cleared only when it equals the stale id | | `Missed(reason 1)` |
@@ -352,13 +352,13 @@ and rejects unknown names.
 - `registerSpec`: 1 IMD to the registry. `sponsor(amount)`: any amount.
 - **The pool is the registry's IMD balance.** There is no separate counter: `pool()` returns `IMD.balanceOf(this)`.
   Fees, sponsorships and plain `IMD.transfer(registry, x)` donations are the same thing; the balance only ever leaves
-  through `requestWithFailure` on a pool-funded path (`claimSponsored`, `upgradeSponsored`), and a claimant-paid
+  through `requestWithFailure` on the pool-funded path (`claimSponsored`), and a claimant-paid
   request pulls and forwards in one transaction, so the balance after equals the balance before. Pool money is an
   irrevocable donation: nobody can withdraw it, and a remainder below `priceOf` stays until someone adds to it.
 
 ## 5b. BurnExecutor V2 on sponsored claims
 
-`upgradeSponsored` and `claimSponsored` are the only payable registry entry points. All paid IMD paths remain
+`claimSponsored` is the only payable registry entry point. All paid IMD paths remain
 non-payable. `IBurnExecutor` declares the three selectors the integration uses or exposes for quoting:
 
 ```solidity
@@ -427,7 +427,7 @@ address above. `run()` calls `deployForChain()`, selecting the nonzero Sepolia V
 mainnet constants on every other chain (section 1). The six-argument `deploy` still accepts an explicit zero to
 disable the rule, though the launch manifest does not. The constructor never calls the executor. Outside the
 all-four-empty dependency floor it reverts `ExecutorHasNoCode()` for a nonzero executor address without code: the three preview return words are decoded outside the registry's
-`try`/`catch`, so an executor that returns no data would revert `claimSponsored` and `upgradeSponsored` for every
+`try`/`catch`, so an executor that returns no data would revert `claimSponsored` for every
 wallet for ever, and an ownerless registry cannot repair that. Residual: a coded executor that returns fewer than
 three words still reverts a claim; no low-level call is added for it. The offline deploy-script test installs a
 mock at both executor constants with `deployCodeTo` before checking the script's chain selections.
@@ -474,5 +474,4 @@ and its reported onchain runtime matched `eth_getCode`; this is not an independe
 | `isSettled()` | `bool`, true since hour 66 | sanity check in the constructor outside the all-four-empty floor, nothing else |
 
 Never read `contributors(address)` for the hour: its fourth word is `firstHour + 1`. IDMD: `balanceOf(address)` for
-the Armed trait (601, live; guard `address(0)`, whose `balanceOf` reverts in OpenZeppelin), `ownerOf(uint256)` for
-`upgradeSponsored`.
+the Armed trait (601, live; guard `address(0)`, whose `balanceOf` reverts in OpenZeppelin).

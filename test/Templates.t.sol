@@ -98,7 +98,7 @@ contract TemplatesTest is Base {
             bytes32 want = vm.parseJsonBytes32(j, string.concat(path, ".questionHash"));
             string memory doc = vm.parseJsonString(j, string.concat(path, ".canonicalDocument"));
             assertEq(qh, want, NAMES[i]);
-            assertEq(registry.questionHashOf(bytes(doc)), want, NAMES[i]);
+            assertEq(keccak256(bytes(doc)), want, NAMES[i]);
         }
     }
 
@@ -161,11 +161,6 @@ contract TemplatesTest is Base {
         assertEq(registry.traitName(101), "Spawned");
         assertEq(registry.traitName(1301), "Pretrained");
         assertEq(registry.traitName(t2Id), "Deposited sum");
-        assertEq(registry.traitClass(101), 0);
-        assertEq(registry.traitClass(701), 1);
-        assertEq(registry.traitClass(1301), 2);
-        assertEq(registry.traitClass(1201), 3);
-        assertEq(registry.traitClass(t2Id), 1);
-        assertEq(registry.traitClass(t5Id), 2);
+        assertEq(registry.traitName(t5Id), "Nonce at the end");
     }
 }

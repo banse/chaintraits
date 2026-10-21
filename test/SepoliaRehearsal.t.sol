@@ -5,6 +5,7 @@ import {Base} from "./Base.t.sol";
 import {Composer} from "../src/Composer.sol";
 import {Registry} from "../src/Registry.sol";
 import {Renderer} from "../src/Renderer.sol";
+import {RendererHarness} from "./mocks/RendererHarness.sol";
 import {Spec} from "../src/Types.sol";
 import {OracleAttestation} from "../src/interfaces/IOracleConsumer.sol";
 import {MockCurator, MockIDMD, MockIMD, MockIntake} from "./mocks/Mocks.sol";
@@ -23,7 +24,7 @@ contract SepoliaRehearsalTest is Base {
         idmd = new MockIDMD();
         imd = new MockIMD();
         intake = new MockIntake(address(imd));
-        renderer = new Renderer();
+        renderer = new RendererHarness();
         composer = new Composer();
         deployCodeTo(
             "Registry.sol:Registry",
@@ -50,8 +51,8 @@ contract SepoliaRehearsalTest is Base {
         uint256 fee = registry.SPEC_FEE();
         fund(C1A1, 2 * fee);
         vm.startPrank(C1A1);
-        assertEq(registry.registerSpec(game), 10001);
-        assertEq(registry.registerSpec(nonce), 10002);
+        assertEq(registry.registerSpec(game, 0), 10001);
+        assertEq(registry.registerSpec(nonce, 0), 10002);
         vm.stopPrank();
         assertEq(registry.nextSpecId(), 10003);
         assertEq(imd.balanceOf(C1A1), 0);
@@ -84,10 +85,12 @@ contract SepoliaRehearsalTest is Base {
         assertEq(imd.balanceOf(C1A1), registry.SPEC_FEE());
 
         s = t1Spec(CURATOR_ADDR, "Last admissible block");
-        s.toBlock = height - 1;
+        s.toBlock = height - 63;
+        _badWindow(s);
+        s.toBlock = height - 64;
         s.fromBlock = s.toBlock - 7199;
         vm.prank(C1A1);
-        assertEq(registry.registerSpec(s), 10001);
+        assertEq(registry.registerSpec(s, 0), 10001);
         assertEq(register(C1A1, _nonceSpec(height - 7200)), 10002);
     }
 
@@ -102,13 +105,15 @@ contract SepoliaRehearsalTest is Base {
         _badWindow(s);
         s.toBlock = height + 1;
         _badWindow(s);
-        s.toBlock = height - 1;
+        s.toBlock = height - 63;
+        _badWindow(s);
+        s.toBlock = height - 64;
         s.fromBlock = s.toBlock - 7199;
         vm.prank(C1A1);
-        assertEq(registry.registerSpec(s), 10001);
+        assertEq(registry.registerSpec(s, 0), 10001);
         _badWindow(_nonceSpec(height - 7199));
         vm.prank(C1A1);
-        assertEq(registry.registerSpec(_nonceSpec(height - 7200)), 10002);
+        assertEq(registry.registerSpec(_nonceSpec(height - 7200), 0), 10002);
         assertEq(imd.balanceOf(C1A1), 0);
         assertEq(imd.balanceOf(address(registry)), 2 * registry.SPEC_FEE());
     }
@@ -148,49 +153,16 @@ contract SepoliaRehearsalTest is Base {
         if (later <= 1_663_224_191) assertEq(second, 15_537_395);
     }
 
-    function test_catalogBodiesAndHashesStayMainnetAndIgnoreCuratorArgument() public {
-        uint16[7] memory ids = [uint16(701), 801, 1001, 1102, 1105, 1201, 1301];
-        string[7] memory names = [
-            "701-still-here",
-            "801-last-stand",
-            "1001-hour-savior",
-            "1102-ordinal-1000",
-            "1105-first-thousand",
-            "1201-top-32",
-            "1301-not-born-yesterday"
-        ];
-        string memory hashes = vm.readFile("reference/plane/questionHashes.json");
-        assertEq(composer.MAINNET_CURATOR(), CURATOR_ADDR);
+    function test_catalogSpecsTargetTheDeploymentCuratorAndKeepTheMainnetQuestionChain() public {
+        uint16[11] memory ids = [uint16(701), 801, 901, 1001, 1101, 1102, 1103, 1104, 1105, 1201, 1301];
         for (uint256 i; i < ids.length; ++i) {
             Spec memory s = registry.specOf(ids[i]);
-            assertEq(s.target, ids[i] == 1301 ? address(0) : CURATOR_ADDR);
-            (bytes memory body, bytes32 questionHash) = registry.composeBody(ids[i], C1A1);
-            bytes memory fixture = bytes(vm.readFile(string.concat("templates/fixtures/", names[i], ".json")));
-            if (fixture[fixture.length - 1] == 0x0a) {
-                assembly ("memory-safe") {
-                    mstore(fixture, sub(mload(fixture), 1))
-                }
-            }
-            assertEq(
-                string(body),
-                vm.replace(
-                    string(fixture), '"consumer": {\n    "chainId": 1,', '"consumer": {\n    "chainId": 11155111,'
-                ),
-                names[i]
-            );
-            assertEq(questionHash, vm.parseJsonBytes32(hashes, string.concat(".", names[i], ".questionHash")));
-            assertFalse(vm.contains(string(body), "0x0919ba50b206c3f31d516de818b1fbc7da21653d"));
-            (bytes memory otherBody, bytes32 otherHash) =
-                composer.compose(s, C1A1, address(registry), ids[i] == 1301, CURATOR_ADDR);
-            assertEq(otherBody, body, "compose ignores its fifth argument");
-            assertEq(otherHash, questionHash);
-            assertEq(abi.encode(composer.catalogSpec(ids[i], CURATOR_ADDR)), abi.encode(s));
-        }
-        uint16[4] memory remaining = [uint16(901), 1101, 1103, 1104];
-        for (uint256 i; i < remaining.length; ++i) {
-            assertEq(registry.specOf(remaining[i]).target, CURATOR_ADDR);
-            (bytes memory body,) = registry.composeBody(remaining[i], C1A1);
-            assertFalse(vm.contains(string(body), "0x0919ba50b206c3f31d516de818b1fbc7da21653d"));
+            assertEq(s.target, ids[i] == 1301 ? address(0) : SEPOLIA_CURATOR, "the curator argument is used");
+            (bytes memory body,) = registry.composeBody(ids[i], C1A1);
+            assertEq(vm.parseJsonUint(string(body), ".chainId"), 1, "the question stays on mainnet");
+            assertEq(vm.parseJsonUint(string(body), ".consumer.chainId"), 11155111);
+            if (ids[i] != 1301) assertTrue(vm.contains(string(body), "0x0919ba50b206c3f31d516de818b1fbc7da21653d"));
+            assertEq(composer.catalogSpec(ids[i], CURATOR_ADDR).target, ids[i] == 1301 ? address(0) : CURATOR_ADDR);
         }
     }
 
@@ -210,6 +182,8 @@ contract SepoliaRehearsalTest is Base {
         }
         assertFalse(registry.hasTrait(C1A1, 601));
         idmd.setBalance(C1A1, 1);
+        assertFalse(registry.hasTrait(C1A1, 601), "Armed is a snapshot at mint: false without a card");
+        mint(C1A1);
         assertTrue(registry.hasTrait(C1A1, 601));
     }
 
@@ -244,6 +218,6 @@ contract SepoliaRehearsalTest is Base {
     function _badWindow(Spec memory s) internal {
         vm.expectRevert(abi.encodeWithSelector(Composer.BadSpec.selector, "window"));
         vm.prank(C1A1);
-        registry.registerSpec(s);
+        registry.registerSpec(s, 0);
     }
 }

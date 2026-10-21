@@ -242,8 +242,10 @@ class GeneratorTest(unittest.TestCase):
                     cname = next(m.spec.name for m in data.oracle if m.traitId == trait_id)
                     self.assertEqual(metadata["attributes"][15 + index], {"trait_type": f"Community {trait_id}", "value": cname})
                 for meta in metadata["oracle"]:
-                    self.assertEqual(meta["minPanelSize"], 11 if meta["template"] == "T5" else 5)
-                    self.assertEqual(meta["minQuorum"], 7 if meta["template"] == "T5" else 3)
+                    self.assertEqual(meta["minPanelSize"], 11 if meta["template"] in ("T3", "T5") else 5)
+                    self.assertEqual(meta["minQuorum"], 7 if meta["template"] in ("T3", "T5") else 3)
+                    self.assertNotIn("item", meta, "the shrunk oracle record carries no spec body")
+                    self.assertIn("name", meta)
                 self.assertEqual(svg, gen.hive_svg(data.top, data.communityCount).encode("ascii"))
                 self.assertTrue(svg.startswith(b"<svg ") and svg.endswith(b"</svg>"))
                 self.assertNotIn(data.claimant.encode(), svg, "the hive shows no address")

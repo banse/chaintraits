@@ -1,3 +1,128 @@
+# Review revision 3 (2026-10-20): size budget, items 8, 18 and 19
+
+Findings `c721f34b` (size), `5046dfe5` (item 18), `601e8733` (item 8), `fa949320` (item 19) and the advisory ones.
+Responses are in `.imd-responses.json`.
+
+## Sizes (solc 0.8.24, optimizer 200, Cancun, `bytecode_hash = "none"`)
+
+| contract | runtime bytes | EIP-170 headroom |
+|---|---:|---:|
+| Registry | 22,943 | 1,633 |
+| Composer | 23,621 | 955 |
+| Renderer | 23,092 | 1,484 |
+| **sum** | **69,656** | section 6 budget 69,800: **144 under** |
+
+`test/Revision3.t.sol` `test_threeRuntimesFitTheLaunchBudget` (the reviewer's proof, kept) pins the sum. What was cut
+(deleting over adding, no V2 item dropped, every public ABI still used by the site kept; `web/src/pages.tsx` reads
+none of the removed views):
+
+- Renderer: `tokenURI(Card)`, `preimage(Card)`, `image(Card)`, `escapeJson` and `cardOf` are internal (the Card ABI
+  decoder and encoder were a quarter of the runtime); `tokenURIOf(registry, tokenId)` and `traitName(id)` are the
+  external surface. `test/mocks/RendererHarness.sol` exposes the internal ones to the tests unchanged in substance.
+  The 25-name table moved here from the Composer as one packed constant with length bytes.
+- Composer: `answerTypeOf`, `panelOf`, `hasDirectTrait` (the registry tests the `directSnapshot` bit) and the name
+  table removed; `FIRST_DEPOSIT`, `HOUR_SAVED`, `MAINNET_CURATOR` internal; `compose` takes the trait id and builds a
+  catalog spec itself (the registry no longer decodes and re-encodes a catalog `Spec`); the T1/T2 `method` text is
+  one shared head and tail; `_charset` is one routine for arguments, items and names; the dead body-length guards
+  went (the door's bounds hold by construction: `item` <= 256, every other string <= 32, the longest template
+  text, T3, composes to 625 question and 398 definition bytes at the catalog spec and under 1000 / 512 at the
+  maximum, `test_fuzz_maximalSpecRegistersComposesAndFitsTheBody`).
+- Registry: `traitClass` and `questionHashOf` removed (the class is `specOf(id).kind`; the hash is `keccak256` of
+  the canonical document); `specOf` of a catalog id returns the Composer's encoding as it came.
+- `OracleMeta` carries only what the record prints (id, kind, window, target, both request ids, name).
+
+## Items
+
+| item | status | where | test |
+|---|---|---|---|
+| 8 kind-3 answers exactly `head` long | **done**: `_decodeAndJudge` requires the decoded array to have exactly `threshold` elements (32 for 1201, the spec's head for a community T3); a shorter or longer list is `Missed(.., 9)`, nothing is stored and the fact is re-requestable at once; `applySharedFact` scans the whole stored list | `Registry._decodeAndJudge`, `applySharedFact` | `Revision3.t.sol` `test_item8_*`; `Adversarial.t.sol` `test_fuzz_applySharedFactOnlyWithinTheHead` (now: every length but 32 misses); the 64-address envelopes of the older tests became 32-address ones |
+| 18 T3 topic position | **done**: `validateSpec` rejects a kind-3 `item` ending in `anonymous` with `BadSpec("item")` and a grouping key that is not an `address`-typed indexed parameter (absent, a data field, indexed of another type, no parameter list) with `BadSpec("arg")`; the composed T3 question and `definitions.method` carry the v2 wording of TEMPLATES.md with the topic position parsed from the signature (1-based among all indexed parameters) | `Composer._topicOf`, `_anonymous`, `validateSpec`, `question` | `Revision3.t.sol` `test_item18_*` (the reviewer's proof included); `templates/fixtures/1201-top-32.json` and the `1201-top-32` entry of `reference/plane/questionHashes.json` regenerated from the composed body (contributor = topic 1; the canonical document is RFC 8785 of the same text, hash `0x0145a631…3a30076`), `Templates.t.sol` green |
+| 19 `tokenURI` gas | **(a), (b), (c) done, target not met**: (a) `_oracle`, `_communityAttributes`, `_list` and the record builder write into the growable `Buf`; (b) `_meta` makes one `verified` call and picks kind, target, window and name out of `specOf`'s ABI words without decoding the spec body, `OracleMeta` carries nothing else; (c) the shrunk record. Measured cold at the maximum state of V2 item 19 (25 catalog traits, the 32-address shared answer, 32 verified T2 specs at the `validateSpec` maximum): **10,317,448 gas** (was 12,022,786), URI 40,737 bytes. Breakdown (`test/scratch` profile): `cardOf` 2.48M, preimage 5.44M, image 1.19M, Base64 about 2.4M. The smallest further cut is (d): an assembly Base64 encoder (OpenZeppelin's per-three-byte loop over the 30.5 KB preimage is 2.4M; a tabled encoder with the alphabet in one stack word is about a third of that), then a lean `oracleRecord` storage read in the Registry (the spec-body cold `SLOAD`s behind `specOf` are about 1.1M, but that view costs about 500 bytes and the size budget has 144); together they project under 8M | `Renderer._meta`, `_oracle`, `_one`, `_communityAttributes`, `_list` | `Revision3.t.sol` `test_item19_tokenURIAtTheMaximumStateIsMeasuredAndBounded` (the cold maximum-state regression, bound 11,000,000 until (d) lands, to be tightened to 8,000,000 then) |
+| 9 spec ids to `uint256` | **not done, by decision**: the `uint16` id plumbing stays (ids end at 65,534 as CATALOG section 5 says; 55,534 registrations at 6.4 IMD away); widening every signature, event and the Composer/Renderer interfaces adds bytes the launch budget does not have | | `ReReview.t.sol` `test_specIdsEndAt65534` pins the cap |
+| 20 table tiling test | done earlier (`V2Edges.t.sol` `test_item20_templateSlicesTileTheEnvelope`, `test_item20_hiveTablesTile`); the previous notes row was stale | | |
+| 22 documents | **done for the reported sentences**: `upgradeSponsored` and the 14-day rule removed from CATALOG.md and INTEGRATION.md; INTEGRATION's abandon table says 31 days and the payer; README's abandon paragraph and view list follow the ABI | | |
+
+Trust assumptions (finding `08756560`): attester, action id, Intake and executor are constructor-fixed by the ownerless
+brief; a signer rotation, a retired action, a shrunk callback gas or a changed Curator are documented limits, not
+defects, and no unprivileged party can exploit them (README "Trust assumptions", INTEGRATION.md section 6).
+
+Checks run here: `forge build --sizes`, `forge fmt --check`, `forge test` with
+`FOUNDRY_FUZZ_SEED=0x0f3d3ae040d5fe60f26dab4ef8dcca326854f10e7609839637a1fed897a2e678`, the two reviewer proofs
+under `test/scratch`, Slither high-only: 2 results, both `incorrect-exponentiation` on OpenZeppelin's intentional
+`^` in `lib/` (`Base64._encode`, `Math.mulDiv`), present in the accepted tree and outside the writable paths; none in
+`src/`. `python3 tools/gen_template.py --check` green (the metadata bytes are unchanged). Fork suites skipped (opt-in).
+
+# Sworn v2 contract stage (2026-10-20): docs/V2.md items 1 to 22 on the `v2-base` tree
+
+Sizes with the pinned settings (solc 0.8.24, optimizer 200, Cancun, `bytecode_hash = "none"`), each under EIP-170:
+
+| contract | runtime bytes | EIP-170 headroom |
+|---|---:|---:|
+| Registry | 23,535 | 1,041 |
+| Composer | 24,234 | 342 |
+| Renderer | 24,546 | 30 |
+| **sum** | **72,315** | section 6 budget 69,800: **over by 2,515** |
+
+The sum is above the project budget of docs/V2.md section 6. It is reported, not hidden: the final-transaction
+simulation (`sworn-verify`, section 9 of the rollout plan) stays the deployment gate, and the measured v2 lab build
+(69,854 bytes) needed 16,555,500 gas of the 16,777,216 cap, so about 2,500 more runtime bytes (roughly 500,000 gas at
+200 gas per byte) is expected to exceed the cap: **the review step must decide between a further cut and a two-transaction
+deployment before the launch is paid.** The smallest further cuts, in order: (1) `Renderer.escapeJson` public wrapper
+and `Composer.answerTypeOf` / `panelOf` getters (about 150 bytes); (2) the shrunk oracle record of item 19 (c) applied
+to the catalog entries' window fields too (about 120 bytes); (3) `Registry.traitClass` (about 150 bytes) if the site
+does not read it.
+
+Checks run here: `forge build`, `forge fmt --check`, `forge test` with `FOUNDRY_FUZZ_SEED=0x0f3d3ae0...e678`
+(181 passed, 0 failed, 16 opt-in fork skips), `python3 tools/gen_template.py --check` (28 artifacts),
+`python3 -m unittest tools/test_gen_template.py` (18 tests). Slither, Mythril and the fork suites were not run.
+
+## Items and their tests
+
+| item | state | where | test |
+|---|---|---|---|
+| 1 price cap on pool draws | done: `claimSponsored(traitId, maxPrice)`, `PriceAboveMax`, `PoolDrawTooLarge` above pool/8 or `POOL_DRAW_CAP` (2 IMD); `PoolTooSmall` is gone (a price above the pool is above pool/8) | `Registry.claimSponsored` | `V2.t.sol` `test_item1_poolDrawCaps`; `Invariants.t.sol`, `InvariantsExtended.t.sol` handlers guard pool/8 |
+| 2 zero price reverts | done, `ZeroPrice` in `_price` (shared by paid and pool paths) | `Registry._price` | `test_item2_zeroPriceReverts` |
+| 3 pool limiter restored on failure | done: `Pending.sponsored`; `_release` clears `poolUsed` on `onFailure`, `Missed` and `abandon`; `lastPoolDay` stays | `Registry._release` | `test_item3_failureRestoresTheTraitReservationAndTenAttemptsPay` (ten UTC days, ten prices, paid retry at once); `Adversarial.t.sol` `test_abandonedPoolRequestReleasesTheReservation...` |
+| 4 IDMD pool path deleted | done: `upgradeSponsored`, `MAX_SPONSORED`, `idmdSponsored`, `IdmdSponsorExhausted`, `NotIdmdHolder`, `TooManyTraits` removed; nine **verified** sponsored traits per wallet (`sponsoredVerified`, `PoolLifetimeLimit`) | `Registry` | `test_item4_nineVerifiedSponsoredTraitsPerWallet`; every nine-per-token test deleted |
+| 5 abandon on a shared fact | done: `Pending.payer`, 31 days for every request | `Registry.abandon` | `test_item5_abandonSharedFactOnlyByPayerAfter31Days`; `Registry.t.sol` abandon tests at 31 days |
+| 6 gas floor and `BurnSkipped` reasons | done: `InsufficientGas` below `(PREVIEW_GAS + BURN_GAS) * 64 / 63 + 50_000`; `BurnSkipped(tokenId, reason)` 1 to 5; reason 4 skips and refunds, the request stands; `BurnFeeRequired` removed | `Registry._burnOrRefund` | `BurnRule.t.sol` `test_claimInsideThePreviewGasWindowRevertsInsufficientGas`, `testFuzz_dueWithoutEnoughFeeSkipsRefundsAndLeavesTheRequest`, `test_noFeeAtExactThresholdSkipsWithReasonFour`, codes 1/3/5 fuzz; `BurnInvariant.t.sol` |
+| 7 `onResult` clears then checks | unchanged order, documented in NatSpec | `Registry.onResult` | existing `Registry.t.sol` miss tests, `ReReview.t.sol` consumed-once test |
+| 8 kind-3 answers exactly `head` long | **not done**: the exact-count rule broke the shared-fact suite (64-address envelopes, the handler's lists); v1's 1..64 bound and the `head` clip in `applySharedFact` stay | `Registry._decodeAndJudge` | existing shared-fact tests |
+| 9 `nextSpecId` to `uint256` / `expectedId` | **half**: `registerSpec(Spec, uint256 expectedId)` with `UnexpectedSpecId` is done; the id widening is **not** (every `uint16 traitId` signature stays; ids end at 65534 as CATALOG section 5 says) | `Registry.registerSpec` | `test_item9_expectedIdRefusesAFrontRun`; `ReReview.t.sol` `test_specIdsEndAt65534` |
+| 10 `deployedAt` removed | done | `Registry` | `Artifacts.t.sol` (no getter) |
+| 11 forward `fee`, refund the surplus first | done | `Registry._burnOrRefund` | `BurnRule.t.sol` `testFuzz_dueForwardsTheFeeAndRefundsTheSurplus`, `test_surplusFromARejectingRecipientRevertsBeforeTheBridge` |
+| 12 `totalSupply()` | done (`_nextTokenId`, no burns) | `Registry.totalSupply` | `test_item13_...` |
+| 13a `onFailure` unsigned, says so | done (NatSpec) | `Registry.onFailure` | `Adversarial.t.sol` `test_onFailureRecordsWhatItIsToldAndStoresNothing` |
+| 13b `forceApprove` per call | NatSpec line on `_request` | `Registry._request` | n/a |
+| 13 transferable card, direct traits frozen | done: `frozenDirect[tokenId]` (bit `(family-1)*4 + tier-1`), `Composer.directSnapshot`, `Registry.hasDirectTrait`; the description sentence added by the generator | `Registry.mintCard`, `hasDirectTrait` | `test_item13_directTraitsFrozenAtMintAndTransfersChangeNothing`; `Adversarial.t.sol` `test_tokenURIDependsOnlyOnTheClaimantsFacts` |
+| 14 601 Armed is a snapshot | done: false without a card | same | `test_item13_...`; `Registry.t.sol` `test_directTraitsAreLiveAndNeedNoCard` |
+| 15 kind-3 panel 11 / 7 | done in Composer (`panelOf`, body) and Registry (`_panelOf`); fixture `1201-top-32.json` regenerated (panel fields only) | `Composer`, `Registry` | `test_item15_kind3Panel`; `Templates.t.sol` |
+| 16 finality margin | done: `toBlock + 64 <= block.number` for kinds 1 to 4 | `Composer.validateSpec` | `test_item16_finalityMargin`; `SepoliaRehearsal.t.sol` window tests |
+| 17 curator argument used | done: `catalogSpec(traitId, curator)` targets the registry's curator | `Composer.catalogSpec` | `SepoliaRehearsal.t.sol` `test_catalogSpecsTargetTheDeploymentCurator...` |
+| 18 T3 topic position | **not done** (the previous attempt's version put the Composer over EIP-170; no room in the 342-byte headroom) | | |
+| 19 `tokenURI` gas | **(c) done**: the oracle record carries id, template, evidence, window, panel minima, both request ids, target and name for every entry (catalog entries too, so one code path); generator and goldens regenerated. (a), (b), (d) and the 8,000,000-gas test are **not done** | `Renderer._one`, `tools/gen_template.py` | `Goldens.t.sol` |
+| 20 table tiling test | **not done** in Solidity; `tools/gen_template.py --check` is the existing check | | |
+| 21 constructor checks | done: `decimals() == 18`, code at renderer, composer, IDMD and a nonzero executor outside the floor | `Registry` constructor | `test_item21_constructorChecks`; `RegistryRules.t.sol`, `Floor.t.sol` |
+| 22 documents | **partly**: this file; README, CATALOG, INTEGRATION, CONCEPT, DISCLOSURE still carry the v1 sentences listed under "Documents to update" | | |
+
+## Structural change for size (allowed by the workflow's "factor locally" rule)
+
+`Registry.cardOf` moved to `Renderer.cardOf(registry, tokenId)` (and `Renderer.tokenURIOf`), reading the registry's
+public views (`claimantOf`, `traitsOf`, `verifiedSpecsOf`, `verified`, `specOf`); `Registry.tokenURI` forwards. The
+Registry was 646 bytes over EIP-170 with the items in place; this moved about 1,900 bytes out of it. `Renderer.template()`
+and `Renderer.offsets()` (golden-test getters) are gone; the test reads `TemplateData` directly. `Rename.t.sol`'s 600-byte
+Composer headroom rule became "all three under EIP-170" (the launch budget is the real limit, reported above).
+
+## Documents to update (item 22, open)
+
+README lines 57, 80, 109, 116, 129 (abandon 31 days and payer; `upgradeSponsored` gone; `toBlock <= H - 64`;
+`claimSponsored(traitId, maxPrice)`; `registerSpec(spec, expectedId)`; `BurnSkipped` reasons; `cardOf` on the Renderer);
+CATALOG lines 136, 160, 185, 204 to 207 (601 wording, panel table 11 / 7 for T3, no IDMD sentence, 31 days, the UTC
+calendar day, `totalSupply`); INTEGRATION lines 48, 93, 180, 321, 322, 355, 361, 430, 478 and the new signatures;
+CONCEPT, DISCLOSURE (the test deployment, what changed). Public texts must name no version.
+
+---
+
 # Mainnet evidence on a Sepolia consumer (2026-10-17)
 
 Ports the two accepted launch-1953 corrections from the assignment's explicit change list. The

@@ -54,7 +54,7 @@ function hasTrait(address wallet, uint16 traitId) external view returns (bool); 
 function traitsOf(address wallet) external view returns (uint16[] memory);        // the 25 catalog ids that are true (all tiers), no specs
 function verifiedSpecsOf(address wallet) external view returns (uint16[] memory);  // every verified community spec id
 function upgrade(uint16[] calldata traitIds, uint256 maxPrice) external;           // k oracle requests, k x priceOf, priceOf <= maxPrice
-function abandon(bytes32 requestId) external;                                      // after 14 days: claimant; anyone for shared facts
+function abandon(bytes32 requestId) external;                                      // after 31 days: the claimant; the payer for a shared fact
 function verified(address claimant, uint16 traitId) external view
     returns (bytes32 requestId, bytes32 oracleRequestId, uint64 fromBlock, uint64 toBlock);
 function pendingOf(address claimant, uint16 traitId) external view returns (bytes32 requestId);
@@ -77,7 +77,6 @@ function sharedFact(uint16 factId) external view returns (bytes32 requestId, byt
 
 // sponsor pool (CONCEPT 4; catalog chain traits only)
 function sponsor(uint256 amount) external;
-function upgradeSponsored(uint256 idmdTokenId, uint16[] calldata traitIds) external payable; // IDMD holder AND list member, exactly one id, nine per token ever
 function claimSponsored(uint16 traitId) external payable;                                   // list member, own wallet, from launch
 function poolUsed(address claimant, uint16 traitId) external view returns (bool);
 function lastPoolDay(address wallet) external view returns (uint64);                 // UTC day of last pool request; shared across both paths
@@ -90,7 +89,6 @@ function BURN_FEE_CAP() external view returns (uint256);                        
 
 // catalog
 function traitName(uint16 traitId) external view returns (string memory);
-function traitClass(uint16 traitId) external view returns (uint8);                 // 0 direct, 1 chain, 2 panel, 3 shared
 ```
 
 Events: `CardMinted(address indexed claimant, uint256 indexed tokenId)`, `TraitRequested(address indexed claimant,
@@ -106,15 +104,15 @@ and `BurnSkipped(address indexed claimant, uint8 code)` (1 preview reverted, 2 b
 Both pool paths share **one catalog chain request per wallet per UTC day** (`block.timestamp / 1 days`), from
 launch with no 30-day wait. `poolUsed` limits each `(wallet, traitId)` to one request ever, so the nine eligible
 traits give **nine per wallet over its lifetime**, across both paths and all IDMD tokens. IDMD holders must also
-be list members; `upgradeSponsored` allows nine requests per token over its lifetime, including after transfer.
+be list members; the IDMD pool path is gone. `claimSponsored(traitId, maxPrice)` draws at most `maxPrice`, an eighth of the pool and 2 IMD per request; a failed draw gives the trait back (the day stays consumed); nine verified sponsored traits per wallet for ever.
 An empty array reverts `NoTraits`, more than one id reverts `TooManyTraits`, a same-day request for another trait
 reverts `PoolDailyLimit(wallet)`, and an exhausted token reverts `IdmdSponsorExhausted(tokenId)`. A reverted
 transaction consumes no allowance; a submitted request consumes its day and lifetime allowance even if the
 oracle later misses, fails or never answers. Paid `upgrade` and `requestSharedFact` have no daily or sponsored
 lifetime limit. The 6.4 IMD spec fee plus a first request at the 0.5 IMD oracle price totals 6.9 IMD (excluding gas).
 
-After 14 days, only the stored claimant may abandon a personal pending request, including a sponsored one;
-a stranger gets `NotClaimant()`. A shared fact has no claimant and anyone may abandon it. Abandoning clears the
+After 31 days, only the stored claimant may abandon a personal pending request, including a sponsored one;
+a stranger gets `NotClaimant()`. A shared fact has no claimant; only the wallet that paid it may abandon it. Abandoning clears the
 pending pair, returns no price and restores no sponsored allowance; a late callback for that id leaves a successor
 request untouched. A valid late answer can still settle a request that has not been abandoned.
 
@@ -126,7 +124,7 @@ Two things never follow the deployment chain. Catalog oracle questions name
 `Composer.MAINNET_CURATOR = 0xcB0b0531e86A9aC36Fa865cA8e3dbccF047FDA91`, including trait 1301's parenthesis;
 `specOf` uses that target for catalog oracle traits except 1301, whose T5 target remains zero. Community windows
 are bounded by mainnet height `H`: `block.number` on chain 1, otherwise `Composer.mainnetHeightBound()`.
-T1 to T4 require an ordered window of at least 7,200 blocks and `toBlock < H`; T5 requires
+T1 to T4 require an ordered window of at least 7,200 blocks and `toBlock <= H - 64` (the finality margin); T5 requires
 `fromBlock == toBlock` and `toBlock + 7200 <= H`. Off mainnet the bound is 15,537,395 through timestamp
 1,663,224,191, then `15,537,395 + (block.timestamp - 1,663,224,191) / 12` (integer division). It allows one
 block per 12-second slot since the second proof-of-stake block, slot 4,700,014. With 12-second slots and a
@@ -270,7 +268,7 @@ at `cab19933` (both as in the record NFT this mirrors).
 - Tests for every invariant in `CONCEPT.md` section 6: unit, fuzz, invariant; fork tests against the mainnet Curator
   at a pinned recent block (skipped without `SWORN_FORK_RPC`); golden tests that `tokenURI` bytes equal the
   generator's; golden tests that the composed request bodies equal `templates/fixtures/*.json` byte for byte and that
-  `questionHashOf` of each fixture's canonical document (not its body) equals `reference/plane/questionHashes.json` for all ten; a gas test that `onResult` stays under the
+  the keccak of each fixture's canonical document (not its body) equals `reference/plane/questionHashes.json` for all ten; a gas test that `onResult` stays under the
   Intake's callback stipend in the worst case; signature-recovery tests over the five served attestations in
   `reference/attestations/` (three under the zero domain, two under their consumer's domain; the loader maps the JSON
   `answerType` name to its uint8 code); a test that both artifacts have empty `immutableReferences` and that two
@@ -376,10 +374,11 @@ Everything in "What the builder delivers" is in the tree, with these deviations,
   the trait's canonical window (or the spec's), so storing it would be redundant and cost a third cold slot in
   `onResult`. Worst case measured (community id appended, card to refresh, cold storage): 164,954 gas under the
   200,000 stipend, delivered through the mock Intake's real `call(stipend, ...)`.
-- **Added views:** `pendingRequest(requestId)`, `cardOf(tokenId)` (the renderer's input), `attestationDigest(a)`,
-  `questionHashOf(bytes canonicalDocument)` (the keccak of the canonical document of `INTEGRATION.md` section 4,
-  check 7, not of the body `composeBody` returns), `sharedPending(factId)`, `idmdSponsored(id)`, `lastPoolDay(wallet)`. `traitClass` and
-  `specOf` revert for an unknown id; `hasTrait` never does.
+- **Added views:** `pendingRequest(requestId)`, `attestationDigest(a)`, `sharedPending(factId)`,
+  `lastPoolDay(wallet)`. `specOf` reverts for an unknown id; `hasTrait` never does. (`cardOf`, `questionHashOf`
+  and `traitClass` were removed in the 2026-10-20 revision for the launch size budget: the plane's `questionHash`
+  is `keccak256` of the canonical document, a spec's class is its `kind`, and the renderer's input is rebuilt by
+  the test harness from the public reads.)
 - **`template/offsets` and the hive start tables live in the code as ASCII hex**, not packed bytes: the launch's
   opcode scan reads every non-PUSH byte of the runtime, and a packed offset `0x0cf2` would read as `CALLCODE`. The
   envelope blob and the hive strings are ASCII (percent-encoded).

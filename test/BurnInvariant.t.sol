@@ -47,40 +47,23 @@ contract BurnHandler is Test {
         executor.configure(s.amount, s.fee, s.mode);
         address claimant = address(uint160(0x100000 + ++attempts));
         curator.set(claimant, 1, true, 1, 1, 1);
-        idmd.setOwner(attempts, claimant);
         vm.deal(claimant, 1 ether);
         uint256 beforeEth = address(registry).balance;
         uint256 beforePool = registry.pool();
-        uint16[] memory ids = new uint16[](1);
-        ids[0] = 701;
-        bytes memory callData = s.throughIdmd
-            ? abi.encodeCall(Registry.upgradeSponsored, (attempts, ids))
-            : abi.encodeCall(Registry.claimSponsored, (701));
         vm.prank(claimant);
-        (bool ok, bytes memory error) = address(registry).call{value: s.value}(callData);
-        bool due = s.mode % 2 == 0 && s.amount >= 69 ether && s.fee <= 0.005 ether;
-        bool insufficient = due && s.value < s.fee;
-        assertEq(ok, !insufficient);
+        (bool ok,) =
+            address(registry).call{value: s.value}(abi.encodeCall(Registry.claimSponsored, (701, type(uint256).max)));
+        bool due = s.mode % 2 == 0 && s.amount >= 69 ether && s.fee <= 0.005 ether && s.value >= s.fee;
+        assertTrue(ok, "a short attachment skips the burn instead of reverting the claim");
         assertEq(address(registry).balance, beforeEth, "each claim preserves the prior ETH balance");
-        if (insufficient) {
-            assertEq(error, abi.encodeWithSelector(Registry.BurnFeeRequired.selector, s.fee));
-            assertEq(registry.pool(), beforePool);
-            assertEq(registry.pendingOf(claimant, 701), bytes32(0));
-            assertFalse(registry.poolUsed(claimant, 701));
-            assertEq(registry.idmdSponsored(attempts), 0);
-            assertEq(registry.lastPoolDay(claimant), 0);
-            assertEq(claimant.balance, 1 ether);
-        } else {
-            accepted++;
-            poolSpent += 0.5 ether;
-            uint256 spent = due && s.mode == 0 ? s.fee : 0;
-            feesSpent += spent;
-            assertEq(registry.pool(), beforePool - 0.5 ether);
-            assertTrue(registry.pendingOf(claimant, 701) != 0);
-            assertTrue(registry.poolUsed(claimant, 701));
-            assertEq(registry.idmdSponsored(attempts), s.throughIdmd ? 1 : 0);
-            assertEq(claimant.balance, 1 ether - spent);
-        }
+        accepted++;
+        poolSpent += 0.5 ether;
+        uint256 spent = due && s.mode == 0 ? s.fee : 0;
+        feesSpent += spent;
+        assertEq(registry.pool(), beforePool - 0.5 ether);
+        assertTrue(registry.pendingOf(claimant, 701) != 0);
+        assertTrue(registry.poolUsed(claimant, 701));
+        assertEq(claimant.balance, 1 ether - spent);
     }
 }
 

@@ -20,22 +20,22 @@ interface ICatalogRegistry {
 contract Composer {
     string public constant DEPOSITED =
         "event Deposited(address indexed contributor, uint256 indexed hour, uint256 amount, uint256 creditedDelta, uint256 weightAdded, uint256 newWeight, uint256 txCount, uint256 hourTotal, uint256 earlyBps)";
-    string public constant FIRST_DEPOSIT =
+    string internal constant FIRST_DEPOSIT =
         "event FirstDeposit(address indexed contributor, uint256 indexed index, uint256 timestamp)";
-    string public constant HOUR_SAVED =
+    string internal constant HOUR_SAVED =
         "event HourSaved(address indexed savior, uint256 indexed hour, uint256 hourTotal)";
 
     string internal constant DEF_WINDOW = "The pinned window is the whole evidence; events outside it do not count.";
-    string internal constant DEF_T1_METHOD =
-        "eth_getLogs on the contract with topic0 = the event's signature hash and the indexed argument(s) as topics, over exactly the pinned window; or the equivalent explorer log query. Count matching logs; do not deduplicate by transaction. Block numbers are hex.";
-    string internal constant DEF_T2_METHOD =
-        "eth_getLogs on the contract with topic0 = the event's signature hash and the indexed argument(s) as topics, over exactly the pinned window; or the equivalent explorer log query. Sum the named argument of matching logs; do not deduplicate by transaction. Block numbers are hex.";
+    string internal constant DEF_LOGS_HEAD =
+        "eth_getLogs on the contract with topic0 = the event's signature hash and the indexed argument(s) as topics, over exactly the pinned window; or the equivalent explorer log query. ";
+    string internal constant DEF_LOGS_TAIL =
+        " matching logs; do not deduplicate by transaction. Block numbers are hex.";
     string internal constant DEF_T2_UNITS = "Raw integer units of the argument as emitted, e.g. wei for an ETH amount.";
 
     /// @notice The hash of the Curator deploy block, the only block hash a body ever carries (trait 1301).
     bytes32 internal constant B_DEPLOY_HASH = 0x43ac0aadac9b134a5e4555d28323431664fd77d74cd6a28cb4ca65e34ba72256;
 
-    address public constant MAINNET_CURATOR = 0xcB0b0531e86A9aC36Fa865cA8e3dbccF047FDA91;
+    address internal constant MAINNET_CURATOR = 0xcB0b0531e86A9aC36Fa865cA8e3dbccF047FDA91;
     uint256 internal constant MERGE_BLOCK = 15_537_395;
     uint256 internal constant MERGE_TIME = 1_663_224_191;
     uint256 internal constant SLOT_SECONDS = 12;
@@ -45,8 +45,8 @@ contract Composer {
     uint16 internal constant PANEL_PANEL = 11;
     uint16 internal constant PANEL_QUORUM = 7;
     uint256 internal constant VALID_FOR_SECONDS = 2_592_000;
-    uint256 internal constant MAX_QUESTION = 1000;
-    uint256 internal constant MAX_DEFINITION = 512;
+    /// @dev Blocks a kind 1 to 4 window must end behind the head at registration (two epochs).
+    uint256 internal constant FINALITY = 64;
 
     /// @dev A composed question: text, sorted definition keys and values, and the fixed fields.
     struct Question {
@@ -60,9 +60,6 @@ contract Composer {
         uint64 toBlock;
     }
 
-    error QuestionTooLong(uint256 length);
-    error DefinitionTooLong(uint256 length);
-
     // ------------------------------------------------------------------ the catalog as specs
 
     uint64 internal constant B_DEPLOY = 0x189378e;
@@ -72,9 +69,16 @@ contract Composer {
 
     error NotACatalogOracleTrait(uint16 traitId);
 
-    /// @notice A catalog oracle trait (701 to 1301) expressed as a Spec (CATALOG.md section 3).
-    function catalogSpec(uint16 traitId, address) external pure returns (Spec memory s) {
-        s.target = MAINNET_CURATOR;
+    /// @notice A catalog oracle trait (701 to 1301) expressed as a Spec (CATALOG.md section 3), its
+    ///         log questions targeting the registry's `curator` (the mainnet Curator on the launch).
+    function catalogSpec(uint16 traitId, address curator) external pure returns (Spec memory s) {
+        s = _catalogSpec(traitId, curator);
+        if (s.kind == 0) revert NotACatalogOracleTrait(traitId);
+    }
+
+    /// @dev `kind` 0 for an id that is not a catalog oracle trait.
+    function _catalogSpec(uint16 traitId, address curator) internal pure returns (Spec memory s) {
+        s.target = curator;
         s.threshold = 1;
         s.fromBlock = B_DEPLOY;
         s.toBlock = B_END;
@@ -124,14 +128,21 @@ contract Composer {
             s.threshold = 20;
             s.toBlock = B_DEPLOY;
             s.name = "Pretrained";
-        } else {
-            revert NotACatalogOracleTrait(traitId);
         }
     }
 
-    /// @notice The direct-read predicates used by Registry.hasTrait and catalog enumeration.
-    function hasDirectTrait(address wallet, uint16 traitId, IWhitelistCurator curator, IIDMD idmd)
-        external
+    /// @notice Every direct trait true for a wallet now, as the `frozenDirect` word a mint stores:
+    ///         bit `(family - 1) * 4 + tier - 1` per true direct id (101 is bit 0, 601 bit 20).
+    function directSnapshot(address wallet, IWhitelistCurator curator, IIDMD idmd) external view returns (uint32 bits) {
+        uint16[25] memory all = _catalog();
+        for (uint256 i; i < 14; ++i) {
+            uint16 id = all[i];
+            if (_direct(wallet, id, curator, idmd)) bits |= uint32(1 << ((id / 100 - 1) * 4 + id % 100 - 1));
+        }
+    }
+
+    function _direct(address wallet, uint16 traitId, IWhitelistCurator curator, IIDMD idmd)
+        internal
         view
         returns (bool)
     {
@@ -161,33 +172,7 @@ contract Composer {
     /// @notice Enumerates all true catalog ids in ascending order; community specs are excluded.
     /// @dev The registry supplies itself as the read source. Kept here for its EIP-170 headroom.
     function traitsOf(address registry, address wallet) external view returns (uint16[] memory ids) {
-        uint16[25] memory all = [
-            101,
-            201,
-            202,
-            301,
-            302,
-            303,
-            401,
-            402,
-            403,
-            404,
-            501,
-            502,
-            503,
-            601,
-            701,
-            801,
-            901,
-            1001,
-            1101,
-            1102,
-            1103,
-            1104,
-            1105,
-            1201,
-            1301
-        ];
+        uint16[25] memory all = _catalog();
         uint16[] memory tmp = new uint16[](25);
         uint256 n;
         for (uint256 i; i < 25; ++i) {
@@ -199,40 +184,20 @@ contract Composer {
         }
     }
 
+    /// @dev The 25 catalog ids ascending (packed big-endian uint16); the first 14 are the direct ones.
+    bytes internal constant CATALOG =
+        hex"006500c900ca012d012e012f019101920193019401f501f601f7025902bd0321038503e9044d044e044f0450045104b10515";
+
+    function _catalog() internal pure returns (uint16[25] memory ids) {
+        bytes memory packed = CATALOG;
+        for (uint256 i; i < 25; ++i) {
+            ids[i] = (uint16(uint8(packed[2 * i])) << 8) | uint16(uint8(packed[2 * i + 1]));
+        }
+    }
+
     // ------------------------------------------------------------------ names and spec guards
 
-    error UnknownTrait(uint16 traitId);
     error BadSpec(string field);
-
-    /// @notice The name table of CATALOG.md section 7 (final names, 2026-10-16) for the 25 catalog ids.
-    function traitName(uint16 traitId) external pure returns (string memory) {
-        if (traitId == 101) return "Spawned";
-        if (traitId == 201) return "Zero-Shot, hour <= 1";
-        if (traitId == 202) return "Zero-Shot, hour 0";
-        if (traitId == 301) return "Hopper >= 3";
-        if (traitId == 302) return "Hopper >= 5";
-        if (traitId == 303) return "Hopper >= 10";
-        if (traitId == 401) return "Bullfrog >= 1 ETH";
-        if (traitId == 402) return "Bullfrog >= 10 ETH";
-        if (traitId == 403) return "Bullfrog >= 100 ETH";
-        if (traitId == 404) return "Bullfrog >= 800 ETH";
-        if (traitId == 501) return "Benchmarked >= 1000";
-        if (traitId == 502) return "Benchmarked >= 3162";
-        if (traitId == 503) return "Benchmarked >= 10000";
-        if (traitId == 601) return "Armed";
-        if (traitId == 701) return "Uptime";
-        if (traitId == 801) return "Holdout";
-        if (traitId == 901) return "Final Token";
-        if (traitId == 1001) return "Hotfix";
-        if (traitId == 1101) return "PID #1";
-        if (traitId == 1102) return "PID #1000";
-        if (traitId == 1103) return "PID #10000";
-        if (traitId == 1104) return "PID #19522";
-        if (traitId == 1105) return "First thousand";
-        if (traitId == 1201) return "Top Weights";
-        if (traitId == 1301) return "Pretrained";
-        revert UnknownTrait(traitId);
-    }
 
     /// @notice The guards of CATALOG.md section 5; reverts `BadSpec(field)` on the first failing field.
     function validateSpec(Spec calldata s, uint256 blockNumber) external view {
@@ -250,7 +215,9 @@ contract Composer {
             for (uint256 i; i < prefix.length; ++i) {
                 if (item[i] != prefix[i]) revert BadSpec("item");
             }
-            if (!_charset(item, true)) revert BadSpec("item");
+            if (!_charset(item, 1)) revert BadSpec("item");
+            // V2 item 18: a kind-3 event is non-anonymous (its first indexed argument is then topic 1).
+            if (s.kind == 3 && _anonymous(item)) revert BadSpec("item");
         }
         bytes memory arg = bytes(s.arg);
         if (s.kind <= 3) {
@@ -258,14 +225,16 @@ contract Composer {
         } else if (arg.length != 0) {
             revert BadSpec("arg");
         }
-        if (arg.length > 32 || !_charset(arg, false)) revert BadSpec("arg");
+        if (arg.length > 32 || !_charset(arg, 0)) revert BadSpec("arg");
+        // V2 item 18: the kind-3 grouping key is an address-typed indexed parameter of the event.
+        if (s.kind == 3 && _topicOf(item, arg) == 0) revert BadSpec("arg");
         bytes memory fixedArg = bytes(s.fixedArg);
-        if (fixedArg.length > 32 || !_charset(fixedArg, false)) revert BadSpec("fixedArg");
+        if (fixedArg.length > 32 || !_charset(fixedArg, 0)) revert BadSpec("fixedArg");
         if (s.kind > 2 && (fixedArg.length != 0 || s.fixedVal != 0)) revert BadSpec("fixedArg");
         if (s.kind <= 2 && fixedArg.length == 0 && s.fixedVal != 0) revert BadSpec("fixedVal");
         bytes memory sumArg = bytes(s.sumArg);
         if (s.kind == 2 || s.kind == 3) {
-            if (sumArg.length == 0 || sumArg.length > 32 || !_charset(sumArg, false)) revert BadSpec("sumArg");
+            if (sumArg.length == 0 || sumArg.length > 32 || !_charset(sumArg, 0)) revert BadSpec("sumArg");
         } else if (sumArg.length != 0) {
             revert BadSpec("sumArg");
         }
@@ -282,18 +251,16 @@ contract Composer {
         if (s.kind == 5) {
             if (s.fromBlock != s.toBlock || uint256(s.toBlock) + 7200 > blockNumber) revert BadSpec("window");
         } else {
-            if (s.toBlock < s.fromBlock || uint256(s.toBlock) - s.fromBlock + 1 < 7200 || s.toBlock >= blockNumber) {
+            // Finality margin: the window's last block is at least FINALITY blocks behind the head.
+            if (
+                s.toBlock < s.fromBlock || uint256(s.toBlock) - s.fromBlock + 1 < 7200
+                    || uint256(s.toBlock) + FINALITY > blockNumber
+            ) {
                 revert BadSpec("window");
             }
         }
         bytes memory name = bytes(s.name);
-        if (name.length < 1 || name.length > 32) revert BadSpec("name");
-        for (uint256 i; i < name.length; ++i) {
-            bytes1 ch = name[i];
-            bool ok = (ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z") || (ch >= "0" && ch <= "9") || ch == " "
-                || ch == "." || ch == "-";
-            if (!ok) revert BadSpec("name");
-        }
+        if (name.length < 1 || name.length > 32 || !_charset(name, 2)) revert BadSpec("name");
     }
 
     function mainnetHeightBound() public view returns (uint256) {
@@ -301,42 +268,92 @@ contract Composer {
         return MERGE_BLOCK + (block.timestamp - MERGE_TIME) / SLOT_SECONDS;
     }
 
-    /// @dev `[A-Za-z0-9_]`, plus ` ,()[]` when `item` is true.
-    function _charset(bytes memory b, bool item) internal pure returns (bool) {
+    /// @dev Mode 0 (an argument): `[A-Za-z0-9_]`; mode 1 (an item): plus ` ,()[]`; mode 2 (a name):
+    ///      `[A-Za-z0-9 .-]`.
+    function _charset(bytes memory b, uint8 mode) internal pure returns (bool) {
         for (uint256 i; i < b.length; ++i) {
             bytes1 ch = b[i];
-            bool ok = (ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z") || (ch >= "0" && ch <= "9") || ch == "_";
-            if (!ok && item) ok = ch == " " || ch == "," || ch == "(" || ch == ")" || ch == "[" || ch == "]";
+            bool ok = (ch >= "a" && ch <= "z") || (ch >= "A" && ch <= "Z") || (ch >= "0" && ch <= "9");
+            if (!ok) {
+                if (mode == 2) {
+                    ok = ch == " " || ch == "." || ch == "-";
+                } else if (mode == 1) {
+                    ok = ch == "_" || ch == " " || ch == "," || ch == "(" || ch == ")" || ch == "[" || ch == "]";
+                } else {
+                    ok = ch == "_";
+                }
+            }
             if (!ok) return false;
+        }
+        return true;
+    }
+
+    /// @dev V2 item 18: the 1-based position of `arg` among the indexed parameters of the event signature
+    ///      `item` (`to` in `event Transfer(address indexed from, address indexed to, uint256 value)` is 2),
+    ///      or 0 when `arg` is not an `address`-typed indexed parameter: absent, a data field, or indexed
+    ///      with another type. Each parameter is `type [indexed] [name]`, parameters are comma-separated.
+    function _topicOf(bytes memory item, bytes memory arg) internal pure returns (uint256 k) {
+        uint256 n = item.length;
+        uint256 i;
+        while (i < n && item[i] != "(") ++i;
+        if (i == n) return 0;
+        ++i;
+        while (i < n) {
+            bool topic;
+            bool isAddress;
+            bool named;
+            uint256 words;
+            while (i < n && item[i] != "," && item[i] != ")") {
+                if (item[i] == " ") {
+                    ++i;
+                    continue;
+                }
+                uint256 start = i;
+                while (i < n && item[i] != " " && item[i] != "," && item[i] != ")") ++i;
+                if (words == 0) isAddress = _is(item, start, i, "address");
+                else if (_is(item, start, i, "indexed")) topic = true;
+                else named = _is(item, start, i, arg);
+                ++words;
+            }
+            if (topic) ++k;
+            if (named) return topic && isAddress ? k : 0;
+            if (i == n || item[i] == ")") return 0;
+            ++i;
+        }
+    }
+
+    /// @dev Whether the signature ends in `anonymous` (trailing spaces ignored).
+    function _anonymous(bytes memory item) internal pure returns (bool) {
+        uint256 e = item.length;
+        while (e > 0 && item[e - 1] == " ") --e;
+        return e >= 9 && _is(item, e - 9, e, "anonymous");
+    }
+
+    function _is(bytes memory b, uint256 start, uint256 end, bytes memory word) internal pure returns (bool) {
+        if (end - start != word.length) return false;
+        for (uint256 i; i < word.length; ++i) {
+            if (b[start + i] != word[i]) return false;
         }
         return true;
     }
 
     // ------------------------------------------------------------------ public shape
 
-    /// @notice The answerType code of a kind: 3 uint256 (T1, T2), 4 address[] (T3), 0 bool (T4, T5).
-    function answerTypeOf(uint8 kind) public pure returns (uint8) {
-        if (kind == 1 || kind == 2) return 3;
-        if (kind == 3) return 4;
-        return 0;
-    }
-
-    function panelOf(uint8 kind) public pure returns (uint16 panelSize, uint16 quorum) {
-        return kind == 5 ? (PANEL_PANEL, PANEL_QUORUM) : (CHAIN_PANEL, CHAIN_QUORUM);
-    }
-
-    /// @notice Composes the body and the plane's `questionHash` for a spec and a claimant.
-    /// @param catalogNonce true for trait 1301, whose T5 parenthesis names the Curator deploy block.
-    function compose(Spec memory s, address claimant, address consumer, bool catalogNonce, address)
+    /// @notice Composes the body and the plane's `questionHash` for a trait and a claimant: a catalog id's
+    ///         spec is built here from `curator` (`s` is ignored), a community id's is `s`. Trait 1301's T5
+    ///         parenthesis names the Curator deploy block.
+    function compose(uint16 traitId, Spec memory s, address claimant, address consumer, address curator)
         external
         view
         returns (bytes memory body, bytes32 questionHash)
     {
-        Question memory q = question(s, claimant, catalogNonce);
-        if (bytes(q.question).length > MAX_QUESTION) revert QuestionTooLong(bytes(q.question).length);
-        for (uint256 i; i < q.values.length; ++i) {
-            if (bytes(q.values[i]).length > MAX_DEFINITION) revert DefinitionTooLong(bytes(q.values[i]).length);
+        if (traitId < 10001) {
+            s = _catalogSpec(traitId, curator);
+            if (s.kind == 0) revert NotACatalogOracleTrait(traitId);
         }
+        // The door's bounds (question <= 1000, definition <= 512 bytes) hold by construction: validateSpec caps
+        // `item` at 256 and the other strings at 32 bytes, and the longest template text (T3) stays under them.
+        Question memory q = question(s, claimant, traitId == 1301);
         body = encodeBody(q, consumer);
         questionHash = keccak256(canonical(q));
     }
@@ -380,7 +397,7 @@ contract Composer {
                 q.keys = new string[](2);
                 q.values = new string[](2);
                 q.keys[0] = "method";
-                q.values[0] = DEF_T1_METHOD;
+                q.values[0] = string.concat(DEF_LOGS_HEAD, "Count", DEF_LOGS_TAIL);
                 q.keys[1] = "window";
                 q.values[1] = DEF_WINDOW;
             } else {
@@ -400,7 +417,7 @@ contract Composer {
                 q.keys = new string[](3);
                 q.values = new string[](3);
                 q.keys[0] = "method";
-                q.values[0] = DEF_T2_METHOD;
+                q.values[0] = string.concat(DEF_LOGS_HEAD, "Sum the named argument of", DEF_LOGS_TAIL);
                 q.keys[1] = "units";
                 q.values[1] = DEF_T2_UNITS;
                 q.keys[2] = "window";
@@ -409,6 +426,8 @@ contract Composer {
         } else if (s.kind == 3) {
             q.answerType = "address[]";
             q.head = s.threshold;
+            // the grouping key's 1-based position among the event's indexed parameters (V2 item 18)
+            string memory k = Strings.toString(_topicOf(bytes(s.item), bytes(s.arg)));
             q.question = string.concat(
                 "Within the request's pinned block window (fromBlock ",
                 from,
@@ -423,7 +442,9 @@ contract Composer {
                     c,
                     " grouped by the indexed ",
                     s.arg,
-                    " argument. Return the ",
+                    " argument (topic ",
+                    k,
+                    " of the log), never by a data field. Return the ",
                     n,
                     " keys with the largest sums, descending by sum, ties by address ascending (lowercase hex)."
                 )
@@ -432,11 +453,19 @@ contract Composer {
             q.values = new string[](1);
             q.keys[0] = "method";
             q.values[0] = string.concat(
-                "eth_getLogs over exactly the pinned window, group by the indexed argument, sum in raw units, sort as stated; include a few positions beyond ",
+                string.concat(
+                    "eth_getLogs over exactly the pinned window; group by the indexed ",
+                    s.arg,
+                    " argument (the log's topic ",
+                    k,
+                    ", an address: left-pad 12 zero bytes), never by a data word; sum ",
+                    s.sumArg
+                ),
+                " in raw units; sort descending by sum and break ties by lowercase address ascending; include positions beyond ",
                 n,
-                "; agreement is on the first ",
+                ", agreement is on the first ",
                 n,
-                "."
+                ". An entry that is not an address (12 leading zero bytes) is a wrong answer."
             );
         } else if (s.kind == 4) {
             q.answerType = "bool";
@@ -546,7 +575,8 @@ contract Composer {
 
     /// @notice The request body: sorted keys, two-space indent, no trailing newline.
     function encodeBody(Question memory q, address consumer) internal view returns (bytes memory) {
-        (uint16 panelSize, uint16 quorum) = q.panel ? (PANEL_PANEL, PANEL_QUORUM) : (CHAIN_PANEL, CHAIN_QUORUM);
+        (uint16 panelSize, uint16 quorum) =
+            q.panel || q.head != 0 ? (PANEL_PANEL, PANEL_QUORUM) : (CHAIN_PANEL, CHAIN_QUORUM);
         bytes memory defs;
         for (uint256 i; i < q.keys.length; ++i) {
             defs = bytes.concat(

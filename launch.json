@@ -1,0 +1,27 @@
+{
+  "kind": "evm_contracts",
+  "contracts": [
+    {
+      "contract": "Renderer",
+      "constructorArgs": []
+    },
+    {
+      "contract": "Composer",
+      "constructorArgs": []
+    },
+    {
+      "contract": "Registry",
+      "constructorArgs": [
+        "0xcB0b0531e86A9aC36Fa865cA8e3dbccF047FDA91",
+        "0x0000eC93127BAA929E58E97dd0095A2BFb38ec1D",
+        "0xD34a99Bc0f67aE1bbd63C660e6d0b0dd03E263B7",
+        "0xa43e6F75ee006411F79Ac1C84120606C2330DE82",
+        "0x5598Aa9146215Bc13eb26f2c692Ad1461Fd32982",
+        "$contract:Renderer",
+        "$contract:Composer",
+        "0xe29386719C155B6847aD5a4E97C6674f10ffc750"
+      ]
+    }
+  ],
+  "notes": "Sworn v2 on Ethereum mainnet (chain id 1): an ownerless ERC-721 registry of facts about wallets, deployed as the three application contracts of the accepted tree in constructor dependency order, exactly as the approved workflow orders them. Renderer (src/Renderer.sol) draws the card SVG and its metadata on-chain; it has no constructor arguments, no immutables and no storage. Composer (src/Composer.sol) composes the oracle questions, validates community specs and snapshots direct traits; it has no constructor arguments, no immutables and no storage. Registry (src/Registry.sol, ERC721 'Sworn'/'SWORN') mints one card per wallet, verifies traits from the settled WhitelistCurator or from the IMD oracle through the Intake, stores shared facts, registers specs and holds the sponsor pool. Its eight constructor arguments, in declaration order: curator_ = WhitelistCurator 0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91; idmd_ = IdentityMD collection 0x0000ec93127baa929e58e97dd0095a2bfb38ec1d; imd_ = IMD token 0xd34a99bc0f67ae1bbd63c660e6d0b0dd03e263b7; intake_ = IMD Intake v2 0xa43e6f75ee006411f79ac1c84120606c2330de82; attester_ = the IMD oracle signer 0x5598aa9146215bc13eb26f2c692ad1461fd32982; renderer_ = $contract:Renderer; composer_ = $contract:Composer; burnExecutor_ = IMD BurnExecutor V2 0xe29386719c155b6847ad5a4e97c6674f10ffc750. All five static chain addresses are the ones the approved workflow names and match script/Deploy.s.sol's mainnet constants. No owner, admin, setter, pauser or upgrade path exists in any of the three contracts, so $owner is not used anywhere; msg.sender is never stored by a constructor. No token, pool contract, reward distributor, ETH funding or initialization call: every contract is fully configured by its nonpayable constructor and anyone may call every function. The Registry constructor performs only passive reads (Curator settlement, IMD decimals, Intake price) and code checks (IDMD, renderer, composer, nonzero executor) when the dependencies have code; it skips them when Curator, IDMD, IMD and Intake all lack code, so the empty-chain floor rehearsal deploys it with these same arguments. Size evidence from test/NOTES.md (review revision 3) and forge build --sizes with the pinned settings (solc 0.8.24, optimizer 200 runs, cancun, bytecode_hash none): Registry 22,943, Composer 23,621, Renderer 23,092 runtime bytes, each under EIP-170; their sum of 69,656 bytes is 144 under the docs/V2.md section 6 project budget of 69,800 bytes, pinned by test/Revision3.t.sol test_threeRuntimesFitTheLaunchBudget. The single-transaction deployment cost is still confirmed by the deployer's simulation against the gas ceiling; that is a deployment matter, not a manifest field."
+}

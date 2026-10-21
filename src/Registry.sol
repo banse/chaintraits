@@ -5,6 +5,7 @@ import {ERC721} from "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import {IERC4906} from "@openzeppelin/contracts/interfaces/IERC4906.sol";
 import {IERC165} from "@openzeppelin/contracts/utils/introspection/IERC165.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {ECDSA} from "@openzeppelin/contracts/utils/cryptography/ECDSA.sol";
@@ -15,19 +16,23 @@ import {IIDMD} from "./interfaces/IIDMD.sol";
 import {IIntake} from "./interfaces/IIntake.sol";
 import {IBurnExecutor} from "./interfaces/IBurnExecutor.sol";
 import {IOracleConsumer, OracleAttestation} from "./interfaces/IOracleConsumer.sol";
-import {Spec, OracleMeta, Card} from "./Types.sol";
+import {Spec} from "./Types.sol";
 import {Composer} from "./Composer.sol";
 import {Renderer} from "./Renderer.sol";
 
 /// @title Sworn registry
 /// @notice Ownerless, non-upgradeable ERC-721: one card per wallet, traits as facts about the wallet
-///         that minted it. Direct-read traits are evaluated live from the settled WhitelistCurator and
-///         IDMD `balanceOf`; oracle traits are stored per (claimant, traitId) after an attestation
-///         signed by the IMD oracle passes every check of INTEGRATION.md section 4 inside `onResult`.
+///         that minted it. Direct-read traits are evaluated from the settled WhitelistCurator and IDMD
+///         `balanceOf`: live for a wallet without a card, frozen at mint for a wallet with one. Oracle
+///         traits are stored per (claimant, traitId) after an attestation signed by the IMD oracle passes
+///         every check of INTEGRATION.md section 4 inside `onResult`.
 /// @dev    No owner, pause, upgrade, fee switch, `receive`, `fallback`, `immutable` or `tx.origin`.
 ///         All eight dependency addresses are ordinary storage so a clean rebuild equals the deployed
 ///         runtime code byte for byte (`bytecode_hash = "none"`). Except on the empty dependency floor,
-///         the constructor checks IDMD code, Curator settlement, Intake price and nonzero executor code.
+///         the constructor checks IDMD, renderer and composer code, IMD decimals, Curator settlement,
+///         the Intake price and nonzero executor code.
+///         Holding a card gives no power over it and takes none away from the holder: every mutating
+///         entry point acts on `msg.sender`'s own wallet facts, nothing is keyed by the token.
 contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     using SafeERC20 for IERC20;
 
@@ -37,7 +42,9 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
         address claimant; // zero for a shared fact
         uint16 traitId; // or the fact id
         uint64 requestedAt;
+        bool sponsored; // drawn from the pool: its `poolUsed` reservation is released on failure
         bytes32 questionHash;
+        address payer; // the wallet that paid a shared fact; the only one that may abandon it
     }
 
     /// @dev The window is not stored: check 6 made it equal to the trait's canonical (or the spec's)
@@ -61,14 +68,17 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     uint256 public constant SPEC_FEE = 6.4 ether;
     uint256 public constant BURN_MIN = 69 ether;
     uint256 public constant BURN_FEE_CAP = 0.005 ether;
+    /// @notice The most one pool draw may cost, in IMD units: four times the 0.5 IMD launch price.
+    uint256 public constant POOL_DRAW_CAP = 2 ether;
     uint256 internal constant BURN_GAS = 800_000;
     /// @dev BurnExecutor V2 catches its inner OFT quote running out of gas and returns (0,0,0) below about
     ///      272,000 gas at the CALL (cold mainnet trace at block 26,202,203: 264,408); 600,000 is 2.2x that.
     uint256 internal constant PREVIEW_GAS = 600_000;
-    uint256 internal constant ABANDON_AFTER = 14 days;
+    /// @dev `Composer.VALID_FOR_SECONDS` (30 days) plus one day: an attestation is dead before a pending
+    ///      pair can be abandoned, so a late valid answer can never collide with an abandoned request.
+    uint256 internal constant ABANDON_AFTER = 31 days;
     uint256 internal constant QUESTION_CHAIN_ID = 1;
-    uint256 internal constant MAX_SPONSORED = 9;
-    uint256 internal constant MAX_COMMUNITY_IN_METADATA = 32;
+    uint256 internal constant MAX_SPONSORED_VERIFIED = 9;
     uint16 internal constant FIRST_SPEC_ID = 10001;
 
     uint64 internal constant B_DEPLOY = 0x189378e;
@@ -98,12 +108,14 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     address public attester;
     Renderer public renderer;
     Composer public composer;
-    uint64 public deployedAt;
 
     uint256 internal _nextTokenId;
     mapping(address => uint256) public tokenOf;
     mapping(uint256 => address) public claimantOf;
     mapping(uint256 => uint64) public mintedAtBlock;
+    /// @notice The direct traits true at mint, one bit per direct trait: bit `(family - 1) * 4 + tier - 1`
+    ///         (101 is bit 0, 303 bit 10, 601 "Armed" bit 20). A card's direct traits never change afterwards.
+    mapping(uint256 => uint32) public frozenDirect;
 
     mapping(bytes32 => Pending) internal _pending;
     mapping(address => mapping(uint16 => bytes32)) public pendingOf;
@@ -116,7 +128,8 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     uint16 public nextSpecId;
 
     mapping(address => mapping(uint16 => bool)) public poolUsed;
-    mapping(uint256 => uint8) public idmdSponsored;
+    /// @notice Verified sponsored traits per wallet, at most nine for ever.
+    mapping(address => uint8) public sponsoredVerified;
     mapping(address => uint64) public lastPoolDay;
     IBurnExecutor public burnExecutor;
 
@@ -133,7 +146,10 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     event Sponsored(address indexed from, uint256 amount);
     event PoolSpent(address indexed claimant, uint16 indexed traitId, bytes32 requestId);
     event BurnTriggered(address indexed claimant, uint256 amount, uint256 nativeFee);
-    event BurnSkipped(address indexed claimant, uint8 code);
+    /// @notice The burn was skipped: 1 preview unavailable or reverted (or no executor), 2 amount below
+    ///         `BURN_MIN`, 3 fee above `BURN_FEE_CAP`, 4 `msg.value` below the fee (attachment refunded,
+    ///         the request stands), 5 bridge reverted. `tokenId` is 0 for a claimant without a card.
+    event BurnSkipped(uint256 indexed tokenId, uint8 reason);
 
     // ------------------------------------------------------------------ errors
 
@@ -141,13 +157,14 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     error AlreadyMinted(address claimant);
     error NotIntake();
     error NoTraits();
-    error TooManyTraits();
     error NotAnOracleTrait(uint16 traitId);
     error NotASharedFact(uint16 traitId);
     error NotACatalogChainTrait(uint16 traitId);
     error AlreadyVerified(address claimant, uint16 traitId);
     error AlreadyPending(address claimant, uint16 traitId);
     error PriceAboveMax(uint256 price, uint256 maxPrice);
+    error ZeroPrice();
+    error PoolDrawTooLarge();
     error NotPending(bytes32 requestId);
     error TooEarly();
     error NotClaimant();
@@ -155,14 +172,13 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     error FactNotStored(uint16 factId);
     error ListMismatch();
     error NotInList();
-    error PoolTooSmall(uint256 pool, uint256 needed);
     error PoolAlreadyUsed(address claimant, uint16 traitId);
-    error IdmdSponsorExhausted(uint256 idmdTokenId);
+    error PoolLifetimeLimit(address wallet);
     error PoolDailyLimit(address wallet);
-    error NotIdmdHolder(uint256 idmdTokenId);
     error NotMember(address wallet);
     error NoCard(uint256 tokenId);
-    error BurnFeeRequired(uint256 nativeFee);
+    error UnexpectedSpecId(uint256 expected, uint256 next);
+    error InsufficientGas();
     error BurnRefundFailed();
     error ExecutorHasNoCode();
     error DependencyHasNoCode();
@@ -182,9 +198,10 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     /// @dev The renderer and the composer are taken as addresses, not deployed here: with both creation
     ///      codes embedded, the registry's init code exceeded EIP-3860's 49,152 bytes. Three deployments
     ///      (renderer, composer, registry) use static arguments stored in ordinary storage. The only
-    ///      external constructor calls are passive Curator settlement and Intake price checks; IDMD
-    ///      and a nonzero executor are checked for code. These checks are skipped only when Curator,
-    ///      IDMD, IMD and Intake all lack code, for the launch pipeline's empty-chain floor.
+    ///      external constructor calls are passive Curator settlement, IMD decimals and Intake price reads;
+    ///      IDMD, the renderer, the composer and a nonzero executor are checked for code. These checks are
+    ///      skipped only when Curator, IDMD, IMD and Intake all lack code, for the launch pipeline's
+    ///      empty-chain floor.
     constructor(
         address curator_,
         address idmd_,
@@ -203,8 +220,11 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
         bool floor =
             curator_.code.length == 0 && idmd_.code.length == 0 && imd_.code.length == 0 && intake_.code.length == 0;
         if (!floor) {
-            if (idmd_.code.length == 0) revert DependencyHasNoCode();
+            if (idmd_.code.length == 0 || renderer_.code.length == 0 || composer_.code.length == 0) {
+                revert DependencyHasNoCode();
+            }
             require(curator.isSettled(), "Curator not settled");
+            require(IERC20Metadata(imd_).decimals() == 18, "IMD decimals");
             require(IIntake(intake_).priceOf(ACTION, imd_) != 0, "Intake price");
             if (burnExecutor_ != address(0) && burnExecutor_.code.length == 0) revert ExecutorHasNoCode();
         }
@@ -215,13 +235,14 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
         renderer = Renderer(renderer_);
         composer = Composer(composer_);
         burnExecutor = IBurnExecutor(burnExecutor_);
-        deployedAt = uint64(block.timestamp);
         nextSpecId = FIRST_SPEC_ID;
     }
 
     // ------------------------------------------------------------------ cards
 
-    /// @notice Mints the caller's card: 0.1 IMD into the registry, once per wallet.
+    /// @notice Mints the caller's card: 0.1 IMD into the registry, once per wallet. Every direct trait
+    ///         (the Curator-read kinds and 601 "Armed", an IDMD seat held now) is evaluated once here and
+    ///         frozen on the card.
     function mintCard() external nonReentrant returns (uint256 tokenId) {
         if (tokenOf[msg.sender] != 0) revert AlreadyMinted(msg.sender);
         imd.safeTransferFrom(msg.sender, address(this), MINT_FEE);
@@ -229,59 +250,21 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
         tokenOf[msg.sender] = tokenId;
         claimantOf[tokenId] = msg.sender;
         mintedAtBlock[tokenId] = uint64(block.number);
+        frozenDirect[tokenId] = composer.directSnapshot(msg.sender, curator, idmd);
         _mint(msg.sender, tokenId);
         emit CardMinted(msg.sender, tokenId);
     }
 
+    /// @notice Cards minted so far; none is ever burned.
+    function totalSupply() external view returns (uint256) {
+        return _nextTokenId;
+    }
+
+    /// @notice The card's metadata, drawn by the renderer from this registry's public reads
+    ///         (`claimantOf`, `traitsOf`, `verifiedSpecsOf`, `verified` and `specOf`).
     function tokenURI(uint256 tokenId) public view override returns (string memory) {
-        address claimant = claimantOf[tokenId];
-        if (claimant == address(0)) revert NoCard(tokenId);
-        return renderer.tokenURI(cardOf(tokenId));
-    }
-
-    /// @notice The renderer's input for a card, public so a reader can inspect the facts without decoding.
-    function cardOf(uint256 tokenId) public view returns (Card memory c) {
-        address claimant = claimantOf[tokenId];
-        if (claimant == address(0)) revert NoCard(tokenId);
-        c.tokenId = tokenId;
-        c.claimant = claimant;
-        c.traits = traitsOf(claimant);
-        for (uint256 i; i < c.traits.length; ++i) {
-            uint16 id = c.traits[i];
-            uint256 fam = id / 100;
-            // Ordinals are independent facts: retain the lowest verified id (the rarest).
-            // Other families show their highest tier as the sorted ids are visited.
-            if (fam != 11 || c.top[fam - 1] == 0) c.top[fam - 1] = id;
-        }
-        uint16[] storage specs = _specsOf[claimant];
-        c.communityCount = specs.length;
-        uint256 shown = specs.length < MAX_COMMUNITY_IN_METADATA ? specs.length : MAX_COMMUNITY_IN_METADATA;
-        c.community = new uint16[](shown);
-        for (uint256 i; i < shown; ++i) {
-            c.community[i] = specs[i];
-        }
-        // oracle metadata: the true catalog oracle ids (every one is a verified entry), then the shown specs
-        uint256 n;
-        for (uint256 i; i < c.traits.length; ++i) {
-            if (c.traits[i] >= 701) n++;
-        }
-        c.oracle = new OracleMeta[](n + shown);
-        uint256 k;
-        for (uint256 i; i < c.traits.length; ++i) {
-            if (c.traits[i] >= 701) c.oracle[k++] = _meta(claimant, c.traits[i]);
-        }
-        for (uint256 i; i < shown; ++i) {
-            c.oracle[k++] = _meta(claimant, specs[i]);
-        }
-    }
-
-    function _meta(address claimant, uint16 traitId) internal view returns (OracleMeta memory m) {
-        VerifiedEntry storage v = _verified[claimant][traitId];
-        m.traitId = traitId;
-        m.requestId = v.requestId;
-        m.oracleRequestId = v.oracleRequestId;
-        m.spec = specOf(traitId);
-        (m.panelSize, m.quorum) = _panelOf(m.spec.kind);
+        if (claimantOf[tokenId] == address(0)) revert NoCard(tokenId);
+        return renderer.tokenURIOf(address(this), tokenId);
     }
 
     /// @dev ERC-4906: marketplaces refresh the card on every transfer.
@@ -296,12 +279,24 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
 
     // ------------------------------------------------------------------ traits
 
-    /// @notice The credential: the live rule for a direct-read trait, the `verified` entry otherwise.
-    ///         Needs no card. Unknown ids and the zero address are false, never a revert.
+    /// @notice The credential: for a direct-read trait the card's snapshot when the wallet minted one,
+    ///         else the live rule (601 needs a card); the `verified` entry otherwise. Needs no card.
+    ///         Unknown ids and the zero address are false, never a revert.
     function hasTrait(address wallet, uint16 traitId) public view returns (bool) {
         if (wallet == address(0)) return false;
-        if (_isDirect(traitId)) return composer.hasDirectTrait(wallet, traitId, curator, idmd);
+        if (_isDirect(traitId)) return hasDirectTrait(wallet, traitId);
         return _verified[wallet][traitId].requestId != 0;
+    }
+
+    /// @notice A direct trait: frozen at mint for a wallet with a card, live for one without
+    ///         (601 "Armed" is a snapshot only: false without a card). False for a non-direct id.
+    function hasDirectTrait(address wallet, uint16 traitId) public view returns (bool) {
+        if (!_isDirect(traitId)) return false;
+        uint256 tokenId = tokenOf[wallet];
+        if (tokenId != 0) return frozenDirect[tokenId] & (1 << ((traitId / 100 - 1) * 4 + traitId % 100 - 1)) != 0;
+        if (traitId == 601) return false;
+        return
+            composer.directSnapshot(wallet, curator, idmd) & (1 << ((traitId / 100 - 1) * 4 + traitId % 100 - 1)) != 0;
     }
 
     /// @notice The catalog ids (all tiers) that are true for a wallet, ascending; no community specs.
@@ -324,26 +319,13 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
         return (v.requestId, v.oracleRequestId, fromBlock, toBlock);
     }
 
-    /// @notice 0 direct, 1 chain, 2 panel, 3 shared; reverts for an unknown id.
-    function traitClass(uint16 traitId) public view returns (uint8) {
-        if (_isDirect(traitId)) return 0;
-        if (traitId == 1201) return 3;
-        if (traitId == 1301) return 2;
-        if (_isCatalogChain(traitId)) return 1;
-        uint8 kind = _specs[traitId].kind;
-        if (kind == 0) revert NotAnOracleTrait(traitId);
-        if (kind == 3) return 3;
-        if (kind == 5) return 2;
-        return 1;
-    }
-
     /// @notice The name table (CATALOG.md section 7); a spec's name for community ids.
     function traitName(uint16 traitId) external view returns (string memory) {
         if (traitId >= FIRST_SPEC_ID) {
             if (_specs[traitId].kind == 0) revert NotAnOracleTrait(traitId);
             return _specs[traitId].name;
         }
-        return composer.traitName(traitId);
+        return renderer.traitName(traitId);
     }
 
     function _answerTypeOf(uint8 kind) internal pure returns (uint8) {
@@ -352,8 +334,9 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
         return 0;
     }
 
+    /// @dev Kinds 1, 2 and 4 ask a 5 / 3 panel; kind 3 (a ranked list) and kind 5 (panel evidence) 11 / 7.
     function _panelOf(uint8 kind) internal pure returns (uint16, uint16) {
-        return kind == 5 ? (PANEL_PANEL, PANEL_QUORUM) : (CHAIN_PANEL, CHAIN_QUORUM);
+        return kind == 3 || kind == 5 ? (PANEL_PANEL, PANEL_QUORUM) : (CHAIN_PANEL, CHAIN_QUORUM);
     }
 
     function _isDirect(uint16 id) internal pure returns (bool) {
@@ -368,14 +351,13 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     // ------------------------------------------------------------------ catalog as specs
 
     /// @notice The catalog oracle trait (701 to 1301) or the community spec behind an id, as a Spec.
-    function specOf(uint16 traitId) public view returns (Spec memory s) {
-        if (traitId >= FIRST_SPEC_ID) {
-            s = _specs[traitId];
-            if (s.kind == 0) revert NotAnOracleTrait(traitId);
-            return s;
+    /// @dev A catalog id's spec is the Composer's answer returned as it came (no decode and re-encode here).
+    function specOf(uint16 traitId) external view returns (Spec memory s) {
+        if (traitId >= FIRST_SPEC_ID) return _spec(traitId);
+        bytes memory ret = _catalogSpecRaw(traitId);
+        assembly ("memory-safe") {
+            return(add(ret, 0x20), mload(ret))
         }
-        if (!_isCatalogChain(traitId) && traitId != 1201 && traitId != 1301) revert NotAnOracleTrait(traitId);
-        return composer.catalogSpec(traitId, address(curator));
     }
 
     /// @notice The exact body and the plane's `questionHash` for a trait and a claimant; free to call.
@@ -384,13 +366,27 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
         view
         returns (bytes memory body, bytes32 questionHash)
     {
-        Spec memory s = specOf(traitId);
-        return composer.compose(s, claimant, address(this), traitId == 1301, address(curator));
+        Spec memory s;
+        if (traitId >= FIRST_SPEC_ID) s = _spec(traitId);
+        else _checkCatalogOracle(traitId);
+        return composer.compose(traitId, s, claimant, address(this), address(curator));
     }
 
-    /// @notice The plane's `questionHash` of a composed question (the document, not the body).
-    function questionHashOf(bytes memory canonicalDocument) external pure returns (bytes32) {
-        return keccak256(canonicalDocument);
+    function _spec(uint16 traitId) internal view returns (Spec memory s) {
+        s = _specs[traitId];
+        if (s.kind == 0) revert NotAnOracleTrait(traitId);
+    }
+
+    function _checkCatalogOracle(uint16 traitId) internal pure {
+        if (!_isCatalogChain(traitId) && traitId != 1201 && traitId != 1301) revert NotAnOracleTrait(traitId);
+    }
+
+    /// @dev The ABI-encoded `Spec` of a catalog oracle trait, straight from the Composer.
+    function _catalogSpecRaw(uint16 traitId) internal view returns (bytes memory ret) {
+        _checkCatalogOracle(traitId);
+        bool ok;
+        (ok, ret) = address(composer).staticcall(abi.encodeCall(composer.catalogSpec, (traitId, address(curator))));
+        if (!ok) revert NotAnOracleTrait(traitId);
     }
 
     // ------------------------------------------------------------------ upgrades (claimant pays)
@@ -412,18 +408,20 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
             } else if (!_isCatalogChain(id) && id != 1301) {
                 revert NotAnOracleTrait(id);
             }
-            _request(msg.sender, id, price);
+            _request(msg.sender, id, price, false);
         }
     }
 
-    /// @notice Releases a pending pair the plane never completed, 14 days after the request.
-    ///         Only its claimant may abandon a personal pair; anyone may abandon a shared fact.
+    /// @notice Releases a pending pair the plane never completed, 31 days after the request (one day
+    ///         after any attestation for it has expired). Only its claimant may abandon a personal pair;
+    ///         only its payer may abandon a shared fact. A sponsored pair's trait reservation is released.
     function abandon(bytes32 requestId) external {
         Pending memory p = _pending[requestId];
         if (p.requestedAt == 0) revert NotPending(requestId);
         if (block.timestamp < uint256(p.requestedAt) + ABANDON_AFTER) revert TooEarly();
-        if (p.claimant != address(0) && msg.sender != p.claimant) revert NotClaimant();
+        if (msg.sender != (p.claimant != address(0) ? p.claimant : p.payer)) revert NotClaimant();
         _clear(requestId, p);
+        _release(p);
         emit Abandoned(requestId);
     }
 
@@ -438,12 +436,18 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
 
     function _price(uint256 maxPrice) internal view returns (uint256 price) {
         price = intake.priceOf(ACTION, address(imd));
+        if (price == 0) revert ZeroPrice();
         if (price > maxPrice) revert PriceAboveMax(price, maxPrice);
     }
 
     /// @dev Composes, pays the Intake from the registry's balance (already pulled or pool money) and
-    ///      records the pending pair. `claimant == address(0)` is a shared fact.
-    function _request(address claimant, uint16 traitId, uint256 price) internal returns (bytes32 requestId) {
+    ///      records the pending pair. `claimant == address(0)` is a shared fact paid by `msg.sender`.
+    ///      Intake v2 pulls the fee inside `request` (`_collect`, `safeTransferFrom` in the same call), so
+    ///      each call's `forceApprove` is consumed before the next one is set.
+    function _request(address claimant, uint16 traitId, uint256 price, bool sponsored)
+        internal
+        returns (bytes32 requestId)
+    {
         if (claimant != address(0)) {
             if (_verified[claimant][traitId].requestId != 0) revert AlreadyVerified(claimant, traitId);
             if (pendingOf[claimant][traitId] != 0) revert AlreadyPending(claimant, traitId);
@@ -461,7 +465,9 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
             address(imd),
             price
         );
-        _pending[requestId] = Pending(claimant, traitId, uint64(block.timestamp), qh);
+        _pending[requestId] = Pending(
+            claimant, traitId, uint64(block.timestamp), sponsored, qh, claimant == address(0) ? msg.sender : address(0)
+        );
         if (claimant != address(0)) pendingOf[claimant][traitId] = requestId;
         else sharedPending[traitId] = requestId;
         emit TraitRequested(claimant, traitId, requestId, qh);
@@ -477,10 +483,20 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
         }
     }
 
+    /// @dev A pool-drawn request that ends without a verified trait gives its (wallet, trait) reservation
+    ///      back; the UTC day stays consumed.
+    function _release(Pending memory p) internal {
+        if (p.sponsored) delete poolUsed[p.claimant][p.traitId];
+    }
+
     // ------------------------------------------------------------------ Intake callbacks
 
     /// @notice Intake v2 `complete`, status 0. Never reverts on an envelope that decodes: every failed
     ///         check is a `Missed(requestId, traitId, reason)` and clears the pair.
+    /// @dev    Clears first, then checks: the Intake completes a request exactly once and records a
+    ///         callback revert as not delivered, so a retained record could only lock the pair until
+    ///         `abandon`. A `Missed` request is over; its claimant may request again at once, and a
+    ///         replay of a consumed attestation misses with reason 1.
     function onResult(bytes32 requestId, OracleAttestation calldata a, bytes calldata signature) external override {
         if (msg.sender != address(intake)) revert NotIntake();
         Pending memory p = _pending[requestId];
@@ -493,6 +509,7 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
         uint8 reason = _check(p, a, signature, kind, fromBlock, toBlock);
         if (reason == 0) reason = _decodeAndJudge(a, kind, threshold, p.claimant == address(0));
         if (reason != 0) {
+            _release(p);
             emit Missed(requestId, p.traitId, reason);
             return;
         }
@@ -502,10 +519,13 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
             emit SharedFactStored(p.traitId, requestId, n);
             return;
         }
+        if (p.sponsored) sponsoredVerified[p.claimant]++;
         _mark(p.claimant, p.traitId, requestId, a.requestId);
     }
 
-    /// @notice Intake v2 `complete`, status 1 (refused) or 2 (no verdict). Unsigned: clears, stores nothing.
+    /// @notice Intake v2 `complete`, status 1 (refused) or 2 (no verdict). Unsigned and Intake-attributed:
+    ///         the plane documents no failure signature, so none is verified; the call clears the pair
+    ///         (and a sponsored reservation) and stores nothing, on a call from the Intake only.
     function onFailure(bytes32 requestId, uint8 status, bytes32 reason, uint16 agreed, uint16 answered, bytes calldata)
         external
         override
@@ -517,6 +537,7 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
             return;
         }
         _clear(requestId, p);
+        _release(p);
         emit NoVerdict(requestId, p.traitId, status, reason, agreed, answered);
     }
 
@@ -568,7 +589,8 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
         return 0;
     }
 
-    /// @dev Check 8: decode defensively, then the rule. Returns 9 (decode), 8 (rule false) or 0.
+    /// @dev Check 8: decode defensively, then the rule. Returns 9 (decode), 8 (rule false) or 0. A kind-3
+    ///      answer is a complete list of exactly `threshold` (the head) addresses or it is a decode miss.
     function _decodeAndJudge(OracleAttestation calldata a, uint8 kind, uint256 threshold, bool shared)
         internal
         pure
@@ -579,8 +601,9 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
             if (!shared) return 9; // a T3 id never reaches a personal pending record
             if (ans.length < 64) return 9;
             if (uint256(bytes32(ans[0:32])) != 0x20) return 9;
+            // V2 item 8: exactly `head` addresses (32 for 1201, the spec's threshold for a community T3).
             uint256 n = uint256(bytes32(ans[32:64]));
-            if (n < 1 || n > 64 || ans.length != 64 + 32 * n) return 9;
+            if (n != threshold || ans.length != 64 + 32 * n) return 9;
             for (uint256 i; i < n; ++i) {
                 if (uint256(bytes32(ans[64 + 32 * i:96 + 32 * i])) >> 160 != 0) return 9;
             }
@@ -629,10 +652,13 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
     // ------------------------------------------------------------------ community specs
 
     /// @notice Registers an immutable community spec: 6.4 IMD into the registry, ids from 10001.
-    function registerSpec(Spec calldata spec) external nonReentrant returns (uint16 traitId) {
+    /// @param expectedId the id the caller expects (what `nextSpecId` read); 0 to take whatever is next.
+    function registerSpec(Spec calldata spec, uint256 expectedId) external nonReentrant returns (uint16 traitId) {
+        traitId = nextSpecId;
+        if (expectedId != 0 && expectedId != traitId) revert UnexpectedSpecId(expectedId, traitId);
         composer.validateSpec(spec, block.number);
         imd.safeTransferFrom(msg.sender, address(this), SPEC_FEE);
-        traitId = nextSpecId++;
+        nextSpecId = traitId + 1;
         _specs[traitId] = spec;
         emit SpecRegistered(traitId, msg.sender);
     }
@@ -644,20 +670,19 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
         if (_kindOf(factId) != 3) revert NotASharedFact(factId);
         uint256 price = _price(maxPrice);
         imd.safeTransferFrom(msg.sender, address(this), price);
-        _request(address(0), factId, price);
+        _request(address(0), factId, price, false);
     }
 
     /// @notice Marks `msg.sender` for a stored fact if the supplied list hashes to the stored answer and
-    ///         contains the caller within `head`. Gas only; once per claimant and fact.
+    ///         contains the caller (the list is exactly `head` long). Gas only; once per claimant and fact.
     function applySharedFact(uint16 factId, address[] calldata list) external {
         SharedFact storage f = _shared[factId];
         if (f.requestId == 0) revert FactNotStored(factId);
         if (keccak256(abi.encode(list)) != f.answerHash) revert ListMismatch();
         if (_verified[msg.sender][factId].requestId != 0) revert AlreadyVerified(msg.sender, factId);
-        (,,, uint256 head) = _rule(factId);
-        uint256 n = f.length < head ? f.length : head;
+        // a stored list is exactly `head` long (V2 item 8), so the whole of it counts
         bool found;
-        for (uint256 i; i < n; ++i) {
+        for (uint256 i; i < f.length; ++i) {
             if (list[i] == msg.sender) {
                 found = true;
                 break;
@@ -690,72 +715,62 @@ contract Registry is ERC721, IERC4906, ReentrancyGuard, IOracleConsumer {
         emit Sponsored(msg.sender, amount);
     }
 
-    /// @notice An IDMD holder who is a Curator member draws one catalog chain request for their own
-    ///         wallet per UTC day across both pool paths; at most nine requests per IDMD token ever.
-    function upgradeSponsored(uint256 idmdTokenId, uint16[] calldata traitIds) external payable nonReentrant {
-        uint256 k = traitIds.length;
-        if (k == 0) revert NoTraits();
-        if (k != 1) revert TooManyTraits();
-        if (idmdSponsored[idmdTokenId] >= MAX_SPONSORED) revert IdmdSponsorExhausted(idmdTokenId);
-        if (idmd.ownerOf(idmdTokenId) != msg.sender) revert NotIdmdHolder(idmdTokenId);
-        _requireMember();
-        idmdSponsored[idmdTokenId]++;
-        _fromPool(traitIds[0]);
-    }
-
-    /// @notice From launch, any Curator member draws one catalog chain request for their own wallet
-    ///         per UTC day across both pool paths, once per (wallet, traitId) ever.
-    function claimSponsored(uint16 traitId) external payable nonReentrant {
-        _requireMember();
-        _fromPool(traitId);
-    }
-
-    function _requireMember() internal view {
+    /// @notice Any Curator member draws one catalog chain request for their own wallet per UTC calendar
+    ///         day, once per trait, nine verified sponsored traits per wallet for ever; the price must be
+    ///         at most `maxPrice`, an eighth of the pool and `POOL_DRAW_CAP`. The burn rule runs after.
+    function claimSponsored(uint16 traitId, uint256 maxPrice) external payable nonReentrant {
         (, bool joined) = curator.firstHourOf(msg.sender);
         if (!joined) revert NotMember(msg.sender);
-    }
-
-    function _fromPool(uint16 traitId) internal {
-        uint256 price = intake.priceOf(ACTION, address(imd));
-        uint256 balance = pool();
-        if (balance < price) revert PoolTooSmall(balance, price);
+        uint256 price = _price(maxPrice);
+        if (price > pool() / 8 || price > POOL_DRAW_CAP) revert PoolDrawTooLarge();
         if (!_isCatalogChain(traitId)) revert NotACatalogChainTrait(traitId);
         if (poolUsed[msg.sender][traitId]) revert PoolAlreadyUsed(msg.sender, traitId);
+        if (sponsoredVerified[msg.sender] >= MAX_SPONSORED_VERIFIED) revert PoolLifetimeLimit(msg.sender);
         uint64 day = uint64(block.timestamp / 1 days);
         if (lastPoolDay[msg.sender] == day) revert PoolDailyLimit(msg.sender);
         lastPoolDay[msg.sender] = day;
         poolUsed[msg.sender][traitId] = true;
-        bytes32 requestId = _request(msg.sender, traitId, price);
+        bytes32 requestId = _request(msg.sender, traitId, price, true);
         _burnOrRefund();
         emit PoolSpent(msg.sender, traitId, requestId);
     }
 
-    /// @dev Best effort after the oracle request. A successful executor force-refunds the claimant;
-    ///      otherwise only this call's msg.value is returned, never a pre-existing ETH balance.
+    /// @dev Best effort after the oracle request; never undoes it. Forwards exactly the quoted fee and
+    ///      refunds the rest of `msg.value` first; every skipped path emits `BurnSkipped` and returns the
+    ///      attachment. A successful executor force-refunds its own surplus to the claimant. Only this
+    ///      call's `msg.value` is ever returned, never a pre-existing ETH balance.
     function _burnOrRefund() internal {
+        uint256 tokenId = tokenOf[msg.sender];
+        uint8 reason = 1;
         if (address(burnExecutor) != address(0)) {
+            if (gasleft() < (PREVIEW_GAS + BURN_GAS) * 64 / 63 + 50_000) revert InsufficientGas();
             try burnExecutor.previewBridge{gas: PREVIEW_GAS}() returns (uint256 amount, uint256, uint256 fee) {
-                if (amount >= BURN_MIN) {
-                    if (fee > BURN_FEE_CAP) {
-                        emit BurnSkipped(msg.sender, 3);
-                    } else {
-                        if (msg.value < fee) revert BurnFeeRequired(fee);
-                        // BURN_GAS is the CALL argument; nonzero value adds the EVM's 2,300 stipend.
-                        try burnExecutor.bridgeToBaseBurnReceiver{value: msg.value, gas: BURN_GAS}(amount, msg.sender) {
-                            emit BurnTriggered(msg.sender, amount, fee);
-                            return;
-                        } catch {
-                            emit BurnSkipped(msg.sender, 2);
-                        }
+                if (amount < BURN_MIN) {
+                    reason = 2;
+                } else if (fee > BURN_FEE_CAP) {
+                    reason = 3;
+                } else if (msg.value < fee) {
+                    reason = 4;
+                } else {
+                    if (msg.value > fee) _refund(msg.value - fee);
+                    // BURN_GAS is the CALL argument; nonzero value adds the EVM's 2,300 stipend.
+                    try burnExecutor.bridgeToBaseBurnReceiver{value: fee, gas: BURN_GAS}(amount, msg.sender) {
+                        emit BurnTriggered(msg.sender, amount, fee);
+                        return;
+                    } catch {
+                        emit BurnSkipped(tokenId, 5);
+                        if (fee != 0) _refund(fee);
+                        return;
                     }
                 }
-            } catch {
-                emit BurnSkipped(msg.sender, 1);
-            }
+            } catch {}
         }
-        if (msg.value != 0) {
-            (bool refunded,) = msg.sender.call{value: msg.value}("");
-            if (!refunded) revert BurnRefundFailed();
-        }
+        emit BurnSkipped(tokenId, reason);
+        if (msg.value != 0) _refund(msg.value);
+    }
+
+    function _refund(uint256 amount) internal {
+        (bool refunded,) = msg.sender.call{value: amount}("");
+        if (!refunded) revert BurnRefundFailed();
     }
 }

@@ -3,7 +3,7 @@ pragma solidity 0.8.24;
 
 import {Base64} from "@openzeppelin/contracts/utils/Base64.sol";
 import {Strings} from "@openzeppelin/contracts/utils/Strings.sol";
-import {Card, OracleMeta, Spec} from "./Types.sol";
+import {Card, OracleMeta} from "./Types.sol";
 import {TemplateData} from "./TemplateData.sol";
 import {HiveData} from "./HiveData.sol";
 
@@ -15,7 +15,16 @@ import {HiveData} from "./HiveData.sol";
 ///         card: thirteen hexagonal cells, one per family, built by selecting precomputed, pre-encoded
 ///         coordinate strings from `HiveData` (the generator's `hive_svg` is the normative drawing; there is
 ///         no trigonometry here). No constructor arguments, no immutables, no storage.
+/// @dev The registry reads a card is built from.
+interface ICardSource {
+    function claimantOf(uint256 tokenId) external view returns (address);
+    function traitsOf(address wallet) external view returns (uint16[] memory);
+    function verifiedSpecsOf(address wallet) external view returns (uint16[] memory);
+    function verified(address claimant, uint16 traitId) external view returns (bytes32, bytes32, uint64, uint64);
+}
+
 contract Renderer {
+    uint256 internal constant MAX_COMMUNITY_IN_METADATA = 32;
     uint256 internal constant SLOTS = 21; // TemplateData.SLOTS; a literal because it sizes a memory array
     uint256 internal constant SLICES = 22;
     uint256 internal constant MAX_RINGS_SHOWN = 39;
@@ -34,16 +43,6 @@ contract Renderer {
         bytes fragmentStarts;
     }
 
-    /// @notice The template blob, for the golden tests.
-    function template() external pure returns (bytes memory) {
-        return TemplateData.TEMPLATE;
-    }
-
-    /// @notice The packed uint16 offsets (start, length per slice), for the golden tests.
-    function offsets() external pure returns (bytes memory) {
-        return _unhex(TemplateData.OFFSETS);
-    }
-
     /// @dev The generated tables are ASCII hex (so the code data holds no forbidden opcode byte);
     ///      decode one to packed bytes.
     function _unhex(bytes memory h) internal pure returns (bytes memory out) {
@@ -58,12 +57,122 @@ contract Renderer {
         return b >= 97 ? b - 87 : b - 48;
     }
 
-    function tokenURI(Card memory c) external pure returns (string memory) {
+    error NoCard(uint256 tokenId);
+    error UnknownTrait(uint16 traitId);
+
+    /// @dev The 25 catalog names of CATALOG.md section 7 (final names, 2026-10-16), packed in catalog order
+    ///      with one length byte each; a family's first index and tier count select the entry.
+    bytes internal constant NAMES =
+        "SpawnedZero-Shot, hour <= 1Zero-Shot, hour 0Hopper >= 3Hopper >= 5Hopper >= 10Bullfrog >= 1 ETHBullfrog >= 10 ETHBullfrog >= 100 ETHBullfrog >= 800 ETHBenchmarked >= 1000Benchmarked >= 3162Benchmarked >= 10000ArmedUptimeHoldoutFinal TokenHotfixPID #1PID #1000PID #10000PID #19522First thousandTop WeightsPretrained";
+    bytes internal constant NAME_LENS = hex"0714110b0b0c111213131313140506070b0606090a0a0e0b0a";
+    bytes internal constant FAMILY_BASE = hex"000103060a0d0e0f1011121718";
+    bytes internal constant FAMILY_TIERS = hex"01020304030101010101050101";
+
+    /// @notice The name table of CATALOG.md section 7 for the 25 catalog ids; reverts for any other id.
+    function traitName(uint16 traitId) external pure returns (string memory) {
+        uint256 fam = traitId / 100;
+        uint256 tier = traitId % 100;
+        if (fam < 1 || fam > 13 || tier < 1 || tier > uint8(FAMILY_TIERS[fam - 1])) revert UnknownTrait(traitId);
+        uint256 index = uint8(FAMILY_BASE[fam - 1]) + tier - 1;
+        uint256 start;
+        for (uint256 i; i < index; ++i) {
+            start += uint8(NAME_LENS[i]);
+        }
+        uint256 len = uint8(NAME_LENS[index]);
+        bytes memory out = new bytes(len);
+        bytes memory all = NAMES;
+        assembly ("memory-safe") {
+            mcopy(add(out, 0x20), add(add(all, 0x20), start), len)
+        }
+        return string(out);
+    }
+
+    /// @dev Internal since V2 item 19 / the size budget: the Card ABI decoder was a quarter of the runtime.
+    ///      `test/mocks/RendererHarness.sol` exposes it, `preimage` and `image` to the tests.
+    function tokenURI(Card memory c) internal pure returns (string memory) {
         return string(abi.encodePacked("data:application/json;base64,", Base64.encode(preimage(c))));
     }
 
+    /// @notice A registry card's metadata URI, read from the registry's public views.
+    function tokenURIOf(address registry, uint256 tokenId) external view returns (string memory) {
+        return tokenURI(cardOf(registry, tokenId));
+    }
+
+    /// @dev The renderer's input for a registry card: the frozen direct traits and verified oracle traits of
+    ///      the minter. Internal for the size budget (`RendererHarness.cardOfOn` in the tests).
+    function cardOf(address registry, uint256 tokenId) internal view returns (Card memory c) {
+        ICardSource r = ICardSource(registry);
+        address claimant = r.claimantOf(tokenId);
+        if (claimant == address(0)) revert NoCard(tokenId);
+        c.tokenId = tokenId;
+        c.claimant = claimant;
+        c.traits = r.traitsOf(claimant);
+        for (uint256 i; i < c.traits.length; ++i) {
+            uint16 id = c.traits[i];
+            uint256 fam = id / 100;
+            // Ordinals are independent facts: retain the lowest verified id (the rarest).
+            // Other families show their highest tier as the sorted ids are visited.
+            if (fam != 11 || c.top[fam - 1] == 0) c.top[fam - 1] = id;
+        }
+        uint16[] memory specs = r.verifiedSpecsOf(claimant);
+        c.communityCount = specs.length;
+        uint256 shown = specs.length < MAX_COMMUNITY_IN_METADATA ? specs.length : MAX_COMMUNITY_IN_METADATA;
+        c.community = new uint16[](shown);
+        for (uint256 i; i < shown; ++i) {
+            c.community[i] = specs[i];
+        }
+        // oracle metadata: the true catalog oracle ids (every one is a verified entry), then the shown specs
+        uint256 n;
+        for (uint256 i; i < c.traits.length; ++i) {
+            if (c.traits[i] >= 701) n++;
+        }
+        c.oracle = new OracleMeta[](n + shown);
+        uint256 k;
+        for (uint256 i; i < c.traits.length; ++i) {
+            if (c.traits[i] >= 701) c.oracle[k++] = _meta(r, claimant, c.traits[i]);
+        }
+        for (uint256 i; i < shown; ++i) {
+            c.oracle[k++] = _meta(r, claimant, specs[i]);
+        }
+    }
+
+    /// @dev Reads only what the record prints (V2 item 19 b): the two request ids from `verified`, and the
+    ///      kind, target, window and name picked out of `specOf`'s ABI words without decoding the spec body.
+    ///      `Spec` encodes as twelve head words: kind, target, item, arg, fixedArg, fixedVal, sumArg, op,
+    ///      threshold, fromBlock, toBlock, name (strings as offsets from the head).
+    function _meta(ICardSource r, address claimant, uint16 traitId) internal view returns (OracleMeta memory m) {
+        m.traitId = traitId;
+        (m.requestId, m.oracleRequestId,,) = r.verified(claimant, traitId);
+        (bool ok, bytes memory ret) = address(r).staticcall(abi.encodeWithSelector(0x701ce949, traitId));
+        if (!ok || ret.length < 13 * 32) revert UnknownTrait(traitId);
+        uint256 head;
+        uint256 nameAt;
+        uint256 nameLen;
+        assembly ("memory-safe") {
+            head := add(add(ret, 0x20), mload(add(ret, 0x20)))
+            mstore(add(m, 0x20), and(mload(head), 0xff)) // kind
+            mstore(add(m, 0x80), and(mload(add(head, 0x20)), 0xffffffffffffffffffffffffffffffffffffffff)) // target
+            mstore(add(m, 0x40), and(mload(add(head, 0x120)), 0xffffffffffffffff)) // fromBlock
+            mstore(add(m, 0x60), and(mload(add(head, 0x140)), 0xffffffffffffffff)) // toBlock
+            nameAt := add(head, mload(add(head, 0x160)))
+            nameLen := mload(nameAt)
+        }
+        if (nameAt + 32 + nameLen > _end(ret)) revert UnknownTrait(traitId);
+        bytes memory name = new bytes(nameLen);
+        assembly ("memory-safe") {
+            mcopy(add(name, 0x20), add(nameAt, 0x20), nameLen)
+        }
+        m.name = string(name);
+    }
+
+    function _end(bytes memory ret) internal pure returns (uint256 e) {
+        assembly ("memory-safe") {
+            e := add(add(ret, 0x20), mload(ret))
+        }
+    }
+
     /// @notice The metadata JSON before Base64, public so a test can diff it against the golden.
-    function preimage(Card memory c) public pure returns (bytes memory out) {
+    function preimage(Card memory c) internal pure returns (bytes memory out) {
         bytes[SLOTS] memory v = _values(c);
         bytes memory tpl = TemplateData.TEMPLATE;
         bytes memory offs = _unhex(TemplateData.OFFSETS);
@@ -114,7 +223,7 @@ contract Renderer {
     ///         family is part-filled, with the rings outlined above the line), the rare dot, or the ring
     ///         outlines of an empty cell; the outer ring; the community path. The token id is not drawn
     ///         (it is the metadata name).
-    function image(Card memory c) public pure returns (bytes memory) {
+    function image(Card memory c) internal pure returns (bytes memory) {
         Hive memory h =
             Hive(HiveData.POINTS, _unhex(HiveData.POINT_STARTS), HiveData.FRAGMENTS, _unhex(HiveData.FRAGMENT_STARTS));
         Buf memory b = Buf(new bytes(8192), 0);
@@ -312,89 +421,78 @@ contract Renderer {
 
     /// @dev Standard marketplace attributes carry both the community id and its escaped name.
     ///      Registry.cardOf supplies the first 32 ids and the matching oracle metadata in order.
-    function _communityAttributes(Card memory c) internal pure returns (bytes memory out) {
+    function _communityAttributes(Card memory c) internal pure returns (bytes memory) {
+        Buf memory b = Buf(new bytes(2048), 0);
         for (uint256 i; i < c.community.length; ++i) {
             string memory name;
             for (uint256 j; j < c.oracle.length; ++j) {
                 if (c.oracle[j].traitId == c.community[i]) {
-                    name = c.oracle[j].spec.name;
+                    name = c.oracle[j].name;
                     break;
                 }
             }
-            out = bytes.concat(
-                out,
-                ',{"trait_type":"Community ',
-                bytes(Strings.toString(c.community[i])),
-                '","value":"',
-                escapeJson(bytes(name)),
-                '"}'
-            );
+            _put(b, ',{"trait_type":"Community ');
+            _put(b, bytes(Strings.toString(c.community[i])));
+            _put(b, '","value":"');
+            _put(b, escapeJson(bytes(name)));
+            _put(b, '"}');
         }
+        return _finish(b);
     }
 
-    function _list(uint16[] memory ids) internal pure returns (bytes memory out) {
+    function _list(uint16[] memory ids) internal pure returns (bytes memory) {
+        Buf memory b = Buf(new bytes(256), 0);
         for (uint256 i; i < ids.length; ++i) {
-            out = bytes.concat(out, i == 0 ? bytes("") : bytes(","), bytes(Strings.toString(ids[i])));
+            if (i != 0) _put(b, ",");
+            _put(b, bytes(Strings.toString(ids[i])));
         }
+        return _finish(b);
     }
 
-    function _oracle(OracleMeta[] memory ms) internal pure returns (bytes memory out) {
+    function _oracle(OracleMeta[] memory ms) internal pure returns (bytes memory) {
+        Buf memory b = Buf(new bytes(8192), 0);
         for (uint256 i; i < ms.length; ++i) {
-            out = bytes.concat(out, i == 0 ? bytes("") : bytes(","), _one(ms[i]));
+            if (i != 0) _put(b, ",");
+            _one(b, ms[i]);
         }
+        return _finish(b);
     }
 
-    function _one(OracleMeta memory m) internal pure returns (bytes memory) {
-        Spec memory s = m.spec;
-        return bytes.concat(
-            bytes.concat(
-                '{"traitId":',
-                bytes(Strings.toString(m.traitId)),
-                ',"template":"T',
-                bytes(Strings.toString(s.kind)),
-                '","evidence":"',
-                s.kind == 5 ? bytes("panel") : bytes("chain"),
-                '","fromBlock":',
-                bytes(Strings.toString(s.fromBlock)),
-                ',"toBlock":',
-                bytes(Strings.toString(s.toBlock)),
-                ',"minPanelSize":',
-                bytes(Strings.toString(m.panelSize)),
-                ',"minQuorum":',
-                bytes(Strings.toString(m.quorum)),
-                ',"requestId":"',
-                bytes(Strings.toHexString(uint256(m.requestId), 32)),
-                '","oracleRequestId":"',
-                bytes(Strings.toHexString(uint256(m.oracleRequestId), 32))
-            ),
-            bytes.concat(
-                '","target":"',
-                bytes(Strings.toHexString(s.target)),
-                '","item":"',
-                escapeJson(bytes(s.item)),
-                '","arg":"',
-                escapeJson(bytes(s.arg)),
-                '","fixedArg":"',
-                escapeJson(bytes(s.fixedArg)),
-                '","fixedVal":',
-                bytes(Strings.toString(s.fixedVal)),
-                ',"sumArg":"',
-                escapeJson(bytes(s.sumArg)),
-                '","op":',
-                bytes(Strings.toString(s.op)),
-                ',"threshold":',
-                bytes(Strings.toString(s.threshold)),
-                ',"name":"',
-                escapeJson(bytes(s.name)),
-                '"}'
-            )
-        );
+    /// @dev The oracle record: id, template, evidence, window, panel minima, the two request ids, the
+    ///      target and the name. The spec body (`item`, `arg`, `fixedArg`, `sumArg`, `fixedVal`, `op`,
+    ///      `threshold`) stays readable through `Registry.specOf(id)`. Kinds 1, 2 and 4 ask a 5 / 3
+    ///      panel; kind 3 (a ranked list) and kind 5 (panel evidence) 11 / 7.
+    function _one(Buf memory b, OracleMeta memory m) internal pure {
+        bool panel = m.kind == 3 || m.kind == 5;
+        _put(b, '{"traitId":');
+        _put(b, bytes(Strings.toString(m.traitId)));
+        _put(b, ',"template":"T');
+        _put(b, bytes(Strings.toString(m.kind)));
+        _put(b, '","evidence":"');
+        _put(b, m.kind == 5 ? bytes("panel") : bytes("chain"));
+        _put(b, '","fromBlock":');
+        _put(b, bytes(Strings.toString(m.fromBlock)));
+        _put(b, ',"toBlock":');
+        _put(b, bytes(Strings.toString(m.toBlock)));
+        _put(b, ',"minPanelSize":');
+        _put(b, panel ? bytes("11") : bytes("5"));
+        _put(b, ',"minQuorum":');
+        _put(b, panel ? bytes("7") : bytes("3"));
+        _put(b, ',"requestId":"');
+        _put(b, bytes(Strings.toHexString(uint256(m.requestId), 32)));
+        _put(b, '","oracleRequestId":"');
+        _put(b, bytes(Strings.toHexString(uint256(m.oracleRequestId), 32)));
+        _put(b, '","target":"');
+        _put(b, bytes(Strings.toHexString(m.target)));
+        _put(b, '","name":"');
+        _put(b, escapeJson(bytes(m.name)));
+        _put(b, '"}');
     }
 
     /// @notice JSON string escaping that also neutralises markup: `"` and `\` are escaped, and every
     ///         byte below 0x20 plus `<`, `>`, `&` becomes a `\u00XX` escape, so a hostile spec string
     ///         can break neither the JSON nor an SVG a viewer might paste it into.
-    function escapeJson(bytes memory s) public pure returns (bytes memory out) {
+    function escapeJson(bytes memory s) internal pure returns (bytes memory out) {
         uint256 extra;
         for (uint256 i; i < s.length; ++i) {
             bytes1 ch = s[i];

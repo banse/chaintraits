@@ -69,12 +69,12 @@ contract Handler is Base {
         address a = _actor(seed);
         uint16 traitId = which % 2 == 0 ? 901 : 1001;
         vm.warp(vm.getBlockTimestamp() + 1 days);
-        if (registry.poolUsed(a, traitId) || registry.pool() < PRICE) return;
+        if (registry.poolUsed(a, traitId) || registry.pool() < 8 * PRICE) return;
         if (registry.pendingOf(a, traitId) != 0) return;
         (bytes32 rid,,,) = registry.verified(a, traitId);
         if (rid != 0) return;
         vm.prank(a);
-        registry.claimSponsored(traitId);
+        registry.claimSponsored(traitId, PRICE);
         poolSpent += PRICE;
     }
 

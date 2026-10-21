@@ -18,15 +18,18 @@ struct Spec {
     string name; // [A-Za-z0-9 .-], 1..32 bytes
 }
 
-/// @notice One verified oracle trait with the evidence a third party needs to rerun it. Built by the
-///         registry for the renderer; never stored in this shape.
+/// @notice One verified oracle trait with the evidence a third party needs to rerun it: only the fields
+///         the metadata prints (V2 item 19 b). The spec body stays readable through `Registry.specOf(id)`.
+///         Built by the registry for the renderer; never stored in this shape.
 struct OracleMeta {
     uint16 traitId;
-    uint16 panelSize; // registry minimum; JSON minPanelSize (ABI field name retained)
-    uint16 quorum; // registry minimum; JSON minQuorum (ABI field name retained)
+    uint8 kind; // the template: 1 to 5; the panel minima follow from it
+    uint64 fromBlock;
+    uint64 toBlock;
+    address target;
     bytes32 requestId; // the Intake's id
     bytes32 oracleRequestId; // the plane's signed UUID
-    Spec spec; // the catalog trait expressed as a spec, or the community spec itself
+    string name;
 }
 
 /// @notice Everything the renderer needs for one card.
