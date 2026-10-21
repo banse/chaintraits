@@ -696,6 +696,13 @@ growable buffer, reading only what is printed, a tabled Base64 encoder.
   stays 200; `test/NOTES.md` records the three sizes and their sum, and a test pins the sum.
 - Commands that must pass on a clean tree: `forge build --sizes`, `forge fmt --check`, `forge test` offline (no RPC,
   no ffi), the generator's `--check` (section 6.1), the site's `npm ci && npm test && npm run build`.
+- **Static analysis (hard).** The plane's verifier runs Slither on every build submission and rejects any finding of
+  High impact (measured 2026-10-21: workflow `3ebaa5d6` lost all three build attempts, two of them to Slither). So
+  `slither .` reports no High-impact finding on `src/`. In particular: no `abi.encodePacked` with two or more dynamic
+  arguments, even for text that is never hashed (`encode-packed-collision`; join strings with `string.concat` or
+  `bytes.concat`); no shift of a constant by a variable in assembly (`incorrect-shift`, as in `c >> CONSTANT_MASK`
+  read the wrong way round; use a byte table or `shr(c, mask)` written so the constant is the value); run Slither
+  before submitting and fix every High finding.
 
 ### 6.1 The generator and the goldens (the builder's)
 
@@ -854,7 +861,7 @@ are live, and published by the workflow's hosting stage (IPFS under the site lab
 ## 11. Acceptance (the entrant checks these before accepting)
 
 1. `forge build --sizes`, `forge fmt --check`, `forge test` offline, the generator's `--check` and unit test, all green
-   on a clean clone; every test of section 7 present and named in `test/NOTES.md`; the three sizes and their sum
+   on a clean clone; `slither .` with no High-impact finding (section 6); every test of section 7 present and named in `test/NOTES.md`; the three sizes and their sum
    under the budget; the maximum-state gas reported.
 2. Every fixture reproduced byte for byte, T6 included; every `questionHash` equal to the plane's; the greps of 3.8
    print nothing; the measurement of 3.11 on the delivered runtime against a Sepolia RPC: every `onResult` path
