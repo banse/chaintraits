@@ -9,6 +9,39 @@ import {
 import { validateSpec } from "../src/pure.mjs";
 import { checkSharedSpec } from "../src/shared-safety.mjs";
 import { resilientRpc, READ_RPCS } from "../src/rpc.mjs";
+test("contract refusals preserve revert data and do not reject a healthy RPC", async () => {
+  const calls = [];
+  const rpc = resilientRpc({
+    urls: ["https://first.invalid", "https://second.invalid"],
+    fetcher: async (url, options) => {
+      const body = JSON.parse(options.body);
+      calls.push([url, body.method]);
+      return {
+        ok: true,
+        json: async () =>
+          body.method === "eth_call"
+            ? {
+                error: {
+                  code: 3,
+                  message: "execution reverted",
+                  data: "0x12345678",
+                },
+              }
+            : { result: "0x1" },
+      };
+    },
+  });
+  await assert.rejects(
+    rpc.request({ method: "eth_call", params: [] }),
+    (error) => error.code === 3 && error.data === "0x12345678",
+  );
+  assert.equal(await rpc.request({ method: "eth_chainId" }), "0x1");
+  assert.deepEqual(calls, [
+    ["https://first.invalid", "eth_chainId"],
+    ["https://first.invalid", "eth_call"],
+    ["https://first.invalid", "eth_chainId"],
+  ]);
+});
 const target = "0x1000000000000000000000000000000000000000";
 const spec = {
   kind: 3,

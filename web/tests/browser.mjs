@@ -183,7 +183,7 @@ try {
   assert.match(await page.locator("#oracle-ack").innerText(), /payment dialog/);
   assert.equal(
     await page
-      .getByRole("button", { name: "Prepare selected facts" })
+      .getByRole("button", { name: "Mint selected facts" })
       .isDisabled(),
     true,
   );
@@ -209,9 +209,7 @@ try {
     ),
   );
   assert.equal(
-    await page
-      .getByRole("button", { name: "Prepare registration" })
-      .isDisabled(),
+    await page.getByRole("button", { name: "Mint registration" }).isDisabled(),
     true,
   );
   evidence.interactions.push(

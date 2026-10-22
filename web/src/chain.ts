@@ -9,11 +9,12 @@ import {
   encodeAbiParameters,
   pad,
   toHex,
+  decodeErrorResult,
   type Address,
   type Abi,
   type PublicClient,
 } from "viem";
-import { canonical, decodeMetadata } from "./pure.mjs";
+import { canonical, decodeMetadata, MISS_REASONS } from "./pure.mjs";
 import { READ_RPCS, resilientRpc } from "./rpc.mjs";
 export type Deployment = {
   version: 1;
@@ -323,7 +324,86 @@ export async function community(client: any, r: Runtime) {
     );
   return result;
 }
-export const explain = (e: any) => {
+export const explain = (e: any, abi?: Abi) => {
+  const reverted = e?.walk?.((cause: any) => cause.data?.errorName) || e;
+  let data = reverted?.data;
+  // Some RPCs wrap a revert with a generic node error. Decode its retained
+  // returndata as well as viem's already-decoded ContractFunctionRevertedError.
+  if (!data?.errorName) {
+    const raw =
+      e?.walk?.(
+        (cause: any) =>
+          typeof cause.data === "string" && cause.data.startsWith("0x"),
+      )?.data || (typeof e?.data === "string" ? e.data : undefined);
+    if (raw)
+      try {
+        data = decodeErrorResult({ abi: abi || [], data: raw });
+      } catch {}
+  }
+  const name = data?.errorName;
+  const args = data?.args || [];
+  const fields: Record<string, string> = {
+    kind: "template",
+    target: "contract address",
+    item: "event or function signature",
+    arg: "claimant or group field",
+    fixedArg: "second indexed filter",
+    fixedVal: "filter value",
+    sumArg: "field to sum",
+    op: "comparison",
+    threshold: "threshold or ranking head",
+    fromBlock: "first block",
+    toBlock: "last block",
+    window: "block window",
+    name: "trait name",
+    question: "question length",
+    definitions: "rule length",
+  };
+  const reasons: Record<string, string> = {
+    AlreadyPending: `Fact ${args[1]} already has a pending request. Wait for its answer; you can request a different fact.`,
+    AlreadyVerified: `Fact ${args[1]} is already proven for this wallet. Refresh wallet facts.`,
+    AlreadyMinted: "This wallet already has a card. Refresh wallet facts.",
+    FactAlreadyStored:
+      "This shared fact is already stored. Refresh and apply it instead.",
+    FactNotStored:
+      "This shared fact has not been stored yet. Wait for its answer.",
+    NotInList:
+      "This wallet is not in the shared list and cannot apply this fact.",
+    ListMismatch:
+      "The list does not match the stored fact. Refresh its chain reads.",
+    NotPending: "This request is no longer pending. Refresh wallet facts.",
+    NotClaimant: "Only the wallet that requested this fact can clear it.",
+    TooEarly:
+      "This request cannot be cleared yet. Wait for completion or the 31-day limit.",
+    PriceAboveMax:
+      "The live oracle price increased. Start the action again to review the new price.",
+    ZeroPrice: "The live oracle price is unavailable. Retry chain reads.",
+    NoTraits: "Select at least one fact.",
+    TooManyTraits:
+      "The Registry accepts one fact per request. Start the action again.",
+    UnexpectedSpecId:
+      "Another spec was registered first. Start registration again.",
+    NotASharedFact: "This fact does not support a shared-list request.",
+    NotAnOracleTrait: "This fact does not support an oracle request.",
+    NotSettleable: `Cannot store the verdict: ${MISS_REASONS[Number(args[1])] || "the verdict does not meet the Registry rules"}.`,
+    ERC20InsufficientBalance:
+      "Insufficient IMD for this action. Check your balance and retry.",
+    ERC20InsufficientAllowance:
+      "The IMD allowance is too low. Start the action again to review approval.",
+    SafeERC20FailedOperation:
+      "The IMD transfer was refused. Check your balance and allowance, then retry.",
+    BadSpec: `The Composer refused the ${fields[String(args[0])] || "rule"}. Check the spec fields and retry.`,
+    RequestIdTaken:
+      "The Intake returned a request id already in use. Retry chain reads before requesting again.",
+    NoCard: "This card does not exist. Refresh wallet facts.",
+    SpecsExhausted: "The Registry has no remaining community spec ids.",
+    DependencyHasNoCode:
+      "A required contract is unavailable. Retry chain reads.",
+    BadDependency: "A required contract failed its check. Retry chain reads.",
+  };
+  if (name === "Error" && typeof args[0] === "string")
+    return args[0].slice(0, 700);
+  if (reasons[name]) return reasons[name];
   const raw = [e?.shortMessage || e?.message || String(e), e?.details]
     .filter(Boolean)
     .join(" ");

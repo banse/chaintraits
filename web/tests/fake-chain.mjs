@@ -5,6 +5,7 @@ import {
   encodeFunctionResult,
   encodeAbiParameters,
   encodeEventTopics,
+  encodeErrorResult,
   parseAbiItem,
   toHex,
   zeroHash,
@@ -90,6 +91,9 @@ export function fakeChain(options = {}) {
     incomplete: false,
     failWallet: false,
     failSimulation: false,
+    pending: [],
+    proven: [],
+    failFunction: "",
     ...options,
     calls: [],
     signatures: [],
@@ -135,7 +139,15 @@ export function fakeChain(options = {}) {
     const a = p.params?.[0];
     if (p.method === "eth_chainId") return "0x1";
     if (p.method === "eth_blockNumber") return block.number;
-    if (p.method === "eth_getCode") return codes[a.toLowerCase()] || "0x";
+    if (p.method === "eth_getCode")
+      return (
+        codes[a.toLowerCase()] ||
+        (Object.values(deployment.network.uniswapV4).some(
+          (v) => v.toLowerCase() === a.toLowerCase(),
+        )
+          ? "0x6000"
+          : "0x")
+      );
     if (p.method === "eth_getBlockByNumber")
       return {
         ...block,
@@ -143,6 +155,49 @@ export function fakeChain(options = {}) {
       };
     if (p.method === "eth_getLogs") {
       if (state.incomplete) throw Error("Incomplete archive");
+      if (a.address.toLowerCase() === deployed.Registry.toLowerCase()) {
+        const event = abis.Registry.find(
+          (e) => e.type === "event" && e.name === "TraitRequested",
+        );
+        if (
+          a.topics[0] !==
+          encodeEventTopics({ abi: [event], eventName: event.name })[0]
+        )
+          return [];
+        return state.pending
+          .filter(
+            (p) =>
+              BigInt(a.fromBlock) <= 26245000n &&
+              BigInt(a.toBlock) >= 26245000n,
+          )
+          .map((p, i) => ({
+            address: deployed.Registry,
+            blockNumber: toHex(26245000),
+            blockHash: block.hash,
+            transactionHash: "0x" + "77".repeat(32),
+            transactionIndex: "0x0",
+            logIndex: toHex(i),
+            removed: false,
+            topics: encodeEventTopics({
+              abi: [event],
+              eventName: event.name,
+              args: { claimant: p.claimant || wallet, traitId: p.id },
+            }),
+            data: encodeAbiParameters(
+              event.inputs.filter((x) => !x.indexed),
+              [p.requestId, p.questionHash],
+            ),
+          }))
+          .filter((log) =>
+            a.topics.every(
+              (t, i) =>
+                t == null ||
+                (Array.isArray(t)
+                  ? t.includes(log.topics[i])
+                  : t.toLowerCase() === log.topics[i]?.toLowerCase()),
+            ),
+          );
+      }
       if (a.address.toLowerCase() !== deps.curator.toLowerCase()) return [];
       const event =
         a.topics[0] ===
@@ -188,6 +243,11 @@ export function fakeChain(options = {}) {
     }
     if (p.method === "eth_call") {
       const address = a.to?.toLowerCase();
+      if (address === deployment.network.uniswapV4.quoter.toLowerCase())
+        return encodeAbiParameters(
+          [{ type: "uint256" }, { type: "uint256" }],
+          [100000000000000n, 100000n],
+        );
       const name = Object.keys(deployed).find(
         (n) => deployed[n].toLowerCase() === address,
       );
@@ -197,11 +257,31 @@ export function fakeChain(options = {}) {
           ? abis.WhitelistCurator
           : address === deps.intake.toLowerCase()
             ? abis.IntakeV2
-            : tokenAbi;
+            : address ===
+                deployment.network.uniswapV4.universalRouter.toLowerCase()
+              ? [
+                  parseAbiItem(
+                    "function execute(bytes commands,bytes[] inputs,uint256 deadline) payable",
+                  ),
+                ]
+              : tokenAbi;
       const { functionName: fn, args: values } = decodeFunctionData({
         abi,
         data: a.data,
       });
+      if (state.failFunction === fn) {
+        const e = Error("Execution reverted");
+        e.data = encodeErrorResult({
+          abi: [
+            ...abis.Registry,
+            ...abis.Composer,
+            parseAbiItem("error Error(string)"),
+          ],
+          errorName: state.revertName || "AlreadyPending",
+          args: state.revertArgs || [wallet, 601],
+        });
+        throw e;
+      }
       if (state.failWallet && ["tokenOf", "traitsOf", "hasTrait"].includes(fn))
         throw Error("Wallet read unavailable");
       if (
@@ -224,9 +304,11 @@ export function fakeChain(options = {}) {
       else if (fn === "nextSpecId") result = 10001;
       else if (fn === "tokenOf") result = state.token;
       else if (fn === "claimantOf") result = wallet;
-      else if (fn === "traitsOf") result = [101];
+      else if (fn === "traitsOf") result = [101, ...state.proven];
       else if (fn === "verifiedSpecsOf") result = [];
-      else if (fn === "hasTrait") result = Number(values[1]) === 101;
+      else if (fn === "hasTrait")
+        result =
+          Number(values[1]) === 101 || state.proven.includes(Number(values[1]));
       else if (fn === "firstHourOf") result = [0n, true];
       else if (
         [
@@ -239,8 +321,28 @@ export function fakeChain(options = {}) {
       )
         result = 1n;
       else if (["tokenURI", "tokenURIOf"].includes(fn)) result = uri;
-      else if (["pendingOf", "sharedPending"].includes(fn)) result = zeroHash;
-      else if (fn === "verified") result = [zeroHash, zeroHash, 0n, 0n];
+      else if (fn === "pendingOf")
+        result =
+          state.pending.find(
+            (p) =>
+              !p.cleared &&
+              p.id === Number(values[1]) &&
+              (p.claimant || wallet).toLowerCase() === values[0].toLowerCase(),
+          )?.requestId || zeroHash;
+      else if (fn === "sharedPending") result = zeroHash;
+      else if (fn === "pendingRequest") {
+        const pending = state.pending.find(
+          (p) => !p.cleared && p.requestId === values[0],
+        );
+        result = pending
+          ? [
+              pending.claimant || wallet,
+              pending.id,
+              pending.requestedAt,
+              pending.questionHash,
+            ]
+          : ["0x0000000000000000000000000000000000000000", 0, 0n, zeroHash];
+      } else if (fn === "verified") result = [zeroHash, zeroHash, 0n, 0n];
       else if (fn === "sharedFact") result = [zeroHash, zeroHash, 0];
       else if (fn === "balanceOf") result = state.balance;
       else if (fn === "allowance") result = state.allowance;
@@ -248,7 +350,17 @@ export function fakeChain(options = {}) {
       else if (fn === "approve") result = true;
       else if (fn === "mintCard") result = 1n;
       else if (fn === "registerSpec") result = 10001;
-      else if (["validateSpec", "upgrade", "requestSharedFact"].includes(fn))
+      else if (
+        [
+          "validateSpec",
+          "upgrade",
+          "requestSharedFact",
+          "applySharedFact",
+          "settle",
+          "abandon",
+          "execute",
+        ].includes(fn)
+      )
         result = undefined;
       else throw Error("Unhandled fake call " + fn);
       return encodeFunctionResult({ abi, functionName: fn, result });
@@ -323,7 +435,11 @@ export async function mockPage(page, fixture) {
         body: JSON.stringify({
           jsonrpc: "2.0",
           id: payload.id,
-          error: { code: -32000, message: e.message },
+          error: {
+            code: -32000,
+            message: e.message,
+            ...(e.data ? { data: e.data } : {}),
+          },
         }),
       });
     }

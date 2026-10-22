@@ -29,10 +29,29 @@ export function resilientRpc({
         });
         if (!response.ok) throw Error(`RPC HTTP ${response.status}`);
         const body = await response.json();
-        if (body.error) throw Error(body.error.message || "RPC read refused");
+        if (body.error) {
+          const error = Object.assign(
+            new Error(body.error.message || "RPC read refused"),
+            {
+              code: body.error.code,
+              data: body.error.data,
+              // An answered call that reverts is a contract refusal, not an
+              // unavailable endpoint. Preserve its ABI data for a plain explanation.
+              contractRefusal:
+                ["eth_call", "eth_estimateGas"].includes(method) &&
+                (body.error.code === 3 ||
+                  /^0x[0-9a-f]*$/i.test(body.error.data || "") ||
+                  /revert|insufficient funds|out of gas/i.test(
+                    body.error.message || "",
+                  )),
+            },
+          );
+          throw error;
+        }
         if (!("result" in body)) throw Error("Incomplete RPC response");
         return body.result;
       } catch (error) {
+        if (error.contractRefusal) throw error;
         if (attempt) throw error;
       }
     }
@@ -54,7 +73,8 @@ export function resilientRpc({
           verifiedChains.add(url);
         }
         return { url, result };
-      } catch {
+      } catch (error) {
+        if (error.contractRefusal) throw error;
         rejected.add(url);
       }
     }

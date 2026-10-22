@@ -21,6 +21,12 @@ import {
 import { useWalletSheet } from "./wallet";
 import { sharedState, completion } from "./settlement";
 import { claimAnchor } from "./navigation";
+import {
+  RequestTime,
+  SwarmFeed,
+  SWARM_POLL_MS,
+  type WatchedFact,
+} from "./swarm";
 function disableReason(site: any, account: any, busy: boolean) {
   return busy
     ? "A transaction is in progress."
@@ -35,9 +41,11 @@ function disableReason(site: any, account: any, busy: boolean) {
 export function Settlement({
   requestId,
   journal,
+  onCheckSwarm,
 }: {
   requestId: string;
   journal: Journal;
+  onCheckSwarm?: () => void;
 }) {
   const site = useSite();
   const account = useAccount();
@@ -46,6 +54,11 @@ export function Settlement({
   const [busy, setBusy] = useState(false);
   const [canSettle, setCanSettle] = useState(false);
   const [canAbandon, setCanAbandon] = useState(false);
+  const [localFact, setLocalFact] = useState<WatchedFact>();
+  const [localFocus, setLocalFocus] = useState<{
+    requestId: string;
+    tick: number;
+  } | null>(null);
   async function check() {
     setBusy(true);
     setStatus("Checking the Intake completion over the selected RPC…");
@@ -53,13 +66,6 @@ export function Settlement({
     setCanAbandon(false);
     try {
       if (!site.health) throw Error("Live reads unavailable. Retry reads.");
-      const found = await completion(
-        site.client,
-        site.r,
-        site.health,
-        requestId as any,
-      );
-      setResult(found);
       const pending = await read(
         site.client,
         site.r,
@@ -67,6 +73,22 @@ export function Settlement({
         "pendingRequest",
         [requestId],
       );
+      if (!onCheckSwarm && Number(pending[1]))
+        setLocalFact({
+          requestId,
+          id: Number(pending[1]),
+          name:
+            TRAITS.find((t) => t.id === Number(pending[1]))?.name ||
+            site.specs.find((s) => s.id === Number(pending[1]))?.name ||
+            `Fact ${pending[1]}`,
+        });
+      const found = await completion(
+        site.client,
+        site.r,
+        site.health,
+        requestId as any,
+      );
+      setResult(found);
       const block = await site.client.getBlock();
       const claimant = pending[0].toLowerCase();
       const mine = account.address?.toLowerCase() === claimant;
@@ -119,11 +141,11 @@ export function Settlement({
         setStatus(
           reason
             ? `Cannot store the verdict: ${MISS_REASONS[Number(reason)] || `reason ${reason}`}.`
-            : explain(e),
+            : explain(e, [...site.r.abis.Registry, ...site.r.abis.Composer]),
         );
       }
     } catch (e) {
-      setStatus(explain(e));
+      setStatus(explain(e, [...site.r.abis.Registry, ...site.r.abis.Composer]));
     } finally {
       setBusy(false);
     }
@@ -131,9 +153,24 @@ export function Settlement({
   return (
     <div className="settlement">
       <p className="break">Pending request: {requestId}</p>
-      <button disabled={busy || !site.health} onClick={check}>
-        {busy ? "Checking…" : "Check verdict delivery"}
+      <button
+        disabled={busy}
+        onClick={() => {
+          onCheckSwarm?.();
+          if (!onCheckSwarm)
+            setLocalFocus((old) => ({ requestId, tick: (old?.tick || 0) + 1 }));
+          void check();
+        }}
+      >
+        Check swarm
       </button>
+      {localFact && (
+        <SwarmFeed
+          fact={localFact}
+          focus={localFocus}
+          onAttested={site.refresh}
+        />
+      )}
       {canSettle && (
         <button
           disabled={journal.busy}
@@ -155,7 +192,9 @@ export function Settlement({
               );
               setStatus("Prepared, see Transaction steps.");
             } catch (e) {
-              setStatus(explain(e));
+              setStatus(
+                explain(e, [...site.r.abis.Registry, ...site.r.abis.Composer]),
+              );
             }
           }}
         >
@@ -183,11 +222,13 @@ export function Settlement({
               );
               setStatus("Prepared, see Transaction steps.");
             } catch (e) {
-              setStatus(explain(e));
+              setStatus(
+                explain(e, [...site.r.abis.Registry, ...site.r.abis.Composer]),
+              );
             }
           }}
         >
-          Prepare abandon
+          Mint abandon
         </button>
       )}
       <Status>{status}</Status>
@@ -203,12 +244,14 @@ function SharedFact({
   payment,
   journal,
   facts,
+  onCheckSwarm,
 }: {
   id?: number;
   name?: string;
   payment: string;
   journal: Journal;
   facts?: WalletFacts | null;
+  onCheckSwarm: (fact: WatchedFact) => void;
 }) {
   const site = useSite();
   const account = useAccount();
@@ -226,7 +269,10 @@ function SharedFact({
           if (active) setValue(v);
         })
         .catch((e) => {
-          if (active) setError(explain(e));
+          if (active)
+            setError(
+              explain(e, [...site.r.abis.Registry, ...site.r.abis.Composer]),
+            );
         });
     return () => {
       active = false;
@@ -289,7 +335,7 @@ function SharedFact({
       }
       setStatus("Prepared, see Transaction steps.");
     } catch (e) {
-      setStatus(explain(e));
+      setStatus(explain(e, [...site.r.abis.Registry, ...site.r.abis.Composer]));
     } finally {
       setBusy(false);
     }
@@ -331,7 +377,7 @@ function SharedFact({
       )}
       <p className="muted">Pay with: {stored ? "gas only" : payment}</p>
       <button disabled={!!reason || busy} onClick={prepare}>
-        {busy ? "Preparing…" : stored ? "Prepare apply" : "Prepare shared fact"}
+        {busy ? "Preparing…" : stored ? "Mint apply" : "Mint shared fact"}
       </button>
       <Status
         error={
@@ -346,7 +392,15 @@ function SharedFact({
       {status.startsWith("Prepared") && (
         <a href={claimAnchor("transaction-steps")}>Transaction steps ↓</a>
       )}
-      {pending && <Settlement requestId={value.pending} journal={journal} />}
+      {pending && (
+        <Settlement
+          requestId={value.pending}
+          journal={journal}
+          onCheckSwarm={() =>
+            onCheckSwarm({ requestId: value.pending, id, name })
+          }
+        />
+      )}
     </div>
   );
 }
@@ -465,7 +519,7 @@ function CommunityForm({
         `Prepared, see Transaction steps. The new id will be read from the receipt. A first oracle claim currently costs ${imd(prepared.price)} IMD; this price can change.`,
       );
     } catch (e) {
-      setStatus(explain(e));
+      setStatus(explain(e, [...site.r.abis.Registry, ...site.r.abis.Composer]));
     } finally {
       setBusy(false);
     }
@@ -578,7 +632,7 @@ function CommunityForm({
         }
         type="submit"
       >
-        {busy ? "Preparing…" : "Prepare registration"}
+        {busy ? "Preparing…" : "Mint registration"}
       </button>
       <Status
         error={
@@ -617,6 +671,95 @@ export function Claim() {
   const [busy, setBusy] = useState("");
   const [status, setStatus] = useState<Record<string, string>>({});
   const [refreshTick, setRefreshTick] = useState(0);
+  const [watchState, setWatchState] = useState<{
+    wallet?: string;
+    entries: WatchedFact[];
+  }>({ entries: [] });
+  const [feedFocus, setFeedFocus] = useState<{
+    requestId: string;
+    tick: number;
+  } | null>(null);
+  const watched =
+    watchState.wallet === account.address ? watchState.entries : [];
+  const pendingFacts =
+    facts && facts.address.toLowerCase() === account.address?.toLowerCase()
+      ? Object.entries(facts.pending)
+          .filter(([, rid]) => !/^0x0+$/.test(rid))
+          .map(([id, requestId]) => ({
+            id: Number(id),
+            requestId,
+            name:
+              TRAITS.find((t) => t.id === Number(id))?.name ||
+              site.specs.find((s) => s.id === Number(id))?.name ||
+              `Fact ${id}`,
+          }))
+      : [];
+  const pendingKey = pendingFacts
+    .map((f) => `${f.id}:${f.requestId}`)
+    .join(",");
+  useEffect(() => {
+    setWatchState((old) => {
+      const entries = old.wallet === account.address ? old.entries : [];
+      return {
+        wallet: account.address,
+        entries: [
+          ...entries,
+          ...pendingFacts.filter(
+            (f) => !entries.some((e) => e.requestId === f.requestId),
+          ),
+        ],
+      };
+    });
+  }, [account.address, pendingKey]);
+  function openSwarm(fact: WatchedFact) {
+    setWatchState((old) => {
+      const entries = old.wallet === account.address ? old.entries : [];
+      return {
+        wallet: account.address,
+        entries: entries.some((e) => e.requestId === fact.requestId)
+          ? entries
+          : [...entries, fact],
+      };
+    });
+    setFeedFocus((old) => ({
+      requestId: fact.requestId,
+      tick: (old?.tick || 0) + 1,
+    }));
+  }
+  // Completion polling is independent of the progress API, including during an
+  // API outage or while an attestation is waiting for onchain delivery.
+  useEffect(() => {
+    if (!account.address || !site.health || !pendingFacts.length) return;
+    let active = true,
+      running = false;
+    const interval = setInterval(async () => {
+      if (running) return;
+      running = true;
+      try {
+        const current = await Promise.all(
+          pendingFacts.map((f) =>
+            read(site.client, site.r, "Registry", "pendingOf", [
+              account.address,
+              f.id,
+            ]),
+          ),
+        );
+        if (
+          active &&
+          current.some((rid, i) => rid !== pendingFacts[i].requestId)
+        )
+          setRefreshTick((v) => v + 1);
+      } catch {
+        /* The existing chain status/retry remains independent. */
+      } finally {
+        running = false;
+      }
+    }, SWARM_POLL_MS);
+    return () => {
+      active = false;
+      clearInterval(interval);
+    };
+  }, [account.address, site.client, site.health, pendingKey]);
   const wanted = Number(
     new URLSearchParams(location.hash.split("?")[1]?.split("#")[0]).get(
       "trait",
@@ -624,7 +767,12 @@ export function Claim() {
   );
   useEffect(() => {
     let active = true;
-    setFacts(null);
+    setFacts((old) =>
+      site.health &&
+      old?.address.toLowerCase() === account.address?.toLowerCase()
+        ? old
+        : null,
+    );
     setFactError("");
     if (account.address && site.health)
       read(site.client, site.r, "Registry", "tokenOf", [account.address])
@@ -639,7 +787,12 @@ export function Claim() {
           if (active) setFacts(v);
         })
         .catch((e) => {
-          if (active) setFactError(explain(e));
+          if (active) {
+            setFacts(null);
+            setFactError(
+              explain(e, [...site.r.abis.Registry, ...site.r.abis.Composer]),
+            );
+          }
         });
     return () => {
       active = false;
@@ -721,7 +874,10 @@ export function Claim() {
       );
       setStatus((v) => ({ ...v, mint: "Prepared, see Transaction steps." }));
     } catch (e) {
-      setStatus((v) => ({ ...v, mint: explain(e) }));
+      setStatus((v) => ({
+        ...v,
+        mint: explain(e, [...site.r.abis.Registry, ...site.r.abis.Composer]),
+      }));
     } finally {
       setBusy("");
     }
@@ -750,7 +906,10 @@ export function Claim() {
       );
       setStatus((v) => ({ ...v, facts: "Prepared, see Transaction steps." }));
     } catch (e) {
-      setStatus((v) => ({ ...v, facts: explain(e) }));
+      setStatus((v) => ({
+        ...v,
+        facts: explain(e, [...site.r.abis.Registry, ...site.r.abis.Composer]),
+      }));
     } finally {
       setBusy("");
     }
@@ -758,8 +917,26 @@ export function Claim() {
   return (
     <>
       <h1>Claim</h1>
-      <section className="mint-panel" id="mint">
-        <div>
+      {pendingFacts.length > 0 && (
+        <section className="pending-notice" aria-label="Pending facts">
+          <h2>Waiting for the swarm</h2>
+          {pendingFacts.map((fact) => (
+            <p key={fact.requestId}>
+              <strong>
+                {fact.id} / {fact.name}
+              </strong>{" "}
+              · Pending since <RequestTime requestId={fact.requestId} />. This
+              fact cannot be requested again until its answer arrives. Other
+              facts and actions remain available.
+            </p>
+          ))}
+        </section>
+      )}
+      <section
+        className={`mint-panel${watched.length ? " has-swarm" : ""}`}
+        id="mint"
+      >
+        <div className="claim-copy">
           <h2>
             {minted !== null && minted !== 0n
               ? `Your Sworn card #${minted}`
@@ -793,7 +970,7 @@ export function Claim() {
                 ? "Preparing…"
                 : facts && facts.token !== 0n
                   ? "Already minted"
-                  : "Prepare mint"}
+                  : "Mint card"}
             </button>
           )}
           <Status
@@ -824,6 +1001,23 @@ export function Claim() {
             </button>
           )}
         </div>
+        {watched.length > 0 && (
+          <section className="swarm-feed" aria-label="Swarm progress">
+            <h2>Swarm progress</h2>
+            <p className="muted">
+              Live panel progress, not proof. Facts and card updates come from
+              the Registry.
+            </p>
+            {watched.map((fact) => (
+              <SwarmFeed
+                key={fact.requestId}
+                fact={fact}
+                focus={feedFocus}
+                onAttested={() => setRefreshTick((v) => v + 1)}
+              />
+            ))}
+          </section>
+        )}
         {facts ? (
           <Card facts={facts} />
         ) : minted !== null && minted !== 0n ? (
@@ -1015,7 +1209,7 @@ export function Claim() {
             }
             onClick={prepareFacts}
           >
-            {busy === "facts" ? "Preparing…" : "Prepare selected facts"}
+            {busy === "facts" ? "Preparing…" : "Mint selected facts"}
           </button>
           <Status
             error={
@@ -1041,10 +1235,21 @@ export function Claim() {
               .map(([id, rid]) => (
                 <div key={id}>
                   <h4>{id} / pending request</h4>
-                  <Settlement requestId={rid} journal={journal} />
+                  <Settlement
+                    requestId={rid}
+                    journal={journal}
+                    onCheckSwarm={() =>
+                      openSwarm(pendingFacts.find((f) => f.requestId === rid)!)
+                    }
+                  />
                 </div>
               ))}
-          <SharedFact payment={payment} journal={journal} facts={facts} />
+          <SharedFact
+            payment={payment}
+            journal={journal}
+            facts={facts}
+            onCheckSwarm={openSwarm}
+          />
           <h3>Community facts</h3>
           {site.loading ? (
             <Status>Reading community specs…</Status>
@@ -1073,6 +1278,7 @@ export function Claim() {
                 payment={payment}
                 journal={journal}
                 facts={facts}
+                onCheckSwarm={openSwarm}
               />
             ))}
         </section>

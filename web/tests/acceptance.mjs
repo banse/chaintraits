@@ -107,7 +107,7 @@ try {
       );
       assert.equal(
         await page
-          .getByRole("button", { name: "Prepare registration" })
+          .getByRole("button", { name: "Mint registration" })
           .isDisabled(),
         true,
       );
@@ -117,7 +117,7 @@ try {
     "E mint dialog: live fee, balance, card preview, disclaimer and simulation before signing; saved across close/reload",
     async () => {
       await page
-        .getByRole("button", { name: "Prepare mint", exact: true })
+        .getByRole("button", { name: "Mint card", exact: true })
         .click();
       const d = await dialog();
       const bounds = await d.boundingBox();
@@ -148,9 +148,6 @@ try {
         true,
       );
       await d.locator("#payment-ack").check();
-      await d
-        .getByRole("button", { name: "Simulate Approve IMD", exact: true })
-        .click();
       await d.getByText("simulated", { exact: true }).waitFor();
       assert.equal(await action.isDisabled(), true);
       await d.getByRole("button", { name: "Approve IMD", exact: true }).click();
@@ -184,29 +181,15 @@ try {
     "E approval receipt unlocks a separately simulated mint; no automatic second signature",
     async () => {
       await page
-        .getByRole("button", { name: "Prepare mint", exact: true })
+        .getByRole("button", { name: "Mint card", exact: true })
         .click();
       const d = await dialog();
       await d.locator("#payment-ack").check();
-      await d
-        .getByRole("button", { name: "Simulate Approve IMD", exact: true })
-        .click();
       await d.getByText("simulated", { exact: true }).waitFor();
       await page.evaluate(() => (window.__accept = true));
       await d.getByRole("button", { name: "Approve IMD", exact: true }).click();
       await d.getByText("confirmed", { exact: true }).waitFor();
-      assert.equal(
-        await d
-          .getByRole("button", { name: "Mint one Sworn card", exact: true })
-          .isDisabled(),
-        true,
-      );
-      await d
-        .getByRole("button", {
-          name: "Simulate Mint one Sworn card",
-          exact: true,
-        })
-        .click();
+      assert.equal((await page.evaluate(() => window.__signing)).length, 1);
       await d.getByText("simulated", { exact: true }).waitFor();
       await page.evaluate(() => (window.__accept = false));
       await d
@@ -229,9 +212,6 @@ try {
     const sign = d.getByRole("button", { name: action, exact: true });
     assert.equal(await sign.isDisabled(), true);
     await d.locator("#payment-ack").check();
-    await d
-      .getByRole("button", { name: "Simulate " + action, exact: true })
-      .click();
     await d.getByText("simulated", { exact: true }).waitFor();
     await sign.click();
     await d
@@ -244,14 +224,14 @@ try {
     "E personal fact dialog uses live request price, no unnecessary approval and a simulated call",
     async () => {
       await page.locator("#pick-601 input").check();
-      await paidTest("Prepare selected facts", "Request 601 / Swarmed");
+      await paidTest("Mint selected facts", "Request 601 / Swarmed");
     },
   );
   await run(
     "A/E valid shared list reaches signing through the shared-fact dialog",
     async () => {
       await paidTest(
-        "Prepare shared fact",
+        "Mint shared fact",
         "Request shared fact 1201 / Top Weights",
       );
     },
@@ -263,7 +243,7 @@ try {
         f.state[key] = true;
         const before = (await page.evaluate(() => window.__signing)).length;
         await page
-          .getByRole("button", { name: "Prepare shared fact", exact: true })
+          .getByRole("button", { name: "Mint shared fact", exact: true })
           .click();
         await page
           .getByText(
@@ -300,7 +280,7 @@ try {
       }))
         await page.locator("#spec-" + field).fill(value);
       await paidTest(
-        "Prepare registration",
+        "Mint registration",
         "Register the immutable community spec",
       );
     },
@@ -313,17 +293,9 @@ try {
   }
   await run("E failed simulation never unlocks signing", async () => {
     f.state.failSimulation = true;
-    await page
-      .getByRole("button", { name: "Prepare mint", exact: true })
-      .click();
+    await page.getByRole("button", { name: "Mint card", exact: true }).click();
     const d = await dialog();
     await d.locator("#payment-ack").check();
-    await d
-      .getByRole("button", {
-        name: "Simulate Mint one Sworn card",
-        exact: true,
-      })
-      .click();
     await d.getByText("failed", { exact: true }).waitFor();
     assert.equal(
       await d
@@ -341,7 +313,12 @@ try {
     await page
       .getByRole("heading", { name: "Your Sworn card #1", exact: true })
       .waitFor();
-    assert.equal(await page.getByRole("button", { name: /mint/i }).count(), 0);
+    assert.equal(
+      await page
+        .getByRole("button", { name: "Mint card", exact: true })
+        .count(),
+      0,
+    );
     await page.screenshot({
       path: new URL("owned-card-390.png", output).pathname,
     });
@@ -355,9 +332,7 @@ try {
         .getByText(/Cannot read the chain, retrying/)
         .first()
         .waitFor();
-      for (const b of await page
-        .getByRole("button", { name: /^Prepare/ })
-        .all())
+      for (const b of await page.getByRole("button", { name: /^Mint/ }).all())
         assert.equal(await b.isDisabled(), true);
       f.state.failAll = false;
       await page

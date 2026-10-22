@@ -264,7 +264,7 @@ try {
       .getByText("preview, no card minted", { exact: true })
       .waitFor({ timeout: 60000 });
     await page
-      .getByRole("button", { name: "Prepare selected facts", exact: true })
+      .getByRole("button", { name: "Mint selected facts", exact: true })
       .click();
     const paymentDialog = page.getByRole("dialog", {
       name: "Request 1 oracle fact: 601 / Swarmed",

@@ -15,6 +15,8 @@ npm run typecheck
 npm run build
 npm test
 node tests/acceptance.mjs
+node tests/actions.mjs
+node tests/swarm-browser.mjs
 npm run preview
 ```
 
@@ -57,7 +59,7 @@ Run `node scripts/agents.mjs` before building after changing the canonical root 
 
 The handoff contains no `poolKey`. The export therefore adds none. The optional ETH route's market descriptor is derived from public onchain initialization events and current liquidity; router and quoter addresses come from the unchanged network object. The route buys the exact missing IMD, caps ETH input at a ceiling of 101% of the quote, expires after 120 seconds and refunds unused ETH in the swap transaction. An expired quote or a changed oracle price requires preparation again. Every Registry operation is nonpayable; ETH goes only to the configured swap router. IMD approval appears only when the allowance is below the total. A positive short allowance is reset first; a sufficient allowance needs no new approval.
 
-No runtime connection to an application API, analytics, backend, relay or project ID is needed. Browser extensions use EIP-6963 through wagmi; mobile visitors receive in-wallet links; Coinbase Wallet supplies its SDK/passkey option. RPC selection and the receipt journal are stored only in the visitor's browser. Reloading never resends a transaction, and an uncertain or replaced broadcast must be recovered before continuing.
+The only application API read is the optional swarm-progress feed described below. No analytics, backend, relay or project ID is needed. Browser extensions use EIP-6963 through wagmi; mobile visitors receive in-wallet links; Coinbase Wallet supplies its SDK/passkey option. RPC selection and the receipt journal are stored only in the visitor's browser. Reloading never resends a transaction, and an uncertain or replaced broadcast must be recovered before continuing.
 
 ## Regenerate derived assets
 
@@ -80,16 +82,16 @@ The compiler script uses Solidity 0.8.24 with the protected repository compiler 
 
 The eight routes use hash navigation and same-origin relative assets. Static `index.html` deliberately has title `swornbyswarm`; after rendering, each tab reads `Sworn | <page>`. The local PNG share image, favicon and social metadata are included.
 
-The assignment's write budget is `web/**`, `dist/**`, `docs/**` and the single explicit ignore path `web/.gitignore`. [docs/DESIGN.md](../docs/DESIGN.md) contains the implemented design record; a root `DESIGN.md` is outside that overriding budget. Root README, build configuration, contracts and dependencies were preserved. No publication or redeployment command is part of this delivery; the publisher hosts the completed export later.
+[Root DESIGN.md](../DESIGN.md) documents the implemented design, including the pending notice and swarm feed. Contracts, addresses, chain, ABIs, build configuration, dependency manifests and lockfile are preserved. No publication or redeployment command is part of this delivery; the publisher hosts the completed export later under `swornbyswarm.site.identitymd.eth`.
 
-The only changed ignore file is `web/.gitignore`; it excludes generated frontend dependency, cache, coverage and browser-report directories at nested locations. Dependencies, package caches, downloaded browser libraries and temporary archives are excluded from the submission. No frontend dependency archive or new submodule is required. The inherited protected `lib/` Git entries are preserved.
+The existing ignore files exclude generated frontend dependency, cache, coverage and browser-report directories. This revision changes no ignore file. Dependencies, package caches, downloaded browser libraries and temporary archives are excluded from the submission. No frontend dependency archive or new submodule is required. The inherited protected `lib/` Git entries are preserved.
 
 Design guidance attribution and both upstream licenses are retained in `LICENSES/Better-Interface.txt`; the bundled wallet marks retain `LICENSES/RainbowKit.txt`.
 
 
 ## Current paid-action checks
 
-All four paid Prepare buttons open the same native dialog. It shows the live amount, balance, IMD destinations, disclaimer and card preview when minting. Each step has separate simulation and signing controls; previous receipts, the checkbox and a fresh simulation unlock the next signature. A closed dialog retains the flow. Reloading preserves outcomes, expires simulations and treats outstanding broadcasts as uncertain until receipt recovery. No transaction is automatically resent.
+All action entry buttons that previously read Prepare now read Mint, including Mint card, Mint selected facts, Mint shared fact, Mint apply, Mint registration and Mint abandon. They open the same native dialog. It shows the live amount, balance, IMD destinations, disclaimer and card preview when minting. The next step is checked silently after the disclaimer and preceding receipt; a successful check enables its explicit signing button. A failed check displays a plain reason and Retry check. No Simulate button exists, and no check signs automatically. Every signature also requires a fresh check. A closed dialog retains the flow. Reloading preserves outcomes, expires simulations and treats outstanding broadcasts as uncertain until receipt recovery. No transaction is automatically resent.
 
 The spec form starts empty. Template examples are placeholders. A kind-3 transfer/from-or-to rule is refused immediately. Every kind-3 registration and shared request recomputes the full pinned ranking before preparation and again before simulation/signing; low top-head addresses, short heads, partial logs, conflicting endpoints and changed closing blocks block payment.
 
@@ -103,3 +105,14 @@ SWORN_TEST_RPC=https://ethereum-rpc.publicnode.com SWORN_CAST=cast node tests/sk
 ```
 
 `SWORN_TEST_RPC` is a test-only relay target; it is not written into the export. For environments with a read-only default npm cache, use `npm ci --cache /tmp/sworn-npm-cache`. Browser downloads, dependencies and caches stay outside Git. Current observed results and limitations take precedence over earlier historical validation entries in `TEST-NOTES.md`.
+
+
+## Swarm progress and pending facts
+
+Claim names each connected-wallet pending fact and its Registry request time at the top. Only that fact is disabled. The feed sits between the text and card above 1000px, and follows text → feed → card at smaller widths. Check swarm opens and focuses its corresponding feed while retaining the existing chain-based settlement checks.
+
+`swarm.tsx` verifies the pending request's `TraitRequested` event. `oracle-progress.mjs` reads only the public `/oracle/requests` listing and `/oracle/requests/<id>` details at `https://api.imd.fun`, with credentials omitted. Summary-only listings are supported: details supply the consumer and question hash. The newest matching request must name the deployed Registry and event question hash and have `createdAt >= requestedAt`. Unrelated API links are never followed. A previously matched request remains readable after it leaves the recent listing. If no match is listed yet, the feed says it is waiting; a pending request absent from the service's available listing cannot be discovered until the service exposes it.
+
+Five-second polls update assessing/attested/failed status, answers including failed submissions out of panel size, agreement against quorum, and every seat's answer, figure or failure reason. Missing agreement/figures stay unavailable. API results are progress information, never proof. Attestation triggers a fresh Registry lookup (`hasTrait` and the card); an independent chain poll detects delivery even during an API outage. Only chain results change proven facts. The literal “progress unavailable” state offers Retry progress; it never changes chain health or gates an action. Claim feeds and request identities are kept only for the current wallet/page session and clear on disconnect.
+
+Run `node tests/actions.mjs` for refusal/retry/pre-signature checks across ten transaction step types and `node tests/swarm-browser.mjs` for all six requested behaviors with a fake EIP-1193 wallet, fake RPC and fake API responses. Add `--webkit` to either command when the browser's system dependencies are installed. The tests serve the production export under `/preview/`, invoke the real poll callbacks directly without a timed wait, and sign or send nothing to a network. Current results and browser limitations are in [TEST-NOTES.md](TEST-NOTES.md).

@@ -17,9 +17,9 @@ npm run build
 npm run preview
 ```
 
-Vite uses relative asset URLs and hash routes, so the export works below a static gateway path. The build verifies the pinned ABIs and writes an asset manifest. The publisher serves the committed export without rebuilding it. No server, key or application API is required at runtime.
+Vite uses relative asset URLs and hash routes, so the export works below a static gateway path. The build verifies the pinned ABIs and writes an asset manifest. The publisher serves the committed export without rebuilding it. No server or key is required. The optional swarm-progress feed reads only `https://api.imd.fun/oracle/requests` and its request details; a failed progress read never prevents Registry reads or actions.
 
-Run `npm test` for unit/export and route checks, plus `node tests/acceptance.mjs` for the fake-wallet A–E interactions (install Playwright Chromium first). See [frontend instructions](web/README.md), [current test notes](web/TEST-NOTES.md), [implemented design](DESIGN.md), [agent skill](agents/sworn/SKILL.md) and [agent index](llms.txt). The earlier contract-stage status above is historical; this contribution changes the existing frontend and does not deploy a contract.
+Run `npm test` for unit/export and route checks, plus `node tests/acceptance.mjs`, `node tests/actions.mjs` and `node tests/swarm-browser.mjs` for fake-wallet payment and live-feed interactions (install Playwright Chromium first). See [frontend instructions](web/README.md), [current test notes](web/TEST-NOTES.md), [implemented design](DESIGN.md), [agent skill](agents/sworn/SKILL.md) and [agent index](llms.txt). The earlier contract-stage status above is historical; this contribution changes the existing frontend and does not deploy a contract.
 
 ## Read in this order
 

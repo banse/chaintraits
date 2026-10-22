@@ -349,7 +349,13 @@ export function useTransactions() {
       await site.client.simulateContract(await checkedCall(index));
       update(index, { state: "simulated" });
     } catch (e) {
-      const message = explain(e);
+      const message = explain(
+        e,
+        steps[index]?.call?.abi || [
+          ...site.r.abis.Registry,
+          ...site.r.abis.Composer,
+        ],
+      );
       update(index, { state: "failed", error: message });
       setError(message);
     } finally {
@@ -357,6 +363,21 @@ export function useTransactions() {
       setBusy(false);
     }
   }
+  // Check only the next step, after consent and its preceding receipt. No wallet
+  // request is made here; signing always needs its own button press.
+  useEffect(() => {
+    if (
+      isOpen &&
+      ack &&
+      available &&
+      !busy &&
+      next >= 0 &&
+      ["ready", "simulation expired", "interrupted"].includes(
+        steps[next]?.state,
+      )
+    )
+      void simulate(next);
+  }, [isOpen, ack, available, busy, next, steps[next]?.state]);
   async function execute(index = next) {
     if (
       lock.current ||
@@ -430,7 +451,13 @@ export function useTransactions() {
       }
       await site.refresh();
     } catch (e) {
-      const message = explain(e);
+      const message = explain(
+        e,
+        steps[index]?.call?.abi || [
+          ...site.r.abis.Registry,
+          ...site.r.abis.Composer,
+        ],
+      );
       setError(message);
       update(index, {
         state: /rejected/i.test(message)
@@ -486,7 +513,16 @@ export function useTransactions() {
     error,
     registered,
     prepare,
-    simulate,
+    retry: (index: number) => {
+      if (
+        !lock.current &&
+        index === next &&
+        ["failed", "rejected"].includes(steps[index]?.state)
+      ) {
+        setError("");
+        update(index, { state: "ready", error: undefined });
+      }
+    },
     execute,
     recover,
     clear: () => {
@@ -653,18 +689,16 @@ export function TransactionJournal({ journal: j }: { journal: Journal }) {
                 <Status error>{s.error}</Status>
                 {s.state !== "confirmed" && (
                   <div className="step-actions">
-                    <button
-                      disabled={
-                        j.busy ||
-                        !j.ack ||
-                        !j.available ||
-                        i !== j.next ||
-                        s.state === "unknown"
-                      }
-                      onClick={() => j.simulate(i)}
-                    >
-                      Simulate {s.call?.label || "step"}
-                    </button>
+                    {["failed", "rejected"].includes(s.state) && (
+                      <button
+                        disabled={
+                          j.busy || !j.ack || !j.available || i !== j.next
+                        }
+                        onClick={() => j.retry(i)}
+                      >
+                        Retry check
+                      </button>
+                    )}
                     <button
                       className="primary"
                       disabled={

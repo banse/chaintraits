@@ -1,0 +1,279 @@
+{
+  "actions": {
+    "at": "2026-10-22T00:51:49.697Z",
+    "engine": "chromium",
+    "checks": [
+      {
+        "action": "Mint one Sworn card",
+        "function": "mintCard",
+        "entry": "primary UI",
+        "passed": true
+      },
+      {
+        "action": "Request 601 / Swarmed",
+        "function": "upgrade",
+        "entry": "primary UI",
+        "passed": true
+      },
+      {
+        "action": "Request shared fact 1201 / Top Weights",
+        "function": "requestSharedFact",
+        "entry": "primary UI",
+        "passed": true
+      },
+      {
+        "action": "Register the immutable community spec",
+        "function": "registerSpec",
+        "entry": "primary UI",
+        "passed": true
+      },
+      {
+        "action": "Approve IMD",
+        "function": "approve",
+        "entry": "primary UI",
+        "passed": true
+      },
+      {
+        "action": "Reset allowance",
+        "function": "approve",
+        "entry": "primary UI",
+        "passed": true
+      },
+      {
+        "action": "Buy IMD",
+        "function": "execute",
+        "entry": "primary UI",
+        "passed": true
+      },
+      {
+        "action": "Register the immutable community spec",
+        "function": "registerSpec",
+        "entry": "primary UI",
+        "passed": true
+      },
+      {
+        "action": "Apply shared fact",
+        "function": "applySharedFact",
+        "entry": "restored journal",
+        "passed": true
+      },
+      {
+        "action": "Store the verdict",
+        "function": "settle",
+        "entry": "restored journal",
+        "passed": true
+      },
+      {
+        "action": "Abandon pending request",
+        "function": "abandon",
+        "entry": "restored journal",
+        "passed": true
+      }
+    ],
+    "errors": [],
+    "browserVersion": "156.0.8078.4"
+  },
+  "swarm": {
+    "at": "2026-10-22T00:50:07.191Z",
+    "engine": "chromium",
+    "checks": [
+      "3 pending notice names the fact, exact Registry timestamp and per-fact lock",
+      "4 summary-only API matches newest consumer + event questionHash at or after request",
+      "3 another fact still opens a plan and silently unlocks its own checked call",
+      "5 Check swarm opens the existing feed and focuses its disclosure",
+      "4 new true/false/failed seats and zero figure update without reload",
+      "6 desktop middle column; phone DOM and visual order; no overflow",
+      "4 attestation re-reads hasTrait and Registry card; API verdict alone proves nothing",
+      "4 unreadable API says progress unavailable while chain delivery and other actions continue",
+      "4 progress retry recovers after independent chain completion",
+      "4 every pending fact gets its own feed, including a failed panel"
+    ],
+    "pageErrors": [],
+    "consoleErrors": [],
+    "resourceErrors": [],
+    "api": [
+      "/oracle/requests",
+      "/oracle/requests/swarm-current",
+      "/oracle/requests/swarm-failed",
+      "/oracle/requests/swarm-other",
+      "/oracle/requests/wrong-consumer",
+      "/oracle/requests/wrong-hash"
+    ],
+    "browserVersion": "156.0.8078.4"
+  },
+  "acceptance": {
+    "at": "2026-10-22T00:51:41.404Z",
+    "engine": "chromium",
+    "checks": [
+      "C first RPC always 429 still displays live values without recovered error text",
+      "D form has empty values and no errors, template selection only changes placeholders",
+      "E mint dialog: live fee, balance, card preview, disclaimer and simulation before signing; saved across close/reload",
+      "E approval receipt unlocks a separately simulated mint; no automatic second signature",
+      "E personal fact dialog uses live request price, no unnecessary approval and a simulated call",
+      "A/E valid shared list reaches signing through the shared-fact dialog",
+      "A low shared top-head address and short list block a paid request before a dialog or signing",
+      "D/E typed valid community registration opens the same payment dialog and reaches signing",
+      "E failed simulation never unlocks signing",
+      "C tokenOf=1 displays card #1 with no mint button",
+      "C every RPC failing disables paid actions and shows retrying; manual retry recovers",
+      "B Agents is a direct Markdown link on every route; D layouts have no overflow at 390 and 1280"
+    ],
+    "errors": [],
+    "limitations": []
+  },
+  "routes": {
+    "at": "2026-10-22T00:51:28.901Z",
+    "browsers": {
+      "chromium": "156.0.8078.4"
+    },
+    "interactions": [
+      "Home address validation names the field, focuses it and keeps the main action in the first 390\u00d7844 screen.",
+      "Native wallet dialog opens; Tab stays inside; Escape/backdrop close and restores trigger focus.",
+      "All eight hash routes render without page overflow at 320, 390, 780, 1280 and 1440; every route sets its Sworn tab title.",
+      "Trait deep link preselects id 701; IMD defaults; ETH changes echoed payment text; disconnected writes stay disabled; community form refuses both audit claimant cases and prose-padded signatures.",
+      "Integrate has two working Copy controls, a Solidity gate that compiles with 0.8.24, and a linked exported agent skill.",
+      "Census shows all 66 rows, the exact 59 source lines and no unreadable phone chart."
+    ],
+    "errors": [],
+    "limitations": [
+      "WebKit could not run: browserType.launch:  \u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557 \u2551 Host system is missing dependencies to run browsers. \u2551 \u2551 Missing libraries:                                   \u2551"
+    ],
+    "routeWidthCases": 40
+  },
+  "designProbe": {
+    "passed": 14,
+    "total": 16,
+    "checks": [
+      {
+        "name": "render",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 9245,
+        "output": "renders, no script errors or missing local files\nexternal hosts: ethereum-rpc.publicnode.com, gateway.tenderly.co, rpc.mevblocker.io, 1.rpc.thirdweb.com"
+      },
+      {
+        "name": "layout",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 0,
+        "output": "no horizontal scroll at 320, 390 or 1440\nno text box overlaps another\nno floating control covers text\nno text cut off by overflow: hidden"
+      },
+      {
+        "name": "targets",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 0,
+        "output": "all 26 controls at least 24px or spaced at 390\n21 under the 44px comfortable size"
+      },
+      {
+        "name": "contrast",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 1,
+        "output": "all measured text meets 4.5:1 (3:1 large)"
+      },
+      {
+        "name": "casing",
+        "passed": false,
+        "exitCode": 1,
+        "durationMs": 0,
+        "output": "2 all-caps text boxes in content:\n1440px: #main > section.section:nth-of-type(4) > h2 \"WHY SWORN\"\n1440px: #main > section.section:nth-of-type(5) > h2 \"BUILT BY THE SWARM\""
+      },
+      {
+        "name": "tracking",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 0,
+        "output": "letter-spacing natural in content (display type may run tight)\n2 more in header, nav or footer (brand chrome, not counted)"
+      },
+      {
+        "name": "eyebrows",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 0,
+        "output": "no kicker labels above headings"
+      },
+      {
+        "name": "type-sizes",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 0,
+        "output": "390: 3 sizes in use, 5 with one-offs (11px\u00d71, 12px\u00d722, 13px\u00d739, 15px\u00d722, 34px\u00d71)\n1440: 3 sizes in use, 5 with one-offs (11px\u00d71, 12px\u00d722, 13px\u00d739, 15px\u00d722, 34px\u00d71)\nbar: 6 sizes used more than once, 8 counting one-offs, per width"
+      },
+      {
+        "name": "type-faces",
+        "passed": false,
+        "exitCode": 1,
+        "durationMs": 1,
+        "output": "families (1): ui-monospace\nweights (2): 400, 600\nmonospace prose: 13, e.g. #main > section.landing:nth-of-type(1) > div.landing-copy:nth-of-type(1) > p.prose \"Sworn is an ownerless registry on Ethere\""
+      },
+      {
+        "name": "glyphs",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 0,
+        "output": "no em dashes or emoji in text"
+      },
+      {
+        "name": "slogans",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 0,
+        "output": "2 two-beat lines; a stack is four or more, so keep the best and cut the rest:\n\"Public facts. No wallet connection needed.\" (section.landing:nth-of-type(1) > div.landing-copy:nth-of-type(1) > form.address-form > p.status.muted)\n\"13 families. One wallet\u2019s record.\" (#main > section.landing:nth-of-type(1) > div.landing-art:nth-of-type(2) > p.art-note)"
+      },
+      {
+        "name": "repetition",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 1,
+        "output": "no repeated lines"
+      },
+      {
+        "name": "copy-budget",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 0,
+        "output": "prose on the first screen: 60 words at 390 (bar 60), 60 at 1440 (bar 90)\nall words on the first screen: 95 at 390, 119 at 1440\nwhole page: 612 words, 286 of them prose"
+      },
+      {
+        "name": "chrome",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 0,
+        "output": "border and shadow together: 0\ncards inside cards: 0\ngradient text: 0"
+      },
+      {
+        "name": "motion",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 0,
+        "output": "transition: all on 0 elements\nendless animations: 0; still running with reduced motion: 0"
+      },
+      {
+        "name": "share",
+        "passed": true,
+        "exitCode": 0,
+        "durationMs": 0,
+        "output": "title \"Sworn | Home\", favicon, og:title, og:image, description"
+      }
+    ]
+  },
+  "build": {
+    "typecheck": "passed",
+    "format": "passed",
+    "productionBuild": "passed",
+    "exportManifest": "passed",
+    "assets": 47,
+    "assetBytes": 1074489,
+    "unitTests": 56,
+    "realTransactions": 0,
+    "relativeAssets": true
+  },
+  "limitations": [
+    "WebKit and the provided browser tool could not launch; actual rendered checks used local Playwright Chromium.",
+    "No screen reader, physical wallet, native zoom, passkey flow, live-chain write or fork transaction rehearsal.",
+    "Optional legacy live-read and fork cases explicitly skipped.",
+    "Design probe preserves two existing copy/design constraints: uppercase headings and monospace prose."
+  ],
+  "submissionByteLimit": 8388608
+}
