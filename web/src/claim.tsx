@@ -19,7 +19,9 @@ import {
   type Journal,
 } from "./transactions";
 import { useWalletSheet } from "./wallet";
-import { sharedState, completion } from "./settlement";
+import { eligibilityText } from "./eligibility.mjs";
+import { lastPersonalRequests, lastRequestText } from "./request-outcomes.mjs";
+import { sharedState, completion, registryEvents } from "./settlement";
 import { claimAnchor } from "./navigation";
 import {
   RequestTime,
@@ -673,6 +675,10 @@ export function Claim() {
   const [factError, setFactError] = useState("");
   const [payment, setPayment] = useState("IMD");
   const [selected, setSelected] = useState<number[]>([]);
+  const [requestHistory, setRequestHistory] = useState<{
+    wallet?: string;
+    lines: Record<number, string>;
+  }>({ lines: {} });
   const [busy, setBusy] = useState("");
   const [status, setStatus] = useState<Record<string, string>>({});
   const [refreshTick, setRefreshTick] = useState(0);
@@ -765,6 +771,47 @@ export function Claim() {
       clearInterval(interval);
     };
   }, [account.address, site.client, site.health, pendingKey]);
+  useEffect(() => {
+    if (account.address) void journal.checkPersonal(selected);
+  }, [selected.join(","), account.address, site.client, !!site.health]);
+  useEffect(() => {
+    let active = true;
+    const wallet = account.address;
+    if (wallet && site.health) {
+      void registryEvents(site.client, site.r, [
+        "TraitRequested",
+        "Verified",
+        "Missed",
+        "NoVerdict",
+        "Abandoned",
+      ])
+        .then(async (events) => {
+          const blocks = new Map<bigint, Promise<any>>();
+          const lines = await Promise.all(
+            lastPersonalRequests(events, wallet).map(
+              async ([id, value]: any) => {
+                const blockNumber = value.request.blockNumber;
+                if (!blocks.has(blockNumber))
+                  blocks.set(
+                    blockNumber,
+                    site.client.getBlock({ blockNumber }),
+                  );
+                const block = await blocks.get(blockNumber);
+                return [id, lastRequestText(value.outcome, block.timestamp)];
+              },
+            ),
+          );
+          if (active)
+            setRequestHistory({ wallet, lines: Object.fromEntries(lines) });
+        })
+        .catch(() => {
+          /* No outcome is inferred from an incomplete event read. */
+        });
+    }
+    return () => {
+      active = false;
+    };
+  }, [account.address, site.client, site.health, refreshTick]);
   const wanted = Number(
     new URLSearchParams(location.hash.split("?")[1]?.split("#")[0]).get(
       "trait",
@@ -1196,6 +1243,29 @@ export function Claim() {
                         {t.rule} · {t.window}
                       </span>
                       <Mark kind={t.class} />
+                      {!proven &&
+                        requestHistory.wallet === account.address &&
+                        requestHistory.lines[t.id] && (
+                          <span className="muted">
+                            {requestHistory.lines[t.id]}
+                          </span>
+                        )}
+                      {selected.includes(t.id) && account.address && (
+                        <span
+                          className={
+                            journal.eligibility[journal.eligibilityKey(t.id)]
+                              ?.state === "not-met"
+                              ? "danger eligibility-advice"
+                              : "muted eligibility-advice"
+                          }
+                          role="status"
+                        >
+                          {eligibilityText(
+                            journal.eligibility[journal.eligibilityKey(t.id)],
+                            site.health?.price,
+                          )}
+                        </span>
+                      )}
                       {cant ? (
                         <span className="muted">
                           cannot be true: not in WhitelistCurator.sol

@@ -16,13 +16,58 @@ import {
   progressStatus,
   answerText,
   WalletQuestionMismatch,
+  panelAgreement,
+  walletList,
+  agreedList,
+  sameList,
 } from "./oracle-progress.mjs";
+
+import { registryOutcome, NO_FACT } from "./request-outcomes.mjs";
 
 export const SWARM_POLL_MS = 5000;
 export type WatchedFact = { requestId: string; id: number; name: string };
 const WAITING = "Waiting for the swarm to pick up the request…";
 const shortWallet = (address: string) =>
   `${address.slice(0, 6)}…${address.slice(-4)}`;
+function ListAnswer({
+  list,
+  agreed,
+  wallet,
+}: {
+  list: string[];
+  agreed: string[] | null;
+  wallet?: string;
+}) {
+  const id = useId();
+  const [expanded, setExpanded] = useState(false);
+  const rank = wallet
+    ? list.findIndex((a) => a.toLowerCase() === wallet.toLowerCase()) + 1
+    : 0;
+  return (
+    <div className="swarm-list-answer">
+      <span>
+        Answer: list of {list.length} wallets ·{" "}
+        {sameList(list, agreed)
+          ? "same as the agreed list"
+          : "differs from the agreed list"}
+        {rank > 0 ? ` · your wallet at #${rank}` : ""}
+      </span>
+      <button
+        type="button"
+        aria-expanded={expanded}
+        aria-controls={id}
+        onClick={() => setExpanded((v) => !v)}
+      >
+        {expanded ? "Hide list" : "Show list"}
+      </button>
+      <ol id={id} hidden={!expanded} className="swarm-wallet-list">
+        {list.map((a, i) => (
+          <li key={i}>{a}</li>
+        ))}
+      </ol>
+    </div>
+  );
+}
 function LoadingIndicator() {
   return <span className="swarm-loading" aria-hidden="true" />;
 }
@@ -138,6 +183,8 @@ export function SwarmFeed({
         ? identity.current.pending
         : null;
     let attested = false;
+    let terminal: any = null;
+    let consensus: string | null = null;
     let controller: AbortController;
     async function poll() {
       if (running) return;
@@ -145,12 +192,20 @@ export function SwarmFeed({
       controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 12000);
       try {
-        const events = pending?.oracleRequestId
+        const events = terminal
           ? []
           : await registryEvents(
               client,
               r,
-              pending ? ["Verified"] : ["TraitRequested", "Verified"],
+              pending
+                ? ["Verified", "Missed", "NoVerdict", "Abandoned"]
+                : [
+                    "TraitRequested",
+                    "Verified",
+                    "Missed",
+                    "NoVerdict",
+                    "Abandoned",
+                  ],
               fact.id,
               pending?.blockNumber,
             );
@@ -187,22 +242,33 @@ export function SwarmFeed({
             requestedAt,
             blockNumber: event.blockNumber,
             questionHash: event.args.questionHash,
+            spec: await read(client, r, "Registry", "specOf", [fact.id]),
           };
           identity.current = { requestId: fact.requestId, pending };
         }
-        const verified = events.find(
+        const outcome = events.find(
           (e) =>
-            e.eventName === "Verified" &&
-            e.args.requestId.toLowerCase() === fact.requestId.toLowerCase(),
+            e.eventName !== "TraitRequested" &&
+            e.args.requestId?.toLowerCase() === fact.requestId.toLowerCase(),
         );
-        if (verified) pending.oracleRequestId = verified.args.oracleRequestId;
+        if (outcome) {
+          terminal = outcome;
+          if (outcome.eventName === "Verified")
+            pending.oracleRequestId = outcome.args.oracleRequestId;
+          callback.current();
+        }
         if (!active) return;
         const result = await load(
           { ...pending, wallet: address },
           controller.signal,
         );
         if (!active) return;
+        if (result)
+          consensus = panelAgreement(result, pending.spec) || consensus;
         setView({
+          outcome: registryOutcome(terminal),
+          consensus: terminal ? null : consensus,
+          spec: pending.spec,
           address,
           requestId: fact.requestId,
           progress: result,
@@ -215,6 +281,11 @@ export function SwarmFeed({
       } catch (error) {
         if (active) {
           setView({
+            outcome: registryOutcome(terminal),
+            consensus:
+              terminal || error instanceof WalletQuestionMismatch
+                ? null
+                : consensus,
             address,
             requestId: fact.requestId,
             progress: null,
@@ -239,7 +310,9 @@ export function SwarmFeed({
       clearInterval(interval);
     };
   }, [fact.requestId, client, r, retry, load, address]);
-  const counts = progress ? progressCounts(progress) : null;
+  const counts = progress ? progressCounts(progress, view.spec) : null;
+  const list = progress ? agreedList(progress) : null;
+  const outcome = current ? view.outcome : null;
   const status = progress ? progressStatus(progress) : null;
   return (
     <details
@@ -285,24 +358,14 @@ export function SwarmFeed({
             )}
             <p>
               {counts!.answered} / {progress.panelSize} answers ·{" "}
-              {counts!.boolean
-                ? `${counts!.trueAnswers} true / ${progress.quorum} needed`
-                : counts!.agreed
-                  ? `${counts!.agreed} agree / ${progress.quorum} quorum`
-                  : `no agreement yet / ${progress.quorum} quorum`}
+              {counts!.count
+                ? `${counts!.met} meet the rule / ${progress.quorum} needed`
+                : counts!.boolean
+                  ? `${counts!.trueAnswers} true / ${progress.quorum} needed`
+                  : counts!.agreed
+                    ? `${counts!.agreed} agree / ${progress.quorum} quorum`
+                    : `no agreement yet / ${progress.quorum} quorum`}
             </p>
-            {status === "assessing" &&
-              counts!.boolean &&
-              (counts!.trueAnswers >= progress.quorum ? (
-                <p>
-                  Panel agreed: {counts!.trueAnswers} of {progress.quorum}{" "}
-                  needed said true. Finishing: the oracle signs the answer and
-                  delivers it to the Registry; the fact appears on your card
-                  once the Registry stores it.
-                </p>
-              ) : counts!.falseAnswers >= progress.quorum ? (
-                <p>Panel agreed: false. The fact is not proven.</p>
-              ) : null)}
           </>
         ) : (
           <>
@@ -310,9 +373,11 @@ export function SwarmFeed({
               {message === WAITING && <LoadingIndicator />}
               {message}
             </p>
-            {wrongWallet && <p>Wallet: {shortWallet(wrongWallet)}</p>}
+            {wrongWallet && <p>Expected wallet: {shortWallet(wrongWallet)}</p>}
           </>
         )}
+        {current && view.consensus && <p>{view.consensus}</p>}
+        {(outcome || status === "failed") && <p>{outcome || NO_FACT}</p>}
       </div>
       {progress && (
         <>
@@ -328,20 +393,28 @@ export function SwarmFeed({
                     Seat {i + 1}
                     {seat?.tokenId != null ? ` · #${seat.tokenId}` : ""}
                   </strong>
-                  <span>
-                    {seat?.ok === false ? (
-                      `Failed: ${answerText(seat.reason)}`
-                    ) : seat?.ok === true ? (
-                      `Answer: ${answerText(seat.answer?.answer)}`
-                    ) : status === "assessing" ? (
-                      <>
-                        <LoadingIndicator />
-                        Awaiting answer
-                      </>
-                    ) : (
-                      "No answer"
-                    )}
-                  </span>
+                  {seat?.ok === true && walletList(seat.answer?.answer) ? (
+                    <ListAnswer
+                      list={seat.answer.answer}
+                      agreed={list}
+                      wallet={address}
+                    />
+                  ) : (
+                    <span>
+                      {seat?.ok === false ? (
+                        `Failed: ${answerText(seat.reason)}`
+                      ) : seat?.ok === true ? (
+                        `Answer: ${answerText(seat.answer?.answer)}`
+                      ) : status === "assessing" ? (
+                        <>
+                          <LoadingIndicator />
+                          Awaiting answer
+                        </>
+                      ) : (
+                        "No answer"
+                      )}
+                    </span>
+                  )}
                 </li>
               );
             })}

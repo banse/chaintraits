@@ -19,6 +19,7 @@ import {
   type WalletFacts,
 } from "./chain";
 import { imd, ethCeiling, decodeMetadata } from "./pure.mjs";
+import { checkEligibility, eligibilityText } from "./eligibility.mjs";
 import { checkSharedSpec } from "./shared-safety.mjs";
 import { quoteEth, swapCall, type SwapQuote } from "./swap";
 import { Card, Status } from "./components";
@@ -117,6 +118,53 @@ export function useTransactions() {
     saved.registered,
   );
   const lock = useRef(false);
+  const [eligibility, setEligibility] = useState<Record<string, any>>({});
+  const eligibilityRuns = useRef(new Map<string, number>());
+  const [requestAnyway, setRequestAnyway] = useState(false);
+  const personalIds =
+    plan?.calls
+      .filter((c) => c.functionName === "upgrade")
+      .flatMap((c) => c.ids || c.args[0]) || [];
+  const eligibilityKey = (id: number) =>
+    `${account.address?.toLowerCase()}:${id}`;
+  async function checkPersonal(ids: number[]) {
+    if (!account.address) return;
+    const wallet = account.address;
+    await Promise.all(
+      ids.map(async (id) => {
+        const key = `${wallet.toLowerCase()}:${id}`;
+        const run = (eligibilityRuns.current.get(key) || 0) + 1;
+        eligibilityRuns.current.set(key, run);
+        setEligibility((old) => ({ ...old, [key]: { state: "checking" } }));
+        const value = await checkEligibility(
+          site.client,
+          (id: number) => read(site.client, site.r, "Registry", "specOf", [id]),
+          wallet,
+          id,
+        );
+        if (eligibilityRuns.current.get(key) === run)
+          setEligibility((old) => ({ ...old, [key]: value }));
+      }),
+    );
+  }
+  useEffect(() => {
+    setRequestAnyway(false);
+    if (
+      isOpen &&
+      plan?.account.toLowerCase() === account.address?.toLowerCase()
+    )
+      void checkPersonal(personalIds);
+  }, [isOpen, plan, account.address, site.client]);
+  const eligibilityChecking = personalIds.some(
+    (id) =>
+      !eligibility[eligibilityKey(id)] ||
+      eligibility[eligibilityKey(id)].state === "checking",
+  );
+  const eligibilityNegative = personalIds.some(
+    (id) => eligibility[eligibilityKey(id)]?.state === "not-met",
+  );
+  const eligibilityConfirmed =
+    !eligibilityChecking && (!eligibilityNegative || requestAnyway);
   useEffect(() => {
     try {
       localStorage.setItem(JOURNAL_KEY, encode({ plan, steps, registered }));
@@ -383,6 +431,7 @@ export function useTransactions() {
       lock.current ||
       !plan ||
       steps[index]?.state !== "simulated" ||
+      !eligibilityConfirmed ||
       !ack ||
       !available ||
       index !== next
@@ -552,6 +601,15 @@ export function useTransactions() {
     busy,
     error,
     registered,
+    eligibility,
+    eligibilityKey,
+    checkPersonal,
+    personalIds,
+    eligibilityChecking,
+    eligibilityNegative,
+    eligibilityConfirmed,
+    requestAnyway,
+    setRequestAnyway,
     prepare,
     retry: (index: number) => {
       if (
@@ -726,6 +784,23 @@ export function TransactionJournal({ journal: j }: { journal: Journal }) {
                   </li>
                 ))}
               </ul>
+              {j.personalIds.map((id) => (
+                <p
+                  key={id}
+                  className={
+                    j.eligibility[j.eligibilityKey(id)]?.state === "not-met"
+                      ? "danger"
+                      : "muted"
+                  }
+                  role="status"
+                >
+                  {j.personalIds.length > 1 ? `${id}: ` : ""}
+                  {eligibilityText(
+                    j.eligibility[j.eligibilityKey(id)],
+                    j.plan!.price,
+                  )}
+                </p>
+              ))}
               {mintPayment && (
                 <p>
                   Card fees are forwarded to the IMD BurnExecutor for bridging
@@ -780,6 +855,21 @@ export function TransactionJournal({ journal: j }: { journal: Journal }) {
                 requests spend their price whatever the answer, including false,
                 no verdict or a refused answer; there is no refund.
               </label>
+              {j.eligibilityNegative && (
+                <button
+                  type="button"
+                  aria-pressed={j.requestAnyway}
+                  disabled={
+                    j.requestAnyway ||
+                    j.eligibilityChecking ||
+                    !j.ack ||
+                    !j.available
+                  }
+                  onClick={() => j.setRequestAnyway(true)}
+                >
+                  Request anyway
+                </button>
+              )}
             </>
           )}
           <ol className="journal-steps">
@@ -829,7 +919,8 @@ export function TransactionJournal({ journal: j }: { journal: Journal }) {
                         !j.ack ||
                         !j.available ||
                         i !== j.next ||
-                        s.state !== "simulated"
+                        s.state !== "simulated" ||
+                        !j.eligibilityConfirmed
                       }
                       onClick={() => j.execute(i)}
                     >

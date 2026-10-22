@@ -11,8 +11,10 @@ import {
 import { server } from "./harness.mjs";
 
 const engine = process.argv.includes("--webkit") ? "webkit" : "chromium";
+const group = process.argv.find((a) => a.startsWith("--group="))?.split("=")[1];
+let groupIndex = 0;
 const output = new URL(
-  `../../test/scratch/oracle-feed-${engine}/`,
+  `../../test/scratch/oracle-feed-${engine}${group ? `-${group}` : ""}/`,
   import.meta.url,
 );
 fs.mkdirSync(output, { recursive: true });
@@ -63,6 +65,7 @@ const evidence = {
 };
 let browser, context, page, fixture;
 async function run(name, fn) {
+  if (group && ++groupIndex !== Number(group)) return;
   await fn();
   evidence.checks.push(name);
   console.log("PASS " + name);
@@ -286,11 +289,13 @@ try {
           confirmed,
         });
         await feed
-          .getByText("This request is not about your wallet.", { exact: true })
+          .getByText("This request is not about this wallet.", { exact: true })
           .waitFor();
         assert.equal(await feed.locator(".swarm-seats").count(), 0);
         assert.equal(await feed.getByText(/Answer:/).count(), 0);
-        await feed.getByText("Wallet: 0xabcd…ef01", { exact: true }).waitFor();
+        await feed
+          .getByText("Expected wallet: 0x2000…0001", { exact: true })
+          .waitFor();
       }
     },
   );
@@ -517,7 +522,7 @@ try {
       live.attestedAt = "2026-10-22T00:02:00.000Z";
       await poll();
       await feed.getByText("attested", { exact: true }).waitFor();
-      assert.equal(await feed.getByText(/Panel agreed:/).count(), 0);
+      assert.equal(await feed.getByText(/Panel agreed:/).count(), 1);
       assert.equal(await feed.getByText(/Attested:/).count(), 1);
       assert.equal(
         await feed.getByText("No answer", { exact: true }).count(),
@@ -643,7 +648,7 @@ try {
       records.push({ ...live, id: confirmedId });
       await poll();
       await feed
-        .getByText("This request is not about your wallet.", { exact: true })
+        .getByText("This request is not about this wallet.", { exact: true })
         .waitFor();
       assert.equal(await feed.getByRole("listitem").count(), 0);
       assert.deepEqual(await page.evaluate(() => window.__signing), []);

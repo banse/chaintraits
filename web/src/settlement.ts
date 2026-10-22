@@ -37,12 +37,20 @@ export async function registryEvents(
       result.push(
         ...logs.filter(
           (l: any) =>
-            id === undefined || Number(l.args.traitId ?? l.args.factId) === id,
+            id === undefined ||
+            l.eventName === "Abandoned" ||
+            Number(l.args.traitId ?? l.args.factId) === id,
         ),
       );
     }
   }
-  return result.sort((a, b) => (a.blockNumber < b.blockNumber ? -1 : 1));
+  return result.sort((a, b) =>
+    a.blockNumber !== b.blockNumber
+      ? a.blockNumber < b.blockNumber
+        ? -1
+        : 1
+      : Number(a.logIndex) - Number(b.logIndex),
+  );
 }
 export async function completion(
   client: any,

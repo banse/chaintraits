@@ -1,0 +1,690 @@
+{
+  "scope": "Six personal-fact updates; worker validation, not independent certification",
+  "network": "Fake EIP-1193 wallet and mocked public RPC/API only; no live signature, broadcast or publication",
+  "production": {
+    "build": "passed; three pinned ABI matches",
+    "typecheck": "passed",
+    "format": "passed",
+    "exportManifest": "passed",
+    "assetsExcludingManifest": 47,
+    "bytesExcludingManifest": 1092762,
+    "filesIncludingManifest": 48,
+    "bytesIncludingManifest": 1101384,
+    "relativeAssetURLs": true
+  },
+  "unitAndExportTests": {
+    "passed": 84,
+    "failed": 0
+  },
+  "personalFactBrowserGroups": [
+    {
+      "group": 1,
+      "engine": "chromium",
+      "checks": [
+        "1 count quorum met/below, boolean true/false, and persistence after attestation"
+      ],
+      "errors": [],
+      "widths": [
+        {
+          "name": "quorum-1-1",
+          "width": 1280,
+          "actual": 1280
+        },
+        {
+          "name": "quorum-1-1",
+          "width": 390,
+          "actual": 390
+        },
+        {
+          "name": "quorum-2-0",
+          "width": 1280,
+          "actual": 1280
+        },
+        {
+          "name": "quorum-2-0",
+          "width": 390,
+          "actual": 390
+        },
+        {
+          "name": "quorum-5-true",
+          "width": 1280,
+          "actual": 1280
+        },
+        {
+          "name": "quorum-5-true",
+          "width": 390,
+          "actual": 390
+        },
+        {
+          "name": "quorum-5-false",
+          "width": 1280,
+          "actual": 1280
+        },
+        {
+          "name": "quorum-5-false",
+          "width": 390,
+          "actual": 390
+        }
+      ],
+      "capturedScreenshots": 8,
+      "contrast": []
+    },
+    {
+      "group": 2,
+      "engine": "chromium",
+      "checks": [
+        "1 Verified, Missed reason 8, NoVerdict and failed API show exact end text"
+      ],
+      "errors": [],
+      "widths": [
+        {
+          "name": "end-Verified",
+          "width": 1280,
+          "actual": 1280
+        },
+        {
+          "name": "end-Verified",
+          "width": 390,
+          "actual": 390
+        },
+        {
+          "name": "end-Missed",
+          "width": 1280,
+          "actual": 1280
+        },
+        {
+          "name": "end-Missed",
+          "width": 390,
+          "actual": 390
+        },
+        {
+          "name": "end-NoVerdict",
+          "width": 1280,
+          "actual": 1280
+        },
+        {
+          "name": "end-NoVerdict",
+          "width": 390,
+          "actual": 390
+        },
+        {
+          "name": "end-failed",
+          "width": 1280,
+          "actual": 1280
+        },
+        {
+          "name": "end-failed",
+          "width": 390,
+          "actual": 390
+        }
+      ],
+      "capturedScreenshots": 8,
+      "contrast": []
+    },
+    {
+      "group": 3,
+      "engine": "chromium",
+      "checks": [
+        "2 row histories for Missed 8/9, NoVerdict, Abandoned; other wallet does not alter history"
+      ],
+      "errors": [],
+      "widths": [
+        {
+          "name": "history-Missed-8",
+          "width": 1280,
+          "actual": 1280
+        },
+        {
+          "name": "history-Missed-8",
+          "width": 390,
+          "actual": 390
+        },
+        {
+          "name": "history-Missed-9",
+          "width": 1280,
+          "actual": 1280
+        },
+        {
+          "name": "history-Missed-9",
+          "width": 390,
+          "actual": 390
+        },
+        {
+          "name": "history-NoVerdict-0",
+          "width": 1280,
+          "actual": 1280
+        },
+        {
+          "name": "history-NoVerdict-0",
+          "width": 390,
+          "actual": 390
+        },
+        {
+          "name": "history-Abandoned-0",
+          "width": 1280,
+          "actual": 1280
+        },
+        {
+          "name": "history-Abandoned-0",
+          "width": 390,
+          "actual": 390
+        }
+      ],
+      "capturedScreenshots": 8,
+      "contrast": []
+    },
+    {
+      "group": 4,
+      "engine": "chromium",
+      "checks": [
+        "3 32-wallet list summaries, rank, majority then attested list, mouse/keyboard full disclosure"
+      ],
+      "errors": [],
+      "widths": [
+        {
+          "name": "list-expanded",
+          "width": 1280,
+          "actual": 1280
+        },
+        {
+          "name": "list-expanded",
+          "width": 390,
+          "actual": 390
+        },
+        {
+          "name": "list-keyboard",
+          "width": 1280,
+          "actual": 1280
+        },
+        {
+          "name": "list-keyboard",
+          "width": 390,
+          "actual": 390
+        }
+      ],
+      "capturedScreenshots": 4,
+      "contrast": [
+        {
+          "name": "list-expanded",
+          "foreground": "rgb(140, 150, 142)",
+          "background": "rgb(10, 10, 10)",
+          "ratio": 6.475150562823136
+        },
+        {
+          "name": "list-expanded",
+          "foreground": "rgb(140, 150, 142)",
+          "background": "rgb(10, 10, 10)",
+          "ratio": 6.475150562823136
+        },
+        {
+          "name": "list-expanded",
+          "foreground": "rgb(140, 150, 142)",
+          "background": "rgb(10, 10, 10)",
+          "ratio": 6.475150562823136
+        },
+        {
+          "name": "list-expanded",
+          "foreground": "rgb(140, 150, 142)",
+          "background": "rgb(10, 10, 10)",
+          "ratio": 6.475150562823136
+        },
+        {
+          "name": "list-keyboard",
+          "foreground": "rgb(140, 150, 142)",
+          "background": "rgb(10, 10, 10)",
+          "ratio": 6.475150562823136
+        },
+        {
+          "name": "list-keyboard",
+          "foreground": "rgb(140, 150, 142)",
+          "background": "rgb(10, 10, 10)",
+          "ratio": 6.475150562823136
+        },
+        {
+          "name": "list-keyboard",
+          "foreground": "rgb(140, 150, 142)",
+          "background": "rgb(10, 10, 10)",
+          "ratio": 6.475150562823136
+        },
+        {
+          "name": "list-keyboard",
+          "foreground": "rgb(140, 150, 142)",
+          "background": "rgb(10, 10, 10)",
+          "ratio": 6.475150562823136
+        }
+      ]
+    },
+    {
+      "group": 5,
+      "engine": "chromium",
+      "checks": [
+        "4/5 Explorer without wallet uses claimant, shows expected wallet on mismatch, retains listing job after Registry confirmation"
+      ],
+      "errors": [],
+      "widths": [
+        {
+          "name": "explorer-mismatch",
+          "width": 1280,
+          "actual": 1280
+        },
+        {
+          "name": "explorer-mismatch",
+          "width": 390,
+          "actual": 390
+        }
+      ],
+      "capturedScreenshots": 2,
+      "contrast": []
+    },
+    {
+      "group": 6,
+      "engine": "chromium",
+      "checks": [
+        "6 met and not-met results match row/dialog; negative request requires Request anyway before fake signing prompt"
+      ],
+      "errors": [],
+      "widths": [
+        {
+          "name": "eligibility-met",
+          "width": 1280,
+          "actual": 1280
+        },
+        {
+          "name": "eligibility-met",
+          "width": 390,
+          "actual": 390
+        },
+        {
+          "name": "eligibility-negative",
+          "width": 1280,
+          "actual": 1280
+        },
+        {
+          "name": "eligibility-negative",
+          "width": 390,
+          "actual": 390
+        },
+        {
+          "name": "eligibility-not-met",
+          "width": 1280,
+          "actual": 1280
+        },
+        {
+          "name": "eligibility-not-met",
+          "width": 390,
+          "actual": 390
+        }
+      ],
+      "capturedScreenshots": 6,
+      "contrast": [
+        {
+          "name": "eligibility-met",
+          "foreground": "rgb(140, 150, 142)",
+          "background": "rgb(10, 10, 10)",
+          "ratio": 6.475150562823136
+        },
+        {
+          "name": "eligibility-negative",
+          "foreground": "rgb(255, 119, 119)",
+          "background": "rgb(10, 10, 10)",
+          "ratio": 7.690271246564527
+        },
+        {
+          "name": "eligibility-negative",
+          "foreground": "rgb(255, 119, 119)",
+          "background": "rgb(10, 10, 10)",
+          "ratio": 7.690271246564527
+        },
+        {
+          "name": "eligibility-negative",
+          "foreground": "rgb(255, 119, 119)",
+          "background": "rgb(10, 10, 10)",
+          "ratio": 7.690271246564527
+        },
+        {
+          "name": "eligibility-negative",
+          "foreground": "rgb(255, 119, 119)",
+          "background": "rgb(10, 10, 10)",
+          "ratio": 7.690271246564527
+        },
+        {
+          "name": "eligibility-not-met",
+          "foreground": "rgb(255, 119, 119)",
+          "background": "rgb(10, 10, 10)",
+          "ratio": 7.690271246564527
+        }
+      ]
+    },
+    {
+      "group": 7,
+      "engine": "chromium",
+      "checks": [
+        "6 refused and slow reads show advisory warning and still reach the fake wallet; no extra confirmation"
+      ],
+      "errors": [],
+      "widths": [
+        {
+          "name": "eligibility-refused",
+          "width": 1280,
+          "actual": 1280
+        },
+        {
+          "name": "eligibility-refused",
+          "width": 390,
+          "actual": 390
+        },
+        {
+          "name": "eligibility-slow",
+          "width": 1280,
+          "actual": 1280
+        },
+        {
+          "name": "eligibility-slow",
+          "width": 390,
+          "actual": 390
+        }
+      ],
+      "capturedScreenshots": 4,
+      "contrast": []
+    },
+    {
+      "group": 8,
+      "engine": "chromium",
+      "checks": [
+        "6 nonce uses block 25769870; Swarmed queries seat transfers from 25090085 and stops after first hit"
+      ],
+      "errors": [],
+      "widths": [
+        {
+          "name": "eligibility-seat",
+          "width": 1280,
+          "actual": 1280
+        },
+        {
+          "name": "eligibility-seat",
+          "width": 390,
+          "actual": 390
+        }
+      ],
+      "capturedScreenshots": 2,
+      "contrast": []
+    }
+  ],
+  "regressions": {
+    "actions": {
+      "checks": [
+        {
+          "action": "Mint one Sworn card",
+          "function": "mintCard",
+          "entry": "primary UI",
+          "passed": true
+        },
+        {
+          "action": "Request 601 / Swarmed",
+          "function": "upgrade",
+          "entry": "primary UI",
+          "passed": true
+        },
+        {
+          "action": "Request shared fact 1201 / Top Weights",
+          "function": "requestSharedFact",
+          "entry": "primary UI",
+          "passed": true
+        },
+        {
+          "action": "Register the immutable community spec",
+          "function": "registerSpec",
+          "entry": "primary UI",
+          "passed": true
+        },
+        {
+          "action": "Approve IMD",
+          "function": "approve",
+          "entry": "primary UI",
+          "passed": true
+        },
+        {
+          "action": "Reset allowance",
+          "function": "approve",
+          "entry": "primary UI",
+          "passed": true
+        },
+        {
+          "action": "Buy IMD",
+          "function": "execute",
+          "entry": "primary UI",
+          "passed": true
+        },
+        {
+          "action": "Register the immutable community spec",
+          "function": "registerSpec",
+          "entry": "primary UI",
+          "passed": true
+        },
+        {
+          "action": "Apply shared fact",
+          "function": "applySharedFact",
+          "entry": "restored journal",
+          "passed": true
+        },
+        {
+          "action": "Store the verdict",
+          "function": "settle",
+          "entry": "restored journal",
+          "passed": true
+        },
+        {
+          "action": "Abandon pending request",
+          "function": "abandon",
+          "entry": "restored journal",
+          "passed": true
+        }
+      ],
+      "errors": []
+    },
+    "acceptance": {
+      "checks": [
+        "C first RPC always 429 still displays live values without recovered error text",
+        "D form has empty values and no errors, template selection only changes placeholders",
+        "E mint dialog: live fee, balance, card preview, disclaimer and simulation before signing; saved across close/reload",
+        "E approval receipt unlocks a separately simulated mint; no automatic second signature",
+        "E personal fact dialog uses live request price, no unnecessary approval and a simulated call",
+        "A/E valid shared list reaches signing through the shared-fact dialog",
+        "A low shared top-head address and short list block a paid request before a dialog or signing",
+        "D/E typed valid community registration opens the same payment dialog and reaches signing",
+        "E failed simulation never unlocks signing",
+        "C tokenOf=1 displays card #1 with no mint button",
+        "C every RPC failing disables paid actions and shows retrying; manual retry recovers",
+        "B Agents is a direct Markdown link on every route; D layouts have no overflow at 390 and 1280"
+      ],
+      "errors": [],
+      "limitations": []
+    },
+    "followup": {
+      "checks": [
+        "1 pending and failed tokenOf never offer mint; retry recovers to card #1",
+        "2/3 confirmed mint shows its own receipt result, price and destination",
+        "2/3 confirmed fact shows its own receipt result, price and destination",
+        "2/3 confirmed shared shows its own receipt result, price and destination",
+        "2/3 confirmed registration shows its own receipt result, price and destination",
+        "6 a legacy saved ack:true is ignored and omitted from new journal storage",
+        "8 cached exact detail failure silently falls back to the claimant's oldest match",
+        "8 refused Intake uses claimant q, oldest match survives a later duplicate; Verified overrides it",
+        "8 delivered request can be reconstructed after reload from its Registry event",
+        "4 contract README link names the pinned launch commit"
+      ],
+      "errors": []
+    },
+    "swarm": {
+      "checks": [
+        "3 pending notice names the fact, exact Registry timestamp and per-fact lock",
+        "4 summary-only API matches oldest consumer + event questionHash at or after request",
+        "3 another fact still opens a plan and silently unlocks its own checked call",
+        "5 Check swarm opens the existing feed and focuses its disclosure",
+        "4 new true/false/failed seats update without reload; figures stay hidden",
+        "6 desktop middle column; phone DOM and visual order; no overflow",
+        "4 attestation re-reads hasTrait and Registry card; API verdict alone proves nothing",
+        "4 unreadable API says progress unavailable while chain delivery and other actions continue",
+        "4 progress retry recovers after independent chain completion",
+        "4 every pending fact gets its own feed, including a failed panel"
+      ],
+      "pageErrors": [],
+      "consoleErrors": []
+    },
+    "oracle-feed": {
+      "checks": [
+        "1 matched listing rejects another wallet despite correct Registry/hash; accepts full address in uppercase",
+        "1 exact Intake and Verified mismatches show refusal and named wallet, with no panel answers",
+        "2 confirmed request waits with an indicator through empty listing and panel formation",
+        "3 unanswered seats load until their own answer; attested and failed seats stop with No answer; reduced motion stays still",
+        "4 explorer link uses jobId below the request, opens a new tab and disappears without jobId",
+        "5 long question expands and collapses by mouse, Enter and Space; short question has no control",
+        "6 and 7 literal true/false counts, both quorum messages, attestation precedence and answer-only rows",
+        "6 nonboolean summaries retain the plane agreement and say no agreement yet when absent",
+        "six-domain review: feed text, seat text, link and question control use readable rendered color pairs",
+        "1\u20137 confirmed result dialog uses the same waiting, wallet guard, job link, question and live quorum rows"
+      ],
+      "errors": []
+    },
+    "revision": {
+      "checks": [
+        {
+          "name": "Legacy acknowledgement anchor retains query parameters, selected trait and main element; directs readers to the payment dialog."
+        }
+      ],
+      "errors": [],
+      "limitations": [
+        "Live price, connected preparation and refresh checks skipped: set SWORN_TEST_RPC to a read endpoint."
+      ]
+    },
+    "explorer-health": {
+      "checks": [],
+      "limitations": [
+        "Read-only RPC scenarios skipped: set SWORN_TEST_RPC to a read endpoint."
+      ]
+    }
+  },
+  "routes": {
+    "engine": "156.0.8078.4",
+    "pageAndWidthCases": 40,
+    "widths": [
+      320,
+      390,
+      780,
+      1280,
+      1440
+    ],
+    "interactions": [
+      "Home address validation names the field, focuses it and keeps the main action in the first 390\u00d7844 screen.",
+      "Native wallet dialog opens; Tab stays inside; Escape/backdrop close and restores trigger focus.",
+      "All eight hash routes render without page overflow at 320, 390, 780, 1280 and 1440; every route sets its Sworn tab title.",
+      "Trait deep link preselects id 701; IMD defaults; ETH changes echoed payment text; disconnected writes stay disabled; community form refuses both audit claimant cases and prose-padded signatures.",
+      "Integrate has two working Copy controls, a Solidity gate that compiles with 0.8.24, and a linked exported agent skill.",
+      "Census shows all 66 rows, the exact 59 source lines and no unreadable phone chart."
+    ],
+    "errors": []
+  },
+  "designProbe": {
+    "checks": [
+      {
+        "name": "render",
+        "passed": true,
+        "output": "renders, no script errors or missing local files\nexternal hosts: ethereum-rpc.publicnode.com, gateway.tenderly.co, rpc.mevblocker.io, 1.rpc.thirdweb.com"
+      },
+      {
+        "name": "layout",
+        "passed": true,
+        "output": "no horizontal scroll at 320, 390 or 1440\nno text box overlaps another\nno floating control covers text\nno text cut off by overflow: hidden"
+      },
+      {
+        "name": "targets",
+        "passed": true,
+        "output": "all 26 controls at least 24px or spaced at 390\n21 under the 44px comfortable size"
+      },
+      {
+        "name": "contrast",
+        "passed": true,
+        "output": "all measured text meets 4.5:1 (3:1 large)"
+      },
+      {
+        "name": "casing",
+        "passed": false,
+        "output": "2 all-caps text boxes in content:\n1440px: #main > section.section:nth-of-type(4) > h2 \"WHY SWORN\"\n1440px: #main > section.section:nth-of-type(5) > h2 \"BUILT BY THE SWARM\""
+      },
+      {
+        "name": "tracking",
+        "passed": true,
+        "output": "letter-spacing natural in content (display type may run tight)\n2 more in header, nav or footer (brand chrome, not counted)"
+      },
+      {
+        "name": "eyebrows",
+        "passed": true,
+        "output": "no kicker labels above headings"
+      },
+      {
+        "name": "type-sizes",
+        "passed": true,
+        "output": "390: 3 sizes in use, 5 with one-offs (11px\u00d71, 12px\u00d722, 13px\u00d739, 15px\u00d722, 34px\u00d71)\n1440: 3 sizes in use, 5 with one-offs (11px\u00d71, 12px\u00d722, 13px\u00d739, 15px\u00d722, 34px\u00d71)\nbar: 6 sizes used more than once, 8 counting one-offs, per width"
+      },
+      {
+        "name": "type-faces",
+        "passed": false,
+        "output": "families (1): ui-monospace\nweights (2): 400, 600\nmonospace prose: 13, e.g. #main > section.landing:nth-of-type(1) > div.landing-copy:nth-of-type(1) > p.prose \"Sworn is an ownerless registry on Ethere\""
+      },
+      {
+        "name": "glyphs",
+        "passed": true,
+        "output": "no em dashes or emoji in text"
+      },
+      {
+        "name": "slogans",
+        "passed": true,
+        "output": "2 two-beat lines; a stack is four or more, so keep the best and cut the rest:\n\"Public facts. No wallet connection needed.\" (section.landing:nth-of-type(1) > div.landing-copy:nth-of-type(1) > form.address-form > p.status.muted)\n\"13 families. One wallet\u2019s record.\" (#main > section.landing:nth-of-type(1) > div.landing-art:nth-of-type(2) > p.art-note)"
+      },
+      {
+        "name": "repetition",
+        "passed": true,
+        "output": "no repeated lines"
+      },
+      {
+        "name": "copy-budget",
+        "passed": true,
+        "output": "prose on the first screen: 60 words at 390 (bar 60), 60 at 1440 (bar 90)\nall words on the first screen: 95 at 390, 119 at 1440\nwhole page: 612 words, 286 of them prose"
+      },
+      {
+        "name": "chrome",
+        "passed": true,
+        "output": "border and shadow together: 0\ncards inside cards: 0\ngradient text: 0"
+      },
+      {
+        "name": "motion",
+        "passed": true,
+        "output": "transition: all on 0 elements\nendless animations: 0; still running with reduced motion: 0"
+      },
+      {
+        "name": "share",
+        "passed": true,
+        "output": "title \"Sworn | Home\", favicon, og:title, og:image, description"
+      }
+    ],
+    "widths": [
+      320,
+      390,
+      1440
+    ],
+    "errors": [],
+    "preservedExceptions": [
+      "Existing uppercase headings and monospace prose retained under the layout/copy constraint."
+    ]
+  },
+  "retainedScreenshots": [
+    "list-keyboard-390.png",
+    "eligibility-negative-390.png"
+  ],
+  "limitations": [
+    "WebKit launch attempted; required GTK/GStreamer and other host libraries are absent. Chromium coverage only.",
+    "The slow eligibility test uses a shortened timer; production remains 20 seconds.",
+    "No live RPC/API tests, fork transactions, real wallet signatures, physical devices, native zoom or screen reader sessions.",
+    "Historical evidence in docs/frontend is retained but is not a claim that historical live tests ran for this update."
+  ]
+}

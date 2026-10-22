@@ -124,7 +124,7 @@ test("1 exact mismatch cannot fall through to a plausible listing; wallet and qu
   const right = record("matched", `Did ${wallet} qualify?`);
   const { load, urls } = reader([wrong, right], wrong.id);
   await assert.rejects(load(pending), {
-    message: "This request is not about your wallet.",
+    message: "This request is not about this wallet.",
   });
   assert.equal(
     urls.some((url) => new URL(url).pathname === "/oracle/requests"),
@@ -134,9 +134,10 @@ test("1 exact mismatch cannot fall through to a plausible listing; wallet and qu
   assert.equal((await load(pending)).id, "exact");
   wrong.question = `Did ${other} qualify?`;
   await assert.rejects(load(pending), WalletQuestionMismatch);
-  await assert.rejects(
-    reader([right], right.id).load({ ...pending, wallet: undefined }),
-    WalletQuestionMismatch,
+  assert.equal(
+    (await reader([right], right.id).load({ ...pending, wallet: undefined }))
+      .id,
+    right.id,
   );
 });
 

@@ -365,7 +365,8 @@ export function fakeChain(options = {}) {
       else if (fn === "sharedFact") result = [zeroHash, zeroHash, 0];
       else if (fn === "balanceOf") result = state.balance;
       else if (fn === "allowance") result = state.allowance;
-      else if (fn === "specOf") result = sharedSpec;
+      else if (fn === "specOf")
+        result = state.specs?.[Number(values[0])] || sharedSpec;
       else if (fn === "approve") result = true;
       else if (fn === "mintCard") result = 1n;
       else if (fn === "registerSpec") result = 10001;

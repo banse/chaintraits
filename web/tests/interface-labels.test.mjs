@@ -61,7 +61,14 @@ test("7 all original control/link/choice label fragments are unchanged except th
     fs.readFileSync(new URL("fixtures/interface-labels.json", import.meta.url)),
   );
   const labels = await interfaceLabels(files);
-  const added = ["Show full question", "Show less", "View on the IMD explorer"];
+  const added = [
+    "Show full question",
+    "Show less",
+    "View on the IMD explorer",
+    "Show list",
+    "Hide list",
+    "Request anyway",
+  ];
   assert.deepEqual(
     labels.filter((label) => !added.includes(label)),
     expected,

@@ -1547,3 +1547,16 @@ th {
     flex-direction: column;
   }
 }
+
+.swarm-wallet-list {
+  padding-inline-start: var(--s5);
+  overflow-wrap: anywhere;
+}
+.swarm-wallet-list li {
+  border: 0;
+}
+.eligibility-advice {
+  display: block;
+  margin-block-start: var(--s2);
+  overflow-wrap: anywhere;
+}
