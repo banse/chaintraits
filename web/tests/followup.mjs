@@ -37,6 +37,8 @@ const request = (id, seconds = 1, hash = questionHash) => ({
   createdAt: new Date((Number(requestedAt) + seconds) * 1000).toISOString(),
   consumer: { verifyingContract: registry, chainId: 1 },
   questionHash: hash,
+  question: `Did wallet ${wallet} meet the condition?`,
+  answerType: "bool",
   status: "assessing",
   panelSize: 5,
   quorum: 3,
@@ -130,7 +132,14 @@ async function setup(fixture, options = {}) {
       };
     } else if (u.pathname === "/oracle/requests") {
       assert.equal(u.searchParams.get("q"), options.shared ? null : wallet);
-      body = { requests: data.map(({ id, createdAt }) => ({ id, createdAt })) };
+      body = {
+        requests: data.map(({ id, createdAt, question, jobId }) => ({
+          id,
+          createdAt,
+          question,
+          jobId,
+        })),
+      };
     } else {
       body = data.find((r) => u.pathname === `/oracle/requests/${r.id}`);
       assert.ok(body, "only known oracle detail URLs");

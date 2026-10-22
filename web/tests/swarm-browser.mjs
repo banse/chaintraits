@@ -82,6 +82,8 @@ try {
     createdAt: at(2),
     consumer: { verifyingContract: registry.toUpperCase(), chainId: 1 },
     questionHash: questionHash.toUpperCase(),
+    question: `Did wallet ${wallet} meet the condition?`,
+    answerType: "bool",
     status: "assessing",
     panelSize: 5,
     quorum: 3,
@@ -140,7 +142,14 @@ try {
       });
     const data =
       url.pathname === "/oracle/requests"
-        ? { requests: records.map(({ id, createdAt }) => ({ id, createdAt })) }
+        ? {
+            requests: records.map(({ id, createdAt, question, jobId }) => ({
+              id,
+              createdAt,
+              question,
+              jobId,
+            })),
+          }
         : records.find((r) => url.pathname.endsWith("/" + r.id));
     assert.ok(
       data,
@@ -197,7 +206,7 @@ try {
     "4 summary-only API matches oldest consumer + event questionHash at or after request",
     async () => {
       await feed
-        .getByText("1 / 5 answers · 1 agree / 3 quorum", { exact: true })
+        .getByText("1 / 5 answers · 1 true / 3 needed", { exact: true })
         .waitFor();
       assert.match(await feed.innerText(), /Seat 1 · #110/);
       assert.doesNotMatch(await feed.innerText(), /#999/);
@@ -269,7 +278,7 @@ try {
     },
   );
   await run(
-    "4 new true/false/failed seats and zero figure update without reload",
+    "4 new true/false/failed seats update without reload; figures stay hidden",
     async () => {
       await page.evaluate(
         () => (window.__originalMain = document.querySelector("main")),
@@ -280,11 +289,12 @@ try {
       );
       await page.evaluate(() => window.__pollSwarm());
       await feed
-        .getByText("3 / 5 answers · 1 agree / 3 quorum", { exact: true })
+        .getByText("3 / 5 answers · 1 true / 3 needed", { exact: true })
         .waitFor();
-      assert.match(await feed.innerText(), /Answer: true · Figure: 42/);
-      assert.match(await feed.innerText(), /Answer: false · Figure: 0/);
+      assert.match(await feed.innerText(), /Answer: true/);
+      assert.match(await feed.innerText(), /Answer: false/);
       assert.match(await feed.innerText(), /Failed: Archive read timed out/);
+      assert.doesNotMatch(await feed.innerText(), /Figure/);
       assert.equal(
         await page.evaluate(
           () => window.__originalMain === document.querySelector("main"),
@@ -495,7 +505,7 @@ try {
       const failedFeed = page.locator("#swarm-" + second.requestId);
       await failedFeed.getByText("failed", { exact: true }).waitFor();
       await failedFeed
-        .getByText("1 / 11 answers · 0 agree / 7 quorum", { exact: true })
+        .getByText("1 / 11 answers · 0 true / 7 needed", { exact: true })
         .waitFor();
       assert.match(await failedFeed.innerText(), /Failed: No archive answered/);
       assert.match(

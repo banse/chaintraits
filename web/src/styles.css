@@ -731,6 +731,35 @@ a.wallet-row:hover {
 .swarm-seats span {
   color: var(--muted);
 }
+.swarm-request .swarm-loading {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  margin-inline-end: var(--s2);
+  vertical-align: -1px;
+  border: 2px solid currentColor;
+  border-inline-end-color: transparent;
+  border-radius: 50%;
+}
+@media (prefers-reduced-motion: no-preference) {
+  .swarm-loading {
+    animation: swarm-wait 1s linear infinite;
+  }
+}
+@keyframes swarm-wait {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.swarm-question {
+  margin-block: var(--s3);
+}
+.swarm-question-preview {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
 @media (max-width: 1000px) {
   .mint-panel.has-swarm {
     grid-template-columns: minmax(0, 1fr);

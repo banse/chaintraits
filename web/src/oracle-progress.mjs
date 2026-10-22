@@ -6,8 +6,34 @@ const same = (a, b) =>
   typeof b === "string" &&
   a.toLowerCase() === b.toLowerCase();
 const created = (r) => Date.parse(r?.createdAt);
+const personal = (pending) =>
+  typeof pending.claimant === "string" && !/^0x0+$/i.test(pending.claimant);
+const addresses = (question) =>
+  typeof question === "string"
+    ? question.match(/(?<![\w])0x[0-9a-f]{40}(?![\w])/gi) || []
+    : [];
+export function questionWallet(r, pending) {
+  if (!personal(pending)) return null;
+  const named = addresses(r?.question);
+  return (
+    named.find((address) => same(address, pending.wallet)) || named[0] || null
+  );
+}
+export function isAboutWallet(r, pending) {
+  return (
+    !personal(pending) ||
+    addresses(r?.question).some((address) => same(address, pending.wallet))
+  );
+}
+export class WalletQuestionMismatch extends Error {
+  constructor(r, pending) {
+    super("This request is not about your wallet.");
+    this.wallet = questionWallet(r, pending);
+  }
+}
 export function matchesRequest(r, pending) {
   return (
+    isAboutWallet(r, pending) &&
     same(r?.consumer?.verifyingContract, pending.registry) &&
     same(r?.questionHash, pending.questionHash) &&
     (r.consumer.chainId === undefined ||
@@ -48,15 +74,30 @@ export function progressCounts(r) {
   const answered = r.members.filter(
     (m) => m.ok === true || m.ok === false,
   ).length;
+  const answers = r.members
+    .filter((m) => m.ok === true)
+    .map((m) => m.answer?.answer);
+  const boolean =
+    ["bool", "boolean", 0].includes(r.answerType) ||
+    (r.answerType == null &&
+      answers.length > 0 &&
+      answers.every((answer) => typeof answer === "boolean"));
   const agreed =
     typeof r.agreement === "number" ? r.agreement : r.agreement?.agreed;
   if (
+    !boolean &&
     agreed !== undefined &&
     agreed !== null &&
     (!Number.isInteger(agreed) || agreed < 0 || agreed > answered)
   )
     throw Error("Incomplete agreement response.");
-  return { answered, agreed: agreed ?? null };
+  return {
+    answered,
+    agreed: agreed ?? null,
+    boolean,
+    trueAnswers: answers.filter((answer) => answer === true).length,
+    falseAnswers: answers.filter((answer) => answer === false).length,
+  };
 }
 export function answerText(value) {
   if (value === undefined || value === null) return "unavailable";
@@ -93,13 +134,16 @@ export function oracleProgressReader(fetcher = fetch) {
       throw Error("Invalid progress request id.");
     const r = await json(`${REQUESTS}/${encodeURIComponent(id)}`, signal);
     if (r?.id !== id) throw Error("Progress request mismatch.");
+    const value = { ...r, jobId: r.jobId ?? identities.get(id)?.jobId };
     identities.set(id, {
       id: r.id,
       createdAt: r.createdAt,
       consumer: r.consumer,
       questionHash: r.questionHash,
+      question: r.question,
+      jobId: value.jobId,
     });
-    return r;
+    return value;
   }
   return async (pending, signal) => {
     const key =
@@ -107,6 +151,15 @@ export function oracleProgressReader(fetcher = fetch) {
       `${pending.registry}:${pending.questionHash}:${pending.requestedAt}`;
     const previous = selections.get(key);
     function selected(result, foundBy) {
+      if (!isAboutWallet(result, pending))
+        throw new WalletQuestionMismatch(result, pending);
+      if (
+        progressStatus(result) === "assessing" &&
+        (result.panelSize == null ||
+          result.panelSize === 0 ||
+          result.members == null)
+      )
+        return null;
       progressCounts(result);
       const previousRequestId =
         foundBy === "confirmed by the Registry"
@@ -114,7 +167,12 @@ export function oracleProgressReader(fetcher = fetch) {
             ? previous?.id
             : previous?.previousRequestId
           : undefined;
-      const value = { ...result, foundBy, previousRequestId };
+      const value = {
+        ...result,
+        foundBy,
+        previousRequestId,
+        wallet: questionWallet(result, pending),
+      };
       selections.set(key, value);
       return value;
     }
@@ -147,7 +205,8 @@ export function oracleProgressReader(fetcher = fetch) {
         );
         const id = entry?.admission?.result?.requestId;
         if (id) return selected(await detail(id, intakeSignal), "exact");
-      } catch {
+      } catch (error) {
+        if (error instanceof WalletQuestionMismatch) throw error;
         if (signal?.aborted) throw signal.reason;
       }
     }
@@ -156,7 +215,8 @@ export function oracleProgressReader(fetcher = fetch) {
     if (previous?.foundBy === "exact") {
       try {
         return selected(await detail(previous.id, signal), "exact");
-      } catch {
+      } catch (error) {
+        if (error instanceof WalletQuestionMismatch) throw error;
         if (signal?.aborted) throw signal.reason;
       }
     }
@@ -183,7 +243,8 @@ export function oracleProgressReader(fetcher = fetch) {
     for (const row of candidates) {
       if (
         !Number.isFinite(created(row)) ||
-        created(row) < Number(pending.requestedAt) * 1000
+        created(row) < Number(pending.requestedAt) * 1000 ||
+        (typeof row.question === "string" && !isAboutWallet(row, pending))
       )
         continue;
       const identity =
@@ -194,7 +255,10 @@ export function oracleProgressReader(fetcher = fetch) {
       const result = await detail(row.id, signal);
       if (!matchesRequest(result, pending))
         throw Error("Progress identity changed.");
-      return selected(result, "matched");
+      return selected(
+        { ...result, jobId: result.jobId ?? row.jobId },
+        "matched",
+      );
     }
     return null;
   };

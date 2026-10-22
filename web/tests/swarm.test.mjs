@@ -13,6 +13,8 @@ const pending = {
   chainId: 1,
   questionHash: "0x" + "aa".repeat(32),
   requestedAt: 1792600000n,
+  wallet: "0x2000000000000000000000000000000000000001",
+  claimant: "0x2000000000000000000000000000000000000001",
 };
 const request = (id, seconds = 1) => ({
   id,
@@ -21,6 +23,7 @@ const request = (id, seconds = 1) => ({
   ).toISOString(),
   consumer: { verifyingContract: pending.registry.toUpperCase(), chainId: 1 },
   questionHash: pending.questionHash.toUpperCase(),
+  question: `Did wallet ${pending.wallet.toUpperCase()} meet the condition?`,
   status: "assessing",
   panelSize: 5,
   quorum: 3,
@@ -60,8 +63,15 @@ test("summary-only listing resolves oldest matching detail; never follows API li
     return {
       ok: true,
       json: async () =>
-        url.endsWith("/requests")
-          ? { requests: rows.map(({ id, createdAt }) => ({ id, createdAt })) }
+        new URL(url).pathname === "/oracle/requests"
+          ? {
+              requests: rows.map(({ id, createdAt, question, jobId }) => ({
+                id,
+                createdAt,
+                question,
+                jobId,
+              })),
+            }
           : {
               ...rows.find((r) => url.endsWith("/" + r.id)),
               url: "https://malicious.invalid/other",
@@ -76,7 +86,9 @@ test("summary-only listing resolves oldest matching detail; never follows API li
   );
   assert.ok(
     urls.every((u) =>
-      /^https:\/\/api.imd.fun\/oracle\/requests(?:\/[a-z-]+)?$/.test(u),
+      /^https:\/\/api.imd.fun\/oracle\/requests(?:\/[a-z-]+)?(?:\?q=0x[0-9a-f]+)?$/.test(
+        u,
+      ),
     ),
   );
 });
@@ -85,11 +97,16 @@ test("polling returns new members and agreement rather than cached progress", as
   const load = oracleProgressReader(async (url) => ({
     ok: true,
     json: async () =>
-      url.endsWith("/requests") ? { requests: [current] } : current,
+      new URL(url).pathname === "/oracle/requests"
+        ? { requests: [current] }
+        : current,
   }));
   assert.deepEqual(progressCounts(await load(pending)), {
     answered: 0,
     agreed: null,
+    boolean: false,
+    trueAnswers: 0,
+    falseAnswers: 0,
   });
   current = {
     ...current,
@@ -103,6 +120,9 @@ test("polling returns new members and agreement rather than cached progress", as
   assert.deepEqual(progressCounts(await load(pending)), {
     answered: 2,
     agreed: 1,
+    boolean: true,
+    trueAnswers: 0,
+    falseAnswers: 1,
   });
   assert.equal(answerText(current.members[0].answer.answer), "false");
   assert.equal(answerText(current.members[0].answer.figure), "0");
@@ -278,7 +298,7 @@ test("Verified UUID uses the first 16 bytes and replaces API matches with an exp
     return {
       ok: true,
       json: async () =>
-        url.endsWith("/requests")
+        new URL(url).pathname === "/oracle/requests"
           ? { requests: [request("original")] }
           : request(url.split("/").at(-1)),
     };

@@ -60,7 +60,16 @@ test("7 all original control/link/choice label fragments are unchanged except th
   const expected = JSON.parse(
     fs.readFileSync(new URL("fixtures/interface-labels.json", import.meta.url)),
   );
-  assert.deepEqual(await interfaceLabels(files), expected);
+  const labels = await interfaceLabels(files);
+  const added = ["Show full question", "Show less", "View on the IMD explorer"];
+  assert.deepEqual(
+    labels.filter((label) => !added.includes(label)),
+    expected,
+  );
+  assert.deepEqual(
+    labels.filter((label) => added.includes(label)),
+    added.sort(),
+  );
 });
 test("4/5/7 export has the pinned README, prescribed read RPC order, exact new wording and no superseded labels", async () => {
   const { READ_RPCS } = await import("../src/rpc.mjs");

@@ -106,5 +106,5 @@
     "WebKit could not launch: required host libraries missing.",
     "No screen-reader session, native zoom, physical-device test, real wallet signing, live API verification or new live-chain measurement."
   ],
-  "screenshot": "screenshots/cached-exact-fallback-390.png"
+  "screenshot": "screenshots/cached-exact-fallback-390.webp"
 }

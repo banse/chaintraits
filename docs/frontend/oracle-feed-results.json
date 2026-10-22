@@ -1,0 +1,249 @@
+{
+  "scope": "Seven-item oracle feed; Claim, confirmed-result dialog and existing settlement feed",
+  "productionBuild": "passed; unchanged build configuration and dependencies",
+  "typecheck": "passed",
+  "formatCheck": "passed",
+  "manifestCheck": "passed",
+  "unitTests": {
+    "passed": 70,
+    "failed": 0
+  },
+  "browser": {
+    "engine": "chromium",
+    "version": "156.0.8078.4",
+    "checks": [
+      "1 matched listing rejects another wallet despite correct Registry/hash; accepts full address in uppercase",
+      "1 exact Intake and Verified mismatches show refusal and named wallet, with no panel answers",
+      "2 confirmed request waits with an indicator through empty listing and panel formation",
+      "3 unanswered seats load until their own answer; attested and failed seats stop with No answer; reduced motion stays still",
+      "4 explorer link uses jobId below the request, opens a new tab and disappears without jobId",
+      "5 long question expands and collapses by mouse, Enter and Space; short question has no control",
+      "6 and 7 literal true/false counts, both quorum messages, attestation precedence and answer-only rows",
+      "6 nonboolean summaries retain the plane agreement and say no agreement yet when absent",
+      "six-domain review: feed text, seat text, link and question control use readable rendered color pairs",
+      "1\u20137 confirmed result dialog uses the same waiting, wallet guard, job link, question and live quorum rows"
+    ],
+    "errors": [],
+    "widths": [
+      {
+        "state": "matched",
+        "width": 1280,
+        "overflow": false
+      },
+      {
+        "state": "matched",
+        "width": 390,
+        "overflow": false
+      },
+      {
+        "state": "waiting",
+        "width": 1280,
+        "overflow": false
+      },
+      {
+        "state": "waiting",
+        "width": 390,
+        "overflow": false
+      },
+      {
+        "state": "failed",
+        "width": 1280,
+        "overflow": false
+      },
+      {
+        "state": "failed",
+        "width": 390,
+        "overflow": false
+      },
+      {
+        "state": "question",
+        "width": 1280,
+        "overflow": false
+      },
+      {
+        "state": "question",
+        "width": 390,
+        "overflow": false
+      },
+      {
+        "state": "true-quorum",
+        "width": 1280,
+        "overflow": false
+      },
+      {
+        "state": "true-quorum",
+        "width": 390,
+        "overflow": false
+      },
+      {
+        "state": "false-quorum",
+        "width": 1280,
+        "overflow": false
+      },
+      {
+        "state": "false-quorum",
+        "width": 390,
+        "overflow": false
+      },
+      {
+        "state": "dialog",
+        "width": 1280,
+        "overflow": false
+      },
+      {
+        "state": "dialog",
+        "width": 390,
+        "overflow": false
+      }
+    ],
+    "contrast": [
+      {
+        "element": "DETAILS",
+        "foreground": "rgb(217, 224, 218)",
+        "background": "rgb(10, 10, 10)",
+        "ratio": 14.73
+      },
+      {
+        "element": "SPAN",
+        "foreground": "rgb(140, 150, 142)",
+        "background": "rgb(10, 10, 10)",
+        "ratio": 6.48
+      },
+      {
+        "element": "A",
+        "foreground": "rgb(0, 255, 65)",
+        "background": "rgb(10, 10, 10)",
+        "ratio": 14.5
+      },
+      {
+        "element": "BUTTON",
+        "foreground": "rgb(217, 224, 218)",
+        "background": "rgb(10, 10, 10)",
+        "ratio": 14.73
+      }
+    ]
+  },
+  "existingRegressions": {
+    "routesAndViewports": 40,
+    "routeErrors": [],
+    "acceptance": {
+      "passed": 12,
+      "errors": []
+    },
+    "actions": {
+      "passed": 11,
+      "errors": []
+    },
+    "swarm": {
+      "passed": 10,
+      "errors": []
+    },
+    "followup": {
+      "passed": 10,
+      "errors": []
+    }
+  },
+  "designProbe": {
+    "passed": 14,
+    "total": 16,
+    "checks": [
+      {
+        "name": "render",
+        "passed": true
+      },
+      {
+        "name": "layout",
+        "passed": true
+      },
+      {
+        "name": "targets",
+        "passed": true
+      },
+      {
+        "name": "contrast",
+        "passed": true
+      },
+      {
+        "name": "casing",
+        "passed": false
+      },
+      {
+        "name": "tracking",
+        "passed": true
+      },
+      {
+        "name": "eyebrows",
+        "passed": true
+      },
+      {
+        "name": "type-sizes",
+        "passed": true
+      },
+      {
+        "name": "type-faces",
+        "passed": false
+      },
+      {
+        "name": "glyphs",
+        "passed": true
+      },
+      {
+        "name": "slogans",
+        "passed": true
+      },
+      {
+        "name": "repetition",
+        "passed": true
+      },
+      {
+        "name": "copy-budget",
+        "passed": true
+      },
+      {
+        "name": "chrome",
+        "passed": true
+      },
+      {
+        "name": "motion",
+        "passed": true
+      },
+      {
+        "name": "share",
+        "passed": true
+      }
+    ],
+    "preservedDesignExceptions": [
+      "casing",
+      "type-faces"
+    ]
+  },
+  "export": {
+    "assetCount": 47,
+    "assetBytes": 1082522,
+    "relativeAssetURLs": true
+  },
+  "limitations": [
+    "WebKit could not launch because required runtime libraries were unavailable.",
+    "No physical devices, screen-reader session or browser-native zoom checks.",
+    "All wallet/RPC/API replies and the explorer destination were mocked; no network signature or transaction.",
+    "Live service availability, CORS, real swarm timing and optional fork checks were not tested."
+  ],
+  "screenshots": [
+    "screenshots/oracle-home-390.webp",
+    "screenshots/oracle-true-quorum-390.webp",
+    "screenshots/oracle-false-quorum-1280.webp",
+    "screenshots/oracle-question-focus.webp",
+    "screenshots/oracle-dialog-390.webp"
+  ],
+  "submission": {
+    "compressedZipBytesUpperBound": 8295305,
+    "limitBytes": 8388608,
+    "protectedFilesUnchanged": true,
+    "lockfileUnchanged": true,
+    "generatedDependencyCachesIncluded": false,
+    "newSubmodules": 0,
+    "inheritedLibraryEntries": "unchanged as required by protected paths",
+    "ignoreFilesChanged": false,
+    "documentationImages": "16 screenshots losslessly re-encoded as WebP; decoded RGBA pixels checked identical"
+  }
+}
