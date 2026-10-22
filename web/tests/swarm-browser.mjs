@@ -46,6 +46,9 @@ try {
     viewport: { width: 1280, height: 900 },
   });
   await fakeWallet(context);
+  // Round 8: the two-hour notice follows the clock. Pin it 10 minutes after
+  // the fixtures' request time so their requests are not yet two hours old.
+  await context.clock.setFixedTime(1792600000 * 1000 + 600000);
   await context.addInitScript(() => {
     const interval = window.setInterval.bind(window),
       clear = window.clearInterval.bind(window);

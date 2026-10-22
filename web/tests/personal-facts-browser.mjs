@@ -110,12 +110,17 @@ async function setup({
   mode = "met",
   listJob,
   prepare,
+  // Round 8: an open request's feed is on Wallet Facts, not Claim.
+  feed = pending && !explorer && kind !== 3,
 } = {}) {
   await context?.close();
   context = await browser.newContext({
     viewport: { width: 1280, height: 900 },
   });
   await fakeWallet(context);
+  // Round 8: the two-hour notice follows the clock. Pin it 10 minutes after
+  // the fixtures' request time so their requests are not yet two hours old.
+  await context.clock.setFixedTime(1792600000 * 1000 + 600000);
   await context.addInitScript((slow) => {
     const set = window.setInterval.bind(window),
       clear = window.clearInterval.bind(window),
@@ -303,6 +308,7 @@ async function setup({
       .getByRole("button", { name: "Browser wallet", exact: true })
       .click();
     await page.locator(`#pick-${id >= 10001 ? id : 801}`).waitFor();
+    if (feed) await page.evaluate(() => (location.hash = "#/wallet-facts"));
   }
   if (kind === 3)
     await page

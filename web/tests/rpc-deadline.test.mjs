@@ -10,7 +10,13 @@ const wallet = "0x2000000000000000000000000000000000000001";
 const seat = "0x0000eC93127BAA929E58E97dd0095A2BFb38ec1D";
 const FROM = 25090085n;
 const [publicnode, tenderly, mevblocker, thirdweb] = READ_RPCS;
-const spec = { kind: 6, target: seat, fromBlock: FROM, toBlock: 0n, threshold: 1n };
+const spec = {
+  kind: 6,
+  target: seat,
+  fromBlock: FROM,
+  toBlock: 0n,
+  threshold: 1n,
+};
 const transfer = parseAbiItem(
   "event Transfer(address indexed from, address indexed to, uint256 indexed tokenId)",
 );
@@ -25,7 +31,12 @@ function fakeNet(behaviour, { latency = 1, head = FROM + 64n + 3000n } = {}) {
   const calls = [];
   const fetcher = async (url, init) => {
     const body = JSON.parse(init.body);
-    calls.push({ url, method: body.method, params: body.params, at: Date.now() });
+    calls.push({
+      url,
+      method: body.method,
+      params: body.params,
+      at: Date.now(),
+    });
     await new Promise((resolve, reject) => {
       const t = setTimeout(resolve, latency);
       init.signal?.addEventListener("abort", () => {
@@ -39,14 +50,22 @@ function fakeNet(behaviour, { latency = 1, head = FROM + 64n + 3000n } = {}) {
       return json({ jsonrpc: "2.0", id: body.id, result: toHex(head) });
     const out = behaviour[url](body.params[0]);
     if (out instanceof Response) return out;
-    if (out?.error) return json({ jsonrpc: "2.0", id: body.id, error: out.error });
+    if (out?.error)
+      return json({ jsonrpc: "2.0", id: body.id, error: out.error });
     return json({ jsonrpc: "2.0", id: body.id, result: out });
   };
-  return { calls, fetcher, logs: () => calls.filter((c) => c.method === "eth_getLogs") };
+  return {
+    calls,
+    fetcher,
+    logs: () => calls.filter((c) => c.method === "eth_getLogs"),
+  };
 }
-const size = { error: { code: -32602, message: "block range is too large; max 1000 blocks" } };
+const size = {
+  error: { code: -32602, message: "block range is too large; max 1000 blocks" },
+};
 const rateLimited = () => new Response("rate limited", { status: 429 });
-const archive = () => new Response("Archive requests require a personal token", { status: 403 });
+const archive = () =>
+  new Response("Archive requests require a personal token", { status: 403 });
 const seatLog = (f) => {
   const block = FROM + 10n;
   if (BigInt(f.fromBlock) > block || BigInt(f.toBlock) < block) return [];
@@ -61,7 +80,11 @@ const seatLog = (f) => {
       topics: encodeEventTopics({
         abi: [transfer],
         eventName: "Transfer",
-        args: { from: "0x3000000000000000000000000000000000000002", to: wallet, tokenId: 1n },
+        args: {
+          from: "0x3000000000000000000000000000000000000002",
+          to: wallet,
+          tokenId: 1n,
+        },
       }),
       data: "0x",
     },
@@ -97,7 +120,9 @@ test("601 with tenderly 429, thirdweb size refusal, publicnode archive 403: retu
   const count = net.calls.length;
   await sleep(600);
   assert.equal(net.calls.length, count, "no request after the check returned");
-  console.log(`  mixed refusals: ${count} calls, ${returned - started} ms, ${net.logs().length} eth_getLogs`);
+  console.log(
+    `  mixed refusals: ${count} calls, ${returned - started} ms, ${net.logs().length} eth_getLogs`,
+  );
 });
 
 test("a range every endpoint refuses for size is still read in parts", async () => {
@@ -111,18 +136,27 @@ test("a range every endpoint refuses for size is still read in parts", async () 
   assert.equal(result.state, "met");
   const answered = net
     .logs()
-    .filter((c) => BigInt(c.params[0].toBlock) - BigInt(c.params[0].fromBlock) < 1000n);
+    .filter(
+      (c) =>
+        BigInt(c.params[0].toBlock) - BigInt(c.params[0].fromBlock) < 1000n,
+    );
   assert.ok(answered.length >= 2, "parts were read");
-  console.log(`  all size refusals: ${net.logs().length} eth_getLogs, result met`);
+  console.log(
+    `  all size refusals: ${net.logs().length} eth_getLogs, result met`,
+  );
 });
 
 test("the deadline stops the pool's split reads: nothing is sent after the check returns", async () => {
   // Every endpoint refuses for size at every range above 1 block, slowly:
   // the pool would halve for a long time without the deadline.
-  const tiny = (f) =>
-    BigInt(f.toBlock) > BigInt(f.fromBlock) ? size : [];
+  const tiny = (f) => (BigInt(f.toBlock) > BigInt(f.fromBlock) ? size : []);
   const net = fakeNet(
-    { [publicnode]: tiny, [tenderly]: tiny, [mevblocker]: tiny, [thirdweb]: tiny },
+    {
+      [publicnode]: tiny,
+      [tenderly]: tiny,
+      [mevblocker]: tiny,
+      [thirdweb]: tiny,
+    },
     { latency: 15 },
   );
   const started = Date.now();
@@ -139,10 +173,14 @@ test("the deadline stops the pool's split reads: nothing is sent after the check
 });
 
 test("a page or wallet change during a read stops its requests", async () => {
-  const tiny = (f) =>
-    BigInt(f.toBlock) > BigInt(f.fromBlock) ? size : [];
+  const tiny = (f) => (BigInt(f.toBlock) > BigInt(f.fromBlock) ? size : []);
   const net = fakeNet(
-    { [publicnode]: tiny, [tenderly]: tiny, [mevblocker]: tiny, [thirdweb]: tiny },
+    {
+      [publicnode]: tiny,
+      [tenderly]: tiny,
+      [mevblocker]: tiny,
+      [thirdweb]: tiny,
+    },
     { latency: 15 },
   );
   const page = new AbortController();
@@ -153,23 +191,33 @@ test("a page or wallet change during a read stops its requests", async () => {
   const result = await running;
   assert.equal(result.state, "unknown");
   await sleep(600);
-  assert.deepEqual(net.calls.filter((c) => c.at > aborted), []);
+  assert.deepEqual(
+    net.calls.filter((c) => c.at > aborted),
+    [],
+  );
 });
 
 test("a scoped pool read sends nothing once its signal aborts", async () => {
-  const net = fakeNet({
-    [publicnode]: (f) => (BigInt(f.toBlock) > BigInt(f.fromBlock) ? size : []),
-    [tenderly]: (f) => (BigInt(f.toBlock) > BigInt(f.fromBlock) ? size : []),
-    [mevblocker]: (f) => (BigInt(f.toBlock) > BigInt(f.fromBlock) ? size : []),
-    [thirdweb]: (f) => (BigInt(f.toBlock) > BigInt(f.fromBlock) ? size : []),
-  }, { latency: 10 });
+  const net = fakeNet(
+    {
+      [publicnode]: (f) =>
+        BigInt(f.toBlock) > BigInt(f.fromBlock) ? size : [],
+      [tenderly]: (f) => (BigInt(f.toBlock) > BigInt(f.fromBlock) ? size : []),
+      [mevblocker]: (f) =>
+        BigInt(f.toBlock) > BigInt(f.fromBlock) ? size : [],
+      [thirdweb]: (f) => (BigInt(f.toBlock) > BigInt(f.fromBlock) ? size : []),
+    },
+    { latency: 10 },
+  );
   const pool = resilientRpc({ fetcher: net.fetcher });
   const controller = new AbortController();
   const read = pool
     .scoped(controller.signal)
     .request({
       method: "eth_getLogs",
-      params: [{ address: seat, fromBlock: toHex(1n), toBlock: toHex(1n << 20n) }],
+      params: [
+        { address: seat, fromBlock: toHex(1n), toBlock: toHex(1n << 20n) },
+      ],
     })
     .catch((e) => e);
   await sleep(100);
@@ -178,7 +226,10 @@ test("a scoped pool read sends nothing once its signal aborts", async () => {
   const error = await read;
   assert.match(String(error.message), /stopped/i);
   await sleep(300);
-  assert.deepEqual(net.calls.filter((c) => c.at > at), []);
+  assert.deepEqual(
+    net.calls.filter((c) => c.at > at),
+    [],
+  );
 });
 
 test("a range refused for size by one endpoint and rate-limited by others is not split", async () => {
@@ -197,3 +248,60 @@ test("a range refused for size by one endpoint and rate-limited by others is not
   );
   for (const c of net.logs()) assert.equal(c.params[0].toBlock, toHex(5000n));
 });
+
+// Revision: the spec read is part of the check. A refused, slow specOf stops
+// at the deadline or page change like the check's other reads.
+const specRead = (pool) => (id, signal) =>
+  pool
+    .scoped(signal)
+    .request({
+      method: "eth_call",
+      params: [{ to: seat, data: "0x" }, "latest"],
+    })
+    .then(() => spec);
+const refusedSpec = () => new Response("unavailable", { status: 503 });
+for (const [name, options] of [
+  ["deadline", { timeoutMs: 120 }],
+  ["page change", "page"],
+])
+  test(`a refused spec read sends nothing after the check's ${name}`, async () => {
+    const net = fakeNet(
+      {
+        [publicnode]: refusedSpec,
+        [tenderly]: refusedSpec,
+        [mevblocker]: refusedSpec,
+        [thirdweb]: refusedSpec,
+      },
+      { latency: 200 },
+    );
+    const pool = resilientRpc({ fetcher: net.fetcher });
+    const page = new AbortController();
+    const running = checkEligibility(
+      { pool, request: pool.request },
+      specRead(pool),
+      wallet,
+      601,
+      options === "page" ? { signal: page.signal } : options,
+    );
+    const started = Date.now();
+    if (options === "page") {
+      await sleep(250);
+      page.abort();
+    }
+    const result = await running;
+    const returned = Date.now();
+    assert.equal(result.state, "unknown");
+    assert.ok(
+      returned - started < 700,
+      `returned after ${returned - started} ms`,
+    );
+    await sleep(1600);
+    assert.deepEqual(
+      net.calls.filter((c) => c.at > returned),
+      [],
+      "no spec read after the check returned",
+    );
+    console.log(
+      `  spec ${name}: ${net.calls.length} calls before return, 0 after`,
+    );
+  });

@@ -84,6 +84,9 @@ async function setup({
     viewport: { width: 1280, height: 900 },
   });
   await fakeWallet(context);
+  // Round 8: the two-hour notice follows the clock. Pin it 10 minutes after
+  // the fixtures' request time so their requests are not yet two hours old.
+  await context.clock.setFixedTime(1792600000 * 1000 + 600000);
   await context.addInitScript(() => {
     const set = window.setInterval.bind(window),
       clear = window.clearInterval.bind(window);
@@ -217,6 +220,8 @@ async function setup({
     await page
       .getByRole("button", { name: "Review transaction steps", exact: true })
       .click();
+  // Round 8: the wallet's swarm progress lives on Wallet Facts.
+  else await page.evaluate(() => (location.hash = "#/wallet-facts"));
   return page.locator(
     dialog ? ".payment-dialog .swarm-request" : "#swarm-" + requestId,
   );
@@ -501,6 +506,9 @@ try {
       live.members.push(answer(true, 8));
       await poll();
       await feed.getByText(finishing, { exact: true }).waitFor();
+      // Round 8: the step 02 rows are on Claim; the feed on Wallet Facts.
+      await page.evaluate(() => (location.hash = "#/claim"));
+      await page.locator("#pick-601").getByText(/Request pending/).waitFor();
       assert.equal(await page.locator("#pick-601 input").isDisabled(), true);
       assert.equal(
         await page
@@ -509,6 +517,8 @@ try {
           .count(),
         0,
       );
+      await page.evaluate(() => (location.hash = "#/wallet-facts"));
+      await feed.getByText(finishing, { exact: true }).waitFor();
       await capture(feed, "true-quorum");
       live.members = Array.from({ length: 7 }, (_, i) => answer(false, i));
       await poll();

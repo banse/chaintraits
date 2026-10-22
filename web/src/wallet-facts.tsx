@@ -36,6 +36,9 @@ function Attested({ oracleId }: { oracleId: string }) {
   const [record, setRecord] = useState<any>(null);
   const [failed, setFailed] = useState(false);
   useEffect(() => {
+    // Each record belongs to its own request: a new id starts unread.
+    setRecord(null);
+    setFailed(false);
     const controller = new AbortController();
     fetch(`${REQUESTS}/${encodeURIComponent(oracleId)}`, {
       signal: controller.signal,
@@ -96,7 +99,16 @@ export function WalletFacts() {
   const account = useAccount();
   const { open } = useWalletSheet();
   const [facts, setFacts] = useState<Facts | null>(null);
-  const [rows, setRows] = useState<Row[] | null>(null);
+  // Rows belong to the wallet they were read for; another wallet's rows
+  // never show while the connected wallet's history is read.
+  const [history, setHistory] = useState<{
+    owner: string;
+    rows: Row[];
+  } | null>(null);
+  const rows =
+    history && history.owner === account.address?.toLowerCase()
+      ? history.rows
+      : null;
   const [error, setError] = useState("");
   const [tick, setTick] = useState(0);
   const current =
@@ -114,10 +126,7 @@ export function WalletFacts() {
     const controller = new AbortController();
     const client = scopedClient(site.client, controller.signal);
     (async () => {
-      const ids = [
-        ...TRAITS.map((t) => t.id),
-        ...site.specs.map((s) => s.id),
-      ];
+      const ids = [...TRAITS.map((t) => t.id), ...site.specs.map((s) => s.id)];
       const v = await lookup(client, site.r, site.health!, wallet, ids);
       if (controller.signal.aborted) return;
       setFacts(v);
@@ -163,10 +172,13 @@ export function WalletFacts() {
         }),
       );
       if (!controller.signal.aborted)
-        setRows(list.sort((a, b) => a.id - b.id));
+        setHistory({
+          owner: wallet.toLowerCase(),
+          rows: list.sort((a, b) => a.id - b.id),
+        });
     })().catch((e) => {
       if (controller.signal.aborted) return;
-      setRows(null);
+      setHistory(null);
       setError(explain(e, [...site.r.abis.Registry, ...site.r.abis.Composer]));
     });
     return () => controller.abort();
@@ -289,7 +301,10 @@ export function WalletFacts() {
                           {num(row.proof.toBlock)}
                         </span>
                         {row.proof.oracleId ? (
-                          <Attested oracleId={row.proof.oracleId} />
+                          <Attested
+                            key={row.proof.oracleId}
+                            oracleId={row.proof.oracleId}
+                          />
                         ) : (
                           <span>Oracle request unavailable</span>
                         )}

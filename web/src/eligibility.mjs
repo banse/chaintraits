@@ -91,7 +91,8 @@ export async function checkEligibility(
   };
   const scan = async () => {
     if (snapshotFact(id)) return snapshot(wallet, id);
-    const spec = await readSpec(id);
+    // The spec read shares the check's signal: it stops with the check.
+    const spec = await readSpec(id, controller.signal);
     guard();
     const kind = Number(spec.kind),
       threshold = BigInt(spec.threshold);

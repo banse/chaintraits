@@ -360,6 +360,12 @@ export function SwarmFeed({
                 : "progress unavailable",
             wrongWallet:
               error instanceof WalletQuestionMismatch ? error.wallet : null,
+            // The Registry's request time is already known: its age still
+            // shows when the progress lookup fails.
+            stale:
+              !terminal &&
+              !!pending &&
+              Date.now() / 1000 - Number(pending.requestedAt) > TWO_HOURS,
           });
         }
       } finally {

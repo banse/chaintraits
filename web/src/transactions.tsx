@@ -11,6 +11,7 @@ import { useSite } from "./context";
 import { connectedProvider } from "./wallet";
 import {
   read,
+  scopedClient,
   health,
   contract,
   tokenAbi,
@@ -147,7 +148,14 @@ export function useTransactions() {
         setEligibility((old) => ({ ...old, [key]: { state: "checking" } }));
         const value = await checkEligibility(
           site.client,
-          (id: number) => read(site.client, site.r, "Registry", "specOf", [id]),
+          (id: number, scope: AbortSignal) =>
+            read(
+              scopedClient(site.client, scope),
+              site.r,
+              "Registry",
+              "specOf",
+              [id],
+            ),
           wallet,
           id,
           { signal },
