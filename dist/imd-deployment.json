@@ -158,20 +158,20 @@
       "sha256": "c34bce140e26f958072943a5326c503bd737cfa49c98e5b7a0345a06302e94b6"
     },
     {
-      "path": "assets/ccip-Eus7b7yS.js",
-      "sha256": "a532b968f77582ac6e00b83cb8cadbab87e4f49be8757083cdd37e2cf8b4204d"
+      "path": "assets/ccip-D6CD3Cvr.js",
+      "sha256": "d6550c527579f1ca8be49c1e4c2a2fb3abf63f743b973f50698b47745a9fb6a0"
     },
     {
-      "path": "assets/dist-DIM91MHN.js",
-      "sha256": "62c23310ffd0991bff78873157a6239fc5fb79b51ba190c225774cbb41190364"
+      "path": "assets/dist-D_wvDzdN.js",
+      "sha256": "72834e4e306e9515218b4599d6f1cc3b3fe05d2b377177165ba89cc7bafa11ad"
     },
     {
-      "path": "assets/index-dr0B-Mw1.css",
-      "sha256": "c0eb7058d8839ad81e2302dc618fe1b63cf72858a22bdbd3c77b811519efe37d"
+      "path": "assets/index-B0WU2ND_.js",
+      "sha256": "9669af40ac6e83c0c366824ca041e7b9b605578298f48464bc3b652ce8f3fa62"
     },
     {
-      "path": "assets/index-DZ1NSjCW.js",
-      "sha256": "56268fdf166a1c21a1526c1596f29e0d4dafbd868d188c683ccf3f79459eac90"
+      "path": "assets/index-BdWl440v.css",
+      "sha256": "cd96807f4b2fa93daa44afe3395fe6eae3f0fdf647150e6a980d27546f5e0ab1"
     },
     {
       "path": "data/art-provenance.json",
@@ -271,7 +271,7 @@
     },
     {
       "path": "index.html",
-      "sha256": "b71e2a5b52539f1aa3409c7df4931e4cef5790d49935490af69c5a18a75797f5"
+      "sha256": "ad7a67f3425dd22f5df95bb748231eee1858cbaf157670fec9a643e75706313a"
     },
     {
       "path": "llms.txt",

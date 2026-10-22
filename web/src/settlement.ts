@@ -7,49 +7,73 @@ import {
   type Hex,
 } from "viem";
 import { asset, read, contract, type Runtime, type Health } from "./chain";
+// Read-back windows (owner's decision): the oracle feed reads the last 600
+// blocks (2 hours); request history and shared-fact attempts the last 7,200
+// blocks (24 hours). Only "Check older blocks" reads back to the launch block.
+export const FEED_WINDOW = 600n;
+export const HISTORY_WINDOW = 7200n;
+const OLDER_CHUNK = 100000n;
+let launch: Promise<bigint> | undefined;
+export const launchBlock = () =>
+  (launch ??= fetch(asset("data/launch.json"))
+    .then((r) => r.json())
+    .then((v) => BigInt(v.blockNumber))
+    .catch((e) => {
+      launch = undefined;
+      throw e;
+    }));
+// The head is read fresh for every scan: viem's cached block number can lag
+// behind a request confirmed seconds ago.
+export const latestBlock = async (client: any) =>
+  BigInt(await client.request({ method: "eth_blockNumber", params: [] }));
+export type EventRange = { fromBlock: bigint; toBlock: bigint };
 export async function registryEvents(
   client: any,
   r: Runtime,
   names: string[],
   id?: number,
-  fromBlock?: bigint,
-) {
-  const start =
-    fromBlock ??
-    BigInt(
-      (await fetch(asset("data/launch.json")).then((r) => r.json()))
-        .blockNumber,
-    );
-  const latest = await client.getBlockNumber();
+  options: { window?: bigint; fromBlock?: bigint } = {},
+): Promise<any[] & EventRange> {
+  const [first, latest] = await Promise.all([
+    launchBlock(),
+    latestBlock(client),
+  ]);
+  let start = first;
+  if (options.window !== undefined && latest - options.window > start)
+    start = latest - options.window;
+  if (options.fromBlock !== undefined && options.fromBlock > start)
+    start = options.fromBlock;
+  const events = names.map((name) =>
+    r.abis.Registry.find((e: any) => e.type === "event" && e.name === name),
+  );
   const result: any[] = [];
-  for (let from = start; from <= latest; from += 1500n) {
-    const to = from + 1499n > latest ? latest : from + 1499n;
-    for (const name of names) {
-      const event = r.abis.Registry.find(
-        (e: any) => e.type === "event" && e.name === name,
-      );
-      const logs = await client.getLogs({
-        address: contract(r, "Registry").address,
-        event,
-        fromBlock: from,
-        toBlock: to,
-      });
-      result.push(
-        ...logs.filter(
-          (l: any) =>
-            id === undefined ||
-            l.eventName === "Abandoned" ||
-            Number(l.args.traitId ?? l.args.factId) === id,
-        ),
-      );
-    }
+  for (let from = start; from <= latest; from += OLDER_CHUNK) {
+    const to =
+      from + OLDER_CHUNK - 1n > latest ? latest : from + OLDER_CHUNK - 1n;
+    const logs = await client.getLogs({
+      address: contract(r, "Registry").address,
+      events,
+      fromBlock: from,
+      toBlock: to,
+    });
+    result.push(
+      ...logs.filter(
+        (l: any) =>
+          id === undefined ||
+          l.eventName === "Abandoned" ||
+          Number(l.args.traitId ?? l.args.factId) === id,
+      ),
+    );
   }
-  return result.sort((a, b) =>
-    a.blockNumber !== b.blockNumber
-      ? a.blockNumber < b.blockNumber
-        ? -1
-        : 1
-      : Number(a.logIndex) - Number(b.logIndex),
+  return Object.assign(
+    result.sort((a, b) =>
+      a.blockNumber !== b.blockNumber
+        ? a.blockNumber < b.blockNumber
+          ? -1
+          : 1
+        : Number(a.logIndex) - Number(b.logIndex),
+    ),
+    { fromBlock: start, toBlock: latest },
   );
 }
 export async function completion(
@@ -103,6 +127,7 @@ export async function sharedState(
   r: Runtime,
   h: Health,
   id: number,
+  older = false,
 ) {
   const [fact, pending, events] = await Promise.all([
     read(client, r, "Registry", "sharedFact", [id]),
@@ -112,12 +137,23 @@ export async function sharedState(
       r,
       ["TraitRequested", "SharedFactStored", "Missed", "NoVerdict"],
       id,
+      older ? {} : { window: HISTORY_WINDOW },
     ),
   ]);
   const attempts = events.filter(
     (e) => e.eventName === "TraitRequested",
   ).length;
-  const last = events.filter((e) => e.eventName !== "TraitRequested").at(-1);
+  // A request ends once; a later event for the same request id never replaces it.
+  const ended = new Set<string>();
+  const last = events
+    .filter((e) => {
+      if (e.eventName === "TraitRequested") return false;
+      const key = String(e.args.requestId).toLowerCase();
+      if (ended.has(key)) return false;
+      ended.add(key);
+      return true;
+    })
+    .at(-1);
   let list: any[] = [],
     result: any = null;
   if (!/^0x0+$/.test(fact[0])) {
@@ -134,5 +170,5 @@ export async function sharedState(
         throw Error("Stored shared answer hash mismatch.");
     }
   }
-  return { fact, pending, events, attempts, last, list, result };
+  return { fact, pending, events, attempts, last, list, result, older };
 }

@@ -84,7 +84,7 @@ export function registryLog(name, args, extra = {}) {
   );
   return {
     address: deployed.Registry,
-    blockNumber: toHex(26245000),
+    blockNumber: toHex(26249800),
     blockHash: "0x" + "44".repeat(32),
     transactionHash: "0x" + "77".repeat(32),
     transactionIndex: "0x0",

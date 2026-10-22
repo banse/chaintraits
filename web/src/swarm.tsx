@@ -9,7 +9,7 @@ import {
 import { useAccount } from "wagmi";
 import { useSite } from "./context";
 import { contract, read } from "./chain";
-import { registryEvents } from "./settlement";
+import { registryEvents, FEED_WINDOW } from "./settlement";
 import {
   oracleProgressReader,
   progressCounts,
@@ -27,6 +27,8 @@ import { registryOutcome, NO_FACT } from "./request-outcomes.mjs";
 export const SWARM_POLL_MS = 5000;
 export type WatchedFact = { requestId: string; id: number; name: string };
 const WAITING = "Waiting for the swarm to pick up the request…";
+const STALE = "Requested more than 2 hours ago.";
+const TWO_HOURS = 7200;
 const shortWallet = (address: string) =>
   `${address.slice(0, 6)}…${address.slice(-4)}`;
 function ListAnswer({
@@ -167,7 +169,17 @@ export function SwarmFeed({
   const wrongWallet = current ? view.wrongWallet : null;
   const [retry, setRetry] = useState(0);
   const identity = useRef<{ requestId: string; pending: any } | null>(null);
-  const load = useMemo(() => oracleProgressReader(), [fact.requestId, address]);
+  // "Panel agreed" belongs to one oracle request id and survives Retry progress
+  // until the Registry's event for this request arrives.
+  const agreement = useRef<{
+    requestId: string;
+    oracleId: string;
+    text: string;
+  } | null>(null);
+  // Reading back to the launch block happens only on "Check older blocks".
+  const older = useRef<string | null>(null);
+  // Kept across wallet connects and switches so a known explorer link stays.
+  const load = useMemo(() => oracleProgressReader(), [fact.requestId]);
   useEffect(() => {
     if (focus?.requestId === fact.requestId && element.current) {
       element.current.open = true;
@@ -184,14 +196,20 @@ export function SwarmFeed({
         : null;
     let attested = false;
     let terminal: any = null;
-    let consensus: string | null = null;
     let controller: AbortController;
+    const consensusFor = (result: any) => {
+      const a = agreement.current;
+      if (!a || a.requestId !== fact.requestId) return null;
+      if (result && result.id !== a.oracleId) return null;
+      return a.text;
+    };
     async function poll() {
       if (running) return;
       running = true;
       controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 12000);
       try {
+        const readOlder = older.current === fact.requestId;
         const events = terminal
           ? []
           : await registryEvents(
@@ -207,8 +225,11 @@ export function SwarmFeed({
                     "Abandoned",
                   ],
               fact.id,
-              pending?.blockNumber,
+              readOlder
+                ? { fromBlock: pending?.blockNumber }
+                : { window: FEED_WINDOW, fromBlock: pending?.blockNumber },
             );
+        if (readOlder) older.current = null;
         if (!pending) {
           const p = await read(client, r, "Registry", "pendingRequest", [
             fact.requestId,
@@ -218,7 +239,24 @@ export function SwarmFeed({
               e.eventName === "TraitRequested" &&
               e.args.requestId.toLowerCase() === fact.requestId.toLowerCase(),
           );
-          if (!event) throw Error("Request event unavailable.");
+          if (!event) {
+            // A request confirmed moments ago may be newer than an endpoint's
+            // head: keep waiting. One older than the window offers a read back.
+            const stale =
+              !readOlder &&
+              p[2] !== 0n &&
+              Date.now() / 1000 - Number(p[2]) > TWO_HOURS;
+            if (active)
+              setView({
+                outcome: null,
+                consensus: consensusFor(null),
+                address,
+                requestId: fact.requestId,
+                progress: null,
+                message: stale ? STALE : WAITING,
+              });
+            return;
+          }
           // After delivery pendingRequest may be cleared. The originating event
           // and its block still identify the request across reloads/recovery.
           if (
@@ -253,6 +291,7 @@ export function SwarmFeed({
         );
         if (outcome) {
           terminal = outcome;
+          agreement.current = null;
           if (outcome.eventName === "Verified")
             pending.oracleRequestId = outcome.args.oracleRequestId;
           callback.current();
@@ -263,11 +302,18 @@ export function SwarmFeed({
           controller.signal,
         );
         if (!active) return;
-        if (result)
-          consensus = panelAgreement(result, pending.spec) || consensus;
+        const agreed = result ? panelAgreement(result, pending.spec) : null;
+        if (agreed)
+          agreement.current = {
+            requestId: fact.requestId,
+            oracleId: result.id,
+            text: agreed,
+          };
+        else if (result && agreement.current?.oracleId !== result.id)
+          agreement.current = null;
         setView({
           outcome: registryOutcome(terminal),
-          consensus: terminal ? null : consensus,
+          consensus: terminal ? null : consensusFor(result),
           spec: pending.spec,
           address,
           requestId: fact.requestId,
@@ -285,7 +331,7 @@ export function SwarmFeed({
             consensus:
               terminal || error instanceof WalletQuestionMismatch
                 ? null
-                : consensus,
+                : consensusFor(null),
             address,
             requestId: fact.requestId,
             progress: null,
@@ -430,6 +476,17 @@ export function SwarmFeed({
       )}
       {message === "progress unavailable" && (
         <button onClick={() => setRetry((n) => n + 1)}>Retry progress</button>
+      )}
+      {message === STALE && (
+        <button
+          type="button"
+          onClick={() => {
+            older.current = fact.requestId;
+            setRetry((n) => n + 1);
+          }}
+        >
+          Check older blocks
+        </button>
       )}
     </details>
   );

@@ -145,7 +145,9 @@ export async function checkEligibility(
       eventName: event.name,
       args,
     });
-    let span = 2000n,
+    // 601 reads its whole spec window in one eth_getLogs that two endpoints
+    // answer alike; the RPC pool splits a range an endpoint refuses for size.
+    let span = seat ? end - from + 1n : 2000n,
       total = 0n;
     const seen = new Set();
     while (from <= end) {
@@ -167,7 +169,7 @@ export async function checkEligibility(
         guard();
         if (
           span > 1n &&
-          !/Cannot read the chain|disagree/i.test(error.message)
+          !/Cannot read the chain|disagree|two agreeing/i.test(error.message)
         ) {
           span = (span + 1n) / 2n;
           continue;

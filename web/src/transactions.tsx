@@ -163,8 +163,11 @@ export function useTransactions() {
   const eligibilityNegative = personalIds.some(
     (id) => eligibility[eligibilityKey(id)]?.state === "not-met",
   );
-  const eligibilityConfirmed =
-    !eligibilityChecking && (!eligibilityNegative || requestAnyway);
+  // A running check never disables the steps; a not-met answer that arrives
+  // before the request is signed still needs "Request anyway".
+  const eligibilityConfirmed = !eligibilityNegative || requestAnyway;
+  const latestEligibility = useRef({ eligibilityNegative, requestAnyway });
+  latestEligibility.current = { eligibilityNegative, requestAnyway };
   useEffect(() => {
     try {
       localStorage.setItem(JOURNAL_KEY, encode({ plan, steps, registered }));
@@ -459,6 +462,14 @@ export function useTransactions() {
           plan.account.toLowerCase()
       )
         throw Error("Wallet or network changed. Prepare again.");
+      const latest = latestEligibility.current;
+      if (latest.eligibilityNegative && !latest.requestAnyway) {
+        // The step stays checked; it unlocks again after "Request anyway".
+        setError(
+          "This wallet does not meet this rule. Press Request anyway to continue.",
+        );
+        return;
+      }
       update(index, { state: "awaiting signature", error: undefined });
       const hash = await wallet.writeContract(simulated.request);
       update(index, { state: "pending", hash });

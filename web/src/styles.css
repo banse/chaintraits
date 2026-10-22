@@ -868,6 +868,18 @@ fieldset {
 .picker-row .accent {
   display: block;
 }
+/* A row's "Check older blocks" sits on its own line under the fact text. */
+.picker-row:has(> .row-history) {
+  flex-wrap: wrap;
+}
+.row-history {
+  order: 3;
+  flex-basis: 100%;
+  padding-inline-start: 28px;
+}
+.older-blocks {
+  margin-block-start: var(--s2);
+}
 .highlight {
   border-inline-start: 2px solid var(--accent);
   padding-inline-start: 12px;

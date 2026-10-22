@@ -21,7 +21,12 @@ import {
 import { useWalletSheet } from "./wallet";
 import { eligibilityText } from "./eligibility.mjs";
 import { lastPersonalRequests, lastRequestText } from "./request-outcomes.mjs";
-import { sharedState, completion, registryEvents } from "./settlement";
+import {
+  sharedState,
+  completion,
+  registryEvents,
+  HISTORY_WINDOW,
+} from "./settlement";
 import { claimAnchor } from "./navigation";
 import {
   RequestTime,
@@ -261,12 +266,13 @@ function SharedFact({
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [older, setOlder] = useState(false);
   useEffect(() => {
     let active = true;
     setValue(null);
     setError("");
     if (site.health)
-      sharedState(site.client, site.r, site.health, id)
+      sharedState(site.client, site.r, site.health, id, older)
         .then((v) => {
           if (active) setValue(v);
         })
@@ -279,7 +285,7 @@ function SharedFact({
     return () => {
       active = false;
     };
-  }, [site.health, site.client, id]);
+  }, [site.health, site.client, id, older]);
   const stored = value && !/^0x0+$/.test(value.fact[0]);
   const pending = value && !/^0x0+$/.test(value.pending);
   const included = value?.list.some(
@@ -366,9 +372,18 @@ function SharedFact({
               ? "Request pending."
               : "not requested yet"}
         {value
-          ? ` Attempts: ${num(value.attempts)}. Last panel result: ${value.last ? (value.last.eventName === "Missed" ? `Missed: ${MISS_REASONS[Number(value.last.args.reason)] || value.last.args.reason}` : value.last.eventName === "NoVerdict" ? `No verdict (${value.last.args.agreed}/${value.last.args.answered} agreed)` : value.last.eventName) : "none"}.`
+          ? ` ${value.older ? "Attempts" : "Attempts in the last 24 hours"}: ${num(value.attempts)}. Last panel result: ${value.last ? (value.last.eventName === "Missed" ? `Missed: ${MISS_REASONS[Number(value.last.args.reason)] || value.last.args.reason}` : value.last.eventName === "NoVerdict" ? `No verdict (${value.last.args.agreed}/${value.last.args.answered} agreed)` : value.last.eventName) : value.older ? "none" : "none in the last 24 hours"}.`
           : ""}
       </p>
+      {value && !value.older && (
+        <button
+          type="button"
+          className="secondary older-blocks"
+          onClick={() => setOlder(true)}
+        >
+          Check older blocks
+        </button>
+      )}
       {value?.result?.txHash && (
         <a
           className="source"
@@ -678,7 +693,15 @@ export function Claim() {
   const [requestHistory, setRequestHistory] = useState<{
     wallet?: string;
     lines: Record<number, string>;
+    older?: boolean;
   }>({ lines: {} });
+  // "Check older blocks" on a row reads this wallet's history back to launch.
+  const [olderHistory, setOlderHistory] = useState<{
+    wallet?: string;
+    ids: number[];
+  }>({ ids: [] });
+  const historyOlder =
+    olderHistory.wallet === account.address && olderHistory.ids.length > 0;
   const [busy, setBusy] = useState("");
   const [status, setStatus] = useState<Record<string, string>>({});
   const [refreshTick, setRefreshTick] = useState(0);
@@ -778,13 +801,13 @@ export function Claim() {
     let active = true;
     const wallet = account.address;
     if (wallet && site.health) {
-      void registryEvents(site.client, site.r, [
-        "TraitRequested",
-        "Verified",
-        "Missed",
-        "NoVerdict",
-        "Abandoned",
-      ])
+      void registryEvents(
+        site.client,
+        site.r,
+        ["TraitRequested", "Verified", "Missed", "NoVerdict", "Abandoned"],
+        undefined,
+        historyOlder ? {} : { window: HISTORY_WINDOW },
+      )
         .then(async (events) => {
           const blocks = new Map<bigint, Promise<any>>();
           const lines = await Promise.all(
@@ -802,7 +825,11 @@ export function Claim() {
             ),
           );
           if (active)
-            setRequestHistory({ wallet, lines: Object.fromEntries(lines) });
+            setRequestHistory({
+              wallet,
+              lines: Object.fromEntries(lines),
+              older: historyOlder,
+            });
         })
         .catch(() => {
           /* No outcome is inferred from an incomplete event read. */
@@ -811,7 +838,7 @@ export function Claim() {
     return () => {
       active = false;
     };
-  }, [account.address, site.client, site.health, refreshTick]);
+  }, [account.address, site.client, site.health, refreshTick, historyOlder]);
   const wanted = Number(
     new URLSearchParams(location.hash.split("?")[1]?.split("#")[0]).get(
       "trait",
@@ -1277,6 +1304,36 @@ export function Claim() {
                       ) : null}
                     </span>
                   </label>
+                  {!proven &&
+                    !pending &&
+                    account.address &&
+                    requestHistory.wallet === account.address &&
+                    !requestHistory.lines[t.id] && (
+                      <div className="row-history">
+                        {requestHistory.older ? (
+                          olderHistory.ids.includes(t.id) && (
+                            <span className="muted">
+                              No request found since launch.
+                            </span>
+                          )
+                        ) : (
+                          <button
+                            type="button"
+                            className="secondary older-blocks"
+                            disabled={historyOlder}
+                            aria-label={`Check older blocks for fact ${t.id}`}
+                            onClick={() =>
+                              setOlderHistory({
+                                wallet: account.address,
+                                ids: [...olderHistory.ids, t.id],
+                              })
+                            }
+                          >
+                            Check older blocks
+                          </button>
+                        )}
+                      </div>
+                    )}
                   {t.id < 10001 && <Card miniId={t.id} />}
                 </div>
               );
