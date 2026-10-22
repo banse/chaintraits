@@ -75,15 +75,24 @@ async function setup(fixture, options = {}) {
       callbacks.delete(id);
       clear(id);
     };
-    window.__pollSwarm = () => callbacks.forEach((fn) => fn());
+    window.__pollSwarm = () =>
+      Promise.all([...callbacks.values()].map((fn) => fn()));
     // A browser fetch refusal, without browser-generated network console noise.
     const fetcher = window.fetch.bind(window);
+    window.__cachedDetailFailures = [];
     window.fetch = (...args) => {
       if (
         window.__intakeRefused &&
         String(args[0]).includes("api.imd.fun/intake/")
       )
         return Promise.reject(TypeError("Failed to fetch"));
+      if (
+        window.__cachedDetailUnavailable &&
+        String(args[0]) === "https://api.imd.fun/oracle/requests/exact-request"
+      ) {
+        window.__cachedDetailFailures.push(String(args[0]));
+        return Promise.resolve(new Response("", { status: 503 }));
+      }
       return fetcher(...args);
     };
   });
@@ -516,6 +525,81 @@ try {
         ),
         false,
       );
+      assert.deepEqual(await page.evaluate(() => window.__signing), []);
+    },
+  );
+  await run(
+    "8 cached exact detail failure silently falls back to the claimant's oldest match",
+    async () => {
+      const records = [
+        request("exact-request"),
+        request("later-duplicate", 5),
+        request("oldest-match", 0),
+      ];
+      const f = fakeChain({
+        token: 1n,
+        pending: [
+          {
+            id: 601,
+            requestId,
+            questionHash,
+            requestedAt,
+            transactionHash: tx,
+          },
+        ],
+      });
+      await setup(f, { records });
+      const feed = page.locator("#swarm-" + requestId);
+      const exact = feed.getByText("Oracle request: exact-request · exact", {
+        exact: true,
+      });
+      await exact.waitFor();
+      // A refused Intake alone still retains a healthy cached exact request.
+      await page.evaluate(() => {
+        window.__intakeRefused = true;
+        return window.__pollSwarm();
+      });
+      await exact.waitFor();
+      const phase = evidence.api.length;
+      await page.evaluate(() => {
+        window.__cachedDetailUnavailable = true;
+        return window.__pollSwarm();
+      });
+      await feed
+        .getByText("Oracle request: oldest-match · matched", { exact: true })
+        .waitFor();
+      assert.ok(
+        evidence.api.slice(phase).includes(`/oracle/requests?q=${wallet}`),
+      );
+      assert.ok(
+        evidence.api.slice(phase).includes("/oracle/requests/oldest-match"),
+      );
+      assert.deepEqual(
+        await page.evaluate(() => window.__cachedDetailFailures),
+        ["https://api.imd.fun/oracle/requests/exact-request"],
+      );
+      records.unshift(request("even-later-duplicate", 10));
+      await page.evaluate(() => window.__pollSwarm());
+      await feed
+        .getByText("Oracle request: oldest-match · matched", { exact: true })
+        .waitFor();
+      assert.doesNotMatch(await feed.innerText(), /progress unavailable/);
+      assert.equal(await feed.getByRole("listitem").count(), 5);
+      for (const width of [1280, 390]) {
+        await page.setViewportSize({
+          width,
+          height: width === 390 ? 844 : 900,
+        });
+        assert.equal(
+          await page.evaluate(
+            () => document.documentElement.scrollWidth > innerWidth,
+          ),
+          false,
+        );
+        await feed.screenshot({
+          path: new URL(`cached-exact-fallback-${width}.png`, output).pathname,
+        });
+      }
       assert.deepEqual(await page.evaluate(() => window.__signing), []);
     },
   );

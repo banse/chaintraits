@@ -151,9 +151,15 @@ export function oracleProgressReader(fetcher = fetch) {
         if (signal?.aborted) throw signal.reason;
       }
     }
-    // Do not let a temporary admission outage replace an already exact match.
-    if (previous?.foundBy === "exact")
-      return selected(await detail(previous.id, signal), "exact");
+    // Retain a healthy exact match during an admission outage. If its detail
+    // also fails, continue to the claimant-filtered matching path below.
+    if (previous?.foundBy === "exact") {
+      try {
+        return selected(await detail(previous.id, signal), "exact");
+      } catch {
+        if (signal?.aborted) throw signal.reason;
+      }
+    }
     const query =
       pending.claimant && !/^0x0+$/i.test(pending.claimant)
         ? `?q=${encodeURIComponent(pending.claimant)}`

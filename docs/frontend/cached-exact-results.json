@@ -1,0 +1,110 @@
+{
+  "at": "2026-10-22T02:45:57.612343+00:00",
+  "finding": "25fb752154b1019bab50aa1acb17f8123afb74a3913fa90217d3d9846d4e6f25",
+  "scope": "Cached exact-detail fallback revision; fake EIP-1193 wallet, RPC and API replies only. No real signing, broadcasting or publication.",
+  "before": {
+    "unit": "Targeted cached-exact regression exited 1: Progress service unavailable at cached detail.",
+    "browser": "156.0.8078.4",
+    "viewport": {
+      "width": 390,
+      "height": 844
+    },
+    "feed": "601 / Swarmed: progress unavailable; Retry progress",
+    "claimantListingRequests": 0,
+    "browserErrors": []
+  },
+  "after": {
+    "browser": "156.0.8078.4",
+    "feed": "Oracle request: oldest-match · matched",
+    "healthyCachedExactRetained": true,
+    "claimantListingRequested": true,
+    "newerDuplicateRetainedOldest": true,
+    "panelSeats": 5,
+    "widths": [
+      390,
+      1280
+    ],
+    "horizontalOverflow": false,
+    "browserErrors": [],
+    "cachedDetailFailureModes": [
+      "HTTP 503",
+      "fetch rejection",
+      "invalid JSON",
+      "mismatched identity",
+      "invalid panel"
+    ],
+    "followupChecks": [
+      "1 pending and failed tokenOf never offer mint; retry recovers to card #1",
+      "2/3 confirmed mint shows its own receipt result, price and destination",
+      "2/3 confirmed fact shows its own receipt result, price and destination",
+      "2/3 confirmed shared shows its own receipt result, price and destination",
+      "2/3 confirmed registration shows its own receipt result, price and destination",
+      "6 a legacy saved ack:true is ignored and omitted from new journal storage",
+      "8 cached exact detail failure silently falls back to the claimant's oldest match",
+      "8 refused Intake uses claimant q, oldest match survives a later duplicate; Verified overrides it",
+      "8 delivered request can be reconstructed after reload from its Registry event",
+      "4 contract README link names the pinned launch commit"
+    ]
+  },
+  "commands": {
+    "npm run typecheck": "passed",
+    "npm run format:check": "passed",
+    "npm run build": "passed; pinned ABI checks passed; 47 assets / 1078957 bytes plus manifest",
+    "npm run verify:export": "passed",
+    "npm test": {
+      "unitTestsPassed": 62,
+      "routeViewportCombinations": 40,
+      "browserErrors": [],
+      "liveChecks": "explicitly skipped"
+    },
+    "node tests/followup.mjs": {
+      "passedGroups": 10,
+      "errors": []
+    },
+    "node tests/acceptance.mjs": {
+      "passedGroups": 12,
+      "errors": []
+    },
+    "node tests/actions.mjs": {
+      "passedGroups": 11,
+      "errors": []
+    },
+    "node tests/swarm-browser.mjs": {
+      "passedGroups": 10,
+      "errors": [],
+      "consoleErrors": [],
+      "resourceErrors": []
+    }
+  },
+  "taste": {
+    "passed": 14,
+    "total": 16,
+    "preservedExceptions": [
+      "existing uppercase headings",
+      "existing monospace prose"
+    ]
+  },
+  "browserTool": {
+    "viewports": [
+      {
+        "width": 390,
+        "height": 844
+      },
+      {
+        "width": 1280,
+        "height": 900
+      }
+    ],
+    "fakeRpcOnly": true,
+    "homeActionY": 455.390625,
+    "homeActionHeight": 44,
+    "horizontalOverflow": false,
+    "consoleMessages": 0,
+    "emptyAddressFocusedInvalidField": true
+  },
+  "limitations": [
+    "WebKit could not launch: required host libraries missing.",
+    "No screen-reader session, native zoom, physical-device test, real wallet signing, live API verification or new live-chain measurement."
+  ],
+  "screenshot": "screenshots/cached-exact-fallback-390.png"
+}

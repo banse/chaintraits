@@ -294,3 +294,79 @@ test("Verified UUID uses the first 16 bytes and replaces API matches with an exp
   );
   assert.equal(urls.at(-1), `https://api.imd.fun/oracle/requests/${id}`);
 });
+
+test("a cached exact detail failure still falls back to the claimant's oldest match", async () => {
+  const p = {
+    ...pending,
+    claimant: "0x2000000000000000000000000000000000000001",
+    requestId: "0x" + "a1".repeat(32),
+    transactionHash: "0x" + "66".repeat(32),
+  };
+  for (const mode of ["http", "fetch", "json", "identity", "panel"]) {
+    let unavailable = false;
+    const urls = [];
+    const load = oracleProgressReader(async (url) => {
+      urls.push(url);
+      if (url.includes("/intake/")) {
+        if (unavailable) throw TypeError("Failed to fetch");
+        return {
+          ok: true,
+          json: async () => ({
+            entries: [
+              {
+                requestId: p.requestId,
+                admission: { result: { requestId: "exact-request" } },
+              },
+            ],
+          }),
+        };
+      }
+      if (url.endsWith("/exact-request") && unavailable) {
+        if (mode === "fetch") throw TypeError("Failed to fetch");
+        return {
+          ok: mode !== "http",
+          status: mode === "http" ? 503 : 200,
+          json: async () => {
+            if (mode === "json") throw SyntaxError("not json");
+            return {
+              ...request(mode === "identity" ? "different" : "exact-request"),
+              ...(mode === "panel" ? { quorum: 6 } : {}),
+            };
+          },
+        };
+      }
+      if (url.includes("?q=")) {
+        assert.equal(new URL(url).searchParams.get("q"), p.claimant);
+        return {
+          ok: true,
+          json: async () => ({
+            requests: [
+              request("later-duplicate", 5),
+              request("oldest-match", 0),
+            ],
+          }),
+        };
+      }
+      return {
+        ok: true,
+        json: async () =>
+          request(url.split("/").at(-1), url.endsWith("/oldest-match") ? 0 : 1),
+      };
+    });
+    const exact = await load(p);
+    assert.equal(exact.id, "exact-request");
+    assert.equal(exact.foundBy, "exact");
+    unavailable = true;
+    urls.length = 0;
+    const matched = await load(p);
+    assert.equal(matched.id, "oldest-match", mode);
+    assert.equal(matched.foundBy, "matched", mode);
+    assert.deepEqual(urls, [
+      `https://api.imd.fun/intake/1/${p.transactionHash}`,
+      "https://api.imd.fun/oracle/requests/exact-request",
+      `https://api.imd.fun/oracle/requests?q=${p.claimant}`,
+      "https://api.imd.fun/oracle/requests/oldest-match",
+    ]);
+    assert.equal((await load(p)).id, "oldest-match");
+  }
+});
