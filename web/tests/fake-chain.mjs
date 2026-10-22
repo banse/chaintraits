@@ -362,7 +362,8 @@ export function fakeChain(options = {}) {
             ]
           : ["0x0000000000000000000000000000000000000000", 0, 0n, zeroHash];
       } else if (fn === "verified") result = [zeroHash, zeroHash, 0n, 0n];
-      else if (fn === "sharedFact") result = [zeroHash, zeroHash, 0];
+      else if (fn === "sharedFact")
+        result = state.sharedFact || [zeroHash, zeroHash, 0];
       else if (fn === "balanceOf") result = state.balance;
       else if (fn === "allowance") result = state.allowance;
       else if (fn === "specOf")

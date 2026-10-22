@@ -443,6 +443,9 @@ export function useTransactions() {
     lock.current = true;
     setBusy(true);
     setError("");
+    const consent =
+      "This wallet does not meet this rule. Press Request anyway to continue.";
+    let needsConsent = false;
     try {
       const request = await checkedCall(index);
       // Simulation is refreshed immediately before a single wallet confirmation.
@@ -451,10 +454,27 @@ export function useTransactions() {
         config.connectors,
         account.connector,
       );
+      // The latest eligibility is checked again at the signing request itself:
+      // a not-met result that arrived during the wallet's own chain checks
+      // still needs "Request anyway" before the wallet is asked to sign.
+      const guarded = {
+        request: (args: any) => {
+          const latest = latestEligibility.current;
+          if (
+            args?.method === "eth_sendTransaction" &&
+            latest.eligibilityNegative &&
+            !latest.requestAnyway
+          ) {
+            needsConsent = true;
+            return Promise.reject(Error(consent));
+          }
+          return provider.request(args);
+        },
+      };
       const wallet = createWalletClient({
         account: plan.account,
         chain: site.r.chain,
-        transport: custom(provider),
+        transport: custom(guarded),
       });
       if (
         (await wallet.getChainId()) !== site.r.deployment.chainId ||
@@ -465,9 +485,7 @@ export function useTransactions() {
       const latest = latestEligibility.current;
       if (latest.eligibilityNegative && !latest.requestAnyway) {
         // The step stays checked; it unlocks again after "Request anyway".
-        setError(
-          "This wallet does not meet this rule. Press Request anyway to continue.",
-        );
+        setError(consent);
         return;
       }
       update(index, { state: "awaiting signature", error: undefined });
@@ -497,6 +515,12 @@ export function useTransactions() {
       recordResult(index, receipt);
       await site.refresh();
     } catch (e) {
+      if (needsConsent) {
+        // Nothing reached the wallet: the step returns to checked.
+        update(index, { state: "simulated", error: undefined });
+        setError(consent);
+        return;
+      }
       const message = explain(
         e,
         steps[index]?.call?.abi || [

@@ -25,11 +25,13 @@ export function lastPersonalRequests(events, wallet) {
   }
   // A request ends once (Abandoned, Verified, Missed or NoVerdict). A later
   // event for the same request id, such as Missed(id, 0, 1), never replaces it.
+  // Events for other wallets' requests are skipped.
   for (const event of events) {
     if (event.eventName === "TraitRequested") continue;
     const request = requests.get(event.args.requestId?.toLowerCase());
-    const entry = request && last.get(Number(request.args.traitId));
-    if (entry?.request === request && !entry.outcome)
+    if (!request) continue;
+    const entry = last.get(Number(request.args.traitId));
+    if (entry && entry.request === request && !entry.outcome)
       last.set(Number(request.args.traitId), { request, outcome: event });
   }
   return [...last].filter(([, { outcome }]) =>

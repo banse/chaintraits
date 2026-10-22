@@ -303,7 +303,9 @@ function SharedFact({
           : stored
             ? included
               ? ""
-              : "not in the list"
+              : value.result
+                ? "not in the list"
+                : "Stored before the last 24 hours: use Check older blocks to read its list."
             : "");
   async function prepare() {
     setBusy(true);
@@ -695,13 +697,10 @@ export function Claim() {
     lines: Record<number, string>;
     older?: boolean;
   }>({ lines: {} });
-  // "Check older blocks" on a row reads this wallet's history back to launch.
-  const [olderHistory, setOlderHistory] = useState<{
-    wallet?: string;
-    ids: number[];
-  }>({ ids: [] });
-  const historyOlder =
-    olderHistory.wallet === account.address && olderHistory.ids.length > 0;
+  // "Check older blocks" on any row reads this wallet's history back to launch;
+  // the result then shows on every row.
+  const [olderWallet, setOlderWallet] = useState<string>();
+  const historyOlder = !!account.address && olderWallet === account.address;
   const [busy, setBusy] = useState("");
   const [status, setStatus] = useState<Record<string, string>>({});
   const [refreshTick, setRefreshTick] = useState(0);
@@ -832,7 +831,9 @@ export function Claim() {
             });
         })
         .catch(() => {
-          /* No outcome is inferred from an incomplete event read. */
+          /* No outcome is inferred from an incomplete event read. An older
+             read that fails offers its button again. */
+          if (active && historyOlder) setOlderWallet(undefined);
         });
     }
     return () => {
@@ -1311,23 +1312,16 @@ export function Claim() {
                     !requestHistory.lines[t.id] && (
                       <div className="row-history">
                         {requestHistory.older ? (
-                          olderHistory.ids.includes(t.id) && (
-                            <span className="muted">
-                              No request found since launch.
-                            </span>
-                          )
+                          <span className="muted">
+                            No request found since launch.
+                          </span>
                         ) : (
                           <button
                             type="button"
                             className="secondary older-blocks"
                             disabled={historyOlder}
                             aria-label={`Check older blocks for fact ${t.id}`}
-                            onClick={() =>
-                              setOlderHistory({
-                                wallet: account.address,
-                                ids: [...olderHistory.ids, t.id],
-                              })
-                            }
+                            onClick={() => setOlderWallet(account.address)}
                           >
                             Check older blocks
                           </button>

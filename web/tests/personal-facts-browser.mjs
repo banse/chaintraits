@@ -109,6 +109,7 @@ async function setup({
   history,
   mode = "met",
   listJob,
+  prepare,
 } = {}) {
   await context?.close();
   context = await browser.newContext({
@@ -153,7 +154,16 @@ async function setup({
     if (r.url().startsWith(preview.url) && r.status() >= 400)
       evidence.errors.push(`HTTP ${r.status()}: ${r.url()}`);
   });
-  control = { records, exact: false, mode, listJob, reads: [], api: [] };
+  control = {
+    records,
+    exact: false,
+    mode,
+    listJob,
+    reads: [],
+    api: [],
+    held: [],
+    logs: [],
+  };
   const s = {
     ...spec,
     kind,
@@ -211,6 +221,12 @@ async function setup({
       control.reads.push(p);
       if (control.mode === "refused") throw Error("Archive state unavailable");
       if (control.mode === "slow") return new Promise(() => {});
+      if (control.mode === "held")
+        return new Promise((resolve) =>
+          control.held.push(() =>
+            resolve(p.method === "eth_getTransactionCount" ? "0x0" : []),
+          ),
+        );
       if (p.method === "eth_getTransactionCount") return "0x14";
       if (control.mode === "not-met") return [];
       const seat = f.address.toLowerCase().startsWith("0x0000ec");
@@ -240,8 +256,15 @@ async function setup({
         },
       ];
     }
+    if (p.method === "eth_getLogs") control.logs.push(f);
+    if (control.head !== undefined) {
+      if (p.method === "eth_blockNumber") return toHex(control.head);
+      if (p.method === "eth_getBlockByNumber" && p.params[0] === "latest")
+        return { ...(await base(p)), number: toHex(control.head) };
+    }
     return base(p);
   };
+  prepare?.(fixture, control);
   await mockPage(page, fixture);
   await page.route("https://api.imd.fun/**", async (route) => {
     const u = new URL(route.request().url());
@@ -713,6 +736,232 @@ try {
       assert.equal(seats[0].params[0].fromBlock, toHex(25090085));
       assert.deepEqual(await page.evaluate(() => window.__signing), []);
       await capture("eligibility-seat", page.locator("#pick-601"));
+    },
+  );
+  // Revision: reviewer findings on read windows, history and late consent.
+  const launchBlock = 26242885n;
+  const registryLogs = (from = 0) =>
+    control.logs
+      .slice(from)
+      .filter((f) => f.address.toLowerCase() === registry.toLowerCase());
+  await run(
+    "R1 another wallet's Registry outcome keeps this wallet's Last request line and row controls",
+    async () => {
+      const otherWallet = "0x3000000000000000000000000000000000000003",
+        other = "0x" + "c3".repeat(32);
+      await setup({
+        pending: false,
+        history: { eventName: "Missed", reason: 8 },
+        prepare: (f) => {
+          f.state.pending.push({
+            id: 901,
+            requestId: other,
+            questionHash,
+            requestedAt: 1792600000n,
+            cleared: true,
+            claimant: otherWallet,
+          });
+          f.state.verifiedEvents.push(
+            registryLog(
+              "Abandoned",
+              {
+                requestId: other,
+                traitId: 901,
+                claimant: otherWallet,
+                oracleRequestId: oracleBytes,
+                reason: 0,
+                status: 1,
+                agreed: 1,
+                answered: 5,
+              },
+              { logIndex: "0x11" },
+            ),
+          );
+        },
+      });
+      await page
+        .locator("#pick-801")
+        .getByText(/^Last request .* UTC: answer false$/)
+        .waitFor();
+      assert.ok((await page.locator(".row-history button").count()) > 0);
+      await capture("history-other-wallet", page.locator("#pick-801"));
+    },
+  );
+  await run(
+    "R2 rows and shared line read only the last 7,200 blocks; one row's Check older blocks shows the result on every row",
+    async () => {
+      const head = 26260000n;
+      await setup({
+        pending: false,
+        prepare: (f, c) => {
+          c.head = Number(head);
+        },
+      });
+      await page
+        .locator("#shared-fact")
+        .getByText(
+          /Attempts in the last 24 hours: 0\. Last panel result: none in the last 24 hours\./,
+        )
+        .waitFor();
+      await page
+        .getByRole("button", { name: "Check older blocks for fact 901" })
+        .waitFor();
+      const before = control.logs.length;
+      assert.ok(before > 0);
+      for (const f of control.logs)
+        assert.ok(BigInt(f.fromBlock) >= head - 7199n, f.fromBlock);
+      await page
+        .getByRole("button", { name: "Check older blocks for fact 801" })
+        .click();
+      for (const id of [801, 901])
+        await page
+          .locator(`#pick-${id}`)
+          .getByText("No request found since launch.", { exact: true })
+          .waitFor();
+      assert.ok(
+        registryLogs(before).some((f) => BigInt(f.fromBlock) === launchBlock),
+      );
+      await capture("history-older", page.locator("#pick-901"));
+    },
+  );
+  await run(
+    "R3 a stored shared fact reads its completion only inside 24 hours until Check older blocks",
+    async () => {
+      const head = 26260000n;
+      await setup({
+        pending: false,
+        prepare: (f, c) => {
+          c.head = Number(head);
+          f.state.sharedFact = [
+            "0x" + "d4".repeat(32),
+            "0x" + "e5".repeat(32),
+            1,
+          ];
+        },
+      });
+      const shared = page.locator("#shared-fact");
+      await shared.getByText(/^Stored · no further request needed/).waitFor();
+      await shared.getByText(/Attempts in the last 24 hours: 0\./).waitFor();
+      const before = control.logs.length;
+      for (const f of control.logs)
+        assert.ok(BigInt(f.fromBlock) >= head - 7199n, f.fromBlock);
+      await shared
+        .getByRole("button", { name: "Check older blocks", exact: true })
+        .click();
+      await shared
+        .getByText(/Attempts: 0\. Last panel result: none\./)
+        .waitFor();
+      const older = control.logs.slice(before);
+      assert.ok(
+        older.some(
+          (f) =>
+            BigInt(f.fromBlock) === launchBlock &&
+            f.address.toLowerCase() !== registry.toLowerCase(),
+        ),
+        "intake completion read from launch on demand",
+      );
+      assert.ok(
+        registryLogs(before).some((f) => BigInt(f.fromBlock) === launchBlock),
+      );
+    },
+  );
+  await run(
+    "R4 a watched request that ages past the 600-block feed window shows the stale line and Check older blocks",
+    async () => {
+      const feed = await setup({});
+      await feed
+        .getByText("Waiting for the swarm to pick up the request…")
+        .waitFor();
+      await feed
+        .getByRole("button", { name: "Check older blocks", exact: true })
+        .waitFor();
+      const before = control.logs.length;
+      control.head = 26250700;
+      await poll();
+      await feed
+        .getByText("Requested more than 2 hours ago.", { exact: true })
+        .waitFor();
+      const recent = registryLogs(before);
+      assert.ok(recent.length > 0);
+      for (const f of recent)
+        assert.ok(BigInt(f.fromBlock) >= 26250700n - 599n, f.fromBlock);
+      const marker = control.logs.length;
+      await feed
+        .getByRole("button", { name: "Check older blocks", exact: true })
+        .click();
+      await feed
+        .getByText("No Registry outcome found since launch.", { exact: true })
+        .waitFor();
+      assert.ok(
+        registryLogs(marker).some((f) => BigInt(f.fromBlock) === launchBlock),
+      );
+      await capture("feed-stale", feed);
+    },
+  );
+  await run(
+    "R5 a not-met result arriving during the wallet's own chain check still needs Request anyway before signing",
+    async () => {
+      await setup({ pending: false, mode: "held" });
+      const row = page.locator("#pick-1301");
+      await row.locator("input").check();
+      await row.getByText("Checking eligibility…", { exact: true }).waitFor();
+      await page
+        .getByRole("button", { name: "Mint selected facts", exact: true })
+        .click();
+      const dialog = page.locator(".payment-dialog");
+      await dialog.locator("#payment-ack").check();
+      await dialog.getByText("simulated", { exact: true }).waitFor();
+      await dialog.getByText("Checking eligibility…").first().waitFor();
+      // Hold the eth_chainId viem sends inside writeContract (the first one
+      // after the explicit account check), as a slow wallet would.
+      await page.evaluate(() => {
+        const request = window.ethereum.request;
+        let accounts = false;
+        window.__held = null;
+        window.ethereum.request = (arg) => {
+          if (arg.method === "eth_accounts") accounts = true;
+          else if (arg.method === "eth_chainId" && accounts && !window.__held)
+            return new Promise((resolve) => {
+              window.__held = () => resolve(request(arg));
+            });
+          return request(arg);
+        };
+      });
+      await dialog
+        .getByRole("button", { name: "Request 1301 / Pretrained", exact: true })
+        .click();
+      await page.waitForFunction(() => !!window.__held);
+      control.mode = "not-met";
+      control.held.splice(0).forEach((release) => release());
+      await dialog
+        .getByText(/does not meet this rule \(nonce 0 at block 25769870\)/)
+        .first()
+        .waitFor();
+      await dialog
+        .getByRole("button", { name: "Request anyway", exact: true })
+        .waitFor();
+      assert.deepEqual(await page.evaluate(() => window.__signing), []);
+      await page.evaluate(() => window.__held());
+      await dialog
+        .getByText(
+          "This wallet does not meet this rule. Press Request anyway to continue.",
+        )
+        .first()
+        .waitFor();
+      await page.waitForTimeout(500);
+      assert.deepEqual(await page.evaluate(() => window.__signing), []);
+      assert.equal(
+        await dialog.getByText("rejected", { exact: true }).count(),
+        0,
+      );
+      await dialog
+        .getByRole("button", { name: "Request anyway", exact: true })
+        .click();
+      await dialog
+        .getByRole("button", { name: "Request 1301 / Pretrained", exact: true })
+        .click();
+      await page.waitForFunction(() => window.__signing.length === 1);
+      await capture("late-consent", dialog);
     },
   );
   assert.deepEqual(evidence.errors, []);

@@ -39,8 +39,9 @@ export async function registryEvents(
     latestBlock(client),
   ]);
   let start = first;
-  if (options.window !== undefined && latest - options.window > start)
-    start = latest - options.window;
+  // The window is inclusive of the head: [latest - window + 1, latest].
+  if (options.window !== undefined && latest - options.window + 1n > start)
+    start = latest - options.window + 1n;
   if (options.fromBlock !== undefined && options.fromBlock > start)
     start = options.fromBlock;
   const events = names.map((name) =>
@@ -81,13 +82,21 @@ export async function completion(
   r: Runtime,
   h: Health,
   requestId: Hex,
+  options: { window?: bigint } = {},
 ) {
-  const launch = await fetch(asset("data/launch.json")).then((r) => r.json());
+  const [first, latest] = await Promise.all([
+    launchBlock(),
+    // Fresh head, never viem's cached block number.
+    client.getBlockNumber({ cacheTime: 0 }) as Promise<bigint>,
+  ]);
   const event = r.abis.IntakeV2.find(
     (e: any) => e.type === "event" && e.name === "Completed",
   );
-  const latest = await client.getBlockNumber();
-  for (let from = BigInt(launch.blockNumber); from <= latest; from += 1500n) {
+  // Automatic reads stay inside their window; a button press reads from launch.
+  let start = first;
+  if (options.window !== undefined && latest - options.window + 1n > start)
+    start = latest - options.window + 1n;
+  for (let from = start; from <= latest; from += 1500n) {
     const logs = await client.getLogs({
       address: h.deps.intake,
       event,
@@ -157,7 +166,15 @@ export async function sharedState(
   let list: any[] = [],
     result: any = null;
   if (!/^0x0+$/.test(fact[0])) {
-    result = await completion(client, r, h, fact[0]);
+    // The stored state is known from sharedFact; its completion (and list) is
+    // read automatically only inside the 24-hour window.
+    result = await completion(
+      client,
+      r,
+      h,
+      fact[0],
+      older ? {} : { window: HISTORY_WINDOW },
+    );
     if (result?.attestation) {
       list = decodeAbiParameters(
         [{ type: "address[]" }],

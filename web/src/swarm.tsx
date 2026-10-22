@@ -178,6 +178,11 @@ export function SwarmFeed({
   } | null>(null);
   // Reading back to the launch block happens only on "Check older blocks".
   const older = useRef<string | null>(null);
+  // The request id whose read back to launch completed without an outcome.
+  const checked = useRef<string | null>(null);
+  // A found outcome is kept across restarts (Retry progress, wallet changes),
+  // including one only a read back to launch found.
+  const ended = useRef<{ requestId: string; event: any } | null>(null);
   // Kept across wallet connects and switches so a known explorer link stays.
   const load = useMemo(() => oracleProgressReader(), [fact.requestId]);
   useEffect(() => {
@@ -195,7 +200,8 @@ export function SwarmFeed({
         ? identity.current.pending
         : null;
     let attested = false;
-    let terminal: any = null;
+    let terminal: any =
+      ended.current?.requestId === fact.requestId ? ended.current.event : null;
     let controller: AbortController;
     const consensusFor = (result: any) => {
       const a = agreement.current;
@@ -210,6 +216,8 @@ export function SwarmFeed({
       const timeout = setTimeout(() => controller.abort(), 12000);
       try {
         const readOlder = older.current === fact.requestId;
+        // One read back per press; a failed one offers the button again.
+        older.current = null;
         const events = terminal
           ? []
           : await registryEvents(
@@ -226,10 +234,10 @@ export function SwarmFeed({
                   ],
               fact.id,
               readOlder
-                ? { fromBlock: pending?.blockNumber }
+                ? {}
                 : { window: FEED_WINDOW, fromBlock: pending?.blockNumber },
             );
-        if (readOlder) older.current = null;
+        if (readOlder) checked.current = fact.requestId;
         if (!pending) {
           const p = await read(client, r, "Registry", "pendingRequest", [
             fact.requestId,
@@ -291,12 +299,19 @@ export function SwarmFeed({
         );
         if (outcome) {
           terminal = outcome;
+          ended.current = { requestId: fact.requestId, event: outcome };
           agreement.current = null;
           if (outcome.eventName === "Verified")
             pending.oracleRequestId = outcome.args.oracleRequestId;
           callback.current();
         }
         if (!active) return;
+        // Age is checked on every poll, also for a request already watched:
+        // once its block has left the 600-block (2-hour) feed window, the
+        // feed offers the read back to launch.
+        const stale =
+          !terminal &&
+          (events as any).toBlock - BigInt(pending.blockNumber) >= FEED_WINDOW;
         const result = await load(
           { ...pending, wallet: address },
           controller.signal,
@@ -318,7 +333,8 @@ export function SwarmFeed({
           address,
           requestId: fact.requestId,
           progress: result,
-          message: result ? "" : WAITING,
+          message: result ? "" : stale ? STALE : WAITING,
+          stale,
         });
         if (result && progressStatus(result) === "attested" && !attested) {
           attested = true;
@@ -422,6 +438,7 @@ export function SwarmFeed({
             {wrongWallet && <p>Expected wallet: {shortWallet(wrongWallet)}</p>}
           </>
         )}
+        {current && view.stale && message !== STALE && <p>{STALE}</p>}
         {current && view.consensus && <p>{view.consensus}</p>}
         {(outcome || status === "failed") && <p>{outcome || NO_FACT}</p>}
       </div>
@@ -477,9 +494,13 @@ export function SwarmFeed({
       {message === "progress unavailable" && (
         <button onClick={() => setRetry((n) => n + 1)}>Retry progress</button>
       )}
-      {message === STALE && (
+      {current && !outcome && checked.current === fact.requestId && (
+        <p className="muted">No Registry outcome found since launch.</p>
+      )}
+      {current && !outcome && checked.current !== fact.requestId && (
         <button
           type="button"
+          className="secondary older-blocks"
           onClick={() => {
             older.current = fact.requestId;
             setRetry((n) => n + 1);

@@ -68,6 +68,7 @@ test("7 all original control/link/choice label fragments are unchanged except th
     "Show list",
     "Hide list",
     "Request anyway",
+    "Check older blocks",
   ];
   assert.deepEqual(
     labels.filter((label) => !added.includes(label)),
