@@ -158,20 +158,20 @@
       "sha256": "c34bce140e26f958072943a5326c503bd737cfa49c98e5b7a0345a06302e94b6"
     },
     {
-      "path": "assets/ccip-CNas32R7.js",
-      "sha256": "5d534ad08d6f789fb82538321cc0b4c04b25a6271bbdc35c90c77acc9221cdfe"
+      "path": "assets/ccip-h7-KMtHH.js",
+      "sha256": "833566192b5a6580dcba784d08fe77393ceb28faaf34dfcbcda34612229a070c"
     },
     {
-      "path": "assets/dist--hPB_40r.js",
-      "sha256": "a073945d9dcfe15a7ed84f0b6e10b90d73b733d973c789ed46c19ffb27dd1058"
+      "path": "assets/dist-aEGBNIjd.js",
+      "sha256": "67368eeecc665ef023feee98ab43cbd1e1ab708d3dd0b86e0f526fa5a5cec121"
     },
     {
       "path": "assets/index--k6pWnCG.css",
       "sha256": "6eb7af90aa1269142c1b83e83d0950a6ae30198e3c71a2741f45e8036d3b6bd1"
     },
     {
-      "path": "assets/index-CGPjVirw.js",
-      "sha256": "8b927f6ed7c4390064b439559a586b159ccdb0290e25729ece6c529e03fe4ca8"
+      "path": "assets/index-BFd9_gy8.js",
+      "sha256": "8312e84863d80c4a32c79ae10f63347f690f4a59703756df4081c07394f417ef"
     },
     {
       "path": "data/art-provenance.json",
@@ -203,7 +203,7 @@
     },
     {
       "path": "index.html",
-      "sha256": "8bb2f64a54dffcda62193e375ad35ba2daf65a63c2f8e8d7c2b4da99dd41826c"
+      "sha256": "24a8756eb881c5a759dbb969b29b797786e1eb3f8d9e5ea3fd0dda222ab81ba0"
     },
     {
       "path": "llms.txt",

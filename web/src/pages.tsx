@@ -606,7 +606,7 @@ export function FactArtifact() {
         </p>
         <div className="inline-links">
           <a href="#/integrate">Copy verification calls ↗</a>
-          <a href="https://github.com/banse/sworn/blob/rebuild-base/README.md">
+          <a href="https://github.com/identity-md-launches/launch-2404-renderer-composer-registry/blob/c4ff3238390fc51962fb67e86affc20cf418126e/README.md">
             Read the contract README ↗
           </a>
           <a href="./agents/sworn.md" download>

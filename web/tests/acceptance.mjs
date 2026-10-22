@@ -168,7 +168,7 @@ try {
         .getByRole("button", { name: "Review transaction steps" })
         .click();
       await d.waitFor();
-      assert.equal(await d.locator("#payment-ack").isChecked(), true);
+      assert.equal(await d.locator("#payment-ack").isChecked(), false);
       assert.match(await d.innerText(), /rejected/);
       assert.equal(await action.isDisabled(), true);
       await page.screenshot({

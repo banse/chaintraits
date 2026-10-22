@@ -12,11 +12,17 @@ export async function registryEvents(
   r: Runtime,
   names: string[],
   id?: number,
+  fromBlock?: bigint,
 ) {
-  const launch = await fetch(asset("data/launch.json")).then((r) => r.json());
+  const start =
+    fromBlock ??
+    BigInt(
+      (await fetch(asset("data/launch.json")).then((r) => r.json()))
+        .blockNumber,
+    );
   const latest = await client.getBlockNumber();
   const result: any[] = [];
-  for (let from = BigInt(launch.blockNumber); from <= latest; from += 1500n) {
+  for (let from = start; from <= latest; from += 1500n) {
     const to = from + 1499n > latest ? latest : from + 1499n;
     for (const name of names) {
       const event = r.abis.Registry.find(

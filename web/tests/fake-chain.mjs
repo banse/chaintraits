@@ -78,6 +78,26 @@ export const sharedSpec = {
   toBlock: 25789604n,
   name: "Top Weights",
 };
+export function registryLog(name, args, extra = {}) {
+  const event = abis.Registry.find(
+    (e) => e.type === "event" && e.name === name,
+  );
+  return {
+    address: deployed.Registry,
+    blockNumber: toHex(26245000),
+    blockHash: "0x" + "44".repeat(32),
+    transactionHash: "0x" + "77".repeat(32),
+    transactionIndex: "0x0",
+    logIndex: "0x0",
+    removed: false,
+    topics: encodeEventTopics({ abi: [event], eventName: name, args }),
+    data: encodeAbiParameters(
+      event.inputs.filter((e) => !e.indexed),
+      event.inputs.filter((e) => !e.indexed).map((e) => args[e.name]),
+    ),
+    ...extra,
+  };
+}
 export function fakeChain(options = {}) {
   const state = {
     token: 0n,
@@ -93,6 +113,8 @@ export function fakeChain(options = {}) {
     failSimulation: false,
     pending: [],
     proven: [],
+    verifiedEvents: [],
+    receiptLogs: [],
     failFunction: "",
     ...options,
     calls: [],
@@ -156,39 +178,29 @@ export function fakeChain(options = {}) {
     if (p.method === "eth_getLogs") {
       if (state.incomplete) throw Error("Incomplete archive");
       if (a.address.toLowerCase() === deployed.Registry.toLowerCase()) {
-        const event = abis.Registry.find(
-          (e) => e.type === "event" && e.name === "TraitRequested",
-        );
-        if (
-          a.topics[0] !==
-          encodeEventTopics({ abi: [event], eventName: event.name })[0]
-        )
-          return [];
-        return state.pending
-          .filter(
-            (p) =>
-              BigInt(a.fromBlock) <= 26245000n &&
-              BigInt(a.toBlock) >= 26245000n,
-          )
-          .map((p, i) => ({
-            address: deployed.Registry,
-            blockNumber: toHex(26245000),
-            blockHash: block.hash,
-            transactionHash: "0x" + "77".repeat(32),
-            transactionIndex: "0x0",
-            logIndex: toHex(i),
-            removed: false,
-            topics: encodeEventTopics({
-              abi: [event],
-              eventName: event.name,
-              args: { claimant: p.claimant || wallet, traitId: p.id },
-            }),
-            data: encodeAbiParameters(
-              event.inputs.filter((x) => !x.indexed),
-              [p.requestId, p.questionHash],
+        return [
+          ...state.pending.map((p, i) =>
+            registryLog(
+              "TraitRequested",
+              {
+                claimant: p.claimant || wallet,
+                traitId: p.id,
+                requestId: p.requestId,
+                questionHash: p.questionHash,
+              },
+              {
+                logIndex: toHex(i),
+                ...(p.transactionHash
+                  ? { transactionHash: p.transactionHash }
+                  : {}),
+              },
             ),
-          }))
-          .filter((log) =>
+          ),
+          ...state.verifiedEvents,
+        ].filter(
+          (log) =>
+            BigInt(a.fromBlock) <= BigInt(log.blockNumber) &&
+            BigInt(a.toBlock) >= BigInt(log.blockNumber) &&
             a.topics.every(
               (t, i) =>
                 t == null ||
@@ -196,7 +208,7 @@ export function fakeChain(options = {}) {
                   ? t.includes(log.topics[i])
                   : t.toLowerCase() === log.topics[i]?.toLowerCase()),
             ),
-          );
+        );
       }
       if (a.address.toLowerCase() !== deps.curator.toLowerCase()) return [];
       const event =
@@ -329,7 +341,14 @@ export function fakeChain(options = {}) {
               p.id === Number(values[1]) &&
               (p.claimant || wallet).toLowerCase() === values[0].toLowerCase(),
           )?.requestId || zeroHash;
-      else if (fn === "sharedPending") result = zeroHash;
+      else if (fn === "sharedPending")
+        result =
+          state.pending.find(
+            (p) =>
+              !p.cleared &&
+              p.id === Number(values[0]) &&
+              p.claimant === "0x0000000000000000000000000000000000000000",
+          )?.requestId || zeroHash;
       else if (fn === "pendingRequest") {
         const pending = state.pending.find(
           (p) => !p.cleared && p.requestId === values[0],
@@ -367,6 +386,7 @@ export function fakeChain(options = {}) {
     }
     if (p.method === "eth_getTransactionReceipt") {
       state.allowance = 10n ** 22n;
+      state.onReceipt?.();
       return {
         transactionHash: p.params[0],
         transactionIndex: "0x0",
@@ -377,7 +397,7 @@ export function fakeChain(options = {}) {
         cumulativeGasUsed: "0x5208",
         gasUsed: "0x5208",
         contractAddress: null,
-        logs: [],
+        logs: state.receiptLogs,
         logsBloom: block.logsBloom,
         status: "0x1",
         effectiveGasPrice: "0x1",
@@ -422,7 +442,7 @@ export async function mockPage(page, fixture) {
     )
       return route.fulfill({ status: 429, body: "rate limited" });
     try {
-      const result = fixture.answer(payload);
+      const result = await fixture.answer(payload);
       return route.fulfill({
         status: 200,
         contentType: "application/json",

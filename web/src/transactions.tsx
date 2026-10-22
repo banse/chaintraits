@@ -18,10 +18,12 @@ import {
   ACTION,
   type WalletFacts,
 } from "./chain";
-import { imd, ethCeiling } from "./pure.mjs";
+import { imd, ethCeiling, decodeMetadata } from "./pure.mjs";
 import { checkSharedSpec } from "./shared-safety.mjs";
 import { quoteEth, swapCall, type SwapQuote } from "./swap";
 import { Card, Status } from "./components";
+import { TRAITS } from "./data";
+import { SwarmFeed, type WatchedFact } from "./swarm";
 export type Call = {
   label: string;
   functionName: string;
@@ -52,6 +54,7 @@ type Step = {
   hash?: Hex;
   replacement?: Hex;
   call?: Call;
+  result?: { token?: bigint; facts?: WatchedFact[] };
 };
 const JOURNAL_KEY = "sworn.transaction-journal";
 const encode = (value: any) =>
@@ -106,7 +109,7 @@ export function useTransactions() {
   const saved = useRef(restored()).current;
   const [plan, setPlan] = useState<Plan | null>(saved.plan || null);
   const [steps, setSteps] = useState<Step[]>(saved.steps || []);
-  const [ack, setAck] = useState<boolean>(!!saved.ack);
+  const [ack, setAck] = useState<boolean>(false);
   const [isOpen, setOpen] = useState(false);
   const [busy, setBusy] = useState(false),
     [error, setError] = useState("");
@@ -116,16 +119,13 @@ export function useTransactions() {
   const lock = useRef(false);
   useEffect(() => {
     try {
-      localStorage.setItem(
-        JOURNAL_KEY,
-        encode({ plan, steps, ack, registered }),
-      );
+      localStorage.setItem(JOURNAL_KEY, encode({ plan, steps, registered }));
     } catch {
       setError(
         "Could not save the journal. Keep receipt hashes before reloading.",
       );
     }
-  }, [plan, steps, ack, registered]);
+  }, [plan, steps, registered]);
   const update = (i: number, patch: Partial<Step>) =>
     setSteps((old) => old.map((s, j) => (j === i ? { ...s, ...patch } : s)));
   const next = steps.findIndex((s) => s.state !== "confirmed");
@@ -434,21 +434,7 @@ export function useTransactions() {
       if (receipt.status !== "success")
         throw Error("Transaction reverted. No success was recorded.");
       update(index, { state: "confirmed" });
-      for (const log of receipt.logs) {
-        try {
-          const decoded: any = decodeEventLog({
-            abi: site.r.abis.Registry,
-            data: log.data,
-            topics: log.topics,
-          });
-          if (
-            decoded.eventName === "SpecRegistered" &&
-            log.address.toLowerCase() ===
-              contract(site.r, "Registry").address.toLowerCase()
-          )
-            setRegistered(Number(decoded.args.traitId));
-        } catch {}
-      }
+      recordResult(index, receipt);
       await site.refresh();
     } catch (e) {
       const message = explain(
@@ -471,6 +457,58 @@ export function useTransactions() {
       lock.current = false;
       setBusy(false);
     }
+  }
+  function recordResult(index: number, receipt: any) {
+    const call = steps[index]?.call;
+    if (!call || receipt.status !== "success") return;
+    const result: NonNullable<Step["result"]> = {};
+    for (const log of receipt.logs) {
+      if (
+        log.address.toLowerCase() !==
+        contract(site.r, "Registry").address.toLowerCase()
+      )
+        continue;
+      try {
+        const decoded: any = decodeEventLog({
+          abi: site.r.abis.Registry,
+          data: log.data,
+          topics: log.topics,
+        });
+        if (
+          decoded.eventName === "SpecRegistered" &&
+          call.functionName === "registerSpec"
+        )
+          setRegistered(Number(decoded.args.traitId));
+        if (
+          decoded.eventName === "CardMinted" &&
+          call.functionName === "mintCard" &&
+          decoded.args.claimant.toLowerCase() === plan?.account.toLowerCase()
+        )
+          result.token = decoded.args.tokenId;
+        if (
+          decoded.eventName === "TraitRequested" &&
+          ["upgrade", "requestSharedFact"].includes(call.functionName)
+        ) {
+          const id = Number(decoded.args.traitId);
+          if (id !== Number(call.args[0])) continue;
+          result.facts = [
+            ...(result.facts || []),
+            {
+              requestId: decoded.args.requestId,
+              id,
+              name:
+                plan?.lines.find((line) => line.id === id)?.name ||
+                TRAITS.find((trait) => trait.id === id)?.name ||
+                `Fact ${id}`,
+            },
+          ];
+        }
+      } catch {
+        /* Unrelated logs do not establish an action result. */
+      }
+    }
+    if (result.token !== undefined || result.facts?.length)
+      update(index, { result });
   }
   async function recover(hash: string) {
     if (!/^0x[a-fA-F0-9]{64}$/.test(hash)) {
@@ -495,6 +533,8 @@ export function useTransactions() {
             : s,
         ),
       );
+      const index = steps.findIndex((s) => s.hash === hash && !s.replacement);
+      if (index >= 0) recordResult(index, receipt);
       setError("");
     } catch (e) {
       setError(`Receipt unavailable. ${explain(e)}`);
@@ -541,6 +581,44 @@ export function useTransactions() {
   };
 }
 export type Journal = ReturnType<typeof useTransactions>;
+function MintResult({ token }: { token: bigint }) {
+  const { client, r } = useSite();
+  const [metadata, setMetadata] = useState<any>();
+  const [error, setError] = useState("");
+  const [retry, setRetry] = useState(0);
+  useEffect(() => {
+    let active = true;
+    setMetadata(undefined);
+    setError("");
+    read(client, r, "Registry", "tokenURI", [token])
+      .then((uri) => {
+        if (active) setMetadata(decodeMetadata(uri).data);
+      })
+      .catch((e) => {
+        if (active) setError(explain(e));
+      });
+    return () => {
+      active = false;
+    };
+  }, [client, r, token, retry]);
+  return (
+    <div className="payment-preview">
+      <h3>Your Sworn card #{token.toString()}</h3>
+      {metadata ? (
+        <Card facts={{ token, metadata }} />
+      ) : (
+        <Status error={!!error}>
+          {error || "Reading its facts and image…"}
+        </Status>
+      )}
+      {error && (
+        <button onClick={() => setRetry((n) => n + 1)}>
+          Retry wallet reads
+        </button>
+      )}
+    </div>
+  );
+}
 export function TransactionJournal({ journal: j }: { journal: Journal }) {
   const site = useSite(),
     dialog = useRef<HTMLDialogElement>(null);
@@ -551,6 +629,14 @@ export function TransactionJournal({ journal: j }: { journal: Journal }) {
     if (!j.isOpen && d?.open) d.close();
   }, [j.isOpen]);
   const complete = j.steps.length > 0 && j.next === -1;
+  const results = j.steps.filter((s) => s.state === "confirmed" && s.result);
+  const oraclePayment = j.plan?.calls.some((c) =>
+    ["upgrade", "requestSharedFact"].includes(c.functionName),
+  );
+  const mintPayment = j.plan?.calls.some((c) => c.functionName === "mintCard");
+  const registrationPayment = j.plan?.calls.some(
+    (c) => c.functionName === "registerSpec",
+  );
   return (
     <section id="transaction-steps" className="section journal">
       <h2>Transaction steps</h2>
@@ -590,6 +676,30 @@ export function TransactionJournal({ journal: j }: { journal: Journal }) {
               ×
             </button>
           </div>
+          {results.map((s, i) => (
+            <section
+              key={s.hash || i}
+              className="transaction-result"
+              aria-label="Transaction result"
+            >
+              {s.result!.token !== undefined && (
+                <MintResult token={s.result!.token} />
+              )}
+              {s.result!.facts?.map((fact) => (
+                <div key={fact.requestId}>
+                  <p className="accent" role="status">
+                    request sent, the panel answers in a few minutes
+                  </p>
+                  <SwarmFeed
+                    fact={fact}
+                    focus={null}
+                    onAttested={site.refresh}
+                    idPrefix="result"
+                  />
+                </div>
+              ))}
+            </section>
+          ))}
           {j.plan && (
             <>
               <dl className="payment-summary">
@@ -601,10 +711,12 @@ export function TransactionJournal({ journal: j }: { journal: Journal }) {
                   <dt>IMD balance at preparation</dt>
                   <dd>{imd(j.plan.balance)} IMD</dd>
                 </div>
-                <div>
-                  <dt>Live oracle price at preparation</dt>
-                  <dd>{imd(j.plan.price)} IMD / request</dd>
-                </div>
+                {oraclePayment && (
+                  <div>
+                    <dt>Live oracle price at preparation</dt>
+                    <dd>{imd(j.plan.price)} IMD / request</dd>
+                  </div>
+                )}
               </dl>
               <ul>
                 {j.plan.lines.map((line, i) => (
@@ -614,28 +726,39 @@ export function TransactionJournal({ journal: j }: { journal: Journal }) {
                   </li>
                 ))}
               </ul>
-              <p>
-                Card and registration fees are forwarded to the IMD BurnExecutor
-                for bridging and burning on Base. Oracle requests are paid to
-                the IMD Intake.
-              </p>
+              {mintPayment && (
+                <p>
+                  Card fees are forwarded to the IMD BurnExecutor for bridging
+                  and burning on Base.
+                </p>
+              )}
+              {registrationPayment && (
+                <p>
+                  Registration fees are forwarded to the IMD BurnExecutor for
+                  bridging and burning on Base.
+                </p>
+              )}
+              {oraclePayment && (
+                <p>Oracle requests are paid to the IMD Intake.</p>
+              )}
               <p className="muted">
                 Pay with: {j.plan.payment}. The live price and simulation are
                 checked again before each signature.
               </p>
-              {j.plan.preview && (
-                <div className="payment-preview">
-                  <h3>Your card's facts</h3>
-                  <Card facts={j.plan.preview} />
-                  <p>
-                    Direct facts:{" "}
-                    {j.plan.preview.traits
-                      .filter((id) => id < 601)
-                      .join(", ") || "none"}
-                    . Preview only; a card is never a credential.
-                  </p>
-                </div>
-              )}
+              {j.plan.preview &&
+                !results.some((s) => s.result?.token !== undefined) && (
+                  <div className="payment-preview">
+                    <h3>Your card's facts</h3>
+                    <Card facts={j.plan.preview} />
+                    <p>
+                      Direct facts:{" "}
+                      {j.plan.preview.traits
+                        .filter((id) => id < 601)
+                        .join(", ") || "none"}
+                      . Preview only; a card is never a credential.
+                    </p>
+                  </div>
+                )}
               {j.plan.quote && (
                 <p>
                   Buy exactly {imd(j.plan.quote.output)} IMD with at most{" "}
@@ -725,7 +848,7 @@ export function TransactionJournal({ journal: j }: { journal: Journal }) {
             </Status>
           )}
           <Status error>{j.error}</Status>
-          {complete && (
+          {complete && !results.length && (
             <p className="accent" role="status">
               All transaction steps confirmed. Refresh wallet facts to see the
               result.

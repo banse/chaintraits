@@ -1,0 +1,80 @@
+{
+  "at": "2026-10-22T02:22:40.102Z",
+  "engine": "chromium",
+  "browserVersion": "156.0.8078.4",
+  "checks": [
+    "1 pending and failed tokenOf never offer mint; retry recovers to card #1",
+    "2/3 confirmed mint shows its own receipt result, price and destination",
+    "2/3 confirmed fact shows its own receipt result, price and destination",
+    "2/3 confirmed shared shows its own receipt result, price and destination",
+    "2/3 confirmed registration shows its own receipt result, price and destination",
+    "6 a legacy saved ack:true is ignored and omitted from new journal storage",
+    "8 refused Intake uses claimant q, oldest match survives a later duplicate; Verified overrides it",
+    "8 delivered request can be reconstructed after reload from its Registry event",
+    "4 contract README link names the pinned launch commit"
+  ],
+  "errors": [],
+  "scope": "Eight-item Sworn follow-up. Fake EIP-1193 wallet, RPC and API only; no real signing or sending.",
+  "suites": {
+    "acceptance": {
+      "passedGroups": 12,
+      "errors": []
+    },
+    "actions": {
+      "passedGroups": 11,
+      "errors": []
+    },
+    "swarm": {
+      "passedGroups": 10,
+      "errors": []
+    }
+  },
+  "unitTests": 61,
+  "routes": {
+    "combinations": 40,
+    "errors": [],
+    "widths": [
+      320,
+      390,
+      780,
+      1280,
+      1440
+    ]
+  },
+  "taste": {
+    "passed": 14,
+    "total": 16,
+    "preservedExceptions": [
+      "existing uppercase headings",
+      "existing monospace prose"
+    ]
+  },
+  "browserTool": {
+    "widths": [
+      390,
+      1280
+    ],
+    "homeActionY": 412.890625,
+    "homeActionHeight": 44,
+    "overflow": false,
+    "consoleMessages": 0,
+    "addressValidation": true,
+    "walletTabContainment": true,
+    "escapeAndFocusReturn": true
+  },
+  "build": {
+    "typecheck": "passed",
+    "format": "passed",
+    "production": "passed",
+    "manifest": "passed",
+    "assets": 47,
+    "assetBytes": 1078918,
+    "relativeAssetURLs": true
+  },
+  "limitations": [
+    "WebKit could not launch because required system libraries are missing.",
+    "No live-chain write, real signing, real API/CORS, physical-device, screen-reader or native-zoom checks.",
+    "Optional live-read/fork suites skipped.",
+    "Fallback can only discover candidates in the available listing or a previously retained identity."
+  ]
+}

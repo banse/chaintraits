@@ -177,7 +177,7 @@ export function Card({
   interactive = false,
   onFamily,
 }: {
-  facts?: WalletFacts;
+  facts?: Pick<WalletFacts, "token" | "metadata">;
   sample?: boolean;
   miniId?: number;
   interactive?: boolean;

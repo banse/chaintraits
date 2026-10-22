@@ -47,10 +47,12 @@ export function SwarmFeed({
   fact,
   focus,
   onAttested,
+  idPrefix = "swarm",
 }: {
   fact: WatchedFact;
   focus: { requestId: string; tick: number } | null;
   onAttested: () => void;
+  idPrefix?: string;
 }) {
   const { client, r } = useSite();
   const element = useRef<HTMLDetailsElement>(null);
@@ -83,36 +85,57 @@ export function SwarmFeed({
       controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 12000);
       try {
+        const events = pending?.oracleRequestId
+          ? []
+          : await registryEvents(
+              client,
+              r,
+              pending ? ["Verified"] : ["TraitRequested", "Verified"],
+              fact.id,
+              pending?.blockNumber,
+            );
         if (!pending) {
           const p = await read(client, r, "Registry", "pendingRequest", [
             fact.requestId,
           ]);
-          if (Number(p[1]) !== fact.id || p[2] === 0n)
-            throw Error("Pending request unavailable.");
-          const events = await registryEvents(
-            client,
-            r,
-            ["TraitRequested"],
-            fact.id,
-          );
           const event = events.find(
             (e) =>
-              e.args.requestId.toLowerCase() === fact.requestId.toLowerCase() &&
-              e.args.claimant.toLowerCase() === p[0].toLowerCase(),
+              e.eventName === "TraitRequested" &&
+              e.args.requestId.toLowerCase() === fact.requestId.toLowerCase(),
           );
+          if (!event) throw Error("Request event unavailable.");
+          // After delivery pendingRequest may be cleared. The originating event
+          // and its block still identify the request across reloads/recovery.
           if (
-            !event ||
-            event.args.questionHash.toLowerCase() !== p[3].toLowerCase()
+            p[2] !== 0n &&
+            (Number(p[1]) !== fact.id ||
+              event.args.claimant.toLowerCase() !== p[0].toLowerCase() ||
+              event.args.questionHash.toLowerCase() !== p[3].toLowerCase())
           )
-            throw Error("Request event unavailable.");
+            throw Error("Request event mismatch.");
+          const requestedAt =
+            p[2] !== 0n
+              ? p[2]
+              : (await client.getBlock({ blockNumber: event.blockNumber }))
+                  .timestamp;
           pending = {
             registry: contract(r, "Registry").address,
             chainId: r.deployment.chainId,
-            requestedAt: p[2],
+            requestId: fact.requestId,
+            transactionHash: event.transactionHash,
+            claimant: event.args.claimant,
+            requestedAt,
+            blockNumber: event.blockNumber,
             questionHash: event.args.questionHash,
           };
           identity.current = { requestId: fact.requestId, pending };
         }
+        const verified = events.find(
+          (e) =>
+            e.eventName === "Verified" &&
+            e.args.requestId.toLowerCase() === fact.requestId.toLowerCase(),
+        );
+        if (verified) pending.oracleRequestId = verified.args.oracleRequestId;
         if (!active) return;
         const result = await load(pending, controller.signal);
         if (!active) return;
@@ -145,7 +168,7 @@ export function SwarmFeed({
     <details
       ref={element}
       className="swarm-request"
-      id={`swarm-${fact.requestId}`}
+      id={`${idPrefix}-${fact.requestId}`}
       open
     >
       <summary>
@@ -166,6 +189,15 @@ export function SwarmFeed({
             >
               {progressStatus(progress)}
             </p>
+            <p className="break">
+              Oracle request: {progress.id} · {progress.foundBy}
+            </p>
+            {progress.previousRequestId && (
+              <p className="break">
+                The Registry confirmed a different oracle request from the one
+                shown before ({progress.previousRequestId}).
+              </p>
+            )}
             <p>
               {counts!.answered} / {progress.panelSize} answers ·{" "}
               {counts!.agreed ?? "unavailable"} agree / {progress.quorum} quorum

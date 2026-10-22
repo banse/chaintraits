@@ -190,7 +190,7 @@ export function Settlement({
                 [],
                 "IMD",
               );
-              setStatus("Prepared, see Transaction steps.");
+              setStatus("Ready: confirm the steps in the dialog.");
             } catch (e) {
               setStatus(
                 explain(e, [...site.r.abis.Registry, ...site.r.abis.Composer]),
@@ -220,7 +220,7 @@ export function Settlement({
                 [],
                 "IMD",
               );
-              setStatus("Prepared, see Transaction steps.");
+              setStatus("Ready: confirm the steps in the dialog.");
             } catch (e) {
               setStatus(
                 explain(e, [...site.r.abis.Registry, ...site.r.abis.Composer]),
@@ -228,11 +228,11 @@ export function Settlement({
             }
           }}
         >
-          Mint abandon
+          Abandon request
         </button>
       )}
       <Status>{status}</Status>
-      {status.startsWith("Prepared") && (
+      {status.startsWith("Ready:") && (
         <a href={claimAnchor("transaction-steps")}>Transaction steps ↓</a>
       )}
     </div>
@@ -299,7 +299,7 @@ function SharedFact({
             : "");
   async function prepare() {
     setBusy(true);
-    setStatus("Preparing…");
+    setStatus("Checking…");
     try {
       if (!site.health) throw Error("Live reads unavailable.");
       if (stored) {
@@ -333,7 +333,7 @@ function SharedFact({
           payment,
         );
       }
-      setStatus("Prepared, see Transaction steps.");
+      setStatus("Ready: confirm the steps in the dialog.");
     } catch (e) {
       setStatus(explain(e, [...site.r.abis.Registry, ...site.r.abis.Composer]));
     } finally {
@@ -377,19 +377,19 @@ function SharedFact({
       )}
       <p className="muted">Pay with: {stored ? "gas only" : payment}</p>
       <button disabled={!!reason || busy} onClick={prepare}>
-        {busy ? "Preparing…" : stored ? "Mint apply" : "Mint shared fact"}
+        {busy ? "Checking…" : stored ? "Apply shared fact" : "Mint shared fact"}
       </button>
       <Status
         error={
           !!error ||
           (status !== "" &&
-            !status.startsWith("Prepared") &&
-            status !== "Preparing…")
+            !status.startsWith("Ready:") &&
+            status !== "Checking…")
         }
       >
         {error || status || reason}
       </Status>
-      {status.startsWith("Prepared") && (
+      {status.startsWith("Ready:") && (
         <a href={claimAnchor("transaction-steps")}>Transaction steps ↓</a>
       )}
       {pending && (
@@ -516,7 +516,7 @@ function CommunityForm({
         payment,
       );
       setStatus(
-        `Prepared, see Transaction steps. The new id will be read from the receipt. A first oracle claim currently costs ${imd(prepared.price)} IMD; this price can change.`,
+        `Ready: confirm the steps in the dialog. The new id will be read from the receipt. A first oracle claim currently costs ${imd(prepared.price)} IMD; this price can change.`,
       );
     } catch (e) {
       setStatus(explain(e, [...site.r.abis.Registry, ...site.r.abis.Composer]));
@@ -632,12 +632,12 @@ function CommunityForm({
         }
         type="submit"
       >
-        {busy ? "Preparing…" : "Mint registration"}
+        {busy ? "Checking…" : "Mint registration"}
       </button>
       <Status
         error={
           !!status &&
-          !status.startsWith("Prepared") &&
+          !status.startsWith("Ready:") &&
           !status.startsWith("Validating")
         }
       >
@@ -647,7 +647,7 @@ function CommunityForm({
             ? "Enter valid values for the selected template."
             : "")}
       </Status>
-      {status.startsWith("Prepared") && (
+      {status.startsWith("Ready:") && (
         <a href={claimAnchor("transaction-steps")}>Transaction steps ↓</a>
       )}
     </form>
@@ -663,8 +663,13 @@ export function Claim() {
     null,
   );
   const minted =
-    facts?.token ??
-    (owned && owned.address === account.address ? owned.token : null);
+    owned && owned.address === account.address ? owned.token : null;
+  const [cardRead, setCardRead] = useState<{
+    address?: string;
+    state: "pending" | "ready" | "failed";
+  }>({ state: "pending" });
+  const cardReady =
+    cardRead.address === account.address && cardRead.state === "ready";
   const [factError, setFactError] = useState("");
   const [payment, setPayment] = useState("IMD");
   const [selected, setSelected] = useState<number[]>([]);
@@ -774,21 +779,29 @@ export function Claim() {
         : null,
     );
     setFactError("");
+    setCardRead({ address: account.address, state: "pending" });
     if (account.address && site.health)
       read(site.client, site.r, "Registry", "tokenOf", [account.address])
         .then((token) => {
-          if (active) setOwned({ address: account.address!, token });
+          if (active) {
+            setOwned({ address: account.address!, token });
+          }
           return lookup(site.client, site.r, site.health!, account.address!, [
             ...TRAITS.map((t) => t.id),
             ...site.specs.map((s) => s.id),
           ]);
         })
         .then((v) => {
-          if (active) setFacts(v);
+          if (active) {
+            setFacts(v);
+            setOwned({ address: account.address!, token: v.token });
+            setCardRead({ address: account.address, state: "ready" });
+          }
         })
         .catch((e) => {
           if (active) {
             setFacts(null);
+            setCardRead({ address: account.address, state: "failed" });
             setFactError(
               explain(e, [...site.r.abis.Registry, ...site.r.abis.Composer]),
             );
@@ -855,7 +868,7 @@ export function Claim() {
   ];
   async function prepareMint() {
     setBusy("mint");
-    setStatus((v) => ({ ...v, mint: "Preparing…" }));
+    setStatus((v) => ({ ...v, mint: "Checking…" }));
     try {
       await journal.prepare(
         "Mint your Sworn card",
@@ -872,7 +885,10 @@ export function Claim() {
         payment,
         facts || undefined,
       );
-      setStatus((v) => ({ ...v, mint: "Prepared, see Transaction steps." }));
+      setStatus((v) => ({
+        ...v,
+        mint: "Ready: confirm the steps in the dialog.",
+      }));
     } catch (e) {
       setStatus((v) => ({
         ...v,
@@ -884,7 +900,7 @@ export function Claim() {
   }
   async function prepareFacts() {
     setBusy("facts");
-    setStatus((v) => ({ ...v, facts: "Preparing…" }));
+    setStatus((v) => ({ ...v, facts: "Checking…" }));
     try {
       if (!site.health || !facts)
         throw Error("Wallet reads unavailable. Retry reads.");
@@ -904,7 +920,10 @@ export function Claim() {
         rows.map((t) => ({ id: t.id, name: t.name, amount: price })),
         payment,
       );
-      setStatus((v) => ({ ...v, facts: "Prepared, see Transaction steps." }));
+      setStatus((v) => ({
+        ...v,
+        facts: "Ready: confirm the steps in the dialog.",
+      }));
     } catch (e) {
       setStatus((v) => ({
         ...v,
@@ -940,9 +959,13 @@ export function Claim() {
           <h2>
             {minted !== null && minted !== 0n
               ? `Your Sworn card #${minted}`
-              : "Mint your Sworn card"}
+              : account.address && !cardReady
+                ? factError
+                  ? "Retry wallet reads"
+                  : "Reading your card…"
+                : "Mint your Sworn card"}
           </h2>
-          {(minted === null || minted === 0n) && (
+          {(!account.address || (cardReady && minted === 0n)) && (
             <>
               <p>
                 A card costs 0.10 IMD; no trait claim is needed before minting.
@@ -960,14 +983,14 @@ export function Claim() {
             <p className="accent">
               Card #{minted.toString()} · Original claimant: {account.address}
             </p>
-          ) : (
+          ) : !cardReady ? null : (
             <button
               className="primary"
               disabled={!!reason || !facts || facts.token !== 0n || !!busy}
               onClick={prepareMint}
             >
               {busy === "mint"
-                ? "Preparing…"
+                ? "Checking…"
                 : facts && facts.token !== 0n
                   ? "Already minted"
                   : "Mint card"}
@@ -977,8 +1000,8 @@ export function Claim() {
             error={
               !!factError ||
               (!!status.mint &&
-                !status.mint.startsWith("Prepared") &&
-                status.mint !== "Preparing…")
+                !status.mint.startsWith("Ready:") &&
+                status.mint !== "Checking…")
             }
           >
             {factError ||
@@ -988,7 +1011,7 @@ export function Claim() {
                   reason ||
                   (!facts ? "Reading your wallet…" : ""))}
           </Status>
-          {status.mint?.startsWith("Prepared") && (
+          {status.mint?.startsWith("Ready:") && (
             <a href={claimAnchor("transaction-steps")}>
               {facts && facts.token !== 0n
                 ? "View mint receipts ↓"
@@ -1209,13 +1232,13 @@ export function Claim() {
             }
             onClick={prepareFacts}
           >
-            {busy === "facts" ? "Preparing…" : "Mint selected facts"}
+            {busy === "facts" ? "Checking…" : "Mint selected facts"}
           </button>
           <Status
             error={
               !!status.facts &&
-              !status.facts.startsWith("Prepared") &&
-              status.facts !== "Preparing…"
+              !status.facts.startsWith("Ready:") &&
+              status.facts !== "Checking…"
             }
           >
             {status.facts ||
@@ -1226,7 +1249,7 @@ export function Claim() {
                   ? "Select at least one fact."
                   : "")}
           </Status>
-          {status.facts?.startsWith("Prepared") && (
+          {status.facts?.startsWith("Ready:") && (
             <a href={claimAnchor("transaction-steps")}>Transaction steps ↓</a>
           )}
           {facts &&

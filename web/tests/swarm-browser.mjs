@@ -110,8 +110,8 @@ try {
     },
     {
       ...live,
-      id: "older-match",
-      createdAt: at(1),
+      id: "later-match",
+      createdAt: at(3),
       members: [
         { tokenId: "999", ok: true, answer: { answer: false, figure: "999" } },
       ],
@@ -122,6 +122,14 @@ try {
   await page.route("https://api.imd.fun/**", async (route) => {
     const url = new URL(route.request().url());
     evidence.api.push(url.pathname);
+    if (url.pathname.startsWith("/intake/"))
+      return route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ entries: [] }),
+      });
+    if (url.pathname === "/oracle/requests")
+      assert.equal(url.searchParams.get("q"), wallet);
     assert.match(url.pathname, /^\/oracle\/requests(?:\/[a-z-]+)?$/);
     assert.equal(route.request().method(), "GET");
     if (unavailable)
@@ -186,7 +194,7 @@ try {
     },
   );
   await run(
-    "4 summary-only API matches newest consumer + event questionHash at or after request",
+    "4 summary-only API matches oldest consumer + event questionHash at or after request",
     async () => {
       await feed
         .getByText("1 / 5 answers · 1 agree / 3 quorum", { exact: true })
@@ -195,7 +203,7 @@ try {
       assert.doesNotMatch(await feed.innerText(), /#999/);
       assert.equal(
         evidence.api.some(
-          (p) => p.endsWith("/older-match") || p.endsWith("/predates-request"),
+          (p) => p.endsWith("/later-match") || p.endsWith("/predates-request"),
         ),
         false,
       );
