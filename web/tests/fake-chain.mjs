@@ -313,7 +313,7 @@ export function fakeChain(options = {}) {
       else if (fn === "totalSupply") result = state.token;
       else if (fn === "MINT_FEE") result = 100000000000000000n;
       else if (fn === "SPEC_FEE") result = 6400000000000000000n;
-      else if (fn === "nextSpecId") result = 10001;
+      else if (fn === "nextSpecId") result = state.nextSpecId || 10001;
       else if (fn === "tokenOf") result = state.token;
       else if (fn === "claimantOf") result = wallet;
       else if (fn === "traitsOf") result = [101, ...state.proven];
@@ -466,7 +466,7 @@ export async function mockPage(page, fixture) {
     }
   });
 }
-export async function fakeWallet(context) {
+export async function fakeWallet(context, address = wallet) {
   await context.addInitScript((wallet) => {
     let authorized = !!sessionStorage.getItem("fake-authorized");
     window.__signing = [];
@@ -502,5 +502,5 @@ export async function fakeWallet(context) {
         throw Error("Unsupported fake wallet method " + method);
       },
     };
-  }, wallet);
+  }, address);
 }

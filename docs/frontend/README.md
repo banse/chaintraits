@@ -1,3 +1,7 @@
+# Current settled-event snapshot evidence
+
+See [eligibility-snapshot-results.json](eligibility-snapshot-results.json) and [current test notes](../../web/TEST-NOTES.md) for the compared mainnet read, fresh hash reproduction, independent all-wallet counts, production checks and actual browser observations. The nine settled facts use the static snapshot; 601 and 1301 retain their live checks. Two earlier PNG captures are retained as lossless WebP with identical decoded pixels; their updated links remain in the earlier records. The records below describe previous work.
+
 # Current A–E evidence
 
 See [ae-results.json](ae-results.json) and [current test notes](../../web/TEST-NOTES.md) for this delivery. The captures [home](screenshots/ae-home-390.webp), [payment dialog](screenshots/ae-mint-dialog-390.webp) and [card #1](screenshots/ae-owned-card-390.webp) are from actual Chromium with fake wallet/RPC fixtures. The older records below are historical. Two archived screenshots are now lossless WebP with identical decoded pixels to meet the submission budget.

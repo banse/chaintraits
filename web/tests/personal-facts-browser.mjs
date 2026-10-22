@@ -161,6 +161,7 @@ async function setup({
     ...(kind === 5 ? { toBlock: 25769870n } : {}),
   };
   fixture = fakeChain({
+    nextSpecId: id >= 10001 ? id + 1 : 10001,
     token: 1n,
     allowance: 10n ** 22n,
     price: 1250000000000000000n,
@@ -278,7 +279,7 @@ async function setup({
     await page
       .getByRole("button", { name: "Browser wallet", exact: true })
       .click();
-    await page.locator("#pick-801").waitFor();
+    await page.locator(`#pick-${id >= 10001 ? id : 801}`).waitFor();
   }
   if (kind === 3)
     await page
@@ -574,8 +575,8 @@ try {
     "6 met and not-met results match row/dialog; negative request requires Request anyway before fake signing prompt",
     async () => {
       for (const mode of ["met", "not-met"]) {
-        await setup({ pending: false, mode });
-        const row = page.locator("#pick-801");
+        await setup({ pending: false, mode, id: 10001 });
+        const row = page.locator("#pick-10001");
         await row.locator("input").check();
         const found =
           mode === "met"
@@ -603,7 +604,7 @@ try {
         );
         await dialog.locator("#payment-ack").check();
         const action = dialog.getByRole("button", {
-          name: "Request 801 / Holdout",
+          name: "Request 10001 / Holdout",
           exact: true,
         });
         await dialog.getByText("simulated", { exact: true }).waitFor();
@@ -655,8 +656,8 @@ try {
     "6 refused and slow reads show advisory warning and still reach the fake wallet; no extra confirmation",
     async () => {
       for (const mode of ["refused", "slow"]) {
-        await setup({ pending: false, mode });
-        const row = page.locator("#pick-801");
+        await setup({ pending: false, mode, id: 10001 });
+        const row = page.locator("#pick-10001");
         await row.locator("input").check();
         await row.getByText(unknown, { exact: true }).waitFor();
         await page
@@ -670,7 +671,7 @@ try {
         );
         await dialog.locator("#payment-ack").check();
         const action = dialog.getByRole("button", {
-          name: "Request 801 / Holdout",
+          name: "Request 10001 / Holdout",
           exact: true,
         });
         await dialog.getByText("simulated", { exact: true }).waitFor();

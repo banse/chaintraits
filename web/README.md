@@ -64,6 +64,34 @@ The handoff contains no `poolKey`. The export therefore adds none. The optional 
 
 Application API reads are limited to the optional Intake admission lookup and swarm-progress feed described below. No analytics, backend, relay or project ID is needed. Browser extensions use EIP-6963 through wagmi; mobile visitors receive in-wallet links; Coinbase Wallet supplies its SDK/passkey option. RPC selection and the receipt journal are stored only in the visitor's browser. Reloading never resends a transaction, and an uncertain or replaced broadcast must be recovered before continuing.
 
+## Settled-event eligibility snapshot
+
+The nine settled curator catalog facts (701, 801, 901, 1001 and 1101–1105) use only `data/eligibility/` in the static export. A wallet loads one shard, verifies its SHA-256 and byte length against the bundle's generated pin, and reads exact counts for all nine facts. Missing wallets have zero matches. A missing or corrupt file gives the existing advisory warning for that check; it does not block the ordinary paid request or trigger an RPC fallback. Facts 601 and 1301 and community rules retain their existing live checks.
+
+To regenerate from Ethereum mainnet, run from the repository root after `cd web && npm ci`:
+
+```sh
+node web/scripts/snapshot-eligibility.mjs --rpc https://gateway.tenderly.co/public/mainnet --rpc https://rpc.mevblocker.io/fast
+cd web
+npm run typecheck
+npm run build
+node tests/eligibility-snapshot-browser.mjs
+npm run verify:export
+```
+
+The generator reads the deployed Registry specs and compares every historical log range on two public endpoints before emitting anything. With a single `--rpc URL` it makes two separate reads per range. It validates chain 1, the closing block, exact event totals and all FirstDeposit indices, and fails closed on discrepancies. Public limits can change: supply other keyless Ethereum URLs using repeated `--rpc` flags. No credential is required. Endpoint provenance/range partitions can differ across runs; sorted shard contents and hashes must reproduce identically. A fresh `--check` run compares the committed counts and hashes without rewriting them.
+
+The manifest records every spec/window/filter, event/fact totals, comparison digests, generator command and shard hashes. The bundle also pins the manifest's own hash. Source data lives in `web/public/data/eligibility/`, and Vite copies it to `dist/data/eligibility/`. The whole snapshot is 333,945 bytes; each wallet shard is at most 22,104 bytes. A normal build performs no historical chain read.
+
+For an independent all-wallet count comparison, retain the generator's raw compared logs in scratch:
+
+```sh
+node web/scripts/snapshot-eligibility.mjs --rpc https://gateway.tenderly.co/public/mainnet --rpc https://rpc.mevblocker.io/fast --check --raw test/scratch/eligibility-mainnet-recheck.json
+node web/tests/verify-snapshot-read.mjs test/scratch/eligibility-mainnet-recheck.json
+```
+
+`npm run test:unit` includes snapshot integrity, refused-RPC, exact counts, failures and deadline tests. `node tests/eligibility-snapshot-browser.mjs` checks actual rows/dialogs with real snapshot files, a fake EIP-1193 wallet and fake RPC answers. It never signs or broadcasts. See [TEST-NOTES.md](TEST-NOTES.md) for current results, the six-domain design review, all deleted paths and browser limitations.
+
 ## Regenerate derived assets
 
 The checked-in layout and art make a normal build offline with respect to chain reads after dependencies have been installed. For deliberate regeneration against the pinned source and deployed contracts:

@@ -228,6 +228,9 @@ try {
         .click();
       const dialog = page.locator(".payment-dialog");
       await dialog.locator("#payment-ack").check();
+      await dialog
+        .getByRole("button", { name: "Request anyway", exact: true })
+        .click();
       const sign = dialog.getByRole("button", {
         name: "Request 701 / Uptime",
         exact: true,
@@ -429,6 +432,10 @@ try {
         .getByRole("button", { name: "Mint selected facts", exact: true })
         .click();
       await page.locator("#payment-ack").check();
+      await page
+        .locator(".payment-dialog")
+        .getByRole("button", { name: "Request anyway", exact: true })
+        .click();
       await page.waitForFunction(() =>
         [...document.querySelectorAll(".payment-dialog button")].some(
           (b) => b.textContent === "Request 701 / Uptime" && !b.disabled,

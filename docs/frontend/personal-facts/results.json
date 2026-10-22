@@ -678,8 +678,8 @@
     ]
   },
   "retainedScreenshots": [
-    "list-keyboard-390.png",
-    "eligibility-negative-390.png"
+    "list-keyboard-390.webp",
+    "eligibility-negative-390.webp"
   ],
   "limitations": [
     "WebKit launch attempted; required GTK/GStreamer and other host libraries are absent. Chromium coverage only.",

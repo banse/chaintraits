@@ -7,6 +7,7 @@ import {
   toHex,
 } from "viem";
 import { imd } from "./pure.mjs";
+import { snapshotFact, snapshotEligibility } from "./eligibility-snapshot.mjs";
 
 export const NOT_CHECKABLE =
   "Could not check eligibility; the request price is spent whatever the answer.";
@@ -47,14 +48,15 @@ const compare = (value, threshold, op) => {
   }
 };
 
-// Public-client reads only. The deadline covers specOf and the entire scan.
+// The settled catalog uses the pinned snapshot, including its immutable specs.
+// Other facts retain public-client reads. The deadline covers the whole check.
 // A late transport response cannot resume scanning or replace the timeout result.
 export async function checkEligibility(
   client,
   readSpec,
   wallet,
   id,
-  { timeoutMs = 20000 } = {},
+  { timeoutMs = 20000, snapshot = snapshotEligibility } = {},
 ) {
   let stopped = false,
     timer;
@@ -68,6 +70,7 @@ export async function checkEligibility(
     return result;
   };
   const scan = async () => {
+    if (snapshotFact(id)) return snapshot(wallet, id);
     const spec = await readSpec(id);
     guard();
     const kind = Number(spec.kind),

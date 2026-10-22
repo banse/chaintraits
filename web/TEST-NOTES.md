@@ -2,6 +2,86 @@
 
 This is worker validation of the frontend source and static export, not an independent network certification. Contracts were already deployed; this task made no contract-source changes, live transactions, redeployments or publication calls.
 
+## Current settled-event snapshot (2026-10-22 UTC)
+
+This section supersedes the earlier live-scan observations for catalog facts 701, 801, 901, 1001 and 1101–1105 only. The production export remains at `dist/` for `swornbyswarm.site.identitymd.eth`. The UI layout, routes, public wording, addresses, chain, ABIs, wallet connector, transaction construction, build configuration, dependency manifests and lockfile are preserved. No server, secret, analytics, signature or broadcast was added.
+
+### Chain read, comparison and regeneration
+
+From the repository root, the delivered generator was run as:
+
+```sh
+node web/scripts/snapshot-eligibility.mjs --rpc https://gateway.tenderly.co/public/mainnet --rpc https://rpc.mevblocker.io/fast --raw test/scratch/eligibility-mainnet-logs.json
+node web/scripts/snapshot-eligibility.mjs --rpc https://gateway.tenderly.co/public/mainnet --rpc https://rpc.mevblocker.io/fast --check --raw test/scratch/eligibility-mainnet-recheck.json
+node web/tests/verify-snapshot-read.mjs test/scratch/eligibility-mainnet-recheck.json
+```
+
+Both endpoints answered chain 1 and agreed on the closing block hash and all nine deployed `Registry.specOf` structs. The generator read Deposited, FirstDeposit and HourSaved topics together across inclusive blocks 25769870–25789604. It started with 1,000-block ranges, split potentially capped replies into smaller contiguous ranges, and accepted each range only after both endpoints returned identical canonical logs. Comparison includes address, block number/hash, transaction hash, log index, topics and data; optional provider timestamp fields are excluded. Empty responses are compared too. Removed, duplicate, malformed and out-of-window logs fail validation. The closing block is checked again after the scan. The initial default thirdweb probe was unavailable; the explicit command above uses the two successful public operators.
+
+Both complete reads returned **47,916 logs**: Deposited **28,353 / 19,522 wallets**, FirstDeposit **19,522 / 19,522 wallets**, and HourSaved **41 / 33 wallets**. Every FirstDeposit index from 1 through 19,522 appeared exactly once. The fresh `--check` read reproduced **all 16 data-file SHA-256 hashes**. The separately implemented `verify-snapshot-read.mjs` decodes each fact's event, inclusive block window, fixed field and claimant field independently from the retained compared logs; all **175,698 wallet/fact exact-count comparisons** passed. It also confirms that the negative-test wallet does not appear in any depositor log. Raw RPC responses stay in scratch and are not runtime assets or submission archives.
+
+| Fact | Matching logs | Matching wallets |
+| --- | ---: | ---: |
+| 701 | 5,958 | 3,936 |
+| 801 | 8 | 7 |
+| 901 | 1 | 1 |
+| 1001 | 41 | 33 |
+| 1101 | 1 | 1 |
+| 1102 | 1 | 1 |
+| 1103 | 1 | 1 |
+| 1104 | 1 | 1 |
+| 1105 | 1,000 | 1,000 |
+
+`web/public/data/eligibility/manifest.json` and the identical `dist/data/eligibility/manifest.json` record the exact specs, window, closing hash, event/fact totals, public generator command, per-range comparison digests and every shard's byte length and SHA-256. The generated source pin includes those hashes and the manifest's own SHA-256. The entire snapshot is **333,945 bytes**, including its manifest; the largest shard is **22,104 bytes**. The files are intentionally sparse: a wallet absent from a verified shard has zero matches. Repeat events retain their full counts. Shards are chosen by the first address hex digit; the wallet address is never sent to an RPC or service for these nine checks.
+
+### Tests and rendered behavior
+
+| Command (from `web/` unless noted) | What it checks and actual result |
+| --- | --- |
+| `npm run typecheck` | Passed after the final source change. |
+| `npm run build` and `npm run verify:export` | Production build and ABI verification passed; the export manifest enumerates 64 assets. Existing dependency bundler warnings about client directives and an externalized worker module remain; no runtime failure was observed. |
+| `npm test` | 90 unit tests passed; the route, revision and health browser suites ran against the production export. Optional live/fork cases are explicitly skipped without a configured test RPC. |
+| `node tests/eligibility-snapshot-browser.mjs` | Six scenario groups passed in Chromium 156, with 22 desktop/mobile captures at 1280×900 and 390×844. Each real ordinal wallet meets only its own 1101–1104 rule; the hour-65 depositor meets 901; the nondepositor is negative for all nine. Exact found strings and prescribed met/not-met wording appear in the rows. All nine checks together fetch one 19–22 KB shard, with no curator `eth_getLogs`, no snapshot `specOf`, and no wallet request. The dialog reuses the same verified file. |
+| Same snapshot browser suite, failure cases | Same-length wrong-hash and HTTP-404 data show the exact existing not-checkable sentence in the selected row and dialog. Site health and the live 1301 check remain usable. Ordinary acknowledgement, silent simulation and the explicit request button still reach only the rejecting fake wallet. Negative advice retains the additional keyboard-accessible Request anyway gate. Successful/failed snapshot checks never fall back to RPC. Four expected resource-console 404 lines occurred only in injected missing-file cases; there were zero unexpected console/page errors. |
+| `node --test tests/eligibility-snapshot.test.mjs` (included in `npm test`) | Six unit groups verify every hash, manifest pin, export/source parity, exact per-fact sums, range coverage, ordinal and hour-65 samples, repeat counts, all-nine absent results with **all RPC/spec calls refused**, one shared in-flight file, corruption/truncation/network failure and retry, a bounded deadline, and malformed/duplicate/removed log rejection. |
+| `node tests/personal-facts-browser.mjs` | All eight earlier groups passed. Generic live count/sum/refusal/timeout tests now use an explicit community spec (10001), since 801 intentionally uses the immutable snapshot. Existing 601 seat and 1301 nonce tests remain live. |
+| `node tests/acceptance.mjs`, `node tests/actions.mjs`, `node tests/followup.mjs`, `node tests/swarm-browser.mjs`, `node tests/oracle-feed-browser.mjs` | Existing fake-wallet payment, silent simulation/refusal/retry, receipts, pending facts, swarm, disclosure and navigation regressions were run. The swarm regression now explicitly acknowledges the real negative snapshot result before expecting its request button to unlock. Nothing is signed or broadcast. |
+| `npm run format:check` | Passed for the source, generator and tests. |
+| Pinned taste probe, from repository root | Ran `node .imd/reads/skills/design-critic/scripts/taste.mjs --out test/scratch/taste --offline` with the workspace Playwright module and external browser download directory. **14/16 passed**: render, layout, targets, contrast, tracking, eyebrows, type sizes, glyphs, slogans, repetition, copy budget, chrome, motion and share. |
+
+The actual 390px home screenshot shows the product, address field and green Explore wallet action in the first screen; the browser measured the action's bottom at 499.4px in an 844px viewport. Manual browser-tool inspection confirmed no horizontal overflow at 390 or 1280 and the title/description/favicon/Open Graph metadata. Production browser tests also cover all eight routes at 320, 390, 780, 1280 and 1440. The snapshot request screenshot shows the exact count advice beside the 1.25 IMD cost and existing acknowledgement; its explicit request button is visible and usable at 390. Normal cases showed no console errors. Browser screenshots and full runner logs were inspected in scratch; the compact delivered results are in `docs/frontend/eligibility-snapshot-results.json`.
+
+### Better Interface review
+
+Applied the pinned workflow and all six core domains to the changed advice path, then reviewed the rendered export. No layout or copy redesign was needed.
+
+| Domain | Coverage, finding and recheck |
+| --- | --- |
+| Accessibility | Checked existing native labelled selection controls, polite advice status, explicit outcome words, keyboard Request anyway, dialog containment/close behavior and continued access after an unavailable file. Browser interactions pass. No screen-reader session was performed. |
+| Layout | Checked long advice and costs in rows/dialog at 1280 and 390, plus existing route reflow coverage and the home first screen. No overflow or clipped advice was found. |
+| Writing | All eligibility text remains in `eligibilityText`; exact singular/plural counts and live-price wording are tested. No new public copy, version label or fee wording was introduced. |
+| Typography | Existing scale, wrapping, weights and monospace stack remain. Taste's inherited monospace-prose flag (`web/src/styles.css:29`) is retained under the preserve-layout/copy requirement. |
+| Colors | Existing muted/danger words use existing tokens. The personal-facts browser review measured their rendered pairs at or above 4.5:1; the entry-page probe also passes contrast. Color never carries the outcome alone. |
+| UI | Checked checking, met, not-met, unknown, retry, acknowledged negative and rejected fake-request states. A broken shard is local advisory state; it does not replace dependency health, disable unrelated actions or change the dialog. Existing reduced-motion behavior passes the probe. |
+
+**Fixed finding, high, `web/src/eligibility.mjs:73` / `checkEligibility`:** the settled nine facts depended on refused historical RPC scans and gave unknown advice. Dispatch those ids to hash-verified static counts before `readSpec` or any RPC request. Reread chain data, all-wallet comparison, refused-RPC unit tests and rendered row/dialog tests pass. **Test-maintenance finding:** the earlier swarm test expected a negative wallet's request to unlock without the prescribed extra acknowledgement; its flow now performs that acknowledgement and is rerun. The two inherited taste flags are all-caps headings (`web/src/pages.tsx:195`) and monospace prose; the brief requires the existing copy and layout to stay, so these are recorded exceptions rather than redesigned surfaces. No other applicable finding remains.
+
+Limitations: WebKit launch was attempted and could not run because its browser runtime libraries are unavailable; Chromium and the provided real browser tool were used. Physical phones/wallet apps, passkeys, a native screen reader, browser-native 200% zoom and real signatures/transactions were not tested. A missing snapshot is deliberately advisory and requires a new successful load to recover; it never becomes a false credential. The report is worker validation, not independent certification.
+
+### Cleanup and delivery size
+
+No ignore, package, lockfile, build configuration, contract, `lib/`, `reference/`, root `test/` (outside scratch) or `tools/` file was changed. Two retained documentation captures were repackaged as **lossless WebP** to fit the 8 MiB submission limit; decoded RGBA bytes were checked identical, and all document/record links now point to the replacements. No screenshot evidence was dropped. No other site file was removed. An isolated scratch Git bundle of the complete current tracked/nonignored submission files measures below **8,320,000 bytes**, under the **8,388,608-byte** limit; it includes the inherited toolchain archives, complete source and export, and preserves the original repository metadata. Rebuilding replaces obsolete hashed JavaScript assets as usual.
+
+Every deleted tracked file:
+
+- `docs/frontend/personal-facts/eligibility-negative-390.png` → `eligibility-negative-390.webp` (identical pixels).
+- `docs/frontend/personal-facts/list-keyboard-390.png` → `list-keyboard-390.webp` (identical pixels).
+- `dist/assets/ccip-D5-yCJtk.js` (superseded production chunk).
+- `dist/assets/dist-DG5L8bqI.js` (superseded production chunk).
+- `dist/assets/index-kdshUbvL.js` (superseded production chunk).
+
+No page or document links to the deleted image paths. The existing package manifest and lockfile, complete source, generator, snapshot, required artwork/ABIs and rebuilt export remain present. Generated dependencies, browser downloads, caches, comparison logs and packaging estimates are excluded from the submission.
+
 ## Current six-item personal-fact update (2026-10-22)
 
 This section supersedes earlier observations below. The source and `dist/` implement the six requested changes; the static host name remains `swornbyswarm.site.identitymd.eth`. No publication, contract change, real signature, transaction, server, key or analytics was added. The tests use fake public RPC/API replies and a fake EIP-1193 wallet that either rejects a prompt or returns an explicitly fake receipt. The eligibility checker itself never calls that wallet.
@@ -58,7 +138,7 @@ Validation used an external working mirror with this source and the unchanged ma
 | `node .imd/reads/skills/design-critic/scripts/taste.mjs --out test/scratch/taste --offline` | Executed against the final root export with the external Playwright installation: 14/16, with only the two documented inherited typography/casing exceptions. |
 | Source/export integrity and packaging | `git diff --check` passes. Protected build files, dependencies, addresses, chain and ABIs are unchanged. No ignore file changed; no new submodule, cache, vendored registry or dependency archive was added. A complete current-file Git bundle was measured below 8,388,608 bytes after documentation and retained evidence; required inherited artifacts remain. |
 
-[Machine-readable current results](../docs/frontend/personal-facts/results.json), [expanded keyboard-focused list at 390px](../docs/frontend/personal-facts/list-keyboard-390.png), and [negative eligibility confirmation at 390px](../docs/frontend/personal-facts/eligibility-negative-390.png) are retained. Other captures were inspected in scratch and are intentionally not packaged. Earlier transient runner issues (browser path unset and a build replacing files during another test) were corrected by setting the external browser path and running build and export-consuming checks sequentially; the final checks above passed.
+[Machine-readable current results](../docs/frontend/personal-facts/results.json), [expanded keyboard-focused list at 390px](../docs/frontend/personal-facts/list-keyboard-390.webp), and [negative eligibility confirmation at 390px](../docs/frontend/personal-facts/eligibility-negative-390.webp) are retained. Other captures were inspected in scratch and are intentionally not packaged. Earlier transient runner issues (browser path unset and a build replacing files during another test) were corrected by setting the external browser path and running build and export-consuming checks sequentially; the final checks above passed.
 
 Browser fixtures never contact a live chain or progress service. WebKit launch was attempted but its host GTK/GStreamer and other required libraries are unavailable; this update claims Chromium coverage only. Historical live/fork results below were not rerun. No screen-reader, native zoom, physical-device, real-wallet or live-oracle result is claimed.
 

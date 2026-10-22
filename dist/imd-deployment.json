@@ -158,20 +158,20 @@
       "sha256": "c34bce140e26f958072943a5326c503bd737cfa49c98e5b7a0345a06302e94b6"
     },
     {
-      "path": "assets/ccip-D5-yCJtk.js",
-      "sha256": "ed911278dd335dabb7e06369d16f0b764535a418d01229ba2ed8ead07d715f25"
+      "path": "assets/ccip-Eus7b7yS.js",
+      "sha256": "a532b968f77582ac6e00b83cb8cadbab87e4f49be8757083cdd37e2cf8b4204d"
     },
     {
-      "path": "assets/dist-DG5L8bqI.js",
-      "sha256": "56971bcdbe99baf2085d75001bc7355ce0956fc813891a03ae766d4ff04c7b40"
+      "path": "assets/dist-DIM91MHN.js",
+      "sha256": "62c23310ffd0991bff78873157a6239fc5fb79b51ba190c225774cbb41190364"
     },
     {
       "path": "assets/index-dr0B-Mw1.css",
       "sha256": "c0eb7058d8839ad81e2302dc618fe1b63cf72858a22bdbd3c77b811519efe37d"
     },
     {
-      "path": "assets/index-kdshUbvL.js",
-      "sha256": "b421c65ed34ebcebcd851838a23ad4df3d38ffbc25ce40f006416edd7c9dc9ab"
+      "path": "assets/index-DZ1NSjCW.js",
+      "sha256": "56268fdf166a1c21a1526c1596f29e0d4dafbd868d188c683ccf3f79459eac90"
     },
     {
       "path": "data/art-provenance.json",
@@ -180,6 +180,74 @@
     {
       "path": "data/curator-source.json",
       "sha256": "69d105bf6779a73c0351042edf809d4022ac2828b2462b73eb88cc7483a6eaff"
+    },
+    {
+      "path": "data/eligibility/manifest.json",
+      "sha256": "c594c812e85b20662a263d3feaa8b394e6c815c8b4d36fcfc21213df6b585910"
+    },
+    {
+      "path": "data/eligibility/wallets-0.json",
+      "sha256": "23600998aac5f1424162d660bb7045baa942751a40aa9575db2851079f2c3343"
+    },
+    {
+      "path": "data/eligibility/wallets-1.json",
+      "sha256": "51d15757d56854b9c9ba2d5490295dd376b2827f64cc24d52b39d88d7619005e"
+    },
+    {
+      "path": "data/eligibility/wallets-2.json",
+      "sha256": "4f48c74d70b2a3660dc074b828068d79bb5015924ef85f5ea704f654e70cbe93"
+    },
+    {
+      "path": "data/eligibility/wallets-3.json",
+      "sha256": "c36abc8f7a64e59747daff89325a7e40ca19332e92559ed2e1dd60bb9990e704"
+    },
+    {
+      "path": "data/eligibility/wallets-4.json",
+      "sha256": "d77b7f559dff6cac3c305459637ed80d62b9ef85e5e435e776c57a71db1e0a12"
+    },
+    {
+      "path": "data/eligibility/wallets-5.json",
+      "sha256": "cb36eb815a833bac7c12a1604982b8a24a15091c31c40aafdcc496a23d12e2f1"
+    },
+    {
+      "path": "data/eligibility/wallets-6.json",
+      "sha256": "78cd344b257ed1014c1c8334ebe3a3f9e8ed7b1509b53f2062eb1a8e17710363"
+    },
+    {
+      "path": "data/eligibility/wallets-7.json",
+      "sha256": "8d871365725dc507febf553e096eb839f25bbe1610724b397885ad9c17b04ec8"
+    },
+    {
+      "path": "data/eligibility/wallets-8.json",
+      "sha256": "5c682c883519e11295523dc2dead18af0e7d1f889aecec66e06dadbdf63ae39b"
+    },
+    {
+      "path": "data/eligibility/wallets-9.json",
+      "sha256": "53047c62408d22e77ba34ccb84ab76ae699c945213477f3c828fba1b22a3b774"
+    },
+    {
+      "path": "data/eligibility/wallets-a.json",
+      "sha256": "55567f31d53f4edd26f1dd1297d2953a93a89f0cf130802fe92b4cae220059c2"
+    },
+    {
+      "path": "data/eligibility/wallets-b.json",
+      "sha256": "30fcf7dc651b50acf0b7f21662519c0aa906763a927c937e0ec514138fd77ee9"
+    },
+    {
+      "path": "data/eligibility/wallets-c.json",
+      "sha256": "fe41937481cc3c5857dcb13ec1ebaff636faeed88ba608267f1cd35a804f1b8f"
+    },
+    {
+      "path": "data/eligibility/wallets-d.json",
+      "sha256": "7e7766d0fd9f08619e8e2c1b34583c3a4a8f9a6ae90c347c2847536695295bf4"
+    },
+    {
+      "path": "data/eligibility/wallets-e.json",
+      "sha256": "b44eb03cdb4e368c8eba63ba3860054b72364189d8a2cd271a5ff5d4a3a4e31e"
+    },
+    {
+      "path": "data/eligibility/wallets-f.json",
+      "sha256": "edff668535e5445e48170517be8aa194f2eda17130fcc3db944e8c8fb719f403"
     },
     {
       "path": "data/eth-market.json",
@@ -203,7 +271,7 @@
     },
     {
       "path": "index.html",
-      "sha256": "5273a0b6c01cb93af10d8911a149a45c0d5cc0ad492a3fdeb4fa601f5d6764f7"
+      "sha256": "b71e2a5b52539f1aa3409c7df4931e4cef5790d49935490af69c5a18a75797f5"
     },
     {
       "path": "llms.txt",

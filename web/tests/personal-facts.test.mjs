@@ -262,7 +262,7 @@ test("6 count reads bounded inclusive chunks, filters claimant/fixed value, sums
       );
     },
   };
-  const met = await checkEligibility(client, async () => spec, wallet, 801);
+  const met = await checkEligibility(client, async () => spec, wallet, 10001);
   assert.equal(met.state, "met");
   assert.match(met.found, /2 matching events/);
   assert.deepEqual(
@@ -299,7 +299,7 @@ test("6 no matching logs is not-met; refusal, malformed logs and timeout are adv
         { request: async () => [] },
         async () => spec,
         wallet,
-        801,
+        10001,
       )
     ).state,
     "not-met",
@@ -314,7 +314,7 @@ test("6 no matching logs is not-met; refusal, malformed logs and timeout are adv
       { request },
       async () => spec,
       wallet,
-      801,
+      10001,
     );
     assert.equal(r.state, "unknown");
     assert.equal(eligibilityText(r, 1n), NOT_CHECKABLE);
@@ -332,7 +332,7 @@ test("6 no matching logs is not-met; refusal, malformed logs and timeout are adv
     },
     async () => spec,
     wallet,
-    801,
+    10001,
     { timeoutMs: 5 },
   );
   assert.equal(r.state, "unknown");
@@ -354,7 +354,7 @@ test("6 provider caps split bounded chunks instead of treating a capped response
     },
     async () => spec,
     wallet,
-    801,
+    10001,
   );
   assert.equal(r.state, "not-met");
   assert.ok(calls.length > 3);

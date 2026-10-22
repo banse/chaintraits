@@ -21,6 +21,8 @@ Vite uses relative asset URLs and hash routes, so the export works below a stati
 
 Run `npm test` for unit/export and route checks, plus `node tests/acceptance.mjs`, `node tests/actions.mjs`, `node tests/swarm-browser.mjs`, `node tests/followup.mjs` `node tests/oracle-feed-browser.mjs` and `node tests/personal-facts-browser.mjs` for fake-wallet payment and live-feed interactions (install Playwright Chromium first). See [frontend instructions](web/README.md), [current test notes](web/TEST-NOTES.md), [implemented design](DESIGN.md), [agent skill](agents/sworn/SKILL.md) and [agent index](llms.txt). The earlier contract-stage status above is historical; this contribution changes the existing frontend and does not deploy a contract.
 
+The nine settled-event eligibility checks now use a bundled, hash-pinned snapshot generated from two matching public mainnet reads. The manifest is [dist/data/eligibility/manifest.json](dist/data/eligibility/manifest.json); regeneration and fresh-chain verification commands are in the [frontend README](web/README.md#settled-event-eligibility-snapshot). The normal build stays offline with respect to historical logs. Run `node tests/eligibility-snapshot-browser.mjs` from `web/` for the additional fake-wallet interaction checks.
+
 ## Read in this order
 
 1. `docs/REBUILD.md`, the approved specification.
