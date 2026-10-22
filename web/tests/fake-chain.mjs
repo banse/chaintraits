@@ -317,7 +317,8 @@ export function fakeChain(options = {}) {
       else if (fn === "tokenOf") result = state.token;
       else if (fn === "claimantOf") result = wallet;
       else if (fn === "traitsOf") result = [101, ...state.proven];
-      else if (fn === "verifiedSpecsOf") result = [];
+      else if (fn === "verifiedSpecsOf") result = state.verifiedSpecs || [];
+      else if (fn === "mintedAtBlock") result = state.mintedAtBlock ?? 0n;
       else if (fn === "hasTrait")
         result =
           Number(values[1]) === 101 || state.proven.includes(Number(values[1]));
@@ -361,7 +362,13 @@ export function fakeChain(options = {}) {
               pending.questionHash,
             ]
           : ["0x0000000000000000000000000000000000000000", 0, 0n, zeroHash];
-      } else if (fn === "verified") result = [zeroHash, zeroHash, 0n, 0n];
+      } else if (fn === "verified")
+        result = state.verifiedRecords?.[Number(values[1])] || [
+          zeroHash,
+          zeroHash,
+          0n,
+          0n,
+        ];
       else if (fn === "sharedFact")
         result = state.sharedFact || [zeroHash, zeroHash, 0];
       else if (fn === "balanceOf") result = state.balance;

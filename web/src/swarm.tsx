@@ -8,7 +8,7 @@ import {
 } from "react";
 import { useAccount } from "wagmi";
 import { useSite } from "./context";
-import { contract, read } from "./chain";
+import { contract, read, scopedClient } from "./chain";
 import { registryEvents, FEED_WINDOW } from "./settlement";
 import {
   oracleProgressReader,
@@ -155,7 +155,8 @@ export function SwarmFeed({
   onAttested: () => void;
   idPrefix?: string;
 }) {
-  const { client, r } = useSite();
+  const site = useSite();
+  const { client, r } = site;
   const { address } = useAccount();
   const element = useRef<HTMLDetailsElement>(null);
   const callback = useRef(onAttested);
@@ -214,6 +215,8 @@ export function SwarmFeed({
       running = true;
       controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 12000);
+      // This poll's chain reads stop with it (unmount, wallet change, timeout).
+      const client = scopedClient(site.client, controller.signal);
       try {
         const readOlder = older.current === fact.requestId;
         // One read back per press; a failed one offers the button again.
@@ -306,12 +309,12 @@ export function SwarmFeed({
           callback.current();
         }
         if (!active) return;
-        // Age is checked on every poll, also for a request already watched:
-        // once its block has left the 600-block (2-hour) feed window, the
-        // feed offers the read back to launch.
+        // Age follows the clock on every poll, also for a request already
+        // watched: more than 7,200 seconds after the request's own time,
+        // whatever the block count.
         const stale =
           !terminal &&
-          (events as any).toBlock - BigInt(pending.blockNumber) >= FEED_WINDOW;
+          Date.now() / 1000 - Number(pending.requestedAt) > TWO_HOURS;
         const result = await load(
           { ...pending, wallet: address },
           controller.signal,

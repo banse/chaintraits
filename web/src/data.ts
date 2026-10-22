@@ -139,6 +139,7 @@ export const ROUTES = [
   ["/catalog", "Catalog"],
   ["/explorer", "Explorer"],
   ["/claim", "Claim"],
+  ["/wallet-facts", "Wallet Facts"],
   ["/fact-vs-artifact", "Fact vs artifact"],
   ["/integrate", "Integrate"],
   ["/whitelistcurator", "WhitelistCurator"],

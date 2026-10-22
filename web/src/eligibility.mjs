@@ -51,21 +51,41 @@ const compare = (value, threshold, op) => {
 // The settled catalog uses the pinned snapshot, including its immutable specs.
 // Other facts retain public-client reads. The deadline covers the whole check.
 // A late transport response cannot resume scanning or replace the timeout result.
+/**
+ * @param {any} client
+ * @param {any} readSpec
+ * @param {any} wallet
+ * @param {any} id
+ * @param {{ timeoutMs?: number, snapshot?: any, signal?: AbortSignal }} [options]
+ */
 export async function checkEligibility(
   client,
   readSpec,
   wallet,
   id,
-  { timeoutMs = 20000, snapshot = snapshotEligibility } = {},
+  { timeoutMs = 20000, snapshot = snapshotEligibility, signal } = {},
 ) {
   let stopped = false,
     timer;
+  // Aborted at the deadline, when the check returns, or when the caller's
+  // signal aborts (page or wallet changed): the RPC pool then sends nothing
+  // more for this check, including the halves of a split range.
+  const controller = new AbortController();
+  const stop = () => {
+    stopped = true;
+    controller.abort();
+  };
+  if (signal?.aborted) stop();
+  signal?.addEventListener("abort", stop, { once: true });
+  const rpc = client?.pool?.scoped
+    ? client.pool.scoped(controller.signal)
+    : client;
   const guard = () => {
     if (stopped) throw Error("Eligibility deadline");
   };
   const request = async (method, params) => {
     guard();
-    const result = await client.request({ method, params });
+    const result = await rpc.request({ method, params });
     guard();
     return result;
   };
@@ -233,7 +253,7 @@ export async function checkEligibility(
       scan(),
       new Promise((resolve) => {
         timer = setTimeout(() => {
-          stopped = true;
+          stop();
           resolve({ state: "unknown" });
         }, timeoutMs);
       }),
@@ -241,7 +261,8 @@ export async function checkEligibility(
   } catch {
     return { state: "unknown" };
   } finally {
-    stopped = true;
+    stop();
+    signal?.removeEventListener("abort", stop);
     clearTimeout(timer);
   }
 }

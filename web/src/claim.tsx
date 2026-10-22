@@ -2,7 +2,14 @@ import { useState, useEffect, useRef } from "react";
 import { useAccount } from "wagmi";
 import { zeroAddress, type Address } from "viem";
 import { useSite } from "./context";
-import { lookup, read, explain, contract, type WalletFacts } from "./chain";
+import {
+  lookup,
+  read,
+  explain,
+  contract,
+  scopedClient,
+  type WalletFacts,
+} from "./chain";
 import { TRAITS, SWARMED, FEE } from "./data";
 import {
   imd,
@@ -34,6 +41,25 @@ import {
   SWARM_POLL_MS,
   type WatchedFact,
 } from "./swarm";
+// The connected wallet's open requests, shared by Claim and Wallet Facts.
+export function openRequests(
+  facts: WalletFacts | null,
+  address: string | undefined,
+  specs: { id: number; name: string }[],
+): WatchedFact[] {
+  return facts && facts.address.toLowerCase() === address?.toLowerCase()
+    ? Object.entries(facts.pending)
+        .filter(([, rid]) => !/^0x0+$/.test(rid))
+        .map(([id, requestId]) => ({
+          id: Number(id),
+          requestId,
+          name:
+            TRAITS.find((t) => t.id === Number(id))?.name ||
+            specs.find((s) => s.id === Number(id))?.name ||
+            `Fact ${id}`,
+        }))
+    : [];
+}
 function disableReason(site: any, account: any, busy: boolean) {
   return busy
     ? "A transaction is in progress."
@@ -251,14 +277,12 @@ function SharedFact({
   payment,
   journal,
   facts,
-  onCheckSwarm,
 }: {
   id?: number;
   name?: string;
   payment: string;
   journal: Journal;
   facts?: WalletFacts | null;
-  onCheckSwarm: (fact: WatchedFact) => void;
 }) {
   const site = useSite();
   const account = useAccount();
@@ -412,13 +436,7 @@ function SharedFact({
         <a href={claimAnchor("transaction-steps")}>Transaction steps ↓</a>
       )}
       {pending && (
-        <Settlement
-          requestId={value.pending}
-          journal={journal}
-          onCheckSwarm={() =>
-            onCheckSwarm({ requestId: value.pending, id, name })
-          }
-        />
+        <Settlement requestId={value.pending} journal={journal} />
       )}
     </div>
   );
@@ -697,68 +715,23 @@ export function Claim() {
     lines: Record<number, string>;
     older?: boolean;
   }>({ lines: {} });
-  // "Check older blocks" on any row reads this wallet's history back to launch;
-  // the result then shows on every row.
+  // What the last 24-hour read could not settle: every row when it failed,
+  // or a pending request of this wallet older than the window. Only those
+  // rows offer "Check older blocks"; its read back to launch serves them all.
+  const [historyNeeds, setHistoryNeeds] = useState<{
+    wallet?: string;
+    failed: boolean;
+    requested: string[];
+  }>({ failed: false, requested: [] });
   const [olderWallet, setOlderWallet] = useState<string>();
   const historyOlder = !!account.address && olderWallet === account.address;
   const [busy, setBusy] = useState("");
   const [status, setStatus] = useState<Record<string, string>>({});
   const [refreshTick, setRefreshTick] = useState(0);
-  const [watchState, setWatchState] = useState<{
-    wallet?: string;
-    entries: WatchedFact[];
-  }>({ entries: [] });
-  const [feedFocus, setFeedFocus] = useState<{
-    requestId: string;
-    tick: number;
-  } | null>(null);
-  const watched =
-    watchState.wallet === account.address ? watchState.entries : [];
-  const pendingFacts =
-    facts && facts.address.toLowerCase() === account.address?.toLowerCase()
-      ? Object.entries(facts.pending)
-          .filter(([, rid]) => !/^0x0+$/.test(rid))
-          .map(([id, requestId]) => ({
-            id: Number(id),
-            requestId,
-            name:
-              TRAITS.find((t) => t.id === Number(id))?.name ||
-              site.specs.find((s) => s.id === Number(id))?.name ||
-              `Fact ${id}`,
-          }))
-      : [];
+  const pendingFacts = openRequests(facts, account.address, site.specs);
   const pendingKey = pendingFacts
     .map((f) => `${f.id}:${f.requestId}`)
     .join(",");
-  useEffect(() => {
-    setWatchState((old) => {
-      const entries = old.wallet === account.address ? old.entries : [];
-      return {
-        wallet: account.address,
-        entries: [
-          ...entries,
-          ...pendingFacts.filter(
-            (f) => !entries.some((e) => e.requestId === f.requestId),
-          ),
-        ],
-      };
-    });
-  }, [account.address, pendingKey]);
-  function openSwarm(fact: WatchedFact) {
-    setWatchState((old) => {
-      const entries = old.wallet === account.address ? old.entries : [];
-      return {
-        wallet: account.address,
-        entries: entries.some((e) => e.requestId === fact.requestId)
-          ? entries
-          : [...entries, fact],
-      };
-    });
-    setFeedFocus((old) => ({
-      requestId: fact.requestId,
-      tick: (old?.tick || 0) + 1,
-    }));
-  }
   // Completion polling is independent of the progress API, including during an
   // API outage or while an attestation is waiting for onchain delivery.
   useEffect(() => {
@@ -799,9 +772,12 @@ export function Claim() {
   useEffect(() => {
     let active = true;
     const wallet = account.address;
+    // Leaving the page or switching wallets stops this read's requests.
+    const controller = new AbortController();
+    const client = scopedClient(site.client, controller.signal);
     if (wallet && site.health) {
       void registryEvents(
-        site.client,
+        client,
         site.r,
         ["TraitRequested", "Verified", "Missed", "NoVerdict", "Abandoned"],
         undefined,
@@ -814,30 +790,43 @@ export function Claim() {
               async ([id, value]: any) => {
                 const blockNumber = value.request.blockNumber;
                 if (!blocks.has(blockNumber))
-                  blocks.set(
-                    blockNumber,
-                    site.client.getBlock({ blockNumber }),
-                  );
+                  blocks.set(blockNumber, client.getBlock({ blockNumber }));
                 const block = await blocks.get(blockNumber);
                 return [id, lastRequestText(value.outcome, block.timestamp)];
               },
             ),
           );
-          if (active)
-            setRequestHistory({
+          if (!active) return;
+          setRequestHistory({
+            wallet,
+            lines: Object.fromEntries(lines),
+            older: historyOlder,
+          });
+          if (!historyOlder)
+            setHistoryNeeds({
               wallet,
-              lines: Object.fromEntries(lines),
-              older: historyOlder,
+              failed: false,
+              requested: events
+                .filter(
+                  (e: any) =>
+                    e.eventName === "TraitRequested" &&
+                    e.args.claimant.toLowerCase() === wallet.toLowerCase(),
+                )
+                .map((e: any) => e.args.requestId.toLowerCase()),
             });
         })
         .catch(() => {
           /* No outcome is inferred from an incomplete event read. An older
-             read that fails offers its button again. */
-          if (active && historyOlder) setOlderWallet(undefined);
+             read that fails offers its button again; a failed 24-hour read
+             offers it on every row. */
+          if (!active) return;
+          if (historyOlder) setOlderWallet(undefined);
+          else setHistoryNeeds({ wallet, failed: true, requested: [] });
         });
     }
     return () => {
       active = false;
+      controller.abort();
     };
   }, [account.address, site.client, site.health, refreshTick, historyOlder]);
   const wanted = Number(
@@ -973,15 +962,17 @@ export function Claim() {
       setBusy("");
     }
   }
-  async function prepareFacts() {
+  // "Mint selected facts" and a row's "Mint this fact" open the same dialog;
+  // a row's button requests that fact alone and leaves the selection as is.
+  async function prepareFacts(ids: number[] = selected) {
     setBusy("facts");
     setStatus((v) => ({ ...v, facts: "Checking…" }));
     try {
       if (!site.health || !facts)
         throw Error("Wallet reads unavailable. Retry reads.");
-      if (!selected.length) throw Error("Select at least one fact.");
+      if (!ids.length) throw Error("Select at least one fact.");
       const price = site.health.price;
-      const rows = selected.map((id) => paid.find((t) => t.id === id)!);
+      const rows = ids.map((id) => paid.find((t) => t.id === id)!);
       await journal.prepare(
         `Request ${rows.length} oracle ${rows.length === 1 ? "fact" : "facts"}: ${rows.map((t) => `${t.id} / ${t.name}`).join(", ")}`,
         "step-02",
@@ -1027,7 +1018,7 @@ export function Claim() {
         </section>
       )}
       <section
-        className={`mint-panel${watched.length ? " has-swarm" : ""}`}
+        className="mint-panel"
         id="mint"
       >
         <div className="claim-copy">
@@ -1099,22 +1090,10 @@ export function Claim() {
             </button>
           )}
         </div>
-        {watched.length > 0 && (
-          <section className="swarm-feed" aria-label="Swarm progress">
-            <h2>Swarm progress</h2>
-            <p className="muted">
-              Live panel progress, not proof. Facts and card updates come from
-              the Registry.
-            </p>
-            {watched.map((fact) => (
-              <SwarmFeed
-                key={fact.requestId}
-                fact={fact}
-                focus={feedFocus}
-                onAttested={() => setRefreshTick((v) => v + 1)}
-              />
-            ))}
-          </section>
+        {pendingFacts.length > 0 && (
+          <p className="swarm-link">
+            <a href="#/wallet-facts">Swarm progress: Wallet Facts</a>
+          </p>
         )}
         {facts ? (
           <Card facts={facts} />
@@ -1244,6 +1223,20 @@ export function Claim() {
                 facts?.verifiedSpecs.includes(t.id);
               const pending =
                 facts?.pending[t.id] && !/^0x0+$/.test(facts.pending[t.id]);
+              const requestable =
+                !!facts && !!account.address && !cant && !proven && !pending;
+              const needsOlder =
+                !!account.address &&
+                historyNeeds.wallet === account.address &&
+                (historyNeeds.failed
+                  ? !proven
+                  : !!pending &&
+                    !historyNeeds.requested.includes(
+                      facts!.pending[t.id].toLowerCase(),
+                    ));
+              const olderDone =
+                requestHistory.wallet === account.address &&
+                !!requestHistory.older;
               return (
                 <div
                   key={t.id}
@@ -1305,17 +1298,22 @@ export function Claim() {
                       ) : null}
                     </span>
                   </label>
-                  {!proven &&
-                    !pending &&
-                    account.address &&
-                    requestHistory.wallet === account.address &&
-                    !requestHistory.lines[t.id] && (
-                      <div className="row-history">
-                        {requestHistory.older ? (
-                          <span className="muted">
-                            No request found since launch.
-                          </span>
-                        ) : (
+                  {t.id < 10001 && <Card miniId={t.id} />}
+                  {(requestable || needsOlder) && (
+                    <div className="row-actions">
+                      {requestable && (
+                        <button
+                          type="button"
+                          className="secondary"
+                          disabled={!!reason || !!busy}
+                          aria-label={`Mint this fact: ${t.id} / ${t.name}`}
+                          onClick={() => prepareFacts([t.id])}
+                        >
+                          Mint this fact
+                        </button>
+                      )}
+                      {needsOlder &&
+                        (!olderDone ? (
                           <button
                             type="button"
                             className="secondary older-blocks"
@@ -1325,10 +1323,13 @@ export function Claim() {
                           >
                             Check older blocks
                           </button>
-                        )}
-                      </div>
-                    )}
-                  {t.id < 10001 && <Card miniId={t.id} />}
+                        ) : !pending && !requestHistory.lines[t.id] ? (
+                          <span className="muted">
+                            No request found since launch.
+                          </span>
+                        ) : null)}
+                    </div>
+                  )}
                 </div>
               );
             })}
@@ -1351,7 +1352,7 @@ export function Claim() {
                   (facts?.pending[id] && !/^0x0+$/.test(facts.pending[id])),
               )
             }
-            onClick={prepareFacts}
+            onClick={() => prepareFacts()}
           >
             {busy === "facts" ? "Checking…" : "Mint selected facts"}
           </button>
@@ -1382,18 +1383,14 @@ export function Claim() {
                   <Settlement
                     requestId={rid}
                     journal={journal}
-                    onCheckSwarm={() =>
-                      openSwarm(pendingFacts.find((f) => f.requestId === rid)!)
-                    }
+                    onCheckSwarm={() => {
+                      /* Live progress for this wallet's requests is on
+                         Wallet Facts; this block checks the Intake completion. */
+                    }}
                   />
                 </div>
               ))}
-          <SharedFact
-            payment={payment}
-            journal={journal}
-            facts={facts}
-            onCheckSwarm={openSwarm}
-          />
+          <SharedFact payment={payment} journal={journal} facts={facts} />
           <h3>Community facts</h3>
           {site.loading ? (
             <Status>Reading community specs…</Status>
@@ -1422,7 +1419,6 @@ export function Claim() {
                 payment={payment}
                 journal={journal}
                 facts={facts}
-                onCheckSwarm={openSwarm}
               />
             ))}
         </section>

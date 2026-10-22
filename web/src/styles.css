@@ -868,17 +868,35 @@ fieldset {
 .picker-row .accent {
   display: block;
 }
-/* A row's "Check older blocks" sits on its own line under the fact text. */
-.picker-row:has(> .row-history) {
+/* One line per row: text, card preview, then its buttons. */
+.row-actions {
+  display: flex;
   flex-wrap: wrap;
+  gap: var(--s2);
+  align-items: center;
+  justify-content: flex-end;
+  flex: none;
 }
-.row-history {
-  order: 3;
+.swarm-link {
+  margin-block-start: var(--s4);
+}
+.fact-history {
+  list-style: none;
+  padding: 0;
+  max-width: 80ch;
+}
+.fact-history li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s4);
+  align-items: baseline;
+  padding-block: var(--s4);
+  border-block-end: 1px solid var(--rule);
+  overflow-wrap: anywhere;
+  min-width: 0;
+}
+.fact-history li > strong {
   flex-basis: 100%;
-  padding-inline-start: 28px;
-}
-.older-blocks {
-  margin-block-start: var(--s2);
 }
 .highlight {
   border-inline-start: 2px solid var(--accent);
@@ -1571,4 +1589,18 @@ th {
   display: block;
   margin-block-start: var(--s2);
   overflow-wrap: anywhere;
+}
+/* Narrow rows wrap after the card preview; the buttons follow in order. */
+@media (max-width: 640px) {
+  .picker-row {
+    flex-wrap: wrap;
+  }
+  .picker-row > label {
+    flex: 1 1 0;
+  }
+  .row-actions {
+    flex-basis: 100%;
+    justify-content: flex-start;
+    padding-inline-start: 28px;
+  }
 }

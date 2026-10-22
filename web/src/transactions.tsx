@@ -127,9 +127,18 @@ export function useTransactions() {
       .flatMap((c) => c.ids || c.args[0]) || [];
   const eligibilityKey = (id: number) =>
     `${account.address?.toLowerCase()}:${id}`;
+  // Checks belong to this page and this wallet: leaving the page or switching
+  // wallets aborts them, and the RPC pool sends nothing more for them.
+  const checks = useRef(new AbortController());
+  useEffect(() => {
+    const controller = new AbortController();
+    checks.current = controller;
+    return () => controller.abort();
+  }, [account.address]);
   async function checkPersonal(ids: number[]) {
     if (!account.address) return;
     const wallet = account.address;
+    const signal = checks.current.signal;
     await Promise.all(
       ids.map(async (id) => {
         const key = `${wallet.toLowerCase()}:${id}`;
@@ -141,7 +150,9 @@ export function useTransactions() {
           (id: number) => read(site.client, site.r, "Registry", "specOf", [id]),
           wallet,
           id,
+          { signal },
         );
+        if (signal.aborted) return;
         if (eligibilityRuns.current.get(key) === run)
           setEligibility((old) => ({ ...old, [key]: value }));
       }),

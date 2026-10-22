@@ -92,15 +92,28 @@ export const contract = (r: Runtime, name: string) => {
   if (!c) throw Error(`Missing deployed contract: ${name}`);
   return c;
 };
+const poolClient = (r: Runtime, pool: any) =>
+  Object.assign(
+    createPublicClient({
+      chain: r.chain,
+      transport: custom(pool, { retryCount: 0 }),
+      batch: { multicall: false },
+    }),
+    { pool, runtime: r },
+  );
 export const makeClient = (r: Runtime, url: string) =>
-  createPublicClient({
-    chain: r.chain,
-    transport: custom(
-      resilientRpc({ urls: [url, ...READ_RPCS.filter((u) => u !== url)] }),
-      { retryCount: 0 },
-    ),
-    batch: { multicall: false },
-  });
+  poolClient(
+    r,
+    resilientRpc({ urls: [url, ...READ_RPCS.filter((u) => u !== url)] }),
+  );
+// The same RPC pool for one caller. Once the signal aborts (page or wallet
+// changed, deadline passed) the pool sends no further request for its reads.
+export const scopedClient = (client: any, signal: AbortSignal) =>
+  client?.pool?.scoped
+    ? Object.assign(poolClient(client.runtime, client.pool.scoped(signal)), {
+        pool: client.pool,
+      })
+    : client;
 export const read = async (
   client: any,
   r: Runtime,

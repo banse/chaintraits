@@ -69,6 +69,9 @@ test("7 all original control/link/choice label fragments are unchanged except th
     "Hide list",
     "Request anyway",
     "Check older blocks",
+    // Round 8, items 5 and 7.
+    "Mint this fact",
+    "Swarm progress: Wallet Facts",
   ];
   assert.deepEqual(
     labels.filter((label) => !added.includes(label)),

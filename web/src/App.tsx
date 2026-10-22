@@ -22,6 +22,7 @@ import {
   About,
 } from "./pages";
 import { Claim } from "./claim";
+import { WalletFacts } from "./wallet-facts";
 import { READ_RPCS } from "./rpc.mjs";
 function routeInfo() {
   const hash = location.hash.slice(1) || "/";
@@ -134,6 +135,7 @@ export function App({ r }: { r: Runtime }) {
     "/catalog": Catalog,
     "/explorer": Explorer,
     "/claim": Claim,
+    "/wallet-facts": WalletFacts,
     "/fact-vs-artifact": FactArtifact,
     "/integrate": Integrate,
     "/whitelistcurator": WhitelistCurator,
