@@ -174,12 +174,14 @@ export function Card({
   facts,
   sample = false,
   miniId,
+  image,
   interactive = false,
   onFamily,
 }: {
   facts?: Pick<WalletFacts, "token" | "metadata">;
   sample?: boolean;
   miniId?: number;
+  image?: string;
   interactive?: boolean;
   onFamily?: (n: number) => void;
 }) {
@@ -188,6 +190,7 @@ export function Card({
       <div className="card-image">
         <img
           src={
+            image ||
             facts?.metadata.image ||
             asset(miniId ? `art/trait-${miniId}.svg` : "art/sample.svg")
           }
@@ -231,6 +234,36 @@ export function Card({
         </figcaption>
       )}
     </figure>
+  );
+}
+export function CommunityCard({
+  fact,
+}: {
+  fact: { id: number; name: string; rule: string; window: string };
+}) {
+  const escape = (text: string) =>
+    text.replace(
+      /[&<>"']/g,
+      (char) =>
+        ({
+          "&": "&amp;",
+          "<": "&lt;",
+          ">": "&gt;",
+          '"': "&quot;",
+          "'": "&apos;",
+        })[char]!,
+    );
+  // Renderer geometry for an otherwise empty hive with one community fact:
+  // the first community ring is in slot zero, independent of the spec's kind.
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 1000"><title>${escape(`${fact.id} / ${fact.name}`)}</title><desc>${escape(`${fact.rule} · ${fact.window}`)}</desc><rect width="1000" height="1000" fill="#0a0a0a"/>${HIVE_CELLS.map(
+    ({ x, y }, slot) =>
+      `<g transform="translate(${x} ${y})"><polygon points="89,0 44.5,77.1 -44.5,77.1 -89,0 -44.5,-77.1 44.5,-77.1" fill="none" stroke="#151515" stroke-width="4" stroke-linejoin="round"/>${slot === 0 ? '<polygon points="62,0 31,53.7 -31,53.7 -62,0 -31,-53.7 31,-53.7" fill="none" stroke="#05751f" stroke-width="3"/>' : ""}</g>`,
+  ).join("")}</svg>`;
+  return (
+    <Card
+      miniId={fact.id}
+      image={`data:image/svg+xml,${encodeURIComponent(svg)}`}
+    />
   );
 }
 function SignedVerdict({ requestId }: { requestId: string }) {

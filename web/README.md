@@ -162,6 +162,7 @@ After building, run these deterministic suites from `web/`. They serve `dist/` b
 
 ```sh
 npm test
+node tests/site-review-browser.mjs
 node tests/site-update-browser.mjs
 node tests/round8-browser.mjs
 node tests/round8-revision-browser.mjs
@@ -177,6 +178,8 @@ npm run format:check
 ```
 
 `site-update-browser.mjs` checks record serialization/recovery/four-attempt exhaustion, canonical and legacy routes, progress placement, measured preview/button columns, automatic launch fallback, old stored-list application, mixed shared/personal selection, shared pending rows and hour-64 hover/focus/tap. `personal-facts-browser.mjs --group=N` selects one of 15 scenario groups, including retained round-7 consent, identity and history checks. `round7.test.mjs` and `rpc-deadline.test.mjs` cover endpoint cooldown, fresh heads, first terminal outcomes, deadline/page cancellation and mixed-refusal splitting rules.
+
+`site-review-browser.mjs` checks every shared row’s loaded preview at 1280/390px, SVG escaping and common column alignment, pointer travel onto the hour tooltip at 320/390/1440px, delayed canonical/legacy community anchors, and navigation cancellation. It serves `dist/` below `/preview/` with fake wallet/RPC/API fixtures and sends no signatures or transactions. Add `--webkit` when that browser’s system dependencies are available. The reopened-review reproduction, fixes and actual results are recorded at the beginning of [Rounds 7 and 8](TEST-NOTES.md#rounds-7-and-8).
 
 For an opt-in **read-only** browser observation of actual mainnet providers:
 

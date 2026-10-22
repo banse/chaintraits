@@ -4,6 +4,78 @@ This is worker validation of the frontend source and static export, not an indep
 
 ## Rounds 7 and 8
 
+### Reopened review: reproduced and corrected
+
+Revision checked on 2026-10-22 UTC (2026-10-23 in the task timezone). All three reported findings reproduced against the original committed export before source changes. The revised production export passes the nine cases in `tests/site-review-browser.mjs` in Chromium 156.0.8078.4; its fake EIP-1193 wallet, RPC and API send nothing to a network. Results below take precedence over the initial delivery record retained afterward. The source changes are confined to the reported preview, tooltip and asynchronous-anchor behavior.
+
+| Finding / affected item | Reproduction, fix and result on this revision |
+| --- | --- |
+| Shared community preview · items 5/7 | At 1280 and 390px, `#pick-10001 .mini-card` was absent while 1201 had one. `web/src/claim.tsx:457` now uses `CommunityCard` (`web/src/components.tsx:239`) for community shared rows. It creates a local SVG with the existing thirteen-cell geometry and one community ring, plus the fact’s escaped id/name, rule and window. `tests/site-review-browser.mjs`, both `community previews render and align…` cases, pass for two distinct community facts: one loaded image each, valid escaped SVG, no missing catalog request, aligned columns, centered desktop controls, green 1px border and phone reflow. The existing `tests/site-update-browser.mjs` alignment/shared-selection cases now explicitly assert that shared previews exist and also pass. |
+| Hoverable hourly values · item 8 | Hovering an unfocused hour-64 bar then moving down toward its tooltip removed it at 320, 390 and 1440px. `web/src/pages.tsx:690` now handles departure on `.hour-chart`, including the axis, gap and tooltip. All three `hour tooltip is hoverable…` cases pass: pointer travel onto the text retains hour 64’s values; leaving the outer chart clears it when unfocused; focus, Escape, tap and blur still work. The pointer path leaves the bars vertically before crossing the tooltip so it does not intentionally select other hours. |
+| Delayed legacy anchors · item 3 | With each fake `eth_call` delayed 150ms, `#/claim#shared-10001` stayed at scrollY 0 after the row appeared at y=5073.9px. `web/src/App.tsx:119` now observes main-content additions until the target appears, then disconnects; route changes cancel pending work. All three `delayed community anchor scrolls…` cases pass: legacy anchor alone, legacy query/anchor and canonical anchor reach row y=15.9px at scrollY 5058. The query still selects the checkbox. `navigation cancels an unresolved anchor` also passes. |
+
+Actual validation commands (from the repository root, except npm scripts run with `--prefix web`):
+
+```sh
+npm --prefix web ci --cache /tmp/sworn-revision-npm-cache
+npm --prefix web run typecheck
+npm --prefix web run build
+npm --prefix web run verify:export
+npm --prefix web run format:check
+SWORN_TEST_RPC= PLAYWRIGHT_BROWSERS_PATH=/tmp/sworn-revision-browser npm --prefix web test
+PLAYWRIGHT_BROWSERS_PATH=/tmp/sworn-revision-browser node web/tests/site-review-browser.mjs
+PLAYWRIGHT_BROWSERS_PATH=/tmp/sworn-revision-browser node web/tests/site-update-browser.mjs
+PLAYWRIGHT_BROWSERS_PATH=/tmp/sworn-revision-browser node web/tests/mainnet-browser.mjs
+IMD_PLAYWRIGHT="$PWD/web/node_modules/playwright/index.mjs" PLAYWRIGHT_BROWSERS_PATH=/tmp/sworn-revision-browser node .imd/reads/skills/design-critic/scripts/taste.mjs --out test/scratch/taste --offline
+```
+
+Typecheck, production build (including the three pinned ABI hashes), export integrity and formatting pass. `npm test` passes 106 unit/export tests and 55 Chromium route/width combinations, with no unexpected script, console or local-resource errors. The original eight-item suite passes all nine scenario groups. The additional round-8, round-8-revision, personal-facts, acceptance, actions, follow-up, swarm, oracle-feed and eligibility-snapshot browser suites are rerun against this export; their final outcomes are recorded in `docs/frontend/site-review-results.json`. Live-relay/fork portions of `npm test` remain explicitly skipped without a relay. No real signing, sending or settlement is claimed. The inherited client-directive and worker bundler warnings remain.
+
+The supplied browser tool opened the served export below `/preview/`, inspected the 390px home screen and hovered hour 64 then the tooltip text. The product and Explore action are visible on the first 844px screen (button bottom 531.4px); page width is 390px. The tooltip retained “Hour 64”, “Deposits: 8”, “ETH: 11”, “First deposits: 6”. Its screenshot and the 1280/390 community-row screenshots were actually inspected. Screenshots and raw logs stay in scratch.
+
+| Better Interface domain | Revision coverage, finding and result |
+| --- | --- |
+| Accessibility | Native checkbox/button semantics and decorative-image alt text retained. Hover content remains hoverable; focus, tap, Escape and blur pass. The original chart arrow/Home/End checks pass. No screen-reader or physical-device session was performed. |
+| Layout | Missing community previews fixed in the existing preview column. Loaded-image, 1px border, common column, vertical-center and 390px order/overflow assertions pass. Delayed anchors now reach their requested rows. Existing route widths remain green. Native zoom, RTL and translation expansion were not exercised. |
+| Writing | Existing public page/control/rule/cost copy retained; the 106-test suite includes the original AST control-label check. SVG titles/descriptions derive from the row’s data and are escaped. |
+| Typography | No font, weight, size or spacing token changed. Actual phone/desktop screenshots show the existing wrapping and shared-row order. |
+| Colors | Existing preview border uses `--accent` (#00ff41). The hive illustration reuses Renderer geometry/colors. The entry-page probe passes its rendered text-contrast check; no claim covers every decorative SVG pixel. |
+| UI | Preview load and special-character cases, hover/focus/tap/dismissal and delayed-loading/navigation-cancellation states pass. Existing square surfaces and motion behavior retained. |
+
+The pinned taste@1 probe again passes 14/16 checks. Its two unchanged flags are required uppercase headings and monospace prose, retained under the preserve-design/copy constraint. `DESIGN.md` documents the actual updated components. WebKit could not launch because its required system libraries are unavailable; no WebKit result is claimed. Physical wallets/passkeys, screen readers, native 200% zoom, RTL, translation and live settlement remain unverified.
+
+#### Revision mainnet browser observation
+
+At **2026-10-22 22:34:46 UTC**, `tests/mainnet-browser.mjs` served the rebuilt local export through same-origin static-file routing at `https://swornbyswarm.site.identitymd.eth.limo` in Chromium. RPC requests used native browser fetch/CORS; no wallet was installed. Heads were 26251175–26251176. This verifies provider behavior at the site’s origin; it does not certify the remote gateway’s published content. Provider names/URLs and the original requester measurement remain documented below.
+
+| read kind | RPC that answered | how observed |
+| --- | --- | --- |
+| `eth_chainId` | publicnode | Native HTTP 200, `0x1`, production-pool `onRead`. |
+| `eth_getCode` | publicnode | Native Registry bytecode response and successful `onRead`. |
+| `eth_call` | publicnode | Registry totalSupply returned 8 through native fetch. |
+| `eth_blockNumber` | publicnode | Head 26251175, then 26251176 in later profiles. |
+| Block reads | publicnode | `eth_getBlockByNumber` returned the observed head block. |
+| Recent logs, 600 blocks | publicnode + tenderly | Identical canonical empty lists, both successful `eth_getLogs` events. |
+| 24-hour logs, 7,200 blocks | publicnode + tenderly | Identical canonical 24-log lists. |
+| Old-block nonce, 25769870 | tenderly | Publicnode returned native HTTP 403; tenderly returned `0x10`. |
+| 601 full-window seat read | tenderly + mevblocker | Matching full-window Transfer logs; met in 732ms. |
+| 601 with tenderly returning simulated 429 | mevblocker alone for logs; no pair | Unknown in 1622ms; publicnode answered a supporting spec call, not the full-window logs. Zero subsequent requests in the following 500ms observation. |
+
+Each RPC was also blocked in turn; every surviving provider reply was native. “Basic” covers chain id, code, call, head and block object.
+
+| Blocked RPC | Basic reads | Recent / 24-hour agreeing pair | Old nonce | 601 outcome / full-window log providers |
+| --- | --- | --- | --- | --- |
+| publicnode | tenderly | tenderly + mevblocker | tenderly | met, 682ms / tenderly + mevblocker |
+| tenderly | publicnode | publicnode + mevblocker | mevblocker | unknown, 1053ms / mevblocker only |
+| mevblocker | publicnode | publicnode + tenderly | tenderly | unknown, 485ms / tenderly only |
+| thirdweb | publicnode | publicnode + tenderly | tenderly | met, 1110ms / tenderly + mevblocker |
+
+All six profiles recorded zero probe requests in their 500ms post-return window. The provider provenance agrees with the requester’s supplied 2026-10-22 observation; timings and recent-log counts reflect this later head. The compact current evidence is in `docs/frontend/site-review-results.json`.
+
+All nine additional browser suites completed successfully (88 scenario groups), alongside the nine current-update groups and nine new review regressions. The complete current-file snapshot was bundled in an isolated scratch repository, including the finding responses; it fits within the 8,388,608-byte limit. Protected build/dependency paths and the original Git metadata remain unchanged. No ignore file changed, no dependency/cache directory or new submodule is included, and the export retains all required runtime assets.
+
+The initial eight-item delivery record follows. Its per-item mappings are retained; the new regression cases above cover the previously missed preview, hover-travel and delayed-anchor states.
+
 Current delivery, checked 2026-10-22 UTC (2026-10-23 in the task timezone). This section supersedes the historical observations below. It covers the delivered source and rebuilt `dist/`, including this assignment's eight items. Nothing was signed, broadcast, published or deployed. Interaction tests use fake EIP-1193, RPC and API replies; the explicitly identified mainnet observation is read-only and installs no wallet.
 
 The abbreviated pinned history was cross-checked against the public [round-7 brief](https://github.com/identity-md-launches/launch-2412-workflow-frontend-stage-context/pull/8) and [round-8 brief](https://github.com/identity-md-launches/launch-2412-workflow-frontend-stage-context/pull/9). Their superseded older-block controls and progress placement are identified below, rather than reported as still implemented.
@@ -23,7 +95,7 @@ All test paths in these tables are relative to `web/`; quoted case prefixes iden
 | 8 / 3 · Validation notes | This section; `tests/mainnet-browser.mjs`, all six provider scenarios; delivered `docs/frontend/site-update-results.json`. | Completed here. Per-item case/results and real browser provider provenance are recorded, with serving and observation limits explicit. |
 | 8 / 4 · Older row reads | `tests/round8-browser.mjs`, all three `4…` cases; `tests/site-update-browser.mjs`, `6 an 8,000-block-old request…`; `tests/attested-records.test.mjs`, `6 launch reads cache successes…`. | Passed for the replacement behavior required by current item 6. Healthy rows show neither an older-block control nor an unnecessary no-request line. Failed history is retried with Retry reads. Old open requests backfill without a press. |
 | 8 / 5 · Individual request | `tests/round8-browser.mjs`, `5 Mint this fact on 901…`; `tests/site-update-browser.mjs`, `7 shared catalog and community rows…`. | Passed. A row opens the same dialog for that fact only, with its advice, live price and negative-result gate, while preserving other selections. Shared rows now join the same flow. |
-| 8 / 6 · Row order | `tests/round8-browser.mjs`, `6 row order text…`; `tests/site-update-browser.mjs`, `5 every row uses the same centred…`. | Passed at 1280 and 390. The current stricter shared-column, equal-gap, vertical-centering and green-border requirements also pass, including rows without a button or preview. |
+| 8 / 6 · Row order | `tests/round8-browser.mjs`, `6 row order text…`; `tests/site-update-browser.mjs`, `5 every row uses the same centred…`. | Passed at 1280 and 390. The current stricter shared-column, equal-gap, vertical-centering and green-border requirements also pass, including shared community previews and rows without a button. |
 | 8 / 7 · Wallet history and progress | `tests/round8-browser.mjs`, all three `7…` cases; `tests/round8-revision-browser.mjs`, both `7 a wallet switch…` / `7 a shared fact id…`; `tests/site-update-browser.mjs`, `2…`, `3…`, `4…`; `tests/swarm-browser.mjs`, `5 Check swarm…`. | Passed. Registry-derived direct and panel history, evidence windows, UTC attestation time and explorer links remain. Wallet switches cannot inherit another wallet's rows/job/time. **Superseded by current items 3–4:** names/routes are Mint/Wallet; progress is back on Mint between Why and Add traits; Wallet has history only. Legacy routes, queries and anchors work. |
 
 ### Current eight-item checks
@@ -36,7 +108,7 @@ All test paths in these tables are relative to `web/`; quoted case prefixes iden
 | 4 · Swarm position | `tests/site-update-browser.mjs`, `4 Swarm progress…`; `tests/round8-browser.mjs`, `7 Mint has…`; `tests/swarm-browser.mjs`, `6 full-width progress…`. | Passed. Own full-width section immediately follows Why and precedes Add traits, one feed per open personal request. Wallet has claimed history and no feed. Disconnected Wallet uses the prescribed facts sentence. Check swarm still expands and focuses its disclosure. |
 | 5 · Row alignment | `tests/site-update-browser.mjs`, `5 every row…`; `tests/round8-browser.mjs`, `6 row order…`. | Passed. All desktop card/action midpoints agree with their row midpoint within 1 px; all preview/action x coordinates agree; both column gaps equal 16 px. Previews have a 1 px `rgb(0, 255, 65)` border. The preview keeps its column without a button. Phone order/reflow has no page overflow. |
 | 6 · Automatic older reads | `tests/site-update-browser.mjs`, both `6…` cases; `tests/attested-records.test.mjs`, `6 launch reads…`; recent/failure cases in `tests/round8-browser.mjs` and `tests/personal-facts-browser.mjs`. | Passed. An 8,000-block-old request displays its Registry outcome; a 30,000-block-old stored list is recovered, hash-checked and applied through the dialog. Reads start at 26242885 without a press. Subsequent polls reuse the backfill. Retry reads clears failed entries, preserving successful cached results. No older-block text appears in the tested routes/states at either width. |
-| 7 · Shared picker rows | `tests/site-update-browser.mjs`, `7 shared catalog and community rows…`; `tests/acceptance.mjs`, both A shared-list cases; shared paths in `tests/actions.mjs` and `tests/followup.mjs`. | Passed. 1201 and shared community id 10001 occur in numeric order, with checkbox/rule/panel/attempt/result/action; 1201 retains its preview. 1201 alone opens the existing shared request dialog; 901 + 1201 yields one dialog containing both request steps. Stored included lists offer Apply shared fact. Shared pending requests appear beneath the picker. No separate shared block remains. Unsafe/incomplete rankings still block payment. |
+| 7 · Shared picker rows | `tests/site-update-browser.mjs`, `7 shared catalog and community rows…`; `tests/acceptance.mjs`, both A shared-list cases; shared paths in `tests/actions.mjs` and `tests/followup.mjs`. | Passed. 1201 and shared community id 10001 occur in numeric order, with checkbox/rule/panel/attempt/result/action; 1201 retains its catalog preview and shared community rows now have generated previews (see revision cases above). 1201 alone opens the existing shared request dialog; 901 + 1201 yields one dialog containing both request steps. Stored included lists offer Apply shared fact. Shared pending requests appear beneath the picker. No separate shared block remains. Unsafe/incomplete rankings still block payment. |
 | 8 · Hour tooltip | `tests/site-update-browser.mjs`, `8 hour 64…`; `tests/browser.mjs`, census interaction. | Passed. Mouse hover, keyboard focus/Left/Right and tap show hour 64, 8 deposits, 11 whole ETH and 6 first deposits, derived from unchanged `data/hours.json` (11.313937870044388144 ETH before the site's existing whole-ETH rounding). All 66 bars are available on mobile; no hour table/sideways note remains. Window/provenance download and 59 source lines remain. |
 
 ### Real browser reading mainnet

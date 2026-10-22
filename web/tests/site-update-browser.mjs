@@ -350,6 +350,11 @@ try {
         );
       const cards = boxes.filter((b) => b.card),
         actions = boxes.filter((b) => b.button);
+      for (const id of [1201, 10001])
+        assert.ok(
+          boxes.find((b) => b.id === `pick-${id}`)?.card,
+          `preview for shared fact ${id}`,
+        );
       const mid = (r) => r.top + r.height / 2;
       for (const b of boxes) {
         for (const key of ["card", "button"])
@@ -632,6 +637,7 @@ try {
       for (const id of [1201, 10001]) {
         const row = page.locator(`#pick-${id}`);
         await row.getByRole("checkbox").waitFor();
+        assert.equal(await row.locator(".mini-card").count(), 1);
         await row.getByText(/panel 11 \/ quorum 7/).waitFor();
         await row.getByText(/Attempts in the last 24 hours/).waitFor();
         await row.getByRole("button", { name: /Mint this fact/ }).waitFor();

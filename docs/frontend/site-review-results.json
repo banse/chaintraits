@@ -1,0 +1,928 @@
+{
+  "scope": "Reopened preview, hover-tooltip and delayed-anchor findings; worker validation only.",
+  "sourceSha256": {
+    "web/src/App.tsx": "f4f48eb7d470e24a0008534d366eaee7bd7c1faacccb8b5ce6cb6ca2dc10536b",
+    "web/src/claim.tsx": "a5b699c5acbe6140b5aa23768ad9522bf54114afc2bc7d30997611251ca24e16",
+    "web/src/components.tsx": "25ecf3e130184521c83ed7bf461a5c90bdd10ec00402758dcd0931ba077dab54",
+    "web/src/pages.tsx": "f5dbb194d66821383c91a9bf9f873a862b3cab931645f339128e0a6afb95b0a7"
+  },
+  "reproduction": {
+    "testFile": "web/tests/site-review-browser.mjs",
+    "originalExportFailures": [
+      {
+        "name": "community previews render and align at 1280px",
+        "detail": "preview for 10001\n\n0 !== 1\n"
+      },
+      {
+        "name": "community previews render and align at 390px",
+        "detail": "preview for 10001\n\n0 !== 1\n"
+      },
+      {
+        "name": "hour tooltip is hoverable, dismissible and focusable at 320px",
+        "detail": "tooltip survives pointer travel from bar to its text\n\n0 !== 1\n"
+      },
+      {
+        "name": "hour tooltip is hoverable, dismissible and focusable at 390px",
+        "detail": "tooltip survives pointer travel from bar to its text\n\n0 !== 1\n"
+      },
+      {
+        "name": "hour tooltip is hoverable, dismissible and focusable at 1440px",
+        "detail": "tooltip survives pointer travel from bar to its text\n\n0 !== 1\n"
+      },
+      {
+        "name": "delayed community anchor scrolls for #/claim#shared-10001",
+        "detail": "{\"top\":5073.890625,\"scroll\":0}"
+      },
+      {
+        "name": "delayed community anchor scrolls for #/mint#pick-10001",
+        "detail": "{\"top\":5073.890625,\"scroll\":0}"
+      }
+    ],
+    "originalChecksPassed": [
+      "delayed community anchor scrolls for #/claim?trait=10001#shared-10001",
+      "navigation cancels an unresolved anchor"
+    ]
+  },
+  "validation": {
+    "productionBuild": "passed; all three pinned ABI hashes verified",
+    "typecheck": "passed",
+    "exportManifest": "passed",
+    "formatCheck": "passed",
+    "unitTests": {
+      "passed": 106,
+      "failed": 0
+    },
+    "routeWidthCombinations": 55,
+    "reviewRegression": {
+      "passedCases": [
+        "community previews render and align at 1280px",
+        "community previews render and align at 390px",
+        "hour tooltip is hoverable, dismissible and focusable at 320px",
+        "hour tooltip is hoverable, dismissible and focusable at 390px",
+        "hour tooltip is hoverable, dismissible and focusable at 1440px",
+        "delayed community anchor scrolls for #/claim#shared-10001",
+        "delayed community anchor scrolls for #/claim?trait=10001#shared-10001",
+        "delayed community anchor scrolls for #/mint#pick-10001",
+        "navigation cancels an unresolved anchor"
+      ],
+      "failures": [],
+      "unexpectedErrors": [],
+      "measurements": [
+        {
+          "width": 1280,
+          "shared": [
+            {
+              "id": "pick-1201",
+              "row": {
+                "x": 40,
+                "y": 2671.75,
+                "width": 1200,
+                "height": 168.953125,
+                "top": 2671.75,
+                "right": 1240,
+                "bottom": 2840.703125,
+                "left": 40
+              },
+              "card": {
+                "x": 1004,
+                "y": 2727.71875,
+                "width": 56,
+                "height": 56,
+                "top": 2727.71875,
+                "right": 1060,
+                "bottom": 2783.71875,
+                "left": 1004
+              },
+              "button": {
+                "x": 1076,
+                "y": 2733.71875,
+                "width": 164,
+                "height": 44,
+                "top": 2733.71875,
+                "right": 1240,
+                "bottom": 2777.71875,
+                "left": 1076
+              },
+              "text": {
+                "x": 40,
+                "y": 2687.75,
+                "width": 948,
+                "height": 135.953125,
+                "top": 2687.75,
+                "right": 988,
+                "bottom": 2823.703125,
+                "left": 40
+              },
+              "border": [
+                "1px",
+                "rgb(0, 255, 65)"
+              ]
+            },
+            {
+              "id": "pick-10001",
+              "row": {
+                "x": 40,
+                "y": 2940.875,
+                "width": 1200,
+                "height": 168.953125,
+                "top": 2940.875,
+                "right": 1240,
+                "bottom": 3109.828125,
+                "left": 40
+              },
+              "card": {
+                "x": 1004,
+                "y": 2996.84375,
+                "width": 56,
+                "height": 56,
+                "top": 2996.84375,
+                "right": 1060,
+                "bottom": 3052.84375,
+                "left": 1004
+              },
+              "button": {
+                "x": 1076,
+                "y": 3002.84375,
+                "width": 164,
+                "height": 44,
+                "top": 3002.84375,
+                "right": 1240,
+                "bottom": 3046.84375,
+                "left": 1076
+              },
+              "text": {
+                "x": 40,
+                "y": 2956.875,
+                "width": 948,
+                "height": 135.953125,
+                "top": 2956.875,
+                "right": 988,
+                "bottom": 3092.828125,
+                "left": 40
+              },
+              "border": [
+                "1px",
+                "rgb(0, 255, 65)"
+              ]
+            },
+            {
+              "id": "pick-10002",
+              "row": {
+                "x": 40,
+                "y": 3109.828125,
+                "width": 1200,
+                "height": 168.953125,
+                "top": 3109.828125,
+                "right": 1240,
+                "bottom": 3278.78125,
+                "left": 40
+              },
+              "card": {
+                "x": 1004,
+                "y": 3165.796875,
+                "width": 56,
+                "height": 56,
+                "top": 3165.796875,
+                "right": 1060,
+                "bottom": 3221.796875,
+                "left": 1004
+              },
+              "button": {
+                "x": 1076,
+                "y": 3171.796875,
+                "width": 164,
+                "height": 44,
+                "top": 3171.796875,
+                "right": 1240,
+                "bottom": 3215.796875,
+                "left": 1076
+              },
+              "text": {
+                "x": 40,
+                "y": 3125.828125,
+                "width": 948,
+                "height": 135.953125,
+                "top": 3125.828125,
+                "right": 988,
+                "bottom": 3261.78125,
+                "left": 40
+              },
+              "border": [
+                "1px",
+                "rgb(0, 255, 65)"
+              ]
+            }
+          ]
+        },
+        {
+          "width": 390,
+          "shared": [
+            {
+              "id": "pick-1201",
+              "row": {
+                "x": 16,
+                "y": 4351.234375,
+                "width": 358,
+                "height": 320.921875,
+                "top": 4351.234375,
+                "right": 374,
+                "bottom": 4672.15625,
+                "left": 16
+              },
+              "card": {
+                "x": 16,
+                "y": 4599.15625,
+                "width": 56,
+                "height": 56,
+                "top": 4599.15625,
+                "right": 72,
+                "bottom": 4655.15625,
+                "left": 16
+              },
+              "button": {
+                "x": 88,
+                "y": 4605.15625,
+                "width": 286,
+                "height": 44,
+                "top": 4605.15625,
+                "right": 374,
+                "bottom": 4649.15625,
+                "left": 88
+              },
+              "text": {
+                "x": 16,
+                "y": 4367.234375,
+                "width": 358,
+                "height": 215.921875,
+                "top": 4367.234375,
+                "right": 374,
+                "bottom": 4583.15625,
+                "left": 16
+              },
+              "border": [
+                "1px",
+                "rgb(0, 255, 65)"
+              ]
+            },
+            {
+              "id": "pick-10001",
+              "row": {
+                "x": 16,
+                "y": 4844.328125,
+                "width": 358,
+                "height": 340.109375,
+                "top": 4844.328125,
+                "right": 374,
+                "bottom": 5184.4375,
+                "left": 16
+              },
+              "card": {
+                "x": 16,
+                "y": 5111.4375,
+                "width": 56,
+                "height": 56,
+                "top": 5111.4375,
+                "right": 72,
+                "bottom": 5167.4375,
+                "left": 16
+              },
+              "button": {
+                "x": 88,
+                "y": 5117.4375,
+                "width": 286,
+                "height": 44,
+                "top": 5117.4375,
+                "right": 374,
+                "bottom": 5161.4375,
+                "left": 88
+              },
+              "text": {
+                "x": 16,
+                "y": 4860.328125,
+                "width": 358,
+                "height": 235.109375,
+                "top": 4860.328125,
+                "right": 374,
+                "bottom": 5095.4375,
+                "left": 16
+              },
+              "border": [
+                "1px",
+                "rgb(0, 255, 65)"
+              ]
+            },
+            {
+              "id": "pick-10002",
+              "row": {
+                "x": 16,
+                "y": 5184.4375,
+                "width": 358,
+                "height": 340.109375,
+                "top": 5184.4375,
+                "right": 374,
+                "bottom": 5524.546875,
+                "left": 16
+              },
+              "card": {
+                "x": 16,
+                "y": 5451.546875,
+                "width": 56,
+                "height": 56,
+                "top": 5451.546875,
+                "right": 72,
+                "bottom": 5507.546875,
+                "left": 16
+              },
+              "button": {
+                "x": 88,
+                "y": 5457.546875,
+                "width": 286,
+                "height": 44,
+                "top": 5457.546875,
+                "right": 374,
+                "bottom": 5501.546875,
+                "left": 88
+              },
+              "text": {
+                "x": 16,
+                "y": 5200.4375,
+                "width": 358,
+                "height": 235.109375,
+                "top": 5200.4375,
+                "right": 374,
+                "bottom": 5435.546875,
+                "left": 16
+              },
+              "border": [
+                "1px",
+                "rgb(0, 255, 65)"
+              ]
+            }
+          ]
+        },
+        {
+          "route": "#/claim#shared-10001",
+          "top": 15.890625,
+          "scroll": 5058
+        },
+        {
+          "route": "#/claim?trait=10001#shared-10001",
+          "top": 15.890625,
+          "scroll": 5058
+        },
+        {
+          "route": "#/mint#pick-10001",
+          "top": 15.890625,
+          "scroll": 5058
+        }
+      ]
+    },
+    "suites": {
+      "current eight-item update": {
+        "passed": true,
+        "unexpectedErrors": 0,
+        "widthChecks": 16,
+        "caseCount": 9,
+        "result": "passed"
+      },
+      "round8-browser": {
+        "passed": true,
+        "unexpectedErrors": 0,
+        "widthChecks": 10,
+        "caseCount": 10,
+        "result": "passed"
+      },
+      "round8-revision-browser": {
+        "passed": true,
+        "unexpectedErrors": 0,
+        "widthChecks": 4,
+        "caseCount": 4,
+        "result": "passed"
+      },
+      "personal-facts-browser": {
+        "passed": true,
+        "unexpectedErrors": 0,
+        "widthChecks": 52,
+        "caseCount": 15,
+        "result": "passed"
+      },
+      "acceptance": {
+        "passed": true,
+        "unexpectedErrors": 0,
+        "widthChecks": 0,
+        "caseCount": 12,
+        "result": "passed"
+      },
+      "actions": {
+        "passed": true,
+        "unexpectedErrors": 0,
+        "widthChecks": 0,
+        "caseCount": 11,
+        "result": "passed"
+      },
+      "followup": {
+        "passed": true,
+        "unexpectedErrors": 0,
+        "widthChecks": 0,
+        "caseCount": 10,
+        "result": "passed"
+      },
+      "swarm-browser": {
+        "passed": true,
+        "unexpectedErrors": 0,
+        "widthChecks": 0,
+        "caseCount": 10,
+        "result": "passed"
+      },
+      "oracle-feed-browser": {
+        "passed": true,
+        "unexpectedErrors": 0,
+        "widthChecks": 14,
+        "caseCount": 10,
+        "result": "passed"
+      },
+      "eligibility-snapshot-browser": {
+        "passed": true,
+        "unexpectedErrors": 0,
+        "widthChecks": 0,
+        "caseCount": 6,
+        "result": "passed"
+      }
+    }
+  },
+  "mainnetBrowser": {
+    "at": "2026-10-22T22:34:46.389Z",
+    "origin": "https://swornbyswarm.site.identitymd.eth.limo",
+    "serving": "Current local dist export supplied through same-origin static-file routing; external RPC fetches unmodified except the explicitly blocked endpoint or 429 scenario.",
+    "browser": "156.0.8078.4",
+    "scenarios": [
+      {
+        "blocked": null,
+        "reads": [
+          {
+            "kind": "eth_chainId",
+            "result": "0x1",
+            "durationMs": 131,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "eth_getCode",
+            "durationMs": 67,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "eth_call",
+            "result": "0x0000000000000000000000000000000000000000000000000000000000000008",
+            "durationMs": 76,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "eth_blockNumber",
+            "result": "0x1908fa7",
+            "durationMs": 60,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "block reads",
+            "result": "answered",
+            "durationMs": 72,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "recent logs",
+            "result": "0 logs",
+            "durationMs": 381,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com",
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          },
+          {
+            "kind": "24-hour logs",
+            "result": "24 logs",
+            "durationMs": 240,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com",
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          },
+          {
+            "kind": "old-block nonce",
+            "result": "0x10",
+            "durationMs": 127,
+            "answeredBy": [
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          },
+          {
+            "kind": "601 seat read",
+            "result": "met",
+            "durationMs": 732,
+            "answeredBy": [
+              "https://gateway.tenderly.co/public/mainnet",
+              "https://rpc.mevblocker.io/fast"
+            ]
+          }
+        ],
+        "seatLogProviders": [
+          "https://gateway.tenderly.co/public/mainnet",
+          "https://rpc.mevblocker.io/fast"
+        ],
+        "requestsAfterReturn": 0,
+        "oldNoncePublicnodeStatuses": [
+          403
+        ]
+      },
+      {
+        "blocked": "https://ethereum-rpc.publicnode.com",
+        "reads": [
+          {
+            "kind": "eth_chainId",
+            "result": "0x1",
+            "durationMs": 51,
+            "answeredBy": [
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          },
+          {
+            "kind": "eth_getCode",
+            "durationMs": 63,
+            "answeredBy": [
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          },
+          {
+            "kind": "eth_call",
+            "result": "0x0000000000000000000000000000000000000000000000000000000000000008",
+            "durationMs": 55,
+            "answeredBy": [
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          },
+          {
+            "kind": "eth_blockNumber",
+            "result": "0x1908fa8",
+            "durationMs": 61,
+            "answeredBy": [
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          },
+          {
+            "kind": "block reads",
+            "result": "answered",
+            "durationMs": 65,
+            "answeredBy": [
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          },
+          {
+            "kind": "recent logs",
+            "result": "0 logs",
+            "durationMs": 498,
+            "answeredBy": [
+              "https://gateway.tenderly.co/public/mainnet",
+              "https://rpc.mevblocker.io/fast"
+            ]
+          },
+          {
+            "kind": "24-hour logs",
+            "result": "24 logs",
+            "durationMs": 794,
+            "answeredBy": [
+              "https://gateway.tenderly.co/public/mainnet",
+              "https://rpc.mevblocker.io/fast"
+            ]
+          },
+          {
+            "kind": "old-block nonce",
+            "result": "0x10",
+            "durationMs": 61,
+            "answeredBy": [
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          },
+          {
+            "kind": "601 seat read",
+            "result": "met",
+            "durationMs": 682,
+            "answeredBy": [
+              "https://gateway.tenderly.co/public/mainnet",
+              "https://rpc.mevblocker.io/fast"
+            ]
+          }
+        ],
+        "seatLogProviders": [
+          "https://gateway.tenderly.co/public/mainnet",
+          "https://rpc.mevblocker.io/fast"
+        ],
+        "requestsAfterReturn": 0,
+        "oldNoncePublicnodeStatuses": []
+      },
+      {
+        "blocked": "https://gateway.tenderly.co/public/mainnet",
+        "reads": [
+          {
+            "kind": "eth_chainId",
+            "result": "0x1",
+            "durationMs": 65,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "eth_getCode",
+            "durationMs": 69,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "eth_call",
+            "result": "0x0000000000000000000000000000000000000000000000000000000000000008",
+            "durationMs": 73,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "eth_blockNumber",
+            "result": "0x1908fa8",
+            "durationMs": 64,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "block reads",
+            "result": "answered",
+            "durationMs": 79,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "recent logs",
+            "result": "0 logs",
+            "durationMs": 536,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com",
+              "https://rpc.mevblocker.io/fast"
+            ]
+          },
+          {
+            "kind": "24-hour logs",
+            "result": "24 logs",
+            "durationMs": 958,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com",
+              "https://rpc.mevblocker.io/fast"
+            ]
+          },
+          {
+            "kind": "old-block nonce",
+            "result": "0x10",
+            "durationMs": 341,
+            "answeredBy": [
+              "https://rpc.mevblocker.io/fast"
+            ]
+          },
+          {
+            "kind": "601 seat read",
+            "result": "unknown",
+            "durationMs": 1053,
+            "answeredBy": [
+              "https://rpc.mevblocker.io/fast"
+            ]
+          }
+        ],
+        "seatLogProviders": [
+          "https://rpc.mevblocker.io/fast"
+        ],
+        "requestsAfterReturn": 0,
+        "oldNoncePublicnodeStatuses": [
+          403
+        ]
+      },
+      {
+        "blocked": "https://rpc.mevblocker.io/fast",
+        "reads": [
+          {
+            "kind": "eth_chainId",
+            "result": "0x1",
+            "durationMs": 58,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "eth_getCode",
+            "durationMs": 67,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "eth_call",
+            "result": "0x0000000000000000000000000000000000000000000000000000000000000008",
+            "durationMs": 66,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "eth_blockNumber",
+            "result": "0x1908fa8",
+            "durationMs": 61,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "block reads",
+            "result": "answered",
+            "durationMs": 85,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "recent logs",
+            "result": "0 logs",
+            "durationMs": 289,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com",
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          },
+          {
+            "kind": "24-hour logs",
+            "result": "24 logs",
+            "durationMs": 382,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com",
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          },
+          {
+            "kind": "old-block nonce",
+            "result": "0x10",
+            "durationMs": 130,
+            "answeredBy": [
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          },
+          {
+            "kind": "601 seat read",
+            "result": "unknown",
+            "durationMs": 485,
+            "answeredBy": [
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          }
+        ],
+        "seatLogProviders": [
+          "https://gateway.tenderly.co/public/mainnet"
+        ],
+        "requestsAfterReturn": 0,
+        "oldNoncePublicnodeStatuses": [
+          403
+        ]
+      },
+      {
+        "blocked": "https://1.rpc.thirdweb.com",
+        "reads": [
+          {
+            "kind": "eth_chainId",
+            "result": "0x1",
+            "durationMs": 76,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "eth_getCode",
+            "durationMs": 68,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "eth_call",
+            "result": "0x0000000000000000000000000000000000000000000000000000000000000008",
+            "durationMs": 73,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "eth_blockNumber",
+            "result": "0x1908fa8",
+            "durationMs": 69,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "block reads",
+            "result": "answered",
+            "durationMs": 67,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "recent logs",
+            "result": "0 logs",
+            "durationMs": 315,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com",
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          },
+          {
+            "kind": "24-hour logs",
+            "result": "24 logs",
+            "durationMs": 254,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com",
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          },
+          {
+            "kind": "old-block nonce",
+            "result": "0x10",
+            "durationMs": 117,
+            "answeredBy": [
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          },
+          {
+            "kind": "601 seat read",
+            "result": "met",
+            "durationMs": 1110,
+            "answeredBy": [
+              "https://gateway.tenderly.co/public/mainnet",
+              "https://rpc.mevblocker.io/fast"
+            ]
+          }
+        ],
+        "seatLogProviders": [
+          "https://gateway.tenderly.co/public/mainnet",
+          "https://rpc.mevblocker.io/fast"
+        ],
+        "requestsAfterReturn": 0,
+        "oldNoncePublicnodeStatuses": [
+          403
+        ]
+      },
+      {
+        "blocked": "tenderly-429",
+        "reads": [
+          {
+            "kind": "601 seat read",
+            "result": "unknown",
+            "durationMs": 1622,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com",
+              "https://rpc.mevblocker.io/fast"
+            ]
+          }
+        ],
+        "seatLogProviders": [
+          "https://rpc.mevblocker.io/fast"
+        ],
+        "requestsAfterReturn": 0,
+        "oldNoncePublicnodeStatuses": []
+      }
+    ]
+  },
+  "designProbe": {
+    "passed": 14,
+    "total": 16,
+    "preservedDesignFlags": [
+      "casing",
+      "type-faces"
+    ]
+  },
+  "limitations": [
+    "WebKit unavailable: required system browser libraries are not installed.",
+    "No physical wallet/passkey, screen-reader, native zoom, RTL, translation or live settlement checks.",
+    "Mainnet provider checks serve the local export at the real gateway origin; remote published gateway content is not certified.",
+    "Live-relay/fork portions of npm test explicitly skipped with no relay configured."
+  ],
+  "export": {
+    "assetCount": 64,
+    "relativeAssets": true,
+    "manifestSha256": "e68601ea8ea4c4b5d6f684f861f03b57b36018f4b443f975f93f5f2019ef091b"
+  }
+}

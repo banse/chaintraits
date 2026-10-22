@@ -116,6 +116,7 @@ export function App({ r }: { r: Runtime }) {
     const label =
       ROUTES.find(([path]) => path === route.route)?.[1] || "Page not found";
     document.title = `Sworn | ${label}`;
+    let observer: MutationObserver | undefined;
     const timeout = setTimeout(() => {
       const trait = route.query.get("trait");
       const id =
@@ -125,18 +126,32 @@ export function App({ r }: { r: Runtime }) {
             ? `pick-${trait}`
             : `trait-${trait}`
           : "");
-      if (id) {
+      const scrollToTarget = () => {
+        if (!id) return false;
         const el = document.getElementById(id);
         if (el) {
           el.scrollIntoView({ block: "start" });
           if (el instanceof HTMLInputElement) el.focus();
-          return;
+          observer?.disconnect();
+          return true;
         }
+        return false;
+      };
+      if (scrollToTarget()) return;
+      const main = document.getElementById("main");
+      if (id && main) {
+        // Community rows and wallet history can arrive after navigation.
+        // Stop watching after the first match or when the route changes.
+        observer = new MutationObserver(scrollToTarget);
+        observer.observe(main, { childList: true, subtree: true });
       }
-      document.getElementById("main")?.focus({ preventScroll: true });
+      main?.focus({ preventScroll: true });
       window.scrollTo(0, 0);
     }, 100);
-    return () => clearTimeout(timeout);
+    return () => {
+      clearTimeout(timeout);
+      observer?.disconnect();
+    };
   }, [route]);
   const pages: Record<string, React.ComponentType> = {
     "/": Home,

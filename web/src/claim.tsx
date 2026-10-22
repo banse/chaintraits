@@ -19,7 +19,7 @@ import {
   traitMethod,
   MISS_REASONS,
 } from "./pure.mjs";
-import { Card, Mark, Status, Section, num } from "./components";
+import { Card, CommunityCard, Mark, Status, Section, num } from "./components";
 import {
   useTransactions,
   TransactionJournal,
@@ -454,7 +454,7 @@ function SharedFactRow({
           </a>
         )}
       </div>
-      {t.id === 1201 && <Card miniId={t.id} />}
+      {t.id === 1201 ? <Card miniId={t.id} /> : <CommunityCard fact={t} />}
       {!proven && (
         <div className="row-actions">
           <button

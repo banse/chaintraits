@@ -687,17 +687,17 @@ function HourChart({ hours }: { hours: any[] }) {
   const max = Math.max(...hours.map((h) => h.deposits));
   const selected = active === null ? null : hours[active];
   return (
-    <div className="hour-chart" aria-label="Deposits per hour">
-      <div
-        className="chart-bars"
-        onMouseLeave={(e) => {
-          if (!e.currentTarget.contains(document.activeElement))
-            setActive(null);
-        }}
-        onBlur={(e) => {
-          if (!e.currentTarget.contains(e.relatedTarget)) setActive(null);
-        }}
-      >
+    <div
+      className="hour-chart"
+      aria-label="Deposits per hour"
+      onMouseLeave={(e) => {
+        if (!e.currentTarget.contains(document.activeElement)) setActive(null);
+      }}
+      onBlur={(e) => {
+        if (!e.currentTarget.contains(e.relatedTarget)) setActive(null);
+      }}
+    >
+      <div className="chart-bars">
         {hours.map((h, i) => (
           <button
             type="button"
