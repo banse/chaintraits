@@ -7,9 +7,8 @@ import {
   type Hex,
 } from "viem";
 import { asset, read, contract, type Runtime, type Health } from "./chain";
-// Read-back windows (owner's decision): the oracle feed reads the last 600
-// blocks (2 hours); request history and shared-fact attempts the last 7,200
-// blocks (24 hours). Only "Check older blocks" reads back to the launch block.
+// Recent feed reads cover 600 blocks; history/attempts cover 7,200 blocks.
+// Unresolved stored lists and older requests fall back to launch automatically.
 export const FEED_WINDOW = 600n;
 export const HISTORY_WINDOW = 7200n;
 const OLDER_CHUNK = 100000n;
@@ -92,7 +91,7 @@ export async function completion(
   const event = r.abis.IntakeV2.find(
     (e: any) => e.type === "event" && e.name === "Completed",
   );
-  // Automatic reads stay inside their window; a button press reads from launch.
+  // Callers try their recent window before a cached read from launch.
   let start = first;
   if (options.window !== undefined && latest - options.window + 1n > start)
     start = latest - options.window + 1n;
@@ -136,7 +135,7 @@ export async function sharedState(
   r: Runtime,
   h: Health,
   id: number,
-  older = false,
+  cache: { once: (key: string, load: () => Promise<any>) => Promise<any> },
 ) {
   const [fact, pending, events] = await Promise.all([
     read(client, r, "Registry", "sharedFact", [id]),
@@ -146,7 +145,7 @@ export async function sharedState(
       r,
       ["TraitRequested", "SharedFactStored", "Missed", "NoVerdict"],
       id,
-      older ? {} : { window: HISTORY_WINDOW },
+      { window: HISTORY_WINDOW },
     ),
   ]);
   const attempts = events.filter(
@@ -154,7 +153,26 @@ export async function sharedState(
   ).length;
   // A request ends once; a later event for the same request id never replaces it.
   const ended = new Set<string>();
-  const last = events
+  let history = events;
+  const stored = !/^0x0+$/.test(fact[0]);
+  const open = !/^0x0+$/.test(pending);
+  if (
+    (stored || open) &&
+    !events.some(
+      (e) =>
+        e.args.requestId?.toLowerCase() ===
+        (stored ? fact[0] : pending).toLowerCase(),
+    )
+  )
+    history = await cache.once(`shared-events:${id}`, () =>
+      registryEvents(
+        client,
+        r,
+        ["TraitRequested", "SharedFactStored", "Missed", "NoVerdict"],
+        id,
+      ),
+    );
+  const last = history
     .filter((e) => {
       if (e.eventName === "TraitRequested") return false;
       const key = String(e.args.requestId).toLowerCase();
@@ -165,16 +183,14 @@ export async function sharedState(
     .at(-1);
   let list: any[] = [],
     result: any = null;
-  if (!/^0x0+$/.test(fact[0])) {
-    // The stored state is known from sharedFact; its completion (and list) is
-    // read automatically only inside the 24-hour window.
-    result = await completion(
-      client,
-      r,
-      h,
-      fact[0],
-      older ? {} : { window: HISTORY_WINDOW },
-    );
+  if (stored) {
+    result = await completion(client, r, h, fact[0], {
+      window: HISTORY_WINDOW,
+    });
+    if (!result)
+      result = await cache.once(`shared-completion:${fact[0]}`, () =>
+        completion(client, r, h, fact[0]),
+      );
     if (result?.attestation) {
       list = decodeAbiParameters(
         [{ type: "address[]" }],
@@ -187,5 +203,5 @@ export async function sharedState(
         throw Error("Stored shared answer hash mismatch.");
     }
   }
-  return { fact, pending, events, attempts, last, list, result, older };
+  return { fact, pending, events, attempts, last, list, result };
 }

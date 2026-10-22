@@ -27,10 +27,19 @@ import { READ_RPCS } from "./rpc.mjs";
 function routeInfo() {
   const hash = location.hash.slice(1) || "/";
   const [path, rest] = hash.split("#");
-  const route = path.split("?")[0];
+  const requested = path.split("?")[0];
+  const route =
+    requested === "/claim"
+      ? "/mint"
+      : requested === "/wallet-facts"
+        ? "/wallet"
+        : requested;
   return {
     route,
-    anchor: rest,
+    anchor:
+      rest === "shared-fact"
+        ? "pick-1201"
+        : rest?.replace(/^shared-(\d+)$/, "pick-$1"),
     query: new URLSearchParams(path.split("?")[1]),
   };
 }
@@ -46,6 +55,7 @@ export function App({ r }: { r: Runtime }) {
     }
   });
   const [health, setHealth] = useState<Health | null>(null);
+  const [readRetry, setReadRetry] = useState(0);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [specs, setSpecs] = useState<any[]>([]);
@@ -110,13 +120,11 @@ export function App({ r }: { r: Runtime }) {
       const trait = route.query.get("trait");
       const id =
         route.anchor ||
-        (trait === "1201"
-          ? "shared-fact"
-          : trait
-            ? route.route === "/claim"
-              ? `pick-${trait}`
-              : `trait-${trait}`
-            : "");
+        (trait
+          ? route.route === "/mint"
+            ? `pick-${trait}`
+            : `trait-${trait}`
+          : "");
       if (id) {
         const el = document.getElementById(id);
         if (el) {
@@ -134,8 +142,8 @@ export function App({ r }: { r: Runtime }) {
     "/": Home,
     "/catalog": Catalog,
     "/explorer": Explorer,
-    "/claim": Claim,
-    "/wallet-facts": WalletFacts,
+    "/mint": Claim,
+    "/wallet": WalletFacts,
     "/fact-vs-artifact": FactArtifact,
     "/integrate": Integrate,
     "/whitelistcurator": WhitelistCurator,
@@ -151,6 +159,7 @@ export function App({ r }: { r: Runtime }) {
         error,
         loading,
         refresh,
+        readRetry,
         rpcUrl,
         setRpcUrl,
         specs,
@@ -218,7 +227,13 @@ export function App({ r }: { r: Runtime }) {
               </option>
             ))}
           </select>
-          <button onClick={refresh} disabled={loading}>
+          <button
+            onClick={() => {
+              setReadRetry((n) => n + 1);
+              void refresh();
+            }}
+            disabled={loading}
+          >
             {loading ? "Checking…" : "Retry reads"}
           </button>
         </div>

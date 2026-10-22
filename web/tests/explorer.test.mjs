@@ -29,9 +29,9 @@ test("Explorer request rows show live IMD prices or explicit unavailability", as
         ),
       );
       assert.equal(html.split(label).length - 1, 2);
-      assert.ok(html.includes('href="#/claim?trait=601"'));
-      assert.ok(html.includes('href="#/claim?trait=1301"'));
-      assert.ok(!html.includes('href="#/claim?trait=701"'));
+      assert.ok(html.includes('href="#/mint?trait=601"'));
+      assert.ok(html.includes('href="#/mint?trait=1301"'));
+      assert.ok(!html.includes('href="#/mint?trait=701"'));
       if (!health) assert.ok(!/[\d.] IMD/.test(html));
     }
   } finally {

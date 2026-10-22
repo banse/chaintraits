@@ -194,12 +194,17 @@ try {
       assert.equal(await page.locator("#pick-701 input").isEnabled(), true);
       await page.waitForFunction(() =>
         [...document.querySelectorAll("button")].some(
-          (b) => b.textContent === "Mint shared fact" && !b.disabled,
+          (b) =>
+            b.getAttribute("aria-label") ===
+              "Mint this fact: 1201 / Top Weights" && !b.disabled,
         ),
       );
       assert.equal(
         await page
-          .getByRole("button", { name: "Mint shared fact", exact: true })
+          .getByRole("button", {
+            name: "Mint this fact: 1201 / Top Weights",
+            exact: true,
+          })
           .isEnabled(),
         true,
       );
@@ -310,7 +315,7 @@ try {
     },
   );
   await run(
-    "6 desktop middle column; phone DOM and visual order; no overflow",
+    "6 full-width progress after Why and before Add traits; no overflow",
     async () => {
       for (const width of [1280, 1000, 780, 390, 320]) {
         await page.setViewportSize({ width, height: 844 });
@@ -333,21 +338,19 @@ try {
           ),
         }));
         assert.equal(boxes.overflow, false, `overflow at ${width}`);
-        if (width === 1280)
-          assert.ok(
-            boxes.copy.right <= boxes.feed.left &&
-              boxes.feed.right <= boxes.card.left,
-          );
-        else
-          assert.ok(
-            boxes.copy.bottom <= boxes.feed.top &&
-              boxes.feed.bottom <= boxes.card.top,
-          );
-        assert.deepEqual(boxes.order, [
-          "claim-copy",
-          "swarm-feed",
-          "card-figure",
-        ]);
+        assert.ok(
+          boxes.feed.top >= Math.max(boxes.copy.bottom, boxes.card.bottom),
+        );
+        assert.deepEqual(boxes.order, ["claim-copy", "card-figure"]);
+        assert.deepEqual(
+          await page
+            .locator(".swarm-feed")
+            .evaluate((el) => [
+              el.previousElementSibling.querySelector("h2").textContent,
+              el.nextElementSibling.querySelector("h2").textContent,
+            ]),
+          ["Why add traits after minting?", "Add traits"],
+        );
         if ([1280, 390].includes(width)) {
           await page.evaluate(() => scrollTo(0, 0));
           await page.screenshot({
@@ -460,17 +463,11 @@ try {
       assert.deepEqual(await page.evaluate(() => window.__signing), []);
     },
   );
-  await run(
-    "4 progress retry recovers after independent chain completion",
-    async () => {
-      unavailable = false;
-      await feed
-        .getByRole("button", { name: "Retry progress", exact: true })
-        .click();
-      await feed.getByText("attested", { exact: true }).waitFor();
-      assert.equal(await page.locator(".pending-notice").count(), 0);
-    },
-  );
+  await run("4 a delivered request leaves Mint's live section", async () => {
+    unavailable = false;
+    await feed.waitFor({ state: "detached" });
+    assert.equal(await page.locator(".pending-notice").count(), 0);
+  });
   await run(
     "4 every pending fact gets its own feed, including a failed panel",
     async () => {
@@ -526,7 +523,7 @@ try {
         .locator("#swarm-" + third.requestId)
         .getByText("assessing", { exact: true })
         .waitFor();
-      assert.equal(await page.locator(".swarm-request").count(), 3);
+      assert.equal(await page.locator(".swarm-request").count(), 2);
       assert.equal(await page.locator(".pending-notice p").count(), 2);
       assert.equal(await page.locator("#pick-1301 input").isDisabled(), true);
       assert.equal(await page.locator("#pick-701 input").isDisabled(), true);

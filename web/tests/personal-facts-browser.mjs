@@ -275,20 +275,29 @@ async function setup({
     const u = new URL(route.request().url());
     control.api.push(u.pathname + u.search);
     assert.equal(route.request().method(), "GET");
-    const body = u.pathname.startsWith("/intake/")
-      ? {
-          entries: control.exact
-            ? [{ requestId, admission: { result: { requestId: oracleId } } }]
-            : [],
-        }
-      : u.pathname === "/oracle/requests"
+    const body = control.unavailable
+      ? {}
+      : u.pathname.startsWith("/intake/")
         ? {
-            requests: control.records.map((r) => ({
-              ...r,
-              ...(control.listJob ? { jobId: control.listJob } : {}),
-            })),
+            entries: control.exact
+              ? [
+                  {
+                    requestId,
+                    admission: {
+                      result: { requestId: control.exactId || oracleId },
+                    },
+                  },
+                ]
+              : [],
           }
-        : control.records.find((r) => u.pathname.endsWith("/" + r.id));
+        : u.pathname === "/oracle/requests"
+          ? {
+              requests: control.records.map((r) => ({
+                ...r,
+                ...(control.listJob ? { jobId: control.listJob } : {}),
+              })),
+            }
+          : control.records.find((r) => u.pathname.endsWith("/" + r.id));
     await route.fulfill({
       status: 200,
       contentType: "application/json",
@@ -308,11 +317,12 @@ async function setup({
       .getByRole("button", { name: "Browser wallet", exact: true })
       .click();
     await page.locator(`#pick-${id >= 10001 ? id : 801}`).waitFor();
-    if (feed) await page.evaluate(() => (location.hash = "#/wallet-facts"));
+    if (feed) await page.evaluate(() => (location.hash = "#/mint"));
   }
   if (kind === 3)
     await page
-      .locator("#shared-fact")
+      .locator(".settlement")
+      .filter({ hasText: requestId })
       .getByRole("button", { name: "Check swarm", exact: true })
       .click();
   if (explorer) {
@@ -447,13 +457,19 @@ try {
         live.status = eventName === "failed" ? "failed" : "attested";
         if (eventName !== "failed") {
           fixture.state.verifiedEvents = [ending(eventName)];
-          fixture.state.pending[0].cleared = true;
+          // Keep the stale pendingOf answer until the terminal feed has been
+          // inspected; delivery removes Mint's feed as soon as it is refreshed.
         }
         await poll();
         await feed.getByText(line, { exact: true }).waitFor();
         if (eventName !== "failed")
           assert.equal(await feed.getByText(/Panel agreed:/).count(), 0);
         await capture(`end-${eventName}`, feed);
+        if (eventName !== "failed") {
+          fixture.state.pending[0].cleared = true;
+          await poll();
+          await feed.waitFor({ state: "detached" });
+        }
       }
     },
   );
@@ -789,12 +805,14 @@ try {
         .locator("#pick-801")
         .getByText(/^Last request .* UTC: answer false$/)
         .waitFor();
-      assert.ok((await page.locator(".row-history button").count()) > 0);
+      assert.ok(
+        (await page.locator("#pick-801 .row-actions button").count()) > 0,
+      );
       await capture("history-other-wallet", page.locator("#pick-801"));
     },
   );
   await run(
-    "R2 rows and shared line read only the last 7,200 blocks; one row's Check older blocks shows the result on every row",
+    "R2 history and attempts retain their 7,200-block window; no older-block control remains",
     async () => {
       const head = 26260000n;
       await setup({
@@ -804,40 +822,27 @@ try {
         },
       });
       await page
-        .locator("#shared-fact")
+        .locator("#pick-1201")
         .getByText(
           /Attempts in the last 24 hours: 0\. Last panel result: none in the last 24 hours\./,
         )
         .waitFor();
-      await page
-        .getByRole("button", { name: "Check older blocks for fact 901" })
-        .waitFor();
-      const before = control.logs.length;
-      assert.ok(before > 0);
+      assert.equal(
+        await page.getByText("Check older blocks", { exact: true }).count(),
+        0,
+      );
       for (const f of control.logs)
         assert.ok(BigInt(f.fromBlock) >= head - 7199n, f.fromBlock);
-      await page
-        .getByRole("button", { name: "Check older blocks for fact 801" })
-        .click();
-      for (const id of [801, 901])
-        await page
-          .locator(`#pick-${id}`)
-          .getByText("No request found since launch.", { exact: true })
-          .waitFor();
-      assert.ok(
-        registryLogs(before).some((f) => BigInt(f.fromBlock) === launchBlock),
-      );
-      await capture("history-older", page.locator("#pick-901"));
+      await capture("history-recent", page.locator("#pick-901"));
     },
   );
   await run(
-    "R3 a stored shared fact reads its completion only inside 24 hours until Check older blocks",
+    "R3 a stored shared fact's unavailable old completion is read from launch automatically",
     async () => {
-      const head = 26260000n;
       await setup({
         pending: false,
         prepare: (f, c) => {
-          c.head = Number(head);
+          c.head = 26260000;
           f.state.sharedFact = [
             "0x" + "d4".repeat(32),
             "0x" + "e5".repeat(32),
@@ -845,61 +850,42 @@ try {
           ];
         },
       });
-      const shared = page.locator("#shared-fact");
-      await shared.getByText(/^Stored · no further request needed/).waitFor();
-      await shared.getByText(/Attempts in the last 24 hours: 0\./).waitFor();
-      const before = control.logs.length;
-      for (const f of control.logs)
-        assert.ok(BigInt(f.fromBlock) >= head - 7199n, f.fromBlock);
-      await shared
-        .getByRole("button", { name: "Check older blocks", exact: true })
-        .click();
-      await shared
-        .getByText(/Attempts: 0\. Last panel result: none\./)
+      await page
+        .locator("#pick-1201")
+        .getByText(/^Stored · no further request needed/)
         .waitFor();
-      const older = control.logs.slice(before);
       assert.ok(
-        older.some(
+        control.logs.some(
           (f) =>
             BigInt(f.fromBlock) === launchBlock &&
             f.address.toLowerCase() !== registry.toLowerCase(),
         ),
-        "intake completion read from launch on demand",
       );
       assert.ok(
-        registryLogs(before).some((f) => BigInt(f.fromBlock) === launchBlock),
+        registryLogs().some((f) => BigInt(f.fromBlock) === launchBlock),
+      );
+      assert.equal(
+        await page.getByText("Check older blocks", { exact: true }).count(),
+        0,
       );
     },
   );
   await run(
-    "R4 a watched request that ages past the 600-block feed window shows the stale line and Check older blocks",
+    "R4 a watched request keeps its clock age after its block leaves the feed window",
     async () => {
       const feed = await setup({});
       await feed
         .getByText("Waiting for the swarm to pick up the request…")
         .waitFor();
-      await feed
-        .getByRole("button", { name: "Check older blocks", exact: true })
-        .waitFor();
-      const before = control.logs.length;
       control.head = 26250700;
+      await page.clock.setFixedTime(1792600000 * 1000 + 7201000);
       await poll();
       await feed
         .getByText("Requested more than 2 hours ago.", { exact: true })
         .waitFor();
-      const recent = registryLogs(before);
-      assert.ok(recent.length > 0);
-      for (const f of recent)
-        assert.ok(BigInt(f.fromBlock) >= 26250700n - 599n, f.fromBlock);
-      const marker = control.logs.length;
-      await feed
-        .getByRole("button", { name: "Check older blocks", exact: true })
-        .click();
-      await feed
-        .getByText("No Registry outcome found since launch.", { exact: true })
-        .waitFor();
-      assert.ok(
-        registryLogs(marker).some((f) => BigInt(f.fromBlock) === launchBlock),
+      assert.equal(
+        await feed.getByText("Check older blocks", { exact: true }).count(),
+        0,
       );
       await capture("feed-stale", feed);
     },
@@ -968,6 +954,64 @@ try {
         .click();
       await page.waitForFunction(() => window.__signing.length === 1);
       await capture("late-consent", dialog);
+    },
+  );
+  await run(
+    "R6 Panel agreed survives Retry progress for the same oracle id and never carries to a different id",
+    async () => {
+      const live = record(["1", "2", "3"]);
+      const feed = await setup({ records: [live] });
+      await feed.getByText(/^Panel agreed: 3 of 3 needed/).waitFor();
+      control.unavailable = true;
+      await poll();
+      await feed.getByText("progress unavailable", { exact: true }).waitFor();
+      await feed
+        .getByRole("button", { name: "Retry progress", exact: true })
+        .click();
+      await page.waitForTimeout(200);
+      await feed.getByText(/^Panel agreed: 3 of 3 needed/).waitFor();
+      control.exact = true;
+      control.exactId = "33474d49-bf7c-40e0-8dad-41636c73ea84";
+      control.records = [record([], { id: control.exactId })];
+      control.unavailable = false;
+      await poll();
+      await feed
+        .getByText(`Oracle request: ${control.exactId} · exact`, {
+          exact: true,
+        })
+        .waitFor();
+      assert.equal(await feed.getByText(/^Panel agreed:/).count(), 0);
+      await capture("agreement-id-scope", feed);
+    },
+  );
+  await run(
+    "R7 connecting a wallet retains a known explorer link for the same Registry request",
+    async () => {
+      const feed = await setup({
+        explorer: true,
+        connect: false,
+        records: [record(["1"])],
+        listJob: "stable-job",
+      });
+      const link = feed.getByRole("link", {
+        name: "View on the IMD explorer",
+        exact: true,
+      });
+      await link.waitFor();
+      control.listJob = undefined;
+      await page
+        .getByRole("button", { name: "Connect", exact: true })
+        .first()
+        .click();
+      await page
+        .getByRole("button", { name: "Browser wallet", exact: true })
+        .click();
+      await poll();
+      assert.equal(
+        await link.getAttribute("href"),
+        "https://explorer.imd.fun/jobs/stable-job",
+      );
+      assert.deepEqual(await page.evaluate(() => window.__signing), []);
     },
   );
   assert.deepEqual(evidence.errors, []);

@@ -1,0 +1,1270 @@
+{
+  "scope": "Eight-item Mint/Wallet static-export update; worker validation only.",
+  "sourceSha256": {
+    "web/src/attested-records.mjs": "6daa06989b779aee88fa540a2deaef97bec9765bf389247cefdbeff70234f85b",
+    "web/src/page-reads.mjs": "9915ecb98466284827017f826cf260312141793287827158ca01e3fe3e67c8ec",
+    "web/src/claim.tsx": "24cdc5124259f515b0eda4867bbb1750a7e017534d72cd3ca23701d035d7301f",
+    "web/src/wallet-facts.tsx": "95b5cd24f5db4b54279d0bb71518fa59d97a41a53c445346f66e18a5b01cbae1",
+    "web/src/swarm.tsx": "1265eafbb6533129f8cdbbcfe9b18da0d408c33361b858389cb8542a1fea305d",
+    "web/src/settlement.ts": "a594a6c3c090faede41ec1bcd43c8a2ffcbcbd67c4aad0acfda1abb352ad1c4e",
+    "web/src/App.tsx": "5fab728c4b9fcb2bdd6ad778d00f7f8ae316c9b9331e9665c152ec8258bf873a",
+    "web/src/navigation.ts": "b30d8b7a92ed3acf86df3e96a09840c6ba89123abc40f3a1d67b52f89af644d1",
+    "web/src/styles.css": "d7caf77b20d9eae4f1916f0d16aebd7135d8fa9db69eadd38ebbad44889e408a",
+    "web/src/pages.tsx": "413612bd9fa1286665a6cb749d904d8d4d1471c3d14524804a4569e8335f9220",
+    "web/src/rpc.mjs": "a1b48e3614b7d7da7421e147911ef3230b1aaad5f66893269f01b280ec272352",
+    "web/src/eligibility.mjs": "18c226d640e4d16f4f1267e1488af02cd82c555a9ee6e278b7aef93988292fcf"
+  },
+  "export": {
+    "assetCount": 64,
+    "sha256": "7ca93c0a22b4ab02597cb837b8ea190b5822161209c63719e536592d508bcc7a",
+    "relativeAssets": true
+  },
+  "validation": {
+    "typecheck": "passed",
+    "productionBuild": "passed; unchanged ABI hashes verified",
+    "exportManifest": "passed",
+    "formatCheck": "passed",
+    "unitTests": {
+      "passed": 106,
+      "failed": 0
+    },
+    "suites": {
+      "current update": {
+        "testCases": [
+          "2 record network failures recover without reload; distinct records run one at a time",
+          "2 four failed reads stop across health refresh; only the row Retry starts another batch",
+          "3 canonical routes and legacy queries/anchors; all published links use Mint and Wallet",
+          "4 Swarm progress is its own Mint section between Why and Add traits, and absent from Wallet",
+          "5 every row uses the same centred preview/action columns and green 1 px border, including rows without buttons",
+          "6 an 8,000-block-old request finds its outcome automatically from launch, once per view; failed row reads use Retry reads",
+          "6 a shared fact stored 30,000 blocks ago reads its hash-checked list from launch and opens Apply shared fact",
+          "7 shared catalog and community rows join selection, request dialog and pending rows in id order",
+          "8 hour 64 tooltip on hover, keyboard focus and tap; chart replaces table at both widths"
+        ],
+        "passed": true,
+        "unexpectedErrors": 0,
+        "widthChecks": 16
+      },
+      "round 8": {
+        "testCases": [
+          "2 a pending request 7,201 s old shows the stale line while 200 blocks behind head",
+          "2 one 7,199 s old does not",
+          "4 every history read answering: no row shows Check older blocks or No request found since launch.",
+          "4 a failed row read uses Retry reads; no older-block row control remains",
+          "4 an open request older than 24 hours reads back to launch automatically",
+          "5 Mint this fact on 901 opens the dialog for 901 alone with its eligibility line, price and Request anyway; other selections stay",
+          "6 row order text, card preview, buttons: one line at 1280, same order and no overflow at 390; community rows text then buttons",
+          "7 Mint has the progress section and Check swarm; Wallet has history only",
+          "7 without a wallet, and with no open request",
+          "7 history: direct at the mint block's date, panel-sworn catalog fact and community fact with request link, evidence window and attested time; no eth_getLogs older than 7,200 blocks"
+        ],
+        "passed": true,
+        "unexpectedErrors": 0,
+        "widthChecks": 10
+      },
+      "round 8 revision": {
+        "testCases": [
+          "1 a refused specOf(601) in the dialog's check sends nothing after a page change",
+          "2 a 7,201 s old request keeps the two-hour line when the progress API answers 503",
+          "7 a wallet switch never shows the previous wallet's facts while the new history is read",
+          "7 a shared fact id across wallets shows the new request's own job and attested time, or unavailability"
+        ],
+        "passed": true,
+        "unexpectedErrors": 0,
+        "widthChecks": 4
+      },
+      "personal facts / round 7": {
+        "testCases": [
+          "1 count quorum met/below, boolean true/false, and persistence after attestation",
+          "1 Verified, Missed reason 8, NoVerdict and failed API show exact end text",
+          "2 row histories for Missed 8/9, NoVerdict, Abandoned; other wallet does not alter history",
+          "3 32-wallet list summaries, rank, majority then attested list, mouse/keyboard full disclosure",
+          "4/5 Explorer without wallet uses claimant, shows expected wallet on mismatch, retains listing job after Registry confirmation",
+          "6 met and not-met results match row/dialog; negative request requires Request anyway before fake signing prompt",
+          "6 refused and slow reads show advisory warning and still reach the fake wallet; no extra confirmation",
+          "6 nonce uses block 25769870; Swarmed queries seat transfers from 25090085 and stops after first hit",
+          "R1 another wallet's Registry outcome keeps this wallet's Last request line and row controls",
+          "R2 history and attempts retain their 7,200-block window; no older-block control remains",
+          "R3 a stored shared fact's unavailable old completion is read from launch automatically",
+          "R4 a watched request keeps its clock age after its block leaves the feed window",
+          "R5 a not-met result arriving during the wallet's own chain check still needs Request anyway before signing",
+          "R6 Panel agreed survives Retry progress for the same oracle id and never carries to a different id",
+          "R7 connecting a wallet retains a known explorer link for the same Registry request"
+        ],
+        "passed": true,
+        "unexpectedErrors": 0,
+        "widthChecks": 52
+      },
+      "actions": {
+        "testCases": [
+          {
+            "action": "Mint one Sworn card",
+            "function": "mintCard",
+            "entry": "primary UI",
+            "passed": true
+          },
+          {
+            "action": "Request 601 / Swarmed",
+            "function": "upgrade",
+            "entry": "primary UI",
+            "passed": true
+          },
+          {
+            "action": "Request shared fact 1201 / Top Weights",
+            "function": "requestSharedFact",
+            "entry": "primary UI",
+            "passed": true
+          },
+          {
+            "action": "Register the immutable community spec",
+            "function": "registerSpec",
+            "entry": "primary UI",
+            "passed": true
+          },
+          {
+            "action": "Approve IMD",
+            "function": "approve",
+            "entry": "primary UI",
+            "passed": true
+          },
+          {
+            "action": "Reset allowance",
+            "function": "approve",
+            "entry": "primary UI",
+            "passed": true
+          },
+          {
+            "action": "Buy IMD",
+            "function": "execute",
+            "entry": "primary UI",
+            "passed": true
+          },
+          {
+            "action": "Register the immutable community spec",
+            "function": "registerSpec",
+            "entry": "primary UI",
+            "passed": true
+          },
+          {
+            "action": "Apply shared fact",
+            "function": "applySharedFact",
+            "entry": "restored journal",
+            "passed": true
+          },
+          {
+            "action": "Store the verdict",
+            "function": "settle",
+            "entry": "restored journal",
+            "passed": true
+          },
+          {
+            "action": "Abandon pending request",
+            "function": "abandon",
+            "entry": "restored journal",
+            "passed": true
+          }
+        ],
+        "passed": true,
+        "unexpectedErrors": 0,
+        "widthChecks": 0
+      },
+      "follow-up": {
+        "testCases": [
+          "1 pending and failed tokenOf never offer mint; retry recovers to card #1",
+          "2/3 confirmed mint shows its own receipt result, price and destination",
+          "2/3 confirmed fact shows its own receipt result, price and destination",
+          "2/3 confirmed shared shows its own receipt result, price and destination",
+          "2/3 confirmed registration shows its own receipt result, price and destination",
+          "6 a legacy saved ack:true is ignored and omitted from new journal storage",
+          "8 cached exact detail failure silently falls back to the claimant's oldest match",
+          "8 refused Intake uses claimant q, oldest match survives a later duplicate; Verified overrides it",
+          "8 delivered request can be reconstructed after reload from its Registry event",
+          "4 contract README link names the pinned launch commit"
+        ],
+        "passed": true,
+        "unexpectedErrors": 0,
+        "widthChecks": 0
+      },
+      "swarm": {
+        "testCases": [
+          "3 pending notice names the fact, exact Registry timestamp and per-fact lock",
+          "4 summary-only API matches oldest consumer + event questionHash at or after request",
+          "3 another fact still opens a plan and silently unlocks its own checked call",
+          "5 Check swarm opens the existing feed and focuses its disclosure",
+          "4 new true/false/failed seats update without reload; figures stay hidden",
+          "6 full-width progress after Why and before Add traits; no overflow",
+          "4 attestation re-reads hasTrait and Registry card; API verdict alone proves nothing",
+          "4 unreadable API says progress unavailable while chain delivery and other actions continue",
+          "4 a delivered request leaves Mint's live section",
+          "4 every pending fact gets its own feed, including a failed panel"
+        ],
+        "passed": true,
+        "unexpectedErrors": 0,
+        "widthChecks": 0
+      },
+      "oracle feed": {
+        "testCases": [
+          "1 matched listing rejects another wallet despite correct Registry/hash; accepts full address in uppercase",
+          "1 exact Intake and Verified mismatches show refusal and named wallet, with no panel answers",
+          "2 confirmed request waits with an indicator through empty listing and panel formation",
+          "3 unanswered seats load until their own answer; attested and failed seats stop with No answer; reduced motion stays still",
+          "4 explorer link uses jobId below the request, opens a new tab and disappears without jobId",
+          "5 long question expands and collapses by mouse, Enter and Space; short question has no control",
+          "6 and 7 literal true/false counts, both quorum messages, attestation precedence and answer-only rows",
+          "6 nonboolean summaries retain the plane agreement and say no agreement yet when absent",
+          "six-domain review: feed text, seat text, link and question control use readable rendered color pairs",
+          "1\u20137 confirmed result dialog uses the same waiting, wallet guard, job link, question and live quorum rows"
+        ],
+        "passed": true,
+        "unexpectedErrors": 0,
+        "widthChecks": 14
+      },
+      "snapshot": {
+        "testCases": [
+          "Four ordinal wallets meet exactly their own ordinal, hour-65 depositor meets 901, nondepositor is negative for all nine; exact counts/text; one shard; zero curator logs/spec RPC or wallet signatures.",
+          "ok: row/dialog advice matches; nonce still works; ordinary acknowledgement, simulation and explicit fake-wallet request proceed; nothing signed or sent.",
+          "hash: row/dialog advice matches; nonce still works; ordinary acknowledgement, simulation and explicit fake-wallet request proceed; nothing signed or sent.",
+          "missing: row/dialog advice matches; nonce still works; ordinary acknowledgement, simulation and explicit fake-wallet request proceed; nothing signed or sent.",
+          "Negative snapshot result retains the extra Request anyway gate and keyboard path before the fake-wallet prompt.",
+          "601 retains two-endpoint seat Transfer check from block 25090085; 1301 retains historical nonce at block 25769870; neither loads a snapshot."
+        ],
+        "passed": true,
+        "unexpectedErrors": 0,
+        "widthChecks": 22
+      },
+      "acceptance": {
+        "testCases": [
+          "C first RPC always 429 still displays live values without recovered error text",
+          "D form has empty values and no errors, template selection only changes placeholders",
+          "E mint dialog: live fee, balance, card preview, disclaimer and simulation before signing; saved across close/reload",
+          "E approval receipt unlocks a separately simulated mint; no automatic second signature",
+          "E personal fact dialog uses live request price, no unnecessary approval and a simulated call",
+          "A/E valid shared list reaches signing through the shared-fact dialog",
+          "A low shared top-head address and short list block a paid request before a dialog or signing",
+          "D/E typed valid community registration opens the same payment dialog and reaches signing",
+          "E failed simulation never unlocks signing",
+          "C tokenOf=1 displays card #1 with no mint button",
+          "C every RPC failing disables paid actions and shows retrying; manual retry recovers",
+          "B Agents is a direct Markdown link on every route; D layouts have no overflow at 390 and 1280"
+        ],
+        "passed": true
+      },
+      "routes": {
+        "combinations": 55,
+        "widths": [
+          320,
+          390,
+          780,
+          1280,
+          1440
+        ],
+        "unexpectedErrors": 0,
+        "passed": true
+      }
+    }
+  },
+  "designProbe": {
+    "passed": 14,
+    "total": 16,
+    "checks": [
+      {
+        "name": "render",
+        "passed": true
+      },
+      {
+        "name": "layout",
+        "passed": true
+      },
+      {
+        "name": "targets",
+        "passed": true
+      },
+      {
+        "name": "contrast",
+        "passed": true
+      },
+      {
+        "name": "casing",
+        "passed": false
+      },
+      {
+        "name": "tracking",
+        "passed": true
+      },
+      {
+        "name": "eyebrows",
+        "passed": true
+      },
+      {
+        "name": "type-sizes",
+        "passed": true
+      },
+      {
+        "name": "type-faces",
+        "passed": false
+      },
+      {
+        "name": "glyphs",
+        "passed": true
+      },
+      {
+        "name": "slogans",
+        "passed": true
+      },
+      {
+        "name": "repetition",
+        "passed": true
+      },
+      {
+        "name": "copy-budget",
+        "passed": true
+      },
+      {
+        "name": "chrome",
+        "passed": true
+      },
+      {
+        "name": "motion",
+        "passed": true
+      },
+      {
+        "name": "share",
+        "passed": true
+      }
+    ],
+    "retainedExceptions": [
+      "Required existing uppercase headings",
+      "Required existing monospace prose"
+    ]
+  },
+  "mainnetBrowser": {
+    "checkedAt": "2026-10-22T21:57:31.557Z",
+    "browser": "156.0.8078.4",
+    "origin": "https://swornbyswarm.site.identitymd.eth.limo",
+    "serving": "Current local dist export supplied through same-origin static-file routing; external RPC fetches unmodified except the explicitly blocked endpoint or 429 scenario.",
+    "probeRpcTimeoutMs": 4000,
+    "productionRpcTimeoutMs": 8000,
+    "walletInstalled": false,
+    "scenarios": [
+      {
+        "blocked": null,
+        "reads": [
+          {
+            "kind": "eth_chainId",
+            "result": "0x1",
+            "durationMs": 147,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "eth_getCode",
+            "result": "Registry bytecode returned",
+            "durationMs": 76,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "eth_call",
+            "result": "0x0000000000000000000000000000000000000000000000000000000000000008",
+            "durationMs": 75,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "eth_blockNumber",
+            "result": "0x1908eee",
+            "durationMs": 65,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "block reads",
+            "result": "answered",
+            "durationMs": 62,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "recent logs",
+            "result": "2 logs",
+            "durationMs": 524,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com",
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          },
+          {
+            "kind": "24-hour logs",
+            "result": "24 logs",
+            "durationMs": 270,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com",
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          },
+          {
+            "kind": "old-block nonce",
+            "result": "0x10",
+            "durationMs": 155,
+            "answeredBy": [
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          },
+          {
+            "kind": "601 seat read",
+            "result": "met",
+            "durationMs": 1476,
+            "answeredBy": [
+              "https://gateway.tenderly.co/public/mainnet",
+              "https://rpc.mevblocker.io/fast"
+            ]
+          }
+        ],
+        "answered": [
+          {
+            "kind": "eth_chainId",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_chainId"
+          },
+          {
+            "kind": "eth_getCode",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_getCode"
+          },
+          {
+            "kind": "eth_call",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_call"
+          },
+          {
+            "kind": "eth_blockNumber",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_blockNumber"
+          },
+          {
+            "kind": "block reads",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_getBlockByNumber"
+          },
+          {
+            "kind": "recent logs",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_getLogs",
+            "fromBlock": "0x1908c97",
+            "toBlock": "0x1908eee"
+          },
+          {
+            "kind": "recent logs",
+            "rpc": "https://gateway.tenderly.co/public/mainnet",
+            "method": "eth_getLogs",
+            "fromBlock": "0x1908c97",
+            "toBlock": "0x1908eee"
+          },
+          {
+            "kind": "24-hour logs",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_getLogs",
+            "fromBlock": "0x19072cf",
+            "toBlock": "0x1908eee"
+          },
+          {
+            "kind": "24-hour logs",
+            "rpc": "https://gateway.tenderly.co/public/mainnet",
+            "method": "eth_getLogs",
+            "fromBlock": "0x19072cf",
+            "toBlock": "0x1908eee"
+          },
+          {
+            "kind": "old-block nonce",
+            "rpc": "https://gateway.tenderly.co/public/mainnet",
+            "method": "eth_getTransactionCount"
+          },
+          {
+            "kind": "601 seat read",
+            "rpc": "https://gateway.tenderly.co/public/mainnet",
+            "method": "eth_call"
+          },
+          {
+            "kind": "601 seat read",
+            "rpc": "https://gateway.tenderly.co/public/mainnet",
+            "method": "eth_blockNumber"
+          },
+          {
+            "kind": "601 seat read",
+            "rpc": "https://gateway.tenderly.co/public/mainnet",
+            "method": "eth_getLogs",
+            "fromBlock": "0x17ed825",
+            "toBlock": "0x1908eae"
+          },
+          {
+            "kind": "601 seat read",
+            "rpc": "https://rpc.mevblocker.io/fast",
+            "method": "eth_getLogs",
+            "fromBlock": "0x17ed825",
+            "toBlock": "0x1908eae"
+          }
+        ],
+        "httpRefusals": [
+          {
+            "kind": "old-block nonce",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_getTransactionCount",
+            "status": 403
+          }
+        ],
+        "requestsAfterReturn": 0,
+        "postReturnObservationMs": 500
+      },
+      {
+        "blocked": "https://ethereum-rpc.publicnode.com",
+        "reads": [
+          {
+            "kind": "eth_chainId",
+            "result": "0x1",
+            "durationMs": 51,
+            "answeredBy": [
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          },
+          {
+            "kind": "eth_getCode",
+            "result": "Registry bytecode returned",
+            "durationMs": 58,
+            "answeredBy": [
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          },
+          {
+            "kind": "eth_call",
+            "result": "0x0000000000000000000000000000000000000000000000000000000000000008",
+            "durationMs": 61,
+            "answeredBy": [
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          },
+          {
+            "kind": "eth_blockNumber",
+            "result": "0x1908eee",
+            "durationMs": 88,
+            "answeredBy": [
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          },
+          {
+            "kind": "block reads",
+            "result": "answered",
+            "durationMs": 68,
+            "answeredBy": [
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          },
+          {
+            "kind": "recent logs",
+            "result": "2 logs",
+            "durationMs": 504,
+            "answeredBy": [
+              "https://gateway.tenderly.co/public/mainnet",
+              "https://rpc.mevblocker.io/fast"
+            ]
+          },
+          {
+            "kind": "24-hour logs",
+            "result": "24 logs",
+            "durationMs": 885,
+            "answeredBy": [
+              "https://gateway.tenderly.co/public/mainnet",
+              "https://rpc.mevblocker.io/fast"
+            ]
+          },
+          {
+            "kind": "old-block nonce",
+            "result": "0x10",
+            "durationMs": 62,
+            "answeredBy": [
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          },
+          {
+            "kind": "601 seat read",
+            "result": "met",
+            "durationMs": 1394,
+            "answeredBy": [
+              "https://gateway.tenderly.co/public/mainnet",
+              "https://rpc.mevblocker.io/fast"
+            ]
+          }
+        ],
+        "answered": [
+          {
+            "kind": "eth_chainId",
+            "rpc": "https://gateway.tenderly.co/public/mainnet",
+            "method": "eth_chainId"
+          },
+          {
+            "kind": "eth_getCode",
+            "rpc": "https://gateway.tenderly.co/public/mainnet",
+            "method": "eth_getCode"
+          },
+          {
+            "kind": "eth_call",
+            "rpc": "https://gateway.tenderly.co/public/mainnet",
+            "method": "eth_call"
+          },
+          {
+            "kind": "eth_blockNumber",
+            "rpc": "https://gateway.tenderly.co/public/mainnet",
+            "method": "eth_blockNumber"
+          },
+          {
+            "kind": "block reads",
+            "rpc": "https://gateway.tenderly.co/public/mainnet",
+            "method": "eth_getBlockByNumber"
+          },
+          {
+            "kind": "recent logs",
+            "rpc": "https://gateway.tenderly.co/public/mainnet",
+            "method": "eth_getLogs",
+            "fromBlock": "0x1908c97",
+            "toBlock": "0x1908eee"
+          },
+          {
+            "kind": "recent logs",
+            "rpc": "https://rpc.mevblocker.io/fast",
+            "method": "eth_getLogs",
+            "fromBlock": "0x1908c97",
+            "toBlock": "0x1908eee"
+          },
+          {
+            "kind": "24-hour logs",
+            "rpc": "https://gateway.tenderly.co/public/mainnet",
+            "method": "eth_getLogs",
+            "fromBlock": "0x19072cf",
+            "toBlock": "0x1908eee"
+          },
+          {
+            "kind": "24-hour logs",
+            "rpc": "https://rpc.mevblocker.io/fast",
+            "method": "eth_getLogs",
+            "fromBlock": "0x19072cf",
+            "toBlock": "0x1908eee"
+          },
+          {
+            "kind": "old-block nonce",
+            "rpc": "https://gateway.tenderly.co/public/mainnet",
+            "method": "eth_getTransactionCount"
+          },
+          {
+            "kind": "601 seat read",
+            "rpc": "https://gateway.tenderly.co/public/mainnet",
+            "method": "eth_call"
+          },
+          {
+            "kind": "601 seat read",
+            "rpc": "https://gateway.tenderly.co/public/mainnet",
+            "method": "eth_blockNumber"
+          },
+          {
+            "kind": "601 seat read",
+            "rpc": "https://gateway.tenderly.co/public/mainnet",
+            "method": "eth_getLogs",
+            "fromBlock": "0x17ed825",
+            "toBlock": "0x1908eaf"
+          },
+          {
+            "kind": "601 seat read",
+            "rpc": "https://rpc.mevblocker.io/fast",
+            "method": "eth_getLogs",
+            "fromBlock": "0x17ed825",
+            "toBlock": "0x1908eaf"
+          }
+        ],
+        "httpRefusals": [],
+        "requestsAfterReturn": 0,
+        "postReturnObservationMs": 500
+      },
+      {
+        "blocked": "https://gateway.tenderly.co/public/mainnet",
+        "reads": [
+          {
+            "kind": "eth_chainId",
+            "result": "0x1",
+            "durationMs": 62,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "eth_getCode",
+            "result": "Registry bytecode returned",
+            "durationMs": 115,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "eth_call",
+            "result": "0x0000000000000000000000000000000000000000000000000000000000000008",
+            "durationMs": 85,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "eth_blockNumber",
+            "result": "0x1908eef",
+            "durationMs": 64,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "block reads",
+            "result": "answered",
+            "durationMs": 82,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "recent logs",
+            "result": "2 logs",
+            "durationMs": 588,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com",
+              "https://rpc.mevblocker.io/fast"
+            ]
+          },
+          {
+            "kind": "24-hour logs",
+            "result": "24 logs",
+            "durationMs": 975,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com",
+              "https://rpc.mevblocker.io/fast"
+            ]
+          },
+          {
+            "kind": "old-block nonce",
+            "result": "0x10",
+            "durationMs": 333,
+            "answeredBy": [
+              "https://rpc.mevblocker.io/fast"
+            ]
+          },
+          {
+            "kind": "601 seat read",
+            "result": "unknown",
+            "durationMs": 1167,
+            "answeredBy": [
+              "https://rpc.mevblocker.io/fast"
+            ]
+          }
+        ],
+        "answered": [
+          {
+            "kind": "eth_chainId",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_chainId"
+          },
+          {
+            "kind": "eth_getCode",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_getCode"
+          },
+          {
+            "kind": "eth_call",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_call"
+          },
+          {
+            "kind": "eth_blockNumber",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_blockNumber"
+          },
+          {
+            "kind": "block reads",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_getBlockByNumber"
+          },
+          {
+            "kind": "recent logs",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_getLogs",
+            "fromBlock": "0x1908c98",
+            "toBlock": "0x1908eef"
+          },
+          {
+            "kind": "recent logs",
+            "rpc": "https://rpc.mevblocker.io/fast",
+            "method": "eth_getLogs",
+            "fromBlock": "0x1908c98",
+            "toBlock": "0x1908eef"
+          },
+          {
+            "kind": "24-hour logs",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_getLogs",
+            "fromBlock": "0x19072d0",
+            "toBlock": "0x1908eef"
+          },
+          {
+            "kind": "24-hour logs",
+            "rpc": "https://rpc.mevblocker.io/fast",
+            "method": "eth_getLogs",
+            "fromBlock": "0x19072d0",
+            "toBlock": "0x1908eef"
+          },
+          {
+            "kind": "old-block nonce",
+            "rpc": "https://rpc.mevblocker.io/fast",
+            "method": "eth_getTransactionCount"
+          },
+          {
+            "kind": "601 seat read",
+            "rpc": "https://rpc.mevblocker.io/fast",
+            "method": "eth_call"
+          },
+          {
+            "kind": "601 seat read",
+            "rpc": "https://rpc.mevblocker.io/fast",
+            "method": "eth_blockNumber"
+          },
+          {
+            "kind": "601 seat read",
+            "rpc": "https://rpc.mevblocker.io/fast",
+            "method": "eth_getLogs",
+            "fromBlock": "0x17ed825",
+            "toBlock": "0x1908eaf"
+          }
+        ],
+        "httpRefusals": [
+          {
+            "kind": "old-block nonce",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_getTransactionCount",
+            "status": 403
+          },
+          {
+            "kind": "601 seat read",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_getLogs",
+            "status": 403
+          }
+        ],
+        "requestsAfterReturn": 0,
+        "postReturnObservationMs": 500
+      },
+      {
+        "blocked": "https://rpc.mevblocker.io/fast",
+        "reads": [
+          {
+            "kind": "eth_chainId",
+            "result": "0x1",
+            "durationMs": 77,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "eth_getCode",
+            "result": "Registry bytecode returned",
+            "durationMs": 105,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "eth_call",
+            "result": "0x0000000000000000000000000000000000000000000000000000000000000008",
+            "durationMs": 64,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "eth_blockNumber",
+            "result": "0x1908eef",
+            "durationMs": 63,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "block reads",
+            "result": "answered",
+            "durationMs": 68,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "recent logs",
+            "result": "2 logs",
+            "durationMs": 341,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com",
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          },
+          {
+            "kind": "24-hour logs",
+            "result": "24 logs",
+            "durationMs": 245,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com",
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          },
+          {
+            "kind": "old-block nonce",
+            "result": "0x10",
+            "durationMs": 114,
+            "answeredBy": [
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          },
+          {
+            "kind": "601 seat read",
+            "result": "unknown",
+            "durationMs": 549,
+            "answeredBy": [
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          }
+        ],
+        "answered": [
+          {
+            "kind": "eth_chainId",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_chainId"
+          },
+          {
+            "kind": "eth_getCode",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_getCode"
+          },
+          {
+            "kind": "eth_call",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_call"
+          },
+          {
+            "kind": "eth_blockNumber",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_blockNumber"
+          },
+          {
+            "kind": "block reads",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_getBlockByNumber"
+          },
+          {
+            "kind": "recent logs",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_getLogs",
+            "fromBlock": "0x1908c98",
+            "toBlock": "0x1908eef"
+          },
+          {
+            "kind": "recent logs",
+            "rpc": "https://gateway.tenderly.co/public/mainnet",
+            "method": "eth_getLogs",
+            "fromBlock": "0x1908c98",
+            "toBlock": "0x1908eef"
+          },
+          {
+            "kind": "24-hour logs",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_getLogs",
+            "fromBlock": "0x19072d0",
+            "toBlock": "0x1908eef"
+          },
+          {
+            "kind": "24-hour logs",
+            "rpc": "https://gateway.tenderly.co/public/mainnet",
+            "method": "eth_getLogs",
+            "fromBlock": "0x19072d0",
+            "toBlock": "0x1908eef"
+          },
+          {
+            "kind": "old-block nonce",
+            "rpc": "https://gateway.tenderly.co/public/mainnet",
+            "method": "eth_getTransactionCount"
+          },
+          {
+            "kind": "601 seat read",
+            "rpc": "https://gateway.tenderly.co/public/mainnet",
+            "method": "eth_call"
+          },
+          {
+            "kind": "601 seat read",
+            "rpc": "https://gateway.tenderly.co/public/mainnet",
+            "method": "eth_blockNumber"
+          },
+          {
+            "kind": "601 seat read",
+            "rpc": "https://gateway.tenderly.co/public/mainnet",
+            "method": "eth_getLogs",
+            "fromBlock": "0x17ed825",
+            "toBlock": "0x1908eaf"
+          }
+        ],
+        "httpRefusals": [
+          {
+            "kind": "old-block nonce",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_getTransactionCount",
+            "status": 403
+          },
+          {
+            "kind": "601 seat read",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_getLogs",
+            "status": 403
+          }
+        ],
+        "requestsAfterReturn": 0,
+        "postReturnObservationMs": 500
+      },
+      {
+        "blocked": "https://1.rpc.thirdweb.com",
+        "reads": [
+          {
+            "kind": "eth_chainId",
+            "result": "0x1",
+            "durationMs": 78,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "eth_getCode",
+            "result": "Registry bytecode returned",
+            "durationMs": 94,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "eth_call",
+            "result": "0x0000000000000000000000000000000000000000000000000000000000000008",
+            "durationMs": 66,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "eth_blockNumber",
+            "result": "0x1908eef",
+            "durationMs": 74,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "block reads",
+            "result": "answered",
+            "durationMs": 88,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com"
+            ]
+          },
+          {
+            "kind": "recent logs",
+            "result": "2 logs",
+            "durationMs": 311,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com",
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          },
+          {
+            "kind": "24-hour logs",
+            "result": "24 logs",
+            "durationMs": 275,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com",
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          },
+          {
+            "kind": "old-block nonce",
+            "result": "0x10",
+            "durationMs": 138,
+            "answeredBy": [
+              "https://gateway.tenderly.co/public/mainnet"
+            ]
+          },
+          {
+            "kind": "601 seat read",
+            "result": "met",
+            "durationMs": 727,
+            "answeredBy": [
+              "https://gateway.tenderly.co/public/mainnet",
+              "https://rpc.mevblocker.io/fast"
+            ]
+          }
+        ],
+        "answered": [
+          {
+            "kind": "eth_chainId",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_chainId"
+          },
+          {
+            "kind": "eth_getCode",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_getCode"
+          },
+          {
+            "kind": "eth_call",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_call"
+          },
+          {
+            "kind": "eth_blockNumber",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_blockNumber"
+          },
+          {
+            "kind": "block reads",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_getBlockByNumber"
+          },
+          {
+            "kind": "recent logs",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_getLogs",
+            "fromBlock": "0x1908c98",
+            "toBlock": "0x1908eef"
+          },
+          {
+            "kind": "recent logs",
+            "rpc": "https://gateway.tenderly.co/public/mainnet",
+            "method": "eth_getLogs",
+            "fromBlock": "0x1908c98",
+            "toBlock": "0x1908eef"
+          },
+          {
+            "kind": "24-hour logs",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_getLogs",
+            "fromBlock": "0x19072d0",
+            "toBlock": "0x1908eef"
+          },
+          {
+            "kind": "24-hour logs",
+            "rpc": "https://gateway.tenderly.co/public/mainnet",
+            "method": "eth_getLogs",
+            "fromBlock": "0x19072d0",
+            "toBlock": "0x1908eef"
+          },
+          {
+            "kind": "old-block nonce",
+            "rpc": "https://gateway.tenderly.co/public/mainnet",
+            "method": "eth_getTransactionCount"
+          },
+          {
+            "kind": "601 seat read",
+            "rpc": "https://gateway.tenderly.co/public/mainnet",
+            "method": "eth_call"
+          },
+          {
+            "kind": "601 seat read",
+            "rpc": "https://gateway.tenderly.co/public/mainnet",
+            "method": "eth_blockNumber"
+          },
+          {
+            "kind": "601 seat read",
+            "rpc": "https://gateway.tenderly.co/public/mainnet",
+            "method": "eth_getLogs",
+            "fromBlock": "0x17ed825",
+            "toBlock": "0x1908eaf"
+          },
+          {
+            "kind": "601 seat read",
+            "rpc": "https://rpc.mevblocker.io/fast",
+            "method": "eth_getLogs",
+            "fromBlock": "0x17ed825",
+            "toBlock": "0x1908eaf"
+          }
+        ],
+        "httpRefusals": [
+          {
+            "kind": "old-block nonce",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_getTransactionCount",
+            "status": 403
+          }
+        ],
+        "requestsAfterReturn": 0,
+        "postReturnObservationMs": 500
+      },
+      {
+        "blocked": "tenderly-429",
+        "reads": [
+          {
+            "kind": "601 seat read",
+            "result": "unknown",
+            "durationMs": 888,
+            "answeredBy": [
+              "https://ethereum-rpc.publicnode.com",
+              "https://rpc.mevblocker.io/fast"
+            ]
+          }
+        ],
+        "answered": [
+          {
+            "kind": "601 seat read",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_call"
+          },
+          {
+            "kind": "601 seat read",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_blockNumber"
+          },
+          {
+            "kind": "601 seat read",
+            "rpc": "https://rpc.mevblocker.io/fast",
+            "method": "eth_getLogs",
+            "fromBlock": "0x17ed825",
+            "toBlock": "0x1908eaf"
+          }
+        ],
+        "httpRefusals": [
+          {
+            "kind": "601 seat read",
+            "rpc": "https://ethereum-rpc.publicnode.com",
+            "method": "eth_getLogs",
+            "status": 403
+          }
+        ],
+        "requestsAfterReturn": 0,
+        "postReturnObservationMs": 500
+      }
+    ]
+  },
+  "protectedIntegrity": {
+    "checked": 45,
+    "allUnchanged": true,
+    "mismatches": []
+  },
+  "limitations": [
+    "Direct remote ENS/CID gateway content was not verified; the browser served the local export at its HTTPS origin for actual CORS/RPC observation.",
+    "WebKit, physical devices/wallet handoff/passkeys, native screen readers and native browser zoom were not performed.",
+    "Optional live-relay health/revision/fork checks were skipped; deterministic interaction suites and a separate real native-fetch mainnet observation were run.",
+    "No signature, transaction, fork settlement, publication, independent audit or contract deployment was performed."
+  ],
+  "packaging": {
+    "limitBytes": 8388608,
+    "fits": true,
+    "measurement": "Complete current-file Git bundle including the existing protected dependency gitlinks, assembled outside the working repository; generated dependencies, task inputs and scratch are excluded.",
+    "bundleBytesUpperBound": 8370000
+  }
+}

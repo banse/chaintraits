@@ -838,25 +838,26 @@ fieldset {
   margin-block: 20px;
 }
 .picker-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 56px 164px;
   align-items: center;
-  gap: 16px;
-  justify-content: space-between;
+  gap: var(--s4);
   padding-block: 16px;
   border-block-end: 1px solid var(--rule);
   scroll-margin-block-start: 16px;
 }
-.picker-row > label {
+.picker-row > label,
+.picker-text > label {
   display: flex;
   gap: 12px;
   align-items: start;
   flex: 1;
   min-width: 0;
 }
-.picker-row > label > input {
+.picker-row label > input {
   margin-block-start: 2px;
 }
-.picker-row > label > span {
+.picker-row label > span {
   min-width: 0;
 }
 .picker-row .rule {
@@ -868,7 +869,33 @@ fieldset {
 .picker-row .accent {
   display: block;
 }
-/* One line per row: text, card preview, then its buttons. */
+/* Text, preview and action keep shared edges across every row. */
+.picker-text {
+  min-width: 0;
+}
+.shared-details,
+.picker-text > .source,
+.picker-text > .row-detail {
+  margin-inline-start: 32px;
+}
+.picker-row > .mini-card {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+  border: 1px solid var(--accent);
+}
+.picker-row > .row-actions {
+  grid-column: 3;
+  grid-row: 1;
+  align-self: center;
+}
+.picker-row > .row-actions button {
+  width: 100%;
+}
+.picker-text > .source {
+  display: block;
+}
+
 .row-actions {
   display: flex;
   flex-wrap: wrap;
@@ -876,9 +903,6 @@ fieldset {
   align-items: center;
   justify-content: flex-end;
   flex: none;
-}
-.swarm-link {
-  margin-block-start: var(--s4);
 }
 .fact-history {
   list-style: none;
@@ -908,21 +932,9 @@ fieldset {
   height: 56px;
 }
 .mini-card img {
-  width: 56px;
-  height: 56px;
+  width: 100%;
+  height: 100%;
   object-fit: contain;
-}
-.shared-fact {
-  border-block-start: 1px solid var(--rule);
-  padding-block-start: 24px;
-  margin-block-start: 32px;
-  scroll-margin-block-start: 24px;
-}
-.shared-fact > p {
-  max-width: 85ch;
-}
-.shared-fact button {
-  margin-inline-end: 8px;
 }
 .community-form {
   margin-block-start: 24px;
@@ -1104,15 +1116,42 @@ fieldset {
 }
 .chart-bars {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   height: 200px;
   align-items: end;
   border-block-end: 1px solid var(--faint);
 }
-.chart-bars > div {
+.hour-bar {
+  display: flex;
+  align-items: end;
   flex: 1;
-  min-width: 4px;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+}
+.hour-bar > span {
+  width: 100%;
   background: var(--accent);
+  pointer-events: none;
+}
+.hour-bar:hover > span,
+.hour-bar:focus-visible > span {
+  background: var(--text);
+}
+.hour-tooltip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2) var(--s4);
+  padding: var(--s3);
+  margin-block-start: var(--s3);
+  border: 1px solid var(--accent);
+  font-size: var(--small);
+}
+.hour-tooltip > strong {
+  flex-basis: 100%;
 }
 .chart-axis {
   display: flex;
@@ -1430,9 +1469,6 @@ th {
     flex-direction: column;
     gap: 16px;
   }
-  .hour-chart {
-    display: none;
-  }
   .catalog-row {
     grid-template-columns: minmax(0, 1fr) 110px;
     gap: 8px;
@@ -1590,17 +1626,32 @@ th {
   margin-block-start: var(--s2);
   overflow-wrap: anywhere;
 }
-/* Narrow rows wrap after the card preview; the buttons follow in order. */
+/* At narrow widths, text precedes the same preview/action order. */
 @media (max-width: 640px) {
   .picker-row {
-    flex-wrap: wrap;
+    grid-template-columns: 56px minmax(0, 1fr);
+    gap: var(--s4);
   }
-  .picker-row > label {
-    flex: 1 1 0;
+  .picker-row > label,
+  .picker-row > .picker-text {
+    grid-column: 1 / -1;
+    grid-row: 1;
   }
-  .row-actions {
-    flex-basis: 100%;
+  .picker-row > .mini-card {
+    grid-column: 1;
+    grid-row: 2;
+  }
+  .picker-row > .row-actions {
+    grid-column: 2;
+    grid-row: 2;
     justify-content: flex-start;
-    padding-inline-start: 28px;
+  }
+  .picker-row > .row-actions button {
+    width: auto;
+  }
+  .shared-details,
+  .picker-text > .source,
+  .picker-text > .row-detail {
+    margin-inline-start: 28px;
   }
 }

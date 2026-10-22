@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useAccount } from "wagmi";
 import { useSite } from "./context";
 import {
@@ -12,10 +12,10 @@ import { TRAITS } from "./data";
 import { Status, num } from "./components";
 import { useWalletSheet } from "./wallet";
 import { openRequests } from "./claim";
-import { SwarmFeed, SWARM_POLL_MS } from "./swarm";
+import { SWARM_POLL_MS } from "./swarm";
 import { oracleUuid } from "./oracle-progress.mjs";
 
-const REQUESTS = "https://api.imd.fun/oracle/requests";
+import { attestedRecords } from "./attested-records.mjs";
 const utc = (seconds: bigint | number) =>
   new Date(Number(seconds) * 1000)
     .toISOString()
@@ -31,30 +31,33 @@ type Proof =
     };
 type Row = { id: number; name: string; community: boolean; proof: Proof };
 
-// Attested time and explorer job of one oracle request; the API allows CORS.
-function Attested({ oracleId }: { oracleId: string }) {
+// Each Wallet view owns a serial queue and bounded retry state.
+function Attested({
+  oracleId,
+  reader,
+}: {
+  oracleId: string;
+  reader: ReturnType<typeof attestedRecords>;
+}) {
   const [record, setRecord] = useState<any>(null);
   const [failed, setFailed] = useState(false);
+  const [retry, setRetry] = useState(0);
   useEffect(() => {
-    // Each record belongs to its own request: a new id starts unread.
+    let active = true;
     setRecord(null);
     setFailed(false);
-    const controller = new AbortController();
-    fetch(`${REQUESTS}/${encodeURIComponent(oracleId)}`, {
-      signal: controller.signal,
-      credentials: "omit",
-      cache: "no-store",
-    })
-      .then((r) => (r.ok ? r.json() : Promise.reject(Error("unavailable"))))
-      .then((body) => {
-        if (body?.id !== oracleId) throw Error("mismatch");
-        setRecord(body);
+    reader
+      .read(oracleId, { retry: retry > 0 })
+      .then((body: any) => {
+        if (active) setRecord(body);
       })
       .catch(() => {
-        if (!controller.signal.aborted) setFailed(true);
+        if (active) setFailed(true);
       });
-    return () => controller.abort();
-  }, [oracleId]);
+    return () => {
+      active = false;
+    };
+  }, [oracleId, reader, retry]);
   const job =
     typeof record?.jobId === "string" &&
     /^[a-zA-Z0-9][a-zA-Z0-9_-]{0,127}$/.test(record.jobId)
@@ -89,6 +92,14 @@ function Attested({ oracleId }: { oracleId: string }) {
         ) : (
           "reading…"
         )}
+        {failed && (
+          <>
+            {" "}
+            <button type="button" onClick={() => setRetry((n) => n + 1)}>
+              Retry
+            </button>
+          </>
+        )}
       </span>
     </>
   );
@@ -98,6 +109,8 @@ export function WalletFacts() {
   const site = useSite();
   const account = useAccount();
   const { open } = useWalletSheet();
+  const reader = useMemo(() => attestedRecords(), [account.address]);
+  useEffect(() => () => reader.stop(), [reader]);
   const [facts, setFacts] = useState<Facts | null>(null);
   // Rows belong to the wallet they were read for; another wallet's rows
   // never show while the connected wallet's history is read.
@@ -182,7 +195,14 @@ export function WalletFacts() {
       setError(explain(e, [...site.r.abis.Registry, ...site.r.abis.Composer]));
     });
     return () => controller.abort();
-  }, [account.address, site.client, site.health, site.specs, tick]);
+  }, [
+    account.address,
+    site.client,
+    site.health,
+    site.specs,
+    tick,
+    site.readRetry,
+  ]);
   // A delivered request leaves pendingOf: re-read so the feed and the
   // history follow the Registry.
   useEffect(() => {
@@ -217,37 +237,16 @@ export function WalletFacts() {
   }, [account.address, site.client, site.health, pendingKey]);
   return (
     <>
-      <h1>Wallet Facts</h1>
+      <h1>Wallet</h1>
       {!account.address ? (
         <section className="section wallet-facts">
-          <p>Connect a wallet to see its requests.</p>
+          <p>Connect a wallet to see its facts.</p>
           <button className="primary" onClick={open}>
             Connect
           </button>
         </section>
       ) : (
         <>
-          <section className="swarm-feed" aria-label="Swarm progress">
-            <h2>Swarm progress</h2>
-            <p className="muted">
-              Live panel progress, not proof. Facts and card updates come from
-              the Registry.
-            </p>
-            {!current ? (
-              <Status error={!!error}>{error || "Reading your wallet…"}</Status>
-            ) : requests.length ? (
-              requests.map((fact) => (
-                <SwarmFeed
-                  key={fact.requestId}
-                  fact={fact}
-                  focus={null}
-                  onAttested={() => setTick((v) => v + 1)}
-                />
-              ))
-            ) : (
-              <p>No open request for this wallet.</p>
-            )}
-          </section>
           <section className="section wallet-facts" aria-label="Claimed facts">
             <h2>Claimed facts</h2>
             <p className="muted">
@@ -304,6 +303,7 @@ export function WalletFacts() {
                           <Attested
                             key={row.proof.oracleId}
                             oracleId={row.proof.oracleId}
+                            reader={reader}
                           />
                         ) : (
                           <span>Oracle request unavailable</span>

@@ -203,9 +203,7 @@ try {
       );
       await page.evaluate(() => (location.hash = "#/wallet-facts"));
       const left = Date.now();
-      await page
-        .getByRole("heading", { name: "Wallet Facts", level: 1 })
-        .waitFor();
+      await page.getByRole("heading", { name: "Wallet", level: 1 }).waitFor();
       await page.waitForTimeout(2000);
       const late = control.specCalls.filter((c) => c.at > left);
       evidence.specAfterNavigation = late.length;
@@ -218,7 +216,7 @@ try {
     "2 a 7,201 s old request keeps the two-hour line when the progress API answers 503",
     async () => {
       await setup({
-        route: "#/wallet-facts",
+        route: "#/mint",
         options: {
           pending: [
             {

@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useMemo, useRef } from "react";
 import { useAccount } from "wagmi";
 import { zeroAddress, type Address } from "viem";
 import { useSite } from "./context";
@@ -34,6 +34,7 @@ import {
   registryEvents,
   HISTORY_WINDOW,
 } from "./settlement";
+import { pageReads } from "./page-reads.mjs";
 import { claimAnchor } from "./navigation";
 import {
   RequestTime,
@@ -41,7 +42,7 @@ import {
   SWARM_POLL_MS,
   type WatchedFact,
 } from "./swarm";
-// The connected wallet's open requests, shared by Claim and Wallet Facts.
+// The connected wallet's open requests, shared by Mint and Wallet.
 export function openRequests(
   facts: WalletFacts | null,
   address: string | undefined,
@@ -271,18 +272,28 @@ export function Settlement({
     </div>
   );
 }
-function SharedFact({
-  id = 1201,
-  name = "Top Weights",
+function SharedFactRow({
+  trait: t,
   payment,
   journal,
   facts,
+  selected,
+  onSelect,
+  request,
+  cache,
+  wanted,
+  onPending,
 }: {
-  id?: number;
-  name?: string;
+  trait: any;
   payment: string;
   journal: Journal;
-  facts?: WalletFacts | null;
+  facts: WalletFacts | null;
+  selected: boolean;
+  onSelect: (checked: boolean) => void;
+  request: () => void;
+  cache: ReturnType<typeof pageReads>;
+  wanted: number;
+  onPending: (id: number, requestId: string | null) => void;
 }) {
   const site = useSite();
   const account = useAccount();
@@ -290,13 +301,17 @@ function SharedFact({
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [older, setOlder] = useState(false);
   useEffect(() => {
     let active = true;
-    setValue(null);
     setError("");
     if (site.health)
-      sharedState(site.client, site.r, site.health, id, older)
+      sharedState(
+        scopedClient(site.client, cache.signal),
+        site.r,
+        site.health,
+        t.id,
+        cache,
+      )
         .then((v) => {
           if (active) setValue(v);
         })
@@ -309,64 +324,53 @@ function SharedFact({
     return () => {
       active = false;
     };
-  }, [site.health, site.client, id, older]);
+  }, [site.health, site.client, t.id, site.readRetry, cache]);
   const stored = value && !/^0x0+$/.test(value.fact[0]);
   const pending = value && !/^0x0+$/.test(value.pending);
+  useEffect(() => {
+    if (value) onPending(t.id, pending ? value.pending : null);
+  }, [value?.pending]);
   const included = value?.list.some(
     (a: string) => a.toLowerCase() === account.address?.toLowerCase(),
   );
-  const cannot = id === 1201 && facts && !facts.joined;
+  const cannot = t.id === 1201 && facts && !facts.joined;
+  const proven =
+    facts?.traits.includes(t.id) || facts?.verifiedSpecs.includes(t.id);
   const reason =
     disableReason(site, account, journal.busy) ||
-    (!value
+    (error || !value
       ? "Shared-fact reads unavailable."
       : cannot
         ? "cannot be true: not in WhitelistCurator.sol"
-        : pending
-          ? "A request is already pending."
-          : stored
-            ? included
-              ? ""
-              : value.result
-                ? "not in the list"
-                : "Stored before the last 24 hours: use Check older blocks to read its list."
-            : "");
-  async function prepare() {
+        : proven
+          ? "Already proven"
+          : pending
+            ? "A request is already pending."
+            : stored && !included
+              ? "not in the list"
+              : "");
+  // A stored list is applied directly; selection is only for paid requests.
+  useEffect(() => {
+    if (stored || pending || proven) onSelect(false);
+  }, [stored, pending, proven]);
+  async function apply() {
     setBusy(true);
     setStatus("Checking…");
     try {
-      if (!site.health) throw Error("Live reads unavailable.");
-      if (stored) {
-        await journal.prepare(
-          `Apply shared fact ${id} / ${name}`,
-          "step-02",
-          [
-            {
-              label: `Apply shared fact ${id} / ${name}`,
-              functionName: "applySharedFact",
-              args: [id, value.list],
-              amount: 0n,
-            },
-          ],
-          [],
-          "IMD",
-        );
-      } else {
-        await journal.prepare(
-          `Request shared fact ${id} / ${name}`,
-          "step-02",
-          [
-            {
-              label: `Request shared fact ${id} / ${name}`,
-              functionName: "requestSharedFact",
-              args: [id, site.health.price],
-              amount: site.health.price,
-            },
-          ],
-          [{ id, name, amount: site.health.price }],
-          payment,
-        );
-      }
+      await journal.prepare(
+        `Apply shared fact ${t.id} / ${t.name}`,
+        "step-02",
+        [
+          {
+            label: `Apply shared fact ${t.id} / ${t.name}`,
+            functionName: "applySharedFact",
+            args: [t.id, value.list],
+            amount: 0n,
+          },
+        ],
+        [],
+        "IMD",
+      );
       setStatus("Ready: confirm the steps in the dialog.");
     } catch (e) {
       setStatus(explain(e, [...site.r.abis.Registry, ...site.r.abis.Composer]));
@@ -376,67 +380,97 @@ function SharedFact({
   }
   return (
     <div
-      className="shared-fact"
-      id={id === 1201 ? "shared-fact" : `shared-${id}`}
+      className={`picker-row ${wanted === t.id ? "highlight" : ""}`}
+      id={`pick-${t.id}`}
     >
-      <h3>
-        {id} / {name}
-      </h3>
-      <p>
-        One attempt at panel 11 / quorum 7 costs{" "}
-        {site.health
-          ? `${imd(site.health.price)} IMD (priceOf · live)`
-          : "the live oracle price per fact"}
-        . An attempt whose panel misses the quorum refunds nothing.
-      </p>
-      <p className="muted">
-        {!value
-          ? "Reading the shared fact…"
-          : stored
-            ? "Stored · no further request needed. Listed wallets can apply it for gas only."
-            : pending
-              ? "Request pending."
-              : "not requested yet"}
-        {value
-          ? ` ${value.older ? "Attempts" : "Attempts in the last 24 hours"}: ${num(value.attempts)}. Last panel result: ${value.last ? (value.last.eventName === "Missed" ? `Missed: ${MISS_REASONS[Number(value.last.args.reason)] || value.last.args.reason}` : value.last.eventName === "NoVerdict" ? `No verdict (${value.last.args.agreed}/${value.last.args.answered} agreed)` : value.last.eventName) : value.older ? "none" : "none in the last 24 hours"}.`
-          : ""}
-      </p>
-      {value && !value.older && (
-        <button
-          type="button"
-          className="secondary older-blocks"
-          onClick={() => setOlder(true)}
-        >
-          Check older blocks
-        </button>
-      )}
-      {value?.result?.txHash && (
-        <a
-          className="source"
-          href={`${site.r.deployment.network.explorer}/tx/${value.result.txHash}`}
-        >
-          Oracle completion and signed result ↗
-        </a>
-      )}
-      <p className="muted">Pay with: {stored ? "gas only" : payment}</p>
-      <button disabled={!!reason || busy} onClick={prepare}>
-        {busy ? "Checking…" : stored ? "Apply shared fact" : "Mint shared fact"}
-      </button>
-      <Status
-        error={
-          !!error ||
-          (status !== "" &&
-            !status.startsWith("Ready:") &&
-            status !== "Checking…")
-        }
-      >
-        {error || status || reason}
-      </Status>
-      {status.startsWith("Ready:") && (
-        <a href={claimAnchor("transaction-steps")}>Transaction steps ↓</a>
-      )}
-      {pending && (
-        <Settlement requestId={value.pending} journal={journal} />
+      <div className="picker-text">
+        <label>
+          <input
+            type="checkbox"
+            checked={selected}
+            disabled={!!cannot || !!proven || !!pending || !!stored || !!error}
+            onChange={(e) => onSelect(e.target.checked)}
+          />
+          <span>
+            <strong>
+              {t.id} / {t.name}
+            </strong>
+            <span className="rule">
+              {t.rule} · {t.window}
+            </span>
+            <Mark kind="shared" />
+          </span>
+        </label>
+        <div className="shared-details">
+          <span className="rule">
+            One attempt at panel 11 / quorum 7 costs{" "}
+            {site.health
+              ? `${imd(site.health.price)} IMD (priceOf · live)`
+              : "the live oracle price per fact"}
+            . An attempt whose panel misses the quorum refunds nothing.
+          </span>
+          <span className="muted">
+            {!value
+              ? "Reading the shared fact…"
+              : stored
+                ? "Stored · no further request needed. Listed wallets can apply it for gas only."
+                : pending
+                  ? "Request pending."
+                  : "not requested yet"}
+            {value
+              ? ` Attempts in the last 24 hours: ${num(value.attempts)}. Last panel result: ${value.last ? (value.last.eventName === "Missed" ? `Missed: ${MISS_REASONS[Number(value.last.args.reason)] || value.last.args.reason}` : value.last.eventName === "NoVerdict" ? `No verdict (${value.last.args.agreed}/${value.last.args.answered} agreed)` : value.last.eventName) : "none in the last 24 hours"}.`
+              : ""}
+          </span>
+          <span className="muted">
+            Pay with: {stored ? "gas only" : payment}
+          </span>
+          {proven && <span className="accent">Already proven</span>}
+        </div>
+        {value?.result?.txHash && (
+          <a
+            className="source row-detail"
+            href={`${site.r.deployment.network.explorer}/tx/${value.result.txHash}`}
+          >
+            Oracle completion and signed result ↗
+          </a>
+        )}
+        {(error || status || reason) && (
+          <div className="row-detail">
+            <Status
+              error={
+                !!error ||
+                (!!status &&
+                  !status.startsWith("Ready:") &&
+                  status !== "Checking…")
+              }
+            >
+              {error || status || reason}
+            </Status>
+          </div>
+        )}
+        {status.startsWith("Ready:") && (
+          <a className="row-detail" href={claimAnchor("transaction-steps")}>
+            Transaction steps ↓
+          </a>
+        )}
+      </div>
+      {t.id === 1201 && <Card miniId={t.id} />}
+      {!proven && (
+        <div className="row-actions">
+          <button
+            type="button"
+            className="secondary"
+            disabled={!!reason || busy}
+            aria-label={`${stored ? "Apply shared fact" : "Mint this fact"}: ${t.id} / ${t.name}`}
+            onClick={stored ? apply : request}
+          >
+            {busy
+              ? "Checking…"
+              : stored
+                ? "Apply shared fact"
+                : "Mint this fact"}
+          </button>
+        </div>
       )}
     </div>
   );
@@ -710,21 +744,19 @@ export function Claim() {
   const [factError, setFactError] = useState("");
   const [payment, setPayment] = useState("IMD");
   const [selected, setSelected] = useState<number[]>([]);
+  const [sharedPendings, setSharedPendings] = useState<Record<number, string>>(
+    {},
+  );
   const [requestHistory, setRequestHistory] = useState<{
     wallet?: string;
     lines: Record<number, string>;
     older?: boolean;
   }>({ lines: {} });
-  // What the last 24-hour read could not settle: every row when it failed,
-  // or a pending request of this wallet older than the window. Only those
-  // rows offer "Check older blocks"; its read back to launch serves them all.
-  const [historyNeeds, setHistoryNeeds] = useState<{
-    wallet?: string;
-    failed: boolean;
-    requested: string[];
-  }>({ failed: false, requested: [] });
-  const [olderWallet, setOlderWallet] = useState<string>();
-  const historyOlder = !!account.address && olderWallet === account.address;
+  const backfills = useMemo(() => pageReads(), [site.client]);
+  useEffect(() => () => backfills.stop(), [backfills]);
+  useEffect(() => {
+    backfills.retryFailed();
+  }, [site.readRetry, backfills]);
   const [busy, setBusy] = useState("");
   const [status, setStatus] = useState<Record<string, string>>({});
   const [refreshTick, setRefreshTick] = useState(0);
@@ -767,7 +799,13 @@ export function Claim() {
     };
   }, [account.address, site.client, site.health, pendingKey]);
   useEffect(() => {
-    if (account.address) void journal.checkPersonal(selected);
+    if (account.address)
+      void journal.checkPersonal(
+        selected.filter(
+          (id) =>
+            id !== 1201 && !site.specs.some((s) => s.id === id && s.kind === 3),
+        ),
+      );
   }, [selected.join(","), account.address, site.client, !!site.health]);
   useEffect(() => {
     let active = true;
@@ -776,59 +814,85 @@ export function Claim() {
     const controller = new AbortController();
     const client = scopedClient(site.client, controller.signal);
     if (wallet && site.health) {
-      void registryEvents(
-        client,
-        site.r,
-        ["TraitRequested", "Verified", "Missed", "NoVerdict", "Abandoned"],
-        undefined,
-        historyOlder ? {} : { window: HISTORY_WINDOW },
-      )
-        .then(async (events) => {
-          const blocks = new Map<bigint, Promise<any>>();
-          const lines = await Promise.all(
-            lastPersonalRequests(events, wallet).map(
-              async ([id, value]: any) => {
-                const blockNumber = value.request.blockNumber;
-                if (!blocks.has(blockNumber))
-                  blocks.set(blockNumber, client.getBlock({ blockNumber }));
-                const block = await blocks.get(blockNumber);
-                return [id, lastRequestText(value.outcome, block.timestamp)];
-              },
-            ),
+      void (async () => {
+        let events: any[] = await registryEvents(
+          client,
+          site.r,
+          ["TraitRequested", "Verified", "Missed", "NoVerdict", "Abandoned"],
+          undefined,
+          { window: HISTORY_WINDOW },
+        );
+        const requested = new Set(
+          events
+            .filter(
+              (e: any) =>
+                e.eventName === "TraitRequested" &&
+                e.args.claimant.toLowerCase() === wallet.toLowerCase(),
+            )
+            .map((e: any) => e.args.requestId.toLowerCase()),
+        );
+        if (
+          pendingFacts.some((f) => !requested.has(f.requestId.toLowerCase()))
+        ) {
+          const older = await backfills.once(
+            `wallet-history:${wallet.toLowerCase()}`,
+            () =>
+              registryEvents(
+                scopedClient(site.client, backfills.signal),
+                site.r,
+                [
+                  "TraitRequested",
+                  "Verified",
+                  "Missed",
+                  "NoVerdict",
+                  "Abandoned",
+                ],
+              ),
           );
-          if (!active) return;
-          setRequestHistory({
-            wallet,
-            lines: Object.fromEntries(lines),
-            older: historyOlder,
-          });
-          if (!historyOlder)
-            setHistoryNeeds({
-              wallet,
-              failed: false,
-              requested: events
-                .filter(
-                  (e: any) =>
-                    e.eventName === "TraitRequested" &&
-                    e.args.claimant.toLowerCase() === wallet.toLowerCase(),
-                )
-                .map((e: any) => e.args.requestId.toLowerCase()),
-            });
-        })
-        .catch(() => {
-          /* No outcome is inferred from an incomplete event read. An older
-             read that fails offers its button again; a failed 24-hour read
-             offers it on every row. */
-          if (!active) return;
-          if (historyOlder) setOlderWallet(undefined);
-          else setHistoryNeeds({ wallet, failed: true, requested: [] });
-        });
+          const merged = new Map(
+            [...older, ...events].map((e: any) => [
+              `${e.blockNumber}:${e.transactionHash}:${e.logIndex}`,
+              e,
+            ]),
+          );
+          events = [...merged.values()].sort((a: any, b: any) =>
+            a.blockNumber === b.blockNumber
+              ? Number(a.logIndex) - Number(b.logIndex)
+              : a.blockNumber < b.blockNumber
+                ? -1
+                : 1,
+          );
+        }
+        const blocks = new Map<bigint, Promise<any>>();
+        const lines = await Promise.all(
+          lastPersonalRequests(events, wallet).map(async ([id, value]: any) => {
+            const blockNumber = value.request.blockNumber;
+            if (!blocks.has(blockNumber))
+              blocks.set(blockNumber, client.getBlock({ blockNumber }));
+            const block = await blocks.get(blockNumber);
+            return [id, lastRequestText(value.outcome, block.timestamp)];
+          }),
+        );
+        if (active)
+          setRequestHistory({ wallet, lines: Object.fromEntries(lines) });
+      })().catch(() => {
+        // An incomplete read implies no outcome. Retry reads runs it again.
+        if (active) setRequestHistory({ wallet, lines: {} });
+      });
     }
     return () => {
       active = false;
       controller.abort();
     };
-  }, [account.address, site.client, site.health, refreshTick, historyOlder]);
+  }, [
+    account.address,
+    site.client,
+    site.health,
+    refreshTick,
+    pendingKey,
+    site.readRetry,
+    backfills,
+  ]);
   const wanted = Number(
     new URLSearchParams(location.hash.split("?")[1]?.split("#")[0]).get(
       "trait",
@@ -891,23 +955,14 @@ export function Claim() {
     const custom = site.specs.find((s) => s.id === wanted);
     if (
       wanted &&
-      (TRAITS.some(
-        (t) => t.id === wanted && t.class !== "direct" && t.id !== 1201,
-      ) ||
-        (custom && custom.kind !== 3))
+      (TRAITS.some((t) => t.id === wanted && t.class !== "direct") || custom)
     )
       setSelected([wanted]);
     if (wanted) {
       const timeout = setTimeout(
         () =>
           document
-            .getElementById(
-              custom?.kind === 3
-                ? `shared-${wanted}`
-                : wanted === 1201
-                  ? "shared-fact"
-                  : `pick-${wanted}`,
-            )
+            .getElementById(`pick-${wanted}`)
             ?.scrollIntoView({ block: "start" }),
         120,
       );
@@ -919,17 +974,20 @@ export function Claim() {
     id: s.id,
     name: s.name,
     class: s.kind === 3 ? "shared" : s.kind === 5 ? "panel" : "chain",
-    rule: `T${s.kind} · threshold ${s.threshold}`,
+    rule:
+      s.kind === 3
+        ? `T3 · shared list · top ${s.threshold} by ${s.sumArg}`
+        : `T${s.kind} · threshold ${s.threshold}`,
     window: `${num(s.fromBlock)} → ${num(s.toBlock)}`,
     kind: s.kind,
   }));
   const paid = [
-    ...TRAITS.filter((t) => t.class !== "direct" && t.id !== 1201).map((t) => ({
+    ...TRAITS.filter((t) => t.class !== "direct").map((t) => ({
       ...t,
-      kind: t.class === "panel" ? 5 : 1,
+      kind: t.class === "shared" ? 3 : t.class === "panel" ? 5 : 1,
     })),
-    ...customTraits.filter((t) => t.kind !== 3),
-  ];
+    ...customTraits,
+  ].sort((a, b) => a.id - b.id);
   async function prepareMint() {
     setBusy("mint");
     setStatus((v) => ({ ...v, mint: "Checking…" }));
@@ -974,10 +1032,12 @@ export function Claim() {
       const price = site.health.price;
       const rows = ids.map((id) => paid.find((t) => t.id === id)!);
       await journal.prepare(
-        `Request ${rows.length} oracle ${rows.length === 1 ? "fact" : "facts"}: ${rows.map((t) => `${t.id} / ${t.name}`).join(", ")}`,
+        rows.length === 1 && rows[0].kind === 3
+          ? `Request shared fact ${rows[0].id} / ${rows[0].name}`
+          : `Request ${rows.length} oracle ${rows.length === 1 ? "fact" : "facts"}: ${rows.map((t) => `${t.id} / ${t.name}`).join(", ")}`,
         "step-02",
         rows.map((t) => ({
-          label: `Request ${t.id} / ${t.name}`,
+          label: `${t.kind === 3 ? "Request shared fact" : "Request"} ${t.id} / ${t.name}`,
           functionName: traitMethod(t.kind),
           args: t.kind === 3 ? [t.id, price] : [[t.id], price],
           amount: price,
@@ -1001,7 +1061,7 @@ export function Claim() {
   }
   return (
     <>
-      <h1>Claim</h1>
+      <h1>Mint</h1>
       {pendingFacts.length > 0 && (
         <section className="pending-notice" aria-label="Pending facts">
           <h2>Waiting for the swarm</h2>
@@ -1017,10 +1077,7 @@ export function Claim() {
           ))}
         </section>
       )}
-      <section
-        className="mint-panel"
-        id="mint"
-      >
+      <section className="mint-panel" id="mint">
         <div className="claim-copy">
           <h2>
             {minted !== null && minted !== 0n
@@ -1090,11 +1147,6 @@ export function Claim() {
             </button>
           )}
         </div>
-        {pendingFacts.length > 0 && (
-          <p className="swarm-link">
-            <a href="#/wallet-facts">Swarm progress: Wallet Facts</a>
-          </p>
-        )}
         {facts ? (
           <Card facts={facts} />
         ) : minted !== null && minted !== 0n ? (
@@ -1119,6 +1171,23 @@ export function Claim() {
           <li>Your card updates</li>
         </ol>
       </Section>
+      {pendingFacts.length > 0 && (
+        <section className="section swarm-feed" aria-label="Swarm progress">
+          <h2>Swarm progress</h2>
+          <p className="muted">
+            Live panel progress, not proof. Facts and card updates come from the
+            Registry.
+          </p>
+          {pendingFacts.map((fact) => (
+            <SwarmFeed
+              key={fact.requestId}
+              fact={fact}
+              focus={null}
+              onAttested={() => setRefreshTick((n) => n + 1)}
+            />
+          ))}
+        </section>
+      )}
       <section className="section" id="add-traits">
         <h2>Add traits</h2>
         <fieldset className="payment">
@@ -1225,18 +1294,38 @@ export function Claim() {
                 facts?.pending[t.id] && !/^0x0+$/.test(facts.pending[t.id]);
               const requestable =
                 !!facts && !!account.address && !cant && !proven && !pending;
-              const needsOlder =
-                !!account.address &&
-                historyNeeds.wallet === account.address &&
-                (historyNeeds.failed
-                  ? !proven
-                  : !!pending &&
-                    !historyNeeds.requested.includes(
-                      facts!.pending[t.id].toLowerCase(),
-                    ));
-              const olderDone =
-                requestHistory.wallet === account.address &&
-                !!requestHistory.older;
+              if (t.kind === 3)
+                return (
+                  <SharedFactRow
+                    key={t.id}
+                    trait={t}
+                    payment={payment}
+                    journal={journal}
+                    facts={facts}
+                    selected={selected.includes(t.id)}
+                    onSelect={(checked) =>
+                      setSelected((old) =>
+                        checked
+                          ? old.includes(t.id)
+                            ? old
+                            : [...old, t.id]
+                          : old.filter((id) => id !== t.id),
+                      )
+                    }
+                    request={() => prepareFacts([t.id])}
+                    cache={backfills}
+                    wanted={wanted}
+                    onPending={(id, rid) =>
+                      setSharedPendings((old) => {
+                        if ((old[id] || null) === rid) return old;
+                        const next = { ...old };
+                        if (rid) next[id] = rid;
+                        else delete next[id];
+                        return next;
+                      })
+                    }
+                  />
+                );
               return (
                 <div
                   key={t.id}
@@ -1299,35 +1388,17 @@ export function Claim() {
                     </span>
                   </label>
                   {t.id < 10001 && <Card miniId={t.id} />}
-                  {(requestable || needsOlder) && (
+                  {requestable && (
                     <div className="row-actions">
-                      {requestable && (
-                        <button
-                          type="button"
-                          className="secondary"
-                          disabled={!!reason || !!busy}
-                          aria-label={`Mint this fact: ${t.id} / ${t.name}`}
-                          onClick={() => prepareFacts([t.id])}
-                        >
-                          Mint this fact
-                        </button>
-                      )}
-                      {needsOlder &&
-                        (!olderDone ? (
-                          <button
-                            type="button"
-                            className="secondary older-blocks"
-                            disabled={historyOlder}
-                            aria-label={`Check older blocks for fact ${t.id}`}
-                            onClick={() => setOlderWallet(account.address)}
-                          >
-                            Check older blocks
-                          </button>
-                        ) : !pending && !requestHistory.lines[t.id] ? (
-                          <span className="muted">
-                            No request found since launch.
-                          </span>
-                        ) : null)}
+                      <button
+                        type="button"
+                        className="secondary"
+                        disabled={!!reason || !!busy}
+                        aria-label={`Mint this fact: ${t.id} / ${t.name}`}
+                        onClick={() => prepareFacts([t.id])}
+                      >
+                        Mint this fact
+                      </button>
                     </div>
                   )}
                 </div>
@@ -1375,7 +1446,7 @@ export function Claim() {
             <a href={claimAnchor("transaction-steps")}>Transaction steps ↓</a>
           )}
           {facts &&
-            Object.entries(facts.pending)
+            Object.entries({ ...facts.pending, ...sharedPendings })
               .filter(([, rid]) => !/^0x0+$/.test(rid))
               .map(([id, rid]) => (
                 <div key={id}>
@@ -1383,14 +1454,23 @@ export function Claim() {
                   <Settlement
                     requestId={rid}
                     journal={journal}
-                    onCheckSwarm={() => {
-                      /* Live progress for this wallet's requests is on
-                         Wallet Facts; this block checks the Intake completion. */
-                    }}
+                    onCheckSwarm={
+                      sharedPendings[Number(id)]
+                        ? undefined
+                        : () => {
+                            const feed = document.getElementById(
+                              `swarm-${rid}`,
+                            );
+                            if (feed instanceof HTMLDetailsElement) {
+                              feed.open = true;
+                              feed.querySelector("summary")?.focus();
+                              feed.scrollIntoView({ block: "nearest" });
+                            }
+                          }
+                    }
                   />
                 </div>
               ))}
-          <SharedFact payment={payment} journal={journal} facts={facts} />
           <h3>Community facts</h3>
           {site.loading ? (
             <Status>Reading community specs…</Status>
@@ -1404,23 +1484,8 @@ export function Claim() {
               step 03.
             </p>
           ) : (
-            <p className="muted">
-              Personal community facts appear in the picker above. Shared
-              community facts use their own registered id below.
-            </p>
+            <p className="muted">Community facts appear in the picker above.</p>
           )}
-          {customTraits
-            .filter((t) => t.kind === 3)
-            .map((t) => (
-              <SharedFact
-                key={t.id}
-                id={t.id}
-                name={t.name}
-                payment={payment}
-                journal={journal}
-                facts={facts}
-              />
-            ))}
         </section>
         <section id="step-03" className="step">
           <h3 aria-label="Step 03 · Register a community trait">

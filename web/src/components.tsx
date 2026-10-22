@@ -353,7 +353,7 @@ export function WalletFactRows({
                     ? `${imd(health.price)} IMD · priceOf · live`
                     : "Live price unavailable"}
                 </span>
-                <a className="source" href={`#/claim?trait=${t.id}`}>
+                <a className="source" href={`#/mint?trait=${t.id}`}>
                   Request {t.name} ↗
                 </a>
               </div>

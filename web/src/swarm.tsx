@@ -9,7 +9,7 @@ import {
 import { useAccount } from "wagmi";
 import { useSite } from "./context";
 import { contract, read, scopedClient } from "./chain";
-import { registryEvents, FEED_WINDOW } from "./settlement";
+import { registryEvents, FEED_WINDOW, HISTORY_WINDOW } from "./settlement";
 import {
   oracleProgressReader,
   progressCounts,
@@ -22,6 +22,7 @@ import {
   sameList,
 } from "./oracle-progress.mjs";
 
+import { pageReads } from "./page-reads.mjs";
 import { registryOutcome, NO_FACT } from "./request-outcomes.mjs";
 
 export const SWARM_POLL_MS = 5000;
@@ -177,10 +178,12 @@ export function SwarmFeed({
     oracleId: string;
     text: string;
   } | null>(null);
-  // Reading back to the launch block happens only on "Check older blocks".
-  const older = useRef<string | null>(null);
-  // The request id whose read back to launch completed without an outcome.
+  const backfills = useMemo(() => pageReads(), [fact.requestId, client]);
   const checked = useRef<string | null>(null);
+  useEffect(() => () => backfills.stop(), [backfills]);
+  useEffect(() => {
+    backfills.retryFailed();
+  }, [site.readRetry, backfills]);
   // A found outcome is kept across restarts (Retry progress, wallet changes),
   // including one only a read back to launch found.
   const ended = useRef<{ requestId: string; event: any } | null>(null);
@@ -218,10 +221,7 @@ export function SwarmFeed({
       // This poll's chain reads stop with it (unmount, wallet change, timeout).
       const client = scopedClient(site.client, controller.signal);
       try {
-        const readOlder = older.current === fact.requestId;
-        // One read back per press; a failed one offers the button again.
-        older.current = null;
-        const events = terminal
+        let events = terminal
           ? []
           : await registryEvents(
               client,
@@ -236,11 +236,52 @@ export function SwarmFeed({
                     "Abandoned",
                   ],
               fact.id,
-              readOlder
-                ? {}
-                : { window: FEED_WINDOW, fromBlock: pending?.blockNumber },
+              { window: FEED_WINDOW, fromBlock: pending?.blockNumber },
             );
-        if (readOlder) checked.current = fact.requestId;
+        if (
+          !terminal &&
+          !pending &&
+          !events.some(
+            (e) =>
+              e.eventName === "TraitRequested" &&
+              e.args.requestId?.toLowerCase() === fact.requestId.toLowerCase(),
+          )
+        ) {
+          events = await registryEvents(
+            client,
+            r,
+            ["TraitRequested", "Verified", "Missed", "NoVerdict", "Abandoned"],
+            fact.id,
+            { window: HISTORY_WINDOW },
+          );
+          if (
+            !events.some(
+              (e) =>
+                e.eventName === "TraitRequested" &&
+                e.args.requestId?.toLowerCase() ===
+                  fact.requestId.toLowerCase(),
+            )
+          ) {
+            events = await backfills.once("outcome", () =>
+              registryEvents(
+                scopedClient(
+                  site.client,
+                  AbortSignal.any([backfills.signal, controller.signal]),
+                ),
+                r,
+                [
+                  "TraitRequested",
+                  "Verified",
+                  "Missed",
+                  "NoVerdict",
+                  "Abandoned",
+                ],
+                fact.id,
+              ),
+            );
+            checked.current = fact.requestId;
+          }
+        }
         if (!pending) {
           const p = await read(client, r, "Registry", "pendingRequest", [
             fact.requestId,
@@ -251,12 +292,9 @@ export function SwarmFeed({
               e.args.requestId.toLowerCase() === fact.requestId.toLowerCase(),
           );
           if (!event) {
-            // A request confirmed moments ago may be newer than an endpoint's
-            // head: keep waiting. One older than the window offers a read back.
+            // A just-confirmed request can be newer than an endpoint's head.
             const stale =
-              !readOlder &&
-              p[2] !== 0n &&
-              Date.now() / 1000 - Number(p[2]) > TWO_HOURS;
+              p[2] !== 0n && Date.now() / 1000 - Number(p[2]) > TWO_HOURS;
             if (active)
               setView({
                 outcome: null,
@@ -380,7 +418,16 @@ export function SwarmFeed({
       controller?.abort();
       clearInterval(interval);
     };
-  }, [fact.requestId, client, r, retry, load, address]);
+  }, [
+    fact.requestId,
+    client,
+    r,
+    retry,
+    load,
+    address,
+    site.readRetry,
+    backfills,
+  ]);
   const counts = progress ? progressCounts(progress, view.spec) : null;
   const list = progress ? agreedList(progress) : null;
   const outcome = current ? view.outcome : null;
@@ -505,18 +552,6 @@ export function SwarmFeed({
       )}
       {current && !outcome && checked.current === fact.requestId && (
         <p className="muted">No Registry outcome found since launch.</p>
-      )}
-      {current && !outcome && checked.current !== fact.requestId && (
-        <button
-          type="button"
-          className="secondary older-blocks"
-          onClick={() => {
-            older.current = fact.requestId;
-            setRetry((n) => n + 1);
-          }}
-        >
-          Check older blocks
-        </button>
       )}
     </details>
   );

@@ -7,6 +7,7 @@ export type SiteState = {
   error: string;
   loading: boolean;
   refresh: () => Promise<void>;
+  readRetry: number;
   rpcUrl: string;
   setRpcUrl: (s: string) => void;
   specs: any[];

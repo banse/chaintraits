@@ -19,7 +19,8 @@ const halt = (signal) => {
   if (signal?.aborted) throw Object.assign(Error(STOPPED), { stopped: true });
 };
 // A rate limit is never a size refusal, whatever words it uses.
-const RATE_LIMIT = /rate.?limit|too many requests|throttl|request limit|credits/i;
+const RATE_LIMIT =
+  /rate.?limit|too many requests|throttl|request limit|credits/i;
 const sizeRefused = (text) =>
   !/archive/i.test(text) && !RATE_LIMIT.test(text) && SIZE_REFUSAL.test(text);
 const hex = (v) =>

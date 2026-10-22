@@ -221,7 +221,7 @@ async function setup({
       .getByRole("button", { name: "Review transaction steps", exact: true })
       .click();
   // Round 8: the wallet's swarm progress lives on Wallet Facts.
-  else await page.evaluate(() => (location.hash = "#/wallet-facts"));
+  else await page.evaluate(() => (location.hash = "#/mint"));
   return page.locator(
     dialog ? ".payment-dialog .swarm-request" : "#swarm-" + requestId,
   );
@@ -508,7 +508,10 @@ try {
       await feed.getByText(finishing, { exact: true }).waitFor();
       // Round 8: the step 02 rows are on Claim; the feed on Wallet Facts.
       await page.evaluate(() => (location.hash = "#/claim"));
-      await page.locator("#pick-601").getByText(/Request pending/).waitFor();
+      await page
+        .locator("#pick-601")
+        .getByText(/Request pending/)
+        .waitFor();
       assert.equal(await page.locator("#pick-601 input").isDisabled(), true);
       assert.equal(
         await page
@@ -517,7 +520,7 @@ try {
           .count(),
         0,
       );
-      await page.evaluate(() => (location.hash = "#/wallet-facts"));
+      await page.evaluate(() => (location.hash = "#/mint"));
       await feed.getByText(finishing, { exact: true }).waitFor();
       await capture(feed, "true-quorum");
       live.members = Array.from({ length: 7 }, (_, i) => answer(false, i));

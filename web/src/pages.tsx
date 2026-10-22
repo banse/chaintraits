@@ -91,7 +91,7 @@ export function Home() {
           <AddressForm />
           <IntroDescription />
           <div className="inline-links">
-            <a href="#/claim">Mint your card ↗</a>
+            <a href="#/mint">Mint your card ↗</a>
             <a href="#/catalog">Read the 25 facts ↗</a>
           </div>
         </div>
@@ -145,21 +145,21 @@ export function Home() {
                 <strong>Mint a card</strong>
                 <p>
                   Your direct facts are captured at mint.{" "}
-                  <a href="#/claim#mint">Mint your card</a>.
+                  <a href="#/mint#mint">Mint your card</a>.
                 </p>
               </li>
               <li>
                 <strong>Add traits</strong>
                 <p>
                   Request evidence for a paid oracle fact.{" "}
-                  <a href="#/claim#step-02">Add traits</a>.
+                  <a href="#/mint#step-02">Add traits</a>.
                 </p>
               </li>
               <li>
                 <strong>Swear new facts</strong>
                 <p>
                   Define an immutable community rule.{" "}
-                  <a href="#/claim#step-03">Register a trait</a>.
+                  <a href="#/mint#step-03">Register a trait</a>.
                 </p>
               </li>
             </ol>
@@ -221,7 +221,7 @@ export function Catalog() {
               {health
                 ? `${imd(health.price)} IMD · priceOf · live`
                 : "Cost: the live oracle price per fact"}{" "}
-              · <a href="#/claim#step-02">Request a fact ↗</a>
+              · <a href="#/mint#step-02">Request a fact ↗</a>
             </div>
           )}
           <div className="catalog-table" role="table" aria-label={c.name}>
@@ -276,7 +276,7 @@ export function Catalog() {
         ) : !specs.length ? (
           <p className="muted">
             No community specs registered yet.{" "}
-            <a href="#/claim#step-03">Register the first rule</a>.
+            <a href="#/mint#step-03">Register the first rule</a>.
           </p>
         ) : (
           <div className="fact-rows">
@@ -294,7 +294,7 @@ export function Catalog() {
                     s.kind === 3 ? "shared" : s.kind >= 5 ? "panel" : "chain"
                   }
                 />
-                <a href={`#/claim?trait=${s.id}`}>Request this fact ↗</a>
+                <a href={`#/mint?trait=${s.id}`}>Request this fact ↗</a>
               </div>
             ))}
           </div>
@@ -682,6 +682,85 @@ export function Integrate() {
     </>
   );
 }
+function HourChart({ hours }: { hours: any[] }) {
+  const [active, setActive] = useState<number | null>(null);
+  const max = Math.max(...hours.map((h) => h.deposits));
+  const selected = active === null ? null : hours[active];
+  return (
+    <div className="hour-chart" aria-label="Deposits per hour">
+      <div
+        className="chart-bars"
+        onMouseLeave={(e) => {
+          if (!e.currentTarget.contains(document.activeElement))
+            setActive(null);
+        }}
+        onBlur={(e) => {
+          if (!e.currentTarget.contains(e.relatedTarget)) setActive(null);
+        }}
+      >
+        {hours.map((h, i) => (
+          <button
+            type="button"
+            className="hour-bar"
+            key={h.hour}
+            aria-label={`Hour ${h.hour}`}
+            aria-describedby={active === i ? "hour-tooltip" : undefined}
+            tabIndex={i === (active ?? 0) ? 0 : -1}
+            onMouseEnter={() => setActive(i)}
+            onFocus={() => setActive(i)}
+            onClick={() => setActive(i)}
+            onKeyDown={(e) => {
+              if (e.key === "Escape") {
+                setActive(null);
+                return;
+              }
+              const next =
+                e.key === "ArrowRight"
+                  ? Math.min(hours.length - 1, i + 1)
+                  : e.key === "ArrowLeft"
+                    ? Math.max(0, i - 1)
+                    : e.key === "Home"
+                      ? 0
+                      : e.key === "End"
+                        ? hours.length - 1
+                        : null;
+              if (next !== null) {
+                e.preventDefault();
+                (
+                  e.currentTarget.parentElement!.children[next] as HTMLElement
+                ).focus();
+              }
+            }}
+          >
+            <span
+              aria-hidden="true"
+              style={{ height: `${Math.max(1, (h.deposits / max) * 100)}%` }}
+            />
+          </button>
+        ))}
+      </div>
+      <div className="chart-axis">
+        <span>Hour 0</span>
+        <span>24 · grace period ends</span>
+        <span>65 · last deposit</span>
+      </div>
+      {selected && (
+        <div id="hour-tooltip" role="tooltip" className="hour-tooltip">
+          <strong>Hour {selected.hour}</strong>
+          <span>Deposits: {num(selected.deposits)}</span>
+          <span>
+            ETH:{" "}
+            {num(
+              (BigInt(selected.wei) + 500000000000000000n) /
+                1000000000000000000n,
+            )}
+          </span>
+          <span>First deposits: {num(selected.firstDeposits)}</span>
+        </div>
+      )}
+    </div>
+  );
+}
 export function WhitelistCurator() {
   const [data, setData] = useState<any>();
   const [source, setSource] = useState<any>();
@@ -744,60 +823,7 @@ export function WhitelistCurator() {
       {error && <Status error>{error}</Status>}
       {data && (
         <Section title="Every hour" id="hours">
-          <div className="hour-chart" aria-label="Deposits per hour">
-            <div className="chart-bars">
-              {data.hours.map((h: any) => (
-                <div
-                  key={h.hour}
-                  style={{
-                    height: `${Math.max(1, (h.deposits / Math.max(...data.hours.map((r: any) => r.deposits))) * 100)}%`,
-                  }}
-                  title={`Hour ${h.hour}: ${num(h.deposits)} deposits`}
-                />
-              ))}
-            </div>
-            <div className="chart-axis">
-              <span>Hour 0</span>
-              <span>24 · grace period ends</span>
-              <span>65 · last deposit</span>
-            </div>
-          </div>
-          <p className="muted">
-            This 66-hour table can scroll sideways on a phone. ETH appears
-            before first deposits.
-          </p>
-          <div
-            className="table-scroll"
-            tabIndex={0}
-            role="region"
-            aria-label="66-hour census table"
-          >
-            <table>
-              <thead>
-                <tr>
-                  <th>Hour</th>
-                  <th>Deposits</th>
-                  <th>ETH</th>
-                  <th>First deposits</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.hours.map((h: any) => (
-                  <tr key={h.hour}>
-                    <td>{h.hour}</td>
-                    <td>{num(h.deposits)}</td>
-                    <td>
-                      {num(
-                        (BigInt(h.wei) + 500000000000000000n) /
-                          1000000000000000000n,
-                      )}
-                    </td>
-                    <td>{num(h.firstDeposits)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+          <HourChart hours={data.hours} />
           <p className="source">
             Window: {num(data.fromBlock)} → {num(data.toBlock)} · method:
             eth_getLogs census

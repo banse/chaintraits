@@ -231,7 +231,7 @@ try {
     "A/E valid shared list reaches signing through the shared-fact dialog",
     async () => {
       await paidTest(
-        "Mint shared fact",
+        "Mint this fact: 1201 / Top Weights",
         "Request shared fact 1201 / Top Weights",
       );
     },
@@ -243,7 +243,10 @@ try {
         f.state[key] = true;
         const before = (await page.evaluate(() => window.__signing)).length;
         await page
-          .getByRole("button", { name: "Mint shared fact", exact: true })
+          .getByRole("button", {
+            name: "Mint this fact: 1201 / Top Weights",
+            exact: true,
+          })
           .click();
         await page
           .getByText(

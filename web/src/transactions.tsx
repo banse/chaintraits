@@ -1004,7 +1004,7 @@ export function TransactionJournal({ journal: j }: { journal: Journal }) {
               Registered trait {j.registered}. The id comes from SpecRegistered
               in your receipt.{" "}
               <a
-                href={`#/claim?trait=${j.registered}`}
+                href={`#/mint?trait=${j.registered}`}
                 onClick={() => j.setOpen(false)}
               >
                 Request this fact

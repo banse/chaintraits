@@ -58,7 +58,7 @@ const paid = [
   },
   {
     fn: "requestSharedFact",
-    button: "Mint shared fact",
+    button: "Mint this fact: 1201 / Top Weights",
     label: "Request shared fact 1201 / Top Weights",
     error: "PriceAboveMax",
     args: [2n, 1n],

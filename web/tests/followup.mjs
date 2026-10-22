@@ -303,7 +303,7 @@ try {
     {
       kind: "shared",
       fn: "requestSharedFact",
-      button: "Mint shared fact",
+      button: "Mint this fact: 1201 / Top Weights",
       label: "Request shared fact 1201 / Top Weights",
       id: 1201,
       fee: "0.50",
@@ -663,7 +663,6 @@ try {
           oracleRequestId: confirmedBytes,
         }),
       ];
-      f.state.pending[0].cleared = true;
       f.state.proven = [601];
       await page.evaluate(() => window.__pollSwarm());
       await feed
@@ -677,6 +676,8 @@ try {
           /The Registry confirmed a different oracle request.*oldest-match/,
         )
         .waitFor();
+      f.state.pending[0].cleared = true;
+      await page.evaluate(() => window.__pollSwarm());
       await page
         .locator("#pick-601")
         .getByText("Already proven", { exact: true })
@@ -690,8 +691,10 @@ try {
           ),
           false,
         );
-        await feed.screenshot({
-          path: new URL(`confirmed-feed-${width}.png`, output).pathname,
+        // Mint keeps one feed per open request; after proof it is removed.
+        assert.equal(await feed.count(), 0);
+        await page.screenshot({
+          path: new URL(`confirmed-mint-${width}.png`, output).pathname,
         });
       }
       assert.deepEqual(await page.evaluate(() => window.__signing), []);

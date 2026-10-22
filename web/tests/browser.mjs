@@ -112,7 +112,10 @@ try {
     "/",
     "/catalog",
     "/explorer",
+    "/mint",
+    "/wallet",
     "/claim",
+    "/wallet-facts",
     "/fact-vs-artifact",
     "/integrate",
     "/whitelistcurator",
@@ -241,12 +244,14 @@ try {
     "Integrate has two working Copy controls, a Solidity gate that compiles with 0.8.24, and a linked exported agent skill.",
   );
   await page.goto(`${preview.url}#/whitelistcurator`);
-  await page.locator("tbody tr").last().waitFor();
-  assert.equal(await page.locator("tbody tr").count(), 66);
+  await page.locator(".hour-bar").last().waitFor();
+  assert.equal(await page.locator("tbody tr").count(), 0);
   assert.equal(await page.locator(".source-lines>div").count(), 59);
-  assert.equal(await page.locator(".hour-chart").isVisible(), false);
+  assert.equal(await page.locator(".hour-chart").isVisible(), true);
+  await page.getByRole("button", { name: "Hour 64", exact: true }).focus();
+  await page.getByRole("tooltip").getByText("Deposits: 8").waitFor();
   evidence.interactions.push(
-    "Census shows all 66 rows, the exact 59 source lines and no unreadable phone chart.",
+    "Census chart exposes all 66 hours with a keyboard tooltip at 390; no hour table; all 59 source lines remain.",
   );
   if (providedRpc) {
     await page.goto(`${preview.url}#/integrate`);

@@ -2,6 +2,135 @@
 
 This is worker validation of the frontend source and static export, not an independent network certification. Contracts were already deployed; this task made no contract-source changes, live transactions, redeployments or publication calls.
 
+## Rounds 7 and 8
+
+Current delivery, checked 2026-10-22 UTC (2026-10-23 in the task timezone). This section supersedes the historical observations below. It covers the delivered source and rebuilt `dist/`, including this assignment's eight items. Nothing was signed, broadcast, published or deployed. Interaction tests use fake EIP-1193, RPC and API replies; the explicitly identified mainnet observation is read-only and installs no wallet.
+
+The abbreviated pinned history was cross-checked against the public [round-7 brief](https://github.com/identity-md-launches/launch-2412-workflow-frontend-stage-context/pull/8) and [round-8 brief](https://github.com/identity-md-launches/launch-2412-workflow-frontend-stage-context/pull/9). Their superseded older-block controls and progress placement are identified below, rather than reported as still implemented.
+
+### Per-item results on this delivery
+
+All test paths in these tables are relative to `web/`; quoted case prefixes identify the cases in the delivered files. Results are actual worker checks, not an independent certification.
+
+| Round / item | Test file and case | Result and what it establishes |
+| --- | --- | --- |
+| 7 / 1 · RPC pool | `tests/round7.test.mjs`, `R7.1 failed endpoints…`, `R7.1 a wrong-chain endpoint…`, `R7.1/2 every registry scan…`; `tests/safety.test.mjs`, `C 429…`, `C recovers from…`, `C historical empty logs…`; `tests/rpc-deadline.test.mjs`, `a range every endpoint refuses for size…` and mixed-refusal cases. `tests/acceptance.mjs`, `C first RPC always 429…`, `C every RPC failing…`. | Passed. Cooldowns grow but stay at or below 60 s; recovery rejoins the original order. Wrong-chain reads are excluded, heads are fresh, size-only refusals split, and logs require two identical answers, including empty results. Mixed archive/rate/size refusals do not split. Real browser results are recorded below. |
+| 7 / 2 · Windows and history | `tests/round7.test.mjs`, `R7.1/2 every registry scan…`; `tests/personal-facts-browser.mjs`, `R2 history and attempts…`, `R3 a stored shared fact…`, `R4 a watched request…`; `tests/site-update-browser.mjs`, both `6…` old-state cases. | Passed for current requirements. Recent feed/history/attempt windows remain 600/7,200 blocks. **Superseded by current item 6:** the earlier demand-only buttons are removed; unresolved old lists and requests now read from launch automatically once per view. Failed reads use Retry reads. Clock age remains independent of block count. |
+| 7 / 3 · Seat, nonce and consent | `tests/personal-facts.test.mjs`, `6 601 scans seat Transfer…`, `6 1301 nonce…`, refusal/deadline cases; `tests/personal-facts-browser.mjs`, `6 nonce uses block…`, `6 met and not-met…`, `6 refused and slow…`, `R5 a not-met result arriving…`; `tests/rpc-deadline.test.mjs`, `601 with tenderly 429…`. | Passed. 601 uses its full Transfer window and requires two agreeing providers; 1301 reads block 25769870. Missing evidence is advisory unknown. A late negative result blocks the wallet prompt until Request anyway, even while an earlier check is running. No real wallet is called by eligibility reads. |
+| 7 / 4 · Feed/row identity | `tests/round7.test.mjs`, `R7.4 a later Missed…`; `tests/personal-facts.test.mjs`, `2 history joins…`; `tests/personal-facts-browser.mjs`, `R1 another wallet's Registry outcome…`, `R6 Panel agreed survives Retry progress…`, `R7 connecting a wallet retains…`, and `4/5 Explorer…`; `tests/followup.mjs`, `8 refused Intake…`. | Passed. First terminal outcomes remain authoritative; another claimant cannot replace a row's history. Agreement survives a retry for the same oracle id and disappears for a different id. A known explorer link survives connection and discovery changes. A separate extension-driven account switch of that same Explorer link was not exercised; Wallet account-switch history/record isolation is exercised below. |
+| 8 / 1 · Stop abandoned checks | `tests/rpc-deadline.test.mjs`, all eight cases, including refused spec reads at deadline/page change; `tests/round8-revision-browser.mjs`, `1 a refused specOf(601)…`; real-browser `tenderly-429` scenario. | Passed. No post-return/deadline/navigation requests were observed; refusal types do not trigger unbounded splitting. The native mainnet 429 scenario returned unknown in 888 ms and made zero further requests during its 500 ms observation. |
+| 8 / 2 · Request age | `tests/round8-browser.mjs`, `2 a pending request 7,201 s old…` and `2 one 7,199 s old does not`; `tests/round8-revision-browser.mjs`, `2 a 7,201 s old request…503`; `tests/personal-facts-browser.mjs`, `R4 a watched request…`. | Passed. The notice follows the request's own time, including a recent block and API failure. |
+| 8 / 3 · Validation notes | This section; `tests/mainnet-browser.mjs`, all six provider scenarios; delivered `docs/frontend/site-update-results.json`. | Completed here. Per-item case/results and real browser provider provenance are recorded, with serving and observation limits explicit. |
+| 8 / 4 · Older row reads | `tests/round8-browser.mjs`, all three `4…` cases; `tests/site-update-browser.mjs`, `6 an 8,000-block-old request…`; `tests/attested-records.test.mjs`, `6 launch reads cache successes…`. | Passed for the replacement behavior required by current item 6. Healthy rows show neither an older-block control nor an unnecessary no-request line. Failed history is retried with Retry reads. Old open requests backfill without a press. |
+| 8 / 5 · Individual request | `tests/round8-browser.mjs`, `5 Mint this fact on 901…`; `tests/site-update-browser.mjs`, `7 shared catalog and community rows…`. | Passed. A row opens the same dialog for that fact only, with its advice, live price and negative-result gate, while preserving other selections. Shared rows now join the same flow. |
+| 8 / 6 · Row order | `tests/round8-browser.mjs`, `6 row order text…`; `tests/site-update-browser.mjs`, `5 every row uses the same centred…`. | Passed at 1280 and 390. The current stricter shared-column, equal-gap, vertical-centering and green-border requirements also pass, including rows without a button or preview. |
+| 8 / 7 · Wallet history and progress | `tests/round8-browser.mjs`, all three `7…` cases; `tests/round8-revision-browser.mjs`, both `7 a wallet switch…` / `7 a shared fact id…`; `tests/site-update-browser.mjs`, `2…`, `3…`, `4…`; `tests/swarm-browser.mjs`, `5 Check swarm…`. | Passed. Registry-derived direct and panel history, evidence windows, UTC attestation time and explorer links remain. Wallet switches cannot inherit another wallet's rows/job/time. **Superseded by current items 3–4:** names/routes are Mint/Wallet; progress is back on Mint between Why and Add traits; Wallet has history only. Legacy routes, queries and anchors work. |
+
+### Current eight-item checks
+
+| Current item | Test file / case | Actual result |
+| --- | --- | --- |
+| 1 · Notes | Rounds 7 and 8 matrix above and native-mainnet table below. | Recorded; gateway and browser limits are explicit. |
+| 2 · Attested-time recovery | `tests/attested-records.test.mjs`, all three `2…` cases; `tests/site-update-browser.mjs`, both `2…` cases. | Passed. First native-style fetch failure then 200 recovers time/link without reload; two distinct records have maximum concurrency 1. Retries are at least 1.9 s apart. Every-failure mode stops at four reads of the id, remains stopped through a health refresh, then a Retry press succeeds on read 5. Duplicate ids share one batch. Leaving Wallet cancels queued work and timers. |
+| 3 · Names and routes | `tests/site-update-browser.mjs`, `3 canonical routes…`; `tests/browser.mjs`, 55 route/width combinations; `tests/interface-labels.test.mjs`, label/export cases; legacy-anchor revision case in `tests/revision.mjs`. | Passed. Canonical links use Mint/Wallet; both old paths preserve queries/anchors. The menu, title and page headings use the renamed pages; unrelated control labels remain under the original AST snapshot. |
+| 4 · Swarm position | `tests/site-update-browser.mjs`, `4 Swarm progress…`; `tests/round8-browser.mjs`, `7 Mint has…`; `tests/swarm-browser.mjs`, `6 full-width progress…`. | Passed. Own full-width section immediately follows Why and precedes Add traits, one feed per open personal request. Wallet has claimed history and no feed. Disconnected Wallet uses the prescribed facts sentence. Check swarm still expands and focuses its disclosure. |
+| 5 · Row alignment | `tests/site-update-browser.mjs`, `5 every row…`; `tests/round8-browser.mjs`, `6 row order…`. | Passed. All desktop card/action midpoints agree with their row midpoint within 1 px; all preview/action x coordinates agree; both column gaps equal 16 px. Previews have a 1 px `rgb(0, 255, 65)` border. The preview keeps its column without a button. Phone order/reflow has no page overflow. |
+| 6 · Automatic older reads | `tests/site-update-browser.mjs`, both `6…` cases; `tests/attested-records.test.mjs`, `6 launch reads…`; recent/failure cases in `tests/round8-browser.mjs` and `tests/personal-facts-browser.mjs`. | Passed. An 8,000-block-old request displays its Registry outcome; a 30,000-block-old stored list is recovered, hash-checked and applied through the dialog. Reads start at 26242885 without a press. Subsequent polls reuse the backfill. Retry reads clears failed entries, preserving successful cached results. No older-block text appears in the tested routes/states at either width. |
+| 7 · Shared picker rows | `tests/site-update-browser.mjs`, `7 shared catalog and community rows…`; `tests/acceptance.mjs`, both A shared-list cases; shared paths in `tests/actions.mjs` and `tests/followup.mjs`. | Passed. 1201 and shared community id 10001 occur in numeric order, with checkbox/rule/panel/attempt/result/action; 1201 retains its preview. 1201 alone opens the existing shared request dialog; 901 + 1201 yields one dialog containing both request steps. Stored included lists offer Apply shared fact. Shared pending requests appear beneath the picker. No separate shared block remains. Unsafe/incomplete rankings still block payment. |
+| 8 · Hour tooltip | `tests/site-update-browser.mjs`, `8 hour 64…`; `tests/browser.mjs`, census interaction. | Passed. Mouse hover, keyboard focus/Left/Right and tap show hour 64, 8 deposits, 11 whole ETH and 6 first deposits, derived from unchanged `data/hours.json` (11.313937870044388144 ETH before the site's existing whole-ETH rounding). All 66 bars are available on mobile; no hour table/sideways note remains. Window/provenance download and 59 source lines remain. |
+
+### Real browser reading mainnet
+
+`node web/tests/mainnet-browser.mjs` ran in Chromium 156.0.8078.4 at **2026-10-22 21:57:31 UTC**. The browser origin was `https://swornbyswarm.site.identitymd.eth.limo`. The current local `dist/` was served at that HTTPS origin through Playwright's **same-origin static-file routing**; all RPC replies came from native browser fetches, including actual CORS handling. The probe bundled the delivered production RPC pool and eligibility checker, recorded successful `onRead` events and native fetch status/timing, and installed no wallet. Its per-RPC timeout was 4 s (production default: 8 s); the eligibility deadline remains 20 s. None of the reported successful-profile timings reached that timeout. It read mainnet heads 26250990–26250991. It did not publish or modify the hosted site.
+
+Direct remote navigation could not inspect the named export: the ENS gateway returned a TLS navigation error here, and the supplied CID gateway returned a challenge/403. Serving the export at its real gateway origin allowed CORS/provider checks without claiming that the remote gateway itself was verified. Raw browser observation is retained only in scratch; a compact, public-chain-only summary is delivered in `docs/frontend/site-update-results.json`.
+
+| read kind | RPC that answered | how observed |
+| --- | --- | --- |
+| `eth_chainId` | publicnode | Native HTTP 200, result `0x1`, production pool `onRead`. |
+| `eth_getCode` | publicnode | Native Registry code response and successful `onRead`. |
+| `eth_call` | publicnode | Registry `totalSupply` returned 8, with successful `onRead`. |
+| `eth_blockNumber` | publicnode | Fresh `0x1908eee` / block 26250990; later profiles 26250991. |
+| Block reads | publicnode | `eth_getBlockByNumber` for the observed head returned its block object. |
+| Recent logs, 600 blocks | publicnode + tenderly | Both successful `eth_getLogs` events; canonical lists agreed, 2 Registry logs. |
+| 24-hour logs, 7,200 blocks | publicnode + tenderly | Both successful `eth_getLogs` events; canonical lists agreed, 24 Registry logs. |
+| Old-block nonce, block 25769870 | tenderly | Publicnode returned native HTTP 403; tenderly returned `0x10` for the existing public contributor. |
+| 601 full-window seat read | tenderly + mevblocker | Matching full-window Transfer reads; met in 1,476 ms. The request used blocks 25090085 → fresh head minus 64. |
+| 601 with tenderly 429 | mevblocker alone; no agreeing pair | Only tenderly's refusal was simulated; other replies were real. Returned unknown in **888 ms**, no split, zero subsequent requests during a further 500 ms observation. The UI's unknown sentence is independently asserted by fake-wallet interaction tests. |
+
+Here publicnode = `https://ethereum-rpc.publicnode.com`, tenderly = `https://gateway.tenderly.co/public/mainnet`, mevblocker = `https://rpc.mevblocker.io/fast`, thirdweb = `https://1.rpc.thirdweb.com`. The production endpoint order is unchanged.
+
+Each RPC was then blocked in turn in the same real-browser setup. Blocking rejects that endpoint in the test fetcher; all surviving endpoints are native external fetches. “Basic” below includes chain id, code, call, head and block object. Every read succeeded except the explicitly noted 601 reads, which correctly lacked two agreeing providers.
+
+| Blocked RPC | Basic reads | Recent / 24-hour agreeing pair | Old nonce | 601 result / actual log-answer providers |
+| --- | --- | --- | --- | --- |
+| publicnode | tenderly | tenderly + mevblocker | tenderly | met, 1,394 ms / tenderly + mevblocker |
+| tenderly | publicnode | publicnode + mevblocker | mevblocker | unknown, 1,167 ms / mevblocker only |
+| mevblocker | publicnode | publicnode + tenderly | tenderly | unknown, 549 ms / tenderly only |
+| thirdweb | publicnode | publicnode + tenderly | tenderly | met, 727 ms / tenderly + mevblocker |
+
+All six profiles made zero additional probe requests in their 500 ms post-return observation. This is a bounded measurement, supplemented by the unit tests' deadline/cancellation assertions, not a promise about future provider availability. The requester’s separate **2026-10-22 hosted-site measurement** is recorded for comparison: publicnode served chain/code/call/head/blocks; publicnode+tenderly agreed on logs; publicnode refused the archive nonce with 403 and tenderly served it; the full 601 window required tenderly+mevblocker and returned unavailable in about one second when tenderly was rate-limited, with nothing sent afterward. The worker observation agrees with that report.
+
+### Build, interactions and six-domain review
+
+Actual commands were run from the repository root, using the existing lockfile and an external temporary npm/browser cache:
+
+```sh
+npm --prefix web ci --cache /tmp/sworn-task-npm-cache --no-audit --no-fund --loglevel=error
+npm --prefix web run typecheck
+npm --prefix web run build
+npm --prefix web run verify:export
+npm --prefix web run format:check
+SWORN_TEST_RPC= PLAYWRIGHT_BROWSERS_PATH=/tmp/sworn-browser npm --prefix web test
+PLAYWRIGHT_BROWSERS_PATH=/tmp/sworn-browser node web/tests/site-update-browser.mjs
+PLAYWRIGHT_BROWSERS_PATH=/tmp/sworn-browser node web/tests/round8-browser.mjs
+PLAYWRIGHT_BROWSERS_PATH=/tmp/sworn-browser node web/tests/round8-revision-browser.mjs
+PLAYWRIGHT_BROWSERS_PATH=/tmp/sworn-browser node web/tests/personal-facts-browser.mjs
+PLAYWRIGHT_BROWSERS_PATH=/tmp/sworn-browser node web/tests/acceptance.mjs
+PLAYWRIGHT_BROWSERS_PATH=/tmp/sworn-browser node web/tests/actions.mjs
+PLAYWRIGHT_BROWSERS_PATH=/tmp/sworn-browser node web/tests/followup.mjs
+PLAYWRIGHT_BROWSERS_PATH=/tmp/sworn-browser node web/tests/swarm-browser.mjs
+PLAYWRIGHT_BROWSERS_PATH=/tmp/sworn-browser node web/tests/oracle-feed-browser.mjs
+PLAYWRIGHT_BROWSERS_PATH=/tmp/sworn-browser node web/tests/eligibility-snapshot-browser.mjs
+PLAYWRIGHT_BROWSERS_PATH=/tmp/sworn-browser node web/tests/mainnet-browser.mjs
+IMD_PLAYWRIGHT="$PWD/web/node_modules/playwright/index.mjs" PLAYWRIGHT_BROWSERS_PATH=/tmp/sworn-browser node .imd/reads/skills/design-critic/scripts/taste.mjs --out test/scratch/taste --offline
+```
+
+Production build, all three pinned ABI checks, typecheck, export integrity and final formatting pass. `npm test` passes **106 unit/export tests** and the **55 route/width combinations** in Chromium. The optional live-relay revision/health/fork cases explicitly skip with no relay configured; this task's connected behavior uses fake RPC/API/wallet suites instead, and actual provider behavior uses the separate native-fetch browser probe. No fork/signing rehearsal was run. Existing upstream bundler directive/worker warnings remain. One inherited RPC-source formatting warning was corrected by Prettier only; **every exported asset hash remained identical** before/after that formatting pass, and provider order/logic is preserved.
+
+The focused suite passes 9 scenario groups; prior round-8, revision, personal-fact, payment/action, follow-up, swarm, oracle-feed and snapshot cases are individually mapped above or retained in the delivered compact result. No unexpected console, page or local-resource errors were recorded in their final fake-network runs. The record-exhaustion tests deliberately abort fake API requests; the snapshot outage test deliberately returns missing-file errors. Those expected injected failures are distinguished from normal application errors.
+
+The supplied browser tool also opened the served production export, confirmed Mint links/title at 390px, and inspected the home first screen and hour-64 focus state. Home’s Explore wallet action ends at **531.4px** in the 390×844 screen, with the product above it; page width is exactly 390px. `index.html` retains its title, local favicon, description, og:title and local og:image. Screenshots were actually inspected in scratch (`browser-tool-home-390.png`, `browser-tool-hour-64-390.png`, `site-update/aligned-rows-1280.png`, `site-update/aligned-rows-390.png`, `site-update/hour-64-390.png`, and the probe shots). Scratch evidence is intentionally not submitted.
+
+| Better Interface domain | Reviewed coverage and outcome |
+| --- | --- |
+| Accessibility | Checked native labelled checkboxes, Retry buttons, modal behavior, Check swarm focus restoration, chart focus/Left/Right/Home/End/Escape paths and tooltip association. Screenshots show visible focus. Dense chart bars have narrow visual slots; keyboard traversal supplies each exact hour. Physical tap accuracy, a native screen reader and native 200% browser zoom were not tested. |
+| Layout | Checked shared column/gap/centering measurements, absent-action rows, 320/390/780/1280/1440 route reflow, separate progress section, long Wallet identifiers and chart tooltip wrapping. No observed page overflow. Native zoom, RTL and translation expansion were not exercised. |
+| Writing | Checked the renamed pages, new routes/aliases, prescribed disconnected sentence, Retry, shared action labels and original AST control-label snapshot. Existing fee/risk, contract, rule and eligibility copy is retained. No public revision label or claim that fees are burned was added. |
+| Typography | Checked existing six-token system stack/weights, wrapped long values, readable captions and chart numbers. No fonts added. The inherited monospace-prose style remains an explicit preserve-design exception. |
+| Colors | Reused the existing tokens; preview borders and tooltip use `--accent`, status words accompany color. The entry probe passes rendered contrast; oracle/advice browser captures resolve actual ancestor backgrounds before measuring and pass 4.5:1. No claim covers every SVG-art pixel or every disabled state. |
+| UI | Exercised loading, recovered, exhausted, manual retry, pending, stored, applied-dialog, mixed selection, failed history and terminal feed states. Hover/focus/tap tooltip and keyboard disclosure pass. Existing square surfaces, motion restraint and reduced-motion behavior remain. Physical wallets/passkeys were not exercised. |
+
+Applicable findings were fixed and rechecked:
+
+- **High — `web/src/wallet-facts.tsx:35`, `web/src/attested-records.mjs:1`:** parallel one-shot record reads discarded the attested time/job after a load shed. Replaced by a per-wallet serial/deduplicated queue, bounded retries and explicit row Retry; recovery/exhaustion/cancellation tests pass.
+- **High — `web/src/settlement.ts:133`, `web/src/page-reads.mjs:1`, `web/src/swarm.tsx:181`, `web/src/claim.tsx:818`:** old stored answers/open outcomes required an undiscoverable extra press. Automatic launch reads are cached, failed entries retry explicitly, and fresh recent events are merged with cached history. Old-list application and old-outcome tests pass.
+- **Medium — `web/src/App.tsx:27`, `web/src/navigation.ts:1`:** page names/links needed consistent destinations while retaining old deep links. Normalized aliases and updated published links; query/anchor tests pass.
+- **Medium — `web/src/styles.css:840`, `web/src/claim.tsx:275`:** flexible row widths allowed preview/action columns to shift, particularly without a button. Shared fixed columns, explicit slots and a green preview border pass actual rectangle measurements; phone screenshots remain in reading order.
+- **Medium — `web/src/claim.tsx:1175`:** live progress needed its own full-width Mint section; moving it initially left Check swarm without its expand/focus action. The section now sits between the named neighbors, and Check swarm restores both expansion and summary focus; the previous regression passes.
+- **Medium — `web/src/pages.tsx:685`:** hour values depended on a wide table and hover-only abbreviated title. Removed the table/note, retained the chart at phone widths, and added keyboard/tap tooltip values and traversal; exact hour-64 values and overflow checks pass.
+
+The pinned taste probe passes **14/16**: render, layout, targets, contrast, tracking, eyebrows, type sizes, glyphs, slogans, repetition, copy budget, chrome, motion and share. Its two inherited flags are the required uppercase headings and monospace prose; these remain under the preserve-layout/copy direction. The original licenses remain in `web/LICENSES/Better-Interface.txt`. `DESIGN.md` now reflects the final source's actual tokens, components and responsive behavior.
+
+### Integrity, size and limits
+
+The existing dependency manifests/lockfile, build configuration, chain/deployment inputs, contracts, ABI files and eligibility snapshot remain unchanged; 45 protected/source/runtime-input files were compared to their original Git blob hashes. No ignore file changed. Existing protected dependency Git entries are preserved; none was introduced. The export contains only the current hashed production chunks and complete runtime assets. Generated modules, browser binaries/caches, tool output and scratch packaging are excluded at every nesting level. No required inherited artifact was removed. A complete current-file Git bundle is measured under **8,388,608 bytes**; the compact delivery record contains the final size check.
+
+Implementation and the stated worker checks are complete. Limitations: direct remote-gateway content was not verified; the native mainnet check served the local export at the gateway origin as explained above. WebKit, physical phones/wallet apps/passkeys, native screen readers, native zoom, RTL and live signing/settlement are unperformed. No independent audit, real signature, transaction, publication or new deployment is claimed. Original repository metadata is protected; the source/export is left for the contributor submission system to commit.
+
+
+The sections below are retained historical records. The current results above take precedence.
+
 ## Current settled-event snapshot (2026-10-22 UTC)
 
 This section supersedes the earlier live-scan observations for catalog facts 701, 801, 901, 1001 and 1101–1105 only. The production export remains at `dist/` for `swornbyswarm.site.identitymd.eth`. The UI layout, routes, public wording, addresses, chain, ABIs, wallet connector, transaction construction, build configuration, dependency manifests and lockfile are preserved. No server, secret, analytics, signature or broadcast was added.
