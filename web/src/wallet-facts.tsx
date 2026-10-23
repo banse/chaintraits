@@ -29,7 +29,13 @@ type Proof =
       fromBlock: bigint;
       toBlock: bigint;
     };
-type Row = { id: number; name: string; community: boolean; proof: Proof };
+type Row = {
+  id: number;
+  name: string;
+  meaning: string;
+  community: boolean;
+  proof: Proof;
+};
 
 // Each Wallet view owns a serial queue and bounded retry state.
 function Attested({
@@ -164,14 +170,20 @@ export function WalletFacts() {
             (id >= 601
               ? await read(client, site.r, "Registry", "verified", [wallet, id])
               : null);
-          const name =
-            TRAITS.find((t) => t.id === id)?.name ||
-            site.specs.find((s) => s.id === id)?.name ||
-            `Fact ${id}`;
+          const trait = TRAITS.find((t) => t.id === id);
+          const spec = site.specs.find((s) => s.id === id);
+          const name = trait?.name || spec?.name || `Fact ${id}`;
+          // The catalog rule, or the line the Catalog shows for a spec.
+          const meaning = trait
+            ? trait.rule
+            : spec
+              ? `T${spec.kind} · threshold ${spec.threshold.toString()} · ${num(spec.fromBlock)} → ${num(spec.toBlock)}`
+              : "Community spec; its rule could not be read.";
           const sworn = proof && !/^0x0+$/.test(proof[1]);
           return {
             id,
             name,
+            meaning,
             community: community || id >= 10001,
             proof: sworn
               ? {
@@ -235,9 +247,17 @@ export function WalletFacts() {
       clearInterval(interval);
     };
   }, [account.address, site.client, site.health, pendingKey]);
+  const direct = rows?.filter((row) => row.proof.how === "direct") || [];
+  const sworn = rows?.filter((row) => row.proof.how === "panel") || [];
+  const frozen = direct[0]?.proof.how === "direct" ? direct[0].proof : null;
   return (
     <>
       <h1>Wallet</h1>
+      <p className="prose">
+        Your wallet's Sworn record: every fact it holds, what each fact says,
+        and how it was proven, with the oracle request behind every panel-sworn
+        fact.
+      </p>
       {!account.address ? (
         <section className="section wallet-facts">
           <p>Connect a wallet to see its facts.</p>
@@ -267,52 +287,75 @@ export function WalletFacts() {
             ) : !rows.length ? (
               <p>No claimed fact for this wallet.</p>
             ) : (
-              <ul className="fact-history">
-                {rows.map((row) => (
-                  <li key={row.id} id={`held-${row.id}`}>
-                    <strong>
-                      {row.id} / {row.name}
-                    </strong>
-                    {row.proof.how === "direct" ? (
-                      <span>
-                        Direct ·{" "}
-                        {row.proof.block !== null && row.proof.time !== null ? (
-                          <>
-                            frozen at the card's mint, block{" "}
-                            {num(row.proof.block)} ·{" "}
-                            <time
-                              dateTime={new Date(
-                                Number(row.proof.time) * 1000,
-                              ).toISOString()}
-                            >
-                              {utc(row.proof.time)}
-                            </time>
-                          </>
-                        ) : (
-                          "read live; no card minted"
-                        )}
-                      </span>
-                    ) : (
+              <>
+                {frozen && (
+                  // Direct facts share one snapshot: it is stated once.
+                  <p className="info direct-note">
+                    Direct ·{" "}
+                    {frozen.block !== null && frozen.time !== null ? (
                       <>
-                        <span>Panel-sworn</span>
-                        <span>
-                          Evidence window: blocks {num(row.proof.fromBlock)} →{" "}
-                          {num(row.proof.toBlock)}
-                        </span>
-                        {row.proof.oracleId ? (
-                          <Attested
-                            key={row.proof.oracleId}
-                            oracleId={row.proof.oracleId}
-                            reader={reader}
-                          />
-                        ) : (
-                          <span>Oracle request unavailable</span>
-                        )}
+                        frozen at the card's mint, block {num(frozen.block)} ·{" "}
+                        <time
+                          dateTime={new Date(
+                            Number(frozen.time) * 1000,
+                          ).toISOString()}
+                        >
+                          {utc(frozen.time)}
+                        </time>
                       </>
+                    ) : (
+                      "read live; no card minted"
                     )}
-                  </li>
-                ))}
-              </ul>
+                  </p>
+                )}
+                {direct.length > 0 && (
+                  <ul className="fact-history direct-facts" aria-label="Direct facts">
+                    {direct.map((row) => (
+                      <li key={row.id} id={`held-${row.id}`}>
+                        <strong>
+                          {row.id} / {row.name}
+                        </strong>
+                        <span className="meaning">{row.meaning}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+                {sworn.length > 0 && (
+                  <ul
+                    className="fact-history sworn-facts"
+                    aria-label="Panel-sworn facts"
+                  >
+                    {sworn.map(
+                      (row) =>
+                        row.proof.how === "panel" && (
+                          <li key={row.id} id={`held-${row.id}`}>
+                            <strong>
+                              {row.id} / {row.name}
+                            </strong>
+                            <div className="proof-lines">
+                              <span className="meaning">{row.meaning}</span>
+                              <span>Panel-sworn</span>
+                              <span>
+                                Evidence window: blocks{" "}
+                                {num(row.proof.fromBlock)} →{" "}
+                                {num(row.proof.toBlock)}
+                              </span>
+                              {row.proof.oracleId ? (
+                                <Attested
+                                  key={row.proof.oracleId}
+                                  oracleId={row.proof.oracleId}
+                                  reader={reader}
+                                />
+                              ) : (
+                                <span>Oracle request unavailable</span>
+                              )}
+                            </div>
+                          </li>
+                        ),
+                    )}
+                  </ul>
+                )}
+              </>
             )}
           </section>
         </>

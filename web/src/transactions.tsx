@@ -125,6 +125,8 @@ export function useTransactions() {
     saved.registered,
   );
   const lock = useRef(false);
+  // Bumped by discard(): work started for a cleared preparation is ignored.
+  const generation = useRef(0);
   const [eligibility, setEligibility] = useState<Record<string, any>>({});
   const eligibilityRuns = useRef(new Map<string, number>());
   const [requestAnyway, setRequestAnyway] = useState(false);
@@ -243,6 +245,7 @@ export function useTransactions() {
       throw Error("Connect a wallet to prepare this action.");
     if (account.chainId !== site.r.deployment.chainId)
       throw Error("Switch to Ethereum before preparing.");
+    const run = generation.current;
     const fresh = await health(site.client, site.r);
     await sharedSafety(calls);
     if (
@@ -328,6 +331,8 @@ export function useTransactions() {
     }
     for (const call of calls)
       stage.push({ label: call.label, state: "ready", call });
+    if (run !== generation.current)
+      throw Error("The payment choice changed. Prepare again.");
     const p: Plan = {
       title,
       from,
@@ -418,13 +423,16 @@ export function useTransactions() {
   async function simulate(index: number) {
     if (lock.current) return;
     lock.current = true;
+    const run = generation.current;
     setBusy(true);
     setError("");
     try {
       update(index, { state: "simulating", error: undefined });
       await site.client.simulateContract(await checkedCall(index));
+      if (run !== generation.current) return;
       update(index, { state: "simulated" });
     } catch (e) {
+      if (run !== generation.current) return;
       const message = explain(
         e,
         steps[index]?.call?.abi || [
@@ -435,8 +443,10 @@ export function useTransactions() {
       update(index, { state: "failed", error: message });
       setError(message);
     } finally {
-      lock.current = false;
-      setBusy(false);
+      if (run === generation.current) {
+        lock.current = false;
+        setBusy(false);
+      }
     }
   }
   // Check only the next step, after consent and its preceding receipt. No wallet
@@ -619,6 +629,32 @@ export function useTransactions() {
     if (result.token !== undefined || result.facts?.length)
       update(index, { result });
   }
+  // Clears a preparation that sent nothing, also while a simulation runs:
+  // the running check finishes against a retired generation and changes
+  // nothing. A journal holding a sent, pending or confirmed transaction, or a
+  // request the wallet is still asked to sign, stays.
+  function discard() {
+    if (
+      steps.some(
+        (s) =>
+          s.hash ||
+          ["pending", "unknown", "confirmed", "awaiting signature"].includes(
+            s.state,
+          ),
+      )
+    )
+      return false;
+    generation.current++;
+    lock.current = false;
+    setBusy(false);
+    setPlan(null);
+    setSteps([]);
+    setError("");
+    setRegistered(undefined);
+    setOpen(false);
+    setAck(false);
+    return true;
+  }
   async function recover(hash: string) {
     if (!/^0x[a-fA-F0-9]{64}$/.test(hash)) {
       setError("Enter a full transaction hash (66 characters).");
@@ -683,20 +719,11 @@ export function useTransactions() {
     },
     execute,
     recover,
-    // Close the dialog; clear the journal unless a transaction is pending.
+    discard,
+    // Close the dialog and clear every preparation that sent nothing.
     close: () => {
       setOpen(false);
-      if (
-        !lock.current &&
-        !steps.some((s) => ["pending", "unknown"].includes(s.state))
-      ) {
-        setPlan(null);
-        setSteps([]);
-        setError("");
-        setRegistered(undefined);
-        setOpen(false);
-        setAck(false);
-      }
+      discard();
     },
   };
 }

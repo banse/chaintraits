@@ -12,13 +12,7 @@ import { SiteContext } from "./context";
 import { ConnectControl } from "./wallet";
 import { ROUTES } from "./data";
 import { ContractList, Status } from "./components";
-import {
-  Home,
-  Catalog,
-  Explorer,
-  Integrate,
-  About,
-} from "./pages";
+import { Home, Catalog, Integrate, About } from "./pages";
 import { Claim } from "./claim";
 import { WalletFacts } from "./wallet-facts";
 import { READ_RPCS } from "./rpc.mjs";
@@ -39,6 +33,16 @@ function routeInfo() {
       anchor: rest === "hours" || rest === "source" ? rest : "whitelistcurator",
       query: new URLSearchParams(),
     };
+  // Explorer is a part of Mint: #/explorer?address=…&trait=… opens that part
+  // with the wallet loaded and scrolls to the fact once its row arrives.
+  if (requested === "/explorer") {
+    const query = new URLSearchParams(path.split("?")[1]);
+    return {
+      route: "/mint",
+      anchor: query.get("trait") ? `trait-${query.get("trait")}` : "explorer",
+      query,
+    };
+  }
   const route =
     requested === "/claim"
       ? "/mint"
@@ -167,7 +171,6 @@ export function App({ r }: { r: Runtime }) {
   const pages: Record<string, React.ComponentType> = {
     "/": Home,
     "/catalog": Catalog,
-    "/explorer": Explorer,
     "/mint": Claim,
     "/wallet": WalletFacts,
     "/integrate": Integrate,

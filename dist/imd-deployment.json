@@ -54,6 +54,10 @@
       "sha256": "826a6b2548b91cb95ef96c692a6c59845e22b8a532e5e364ad4a4cfbcc0b73d8"
     },
     {
+      "path": "art/full-house.svg",
+      "sha256": "49be39b3e167402d34131dcdf7e9c4517ca4b5fc12c0593c82c5490ee9d1c30d"
+    },
+    {
       "path": "art/sample.svg",
       "sha256": "dd5827d9e3e08e4fc34567e73b41c40fa6eb0ab194da994bfe118a4f9c4a99bf"
     },
@@ -158,24 +162,24 @@
       "sha256": "c34bce140e26f958072943a5326c503bd737cfa49c98e5b7a0345a06302e94b6"
     },
     {
-      "path": "assets/ccip-CJHxUglo.js",
-      "sha256": "c2ee7d718777f54d56982dacb91c4c7c39635c84f8099e5ba153faf954514f0c"
+      "path": "assets/ccip-BAnv4b9Q.js",
+      "sha256": "b7efaef24df31a913ecacac9dd8b125a87b1822336e20bcde0c56204fe55ff00"
     },
     {
-      "path": "assets/dist-Cwu02ddt.js",
-      "sha256": "a092b85b6ee8853208a77f2d064d6785ef01608c344dce4cef43234b1e607ce9"
+      "path": "assets/dist-Z-ywz-ev.js",
+      "sha256": "c289ed2a1ce6779849a1254ed63f642f5ec74ec177d363982be21509c6618525"
     },
     {
-      "path": "assets/index-D27utQ_k.js",
-      "sha256": "9c72556364b04966f895a28a5c61aa9653765badc572d3d21cc0e762e7beb7fc"
+      "path": "assets/index-BrsDLr3D.css",
+      "sha256": "6d776c9c5765febe1374ccec8ee87c95561ccc8aac42bf50d6923e68a25db5e0"
     },
     {
-      "path": "assets/index-rgYfQCpD.css",
-      "sha256": "0411223c73e87ca8ea919a6eceb5aeac00f85818abb28b8b4f524a4e693dc7e3"
+      "path": "assets/index-neoJXQ7f.js",
+      "sha256": "c1e47cd523e78f01557bf520713f2cbd35fe4d039440bfc449ccaa7e0689b3fd"
     },
     {
       "path": "data/art-provenance.json",
-      "sha256": "4190a224c385d0911363011bd2fd753d4bbb7c5f9b606cd80a896ff5194564da"
+      "sha256": "7692d3c80130a92a9347c736462136af4f87a71868ef0c4c20aec44ebc823c79"
     },
     {
       "path": "data/curator-source.json",
@@ -271,7 +275,7 @@
     },
     {
       "path": "index.html",
-      "sha256": "901d1e3e27597e87a4a1ce7fa3aee0723be8f5fc049c9a94f96fa76b192af3f7"
+      "sha256": "162027bcf17c3cd62772b0a1dbfbdcac5679caed94ab89e858ce5287cb0e9024"
     },
     {
       "path": "llms.txt",

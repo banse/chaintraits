@@ -37,6 +37,7 @@ import {
 } from "./settlement";
 import { pageReads } from "./page-reads.mjs";
 import { claimAnchor } from "./navigation";
+import { Explorer } from "./pages";
 import {
   RequestTime,
   SwarmFeed,
@@ -77,10 +78,12 @@ export function Settlement({
   requestId,
   journal,
   onCheckSwarm,
+  idPrefix,
 }: {
   requestId: string;
   journal: Journal;
   onCheckSwarm?: () => void;
+  idPrefix?: string;
 }) {
   const site = useSite();
   const account = useAccount();
@@ -202,6 +205,7 @@ export function Settlement({
       {localFact && (
         <SwarmFeed
           fact={localFact}
+          idPrefix={idPrefix}
           focus={localFocus}
           onAttested={site.refresh}
         />
@@ -453,7 +457,11 @@ function SharedFactRow({
             Oracle completion and signed result ↗
           </a>
         )}
-        {(error || status || (reason && reason !== "Already proven")) && (
+        {(error ||
+          status ||
+          (reason &&
+            reason !== "Already proven" &&
+            !(pending && reason === "A request is already pending."))) && (
           <div className="row-detail">
             <Status
               error={
@@ -956,11 +964,15 @@ export function Claim() {
     site.readRetry,
     backfills,
   ]);
-  const wanted = Number(
-    new URLSearchParams(location.hash.split("?")[1]?.split("#")[0]).get(
-      "trait",
-    ),
-  );
+  // #/explorer?address=…&trait=… names a fact to inspect in the Explorer
+  // part, not one to request.
+  const wanted = /^#\/explorer\b/.test(location.hash)
+    ? 0
+    : Number(
+        new URLSearchParams(location.hash.split("?")[1]?.split("#")[0]).get(
+          "trait",
+        ),
+      );
   useEffect(() => {
     let active = true;
     setFacts((old) =>
@@ -1124,11 +1136,10 @@ export function Claim() {
   }
   return (
     <>
-      <h1>Mint</h1>
+      <h1 className="part-title">Mint Card</h1>
       <p className="prose">
-        Mint your Sworn card, then add facts to it. Direct facts are captured at
-        mint; chain-proven and panel-sworn facts are requested from the swarm's
-        oracle and land on your card when its panel agrees.
+        Mint your Sworn card. It captures your direct facts at mint and updates
+        itself when new facts land.
       </p>
       {pendingFacts.length > 0 && (
         <section className="pending-notice" aria-label="Pending facts">
@@ -1225,6 +1236,16 @@ export function Claim() {
           <Card sample />
         )}
       </section>
+      <Explorer journal={journal} />
+      <section className="part" id="mint-facts" aria-labelledby="mint-facts-title">
+        <h2 className="part-title" id="mint-facts-title">
+          Mint facts
+        </h2>
+        <p className="prose">
+          Add facts to your wallet: chain-proven and panel-sworn facts are
+          requested from the swarm's oracle and land on your card when its panel
+          agrees.
+        </p>
       <Section title="Why add traits after minting?">
         <p>
           Your card captures direct facts at mint. Paid requests can add
@@ -1269,7 +1290,8 @@ export function Claim() {
                 checked={payment === v}
                 onChange={() => {
                   setPayment(v);
-                  journal.clear();
+                  // An unsent preparation was priced for the other currency.
+                  journal.discard();
                 }}
               />
               {v}
@@ -1580,6 +1602,7 @@ export function Claim() {
         </section>
       </section>
       <TransactionJournal journal={journal} />
+      </section>
     </>
   );
 }

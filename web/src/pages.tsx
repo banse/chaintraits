@@ -29,7 +29,7 @@ import {
 } from "./components";
 import { imd, exactUnits } from "./pure.mjs";
 import { Settlement } from "./claim";
-import { useTransactions, TransactionJournal } from "./transactions";
+import type { Journal } from "./transactions";
 function IntroDescription() {
   const [a, b] = DESCRIPTION.split("IMD agents");
   return (
@@ -227,7 +227,10 @@ export function Catalog() {
           <div className="catalog-table" role="table" aria-label={c.name}>
             <div className="catalog-head" role="row">
               <span role="columnheader">Fact</span>
-              <span role="columnheader">Rule · window</span>
+              <span role="columnheader">
+                {/* Every direct fact reads live: the window is stated once. */}
+                {c.key === "direct" ? "Rule · window: Live" : "Rule · window"}
+              </span>
               <span role="columnheader">Evidence</span>
             </div>
             {TRAITS.filter((t) => t.class === c.key).map((t) => (
@@ -239,7 +242,9 @@ export function Catalog() {
                 </div>
                 <div role="cell">
                   {t.rule}
-                  <span className="rule">{t.window}</span>
+                  {c.key !== "direct" && (
+                    <span className="rule">{t.window}</span>
+                  )}
                 </div>
                 <div role="cell">
                   <Mark kind={t.class} rare={t.rare} />
@@ -333,17 +338,18 @@ export function Catalog() {
     </>
   );
 }
-export function Explorer() {
+// The Explorer part of the Mint page; #/explorer?address=… opens it.
+export function Explorer({ journal }: { journal: Journal }) {
   const site = useSite();
-  const initial =
-    new URLSearchParams(location.hash.split("?")[1]).get("address") || "";
+  const initial = /^#\/explorer\b/.test(location.hash)
+    ? new URLSearchParams(location.hash.split("?")[1]).get("address") || ""
+    : "";
   const [address, setAddress] = useState(initial);
   const [facts, setFacts] = useState<WalletFacts | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [family, setFamily] = useState<number>();
   const [tick, setTick] = useState(0);
-  const journal = useTransactions();
   useEffect(() => {
     let active = true;
     setFacts((previous) =>
@@ -403,8 +409,10 @@ export function Explorer() {
     }
   }, [factsAddress]);
   return (
-    <>
-      <h1>Explorer</h1>
+    <section className="part" id="explorer" aria-labelledby="explorer-title">
+      <h2 className="part-title" id="explorer-title">
+        Explorer
+      </h2>
       <p className="prose">
         Look up any wallet: its card, the facts it holds and any open request,
         read straight from the Registry. No wallet connection is needed.
@@ -520,12 +528,13 @@ export function Explorer() {
             .map(([id, rid]) => (
               <section key={id} className="section">
                 <h2>{id} / Pending verdict</h2>
-                <Settlement requestId={rid} journal={journal} />
+                <Settlement
+                  requestId={rid}
+                  journal={journal}
+                  idPrefix="explorer-swarm"
+                />
               </section>
             ))}
-          {Object.values(facts.pending).some((rid) => !/^0x0+$/.test(rid)) && (
-            <TransactionJournal journal={journal} />
-          )}
           <Section title="Community and raw metadata">
             <p>
               Community ids: {facts.verifiedSpecs.join(", ") || "none verified"}
@@ -548,7 +557,7 @@ export function Explorer() {
           </Section>
         </>
       )}
-    </>
+    </section>
   );
 }
 // A section of Integrate; #/fact-vs-artifact opens it.
@@ -635,6 +644,12 @@ export function Integrate() {
         Use a fact directly in your contract. No indexer, snapshot or card
         ownership check is needed. Ids are family × 100 + tier; community specs
         begin at 10001.
+      </p>
+      <p className="prose agents-line">
+        For agents:{" "}
+        <a href={asset("agents/sworn/SKILL.md")}>Sworn for agents</a> and{" "}
+        <a href={asset("llms.txt")}>llms.txt</a> carry every fact id, the
+        authentic addresses and RPC-only examples for checking a fact.
       </p>
       <FactArtifact />
       <Section title="Gate with hasTrait">

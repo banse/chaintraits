@@ -241,13 +241,12 @@ blockquote {
   border-inline-start: 2px solid var(--faint);
   padding-inline-start: 20px;
   margin-block: 24px;
-  max-width: 75ch;
   color: var(--muted);
 }
+/* Text with nothing beside it spans the content width, like the tables. */
 .prose {
   font-size: var(--prose);
   line-height: 1.65;
-  max-width: 75ch;
 }
 .muted,
 .rule {
@@ -271,7 +270,6 @@ blockquote {
   font-size: var(--small);
   line-height: 1.6;
   margin-block: 8px;
-  max-width: 85ch;
 }
 .status:empty {
   margin: 0;
@@ -301,6 +299,20 @@ blockquote {
 }
 .section > h2 {
   margin-block-end: 20px;
+}
+/* The Mint page's three parts: titles share the page title's size. */
+.part {
+  margin-block-start: 64px;
+  padding-block-start: 32px;
+  border-block-start: 1px solid var(--rule);
+  scroll-margin-block-start: 24px;
+}
+.part-title,
+.part > h2.part-title {
+  font-size: var(--title);
+  line-height: 1.3;
+  letter-spacing: -0.02em;
+  margin-block-end: 24px;
 }
 .skip-link {
   position: fixed;
@@ -914,20 +926,59 @@ fieldset {
 .fact-history {
   list-style: none;
   padding: 0;
-  max-width: 80ch;
+  margin: 0;
 }
 .fact-history li {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s2) var(--s4);
-  align-items: baseline;
   padding-block: var(--s4);
   border-block-end: 1px solid var(--rule);
   overflow-wrap: anywhere;
   min-width: 0;
 }
-.fact-history li > strong {
-  flex-basis: 100%;
+.fact-history .meaning {
+  color: var(--muted);
+}
+.info.direct-note {
+  margin-block: 0 var(--s2);
+}
+/* Direct facts: two per row; id and name, then meaning, in aligned columns. */
+.direct-facts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(12rem, max-content) minmax(0, 1fr));
+  column-gap: var(--s8);
+  margin-block-end: var(--s8);
+}
+.direct-facts li {
+  grid-column: span 2;
+  display: grid;
+  grid-template-columns: subgrid;
+  column-gap: var(--s4);
+  align-items: baseline;
+}
+/* Panel-sworn facts: id and name, then the meaning with its proof below. */
+.sworn-facts li {
+  display: grid;
+  grid-template-columns: minmax(12rem, 18rem) minmax(0, 1fr);
+  column-gap: var(--s4);
+  align-items: baseline;
+}
+.proof-lines {
+  display: grid;
+  gap: var(--s1);
+  min-width: 0;
+}
+@media (max-width: 780px) {
+  .direct-facts,
+  .direct-facts li,
+  .sworn-facts li {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .direct-facts li {
+    grid-column: auto;
+    row-gap: var(--s1);
+  }
+  .sworn-facts li {
+    row-gap: var(--s1);
+  }
 }
 .highlight {
   border-inline-start: 2px solid var(--accent);
@@ -945,9 +996,6 @@ fieldset {
 }
 .community-form {
   margin-block-start: 24px;
-}
-.community-form > p {
-  max-width: 90ch;
 }
 .form-grid {
   display: grid;
@@ -991,7 +1039,6 @@ fieldset {
   border-inline-start: 2px solid var(--faint);
   padding: 16px;
   margin-block: 24px;
-  max-width: 90ch;
 }
 .info p {
   overflow-wrap: anywhere;
@@ -1306,9 +1353,6 @@ th {
   }
   .info-grid {
     grid-template-columns: 1fr;
-  }
-  .info-grid p {
-    max-width: 75ch;
   }
   .record-strip {
     grid-template-columns: 1fr 1fr;

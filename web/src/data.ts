@@ -150,7 +150,6 @@ export const FAMILIES = [
 export const ROUTES = [
   ["/", "Home"],
   ["/catalog", "Catalog"],
-  ["/explorer", "Explorer"],
   ["/mint", "Mint"],
   ["/wallet", "Wallet"],
   ["/integrate", "Integrate"],
