@@ -46,6 +46,8 @@ export type Runtime = {
   preview: any;
   chain: ReturnType<typeof defineChain>;
 };
+// Multicall3, deployed at the same address on Ethereum and Sepolia.
+export const MULTICALL3 = "0xcA11bde05977b3631167028862bE2a173976CA11" as Address;
 export const asset = (p: string) => new URL(p, document.baseURI).href;
 async function json(p: string) {
   const r = await fetch(asset(p));
@@ -84,6 +86,7 @@ export async function loadRuntime(): Promise<Runtime> {
       blockExplorers: {
         default: { name: "Explorer", url: deployment.network.explorer },
       },
+      contracts: { multicall3: { address: MULTICALL3 } },
     }),
   };
 }
@@ -97,7 +100,9 @@ const poolClient = (r: Runtime, pool: any) =>
     createPublicClient({
       chain: r.chain,
       transport: custom(pool, { retryCount: 0 }),
-      batch: { multicall: false },
+      // Contract reads of one moment travel together as one Multicall3
+      // aggregate3 call. Calls with a sender (simulations) are never batched.
+      batch: { multicall: { wait: 16 } },
     }),
     { pool, runtime: r },
   );

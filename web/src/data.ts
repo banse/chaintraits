@@ -50,6 +50,13 @@ export const classes = [
     how: "Request a fact in step 02.",
   },
 ];
+// Readable names of the four fixed block windows.
+const W = {
+  LIFE: "The whole game, hours 0–65",
+  JUDGED: "Hours 24–65 of the game",
+  FIRST1000: "The game's opening, until the 1,000th first deposit",
+  DEPLOY: "At the game's first block",
+};
 export type Trait = {
   id: number;
   name: string;
@@ -91,24 +98,30 @@ const rows: [number, string, string, string, string][] = [
   [501, "Benchmarked >= 1000", "direct", "At least 1,000 points", "Live"],
   [502, "Benchmarked >= 3162", "direct", "At least 3,162 points", "Live"],
   [503, "Benchmarked >= 10000", "direct", "At least 10,000 points", "Live"],
-  [601, "Swarmed", "panel", SWARMED, "25,090,085 → request block − 64"],
-  [701, "Uptime", "chain", "Deposited again in hours 24–65", "W_JUDGED"],
-  [801, "Holdout", "chain", "Deposited in hour 64", "W_LIFE"],
-  [901, "Final Token", "chain", "The last deposit, in hour 65", "W_LIFE"],
-  [1001, "Hotfix", "chain", "Saved an hour with HourSaved", "W_LIFE"],
-  [1101, "PID #1", "chain", "FirstDeposit index 1", "W_LIFE"],
-  [1102, "PID #1000", "chain", "FirstDeposit index 1,000", "W_LIFE"],
-  [1103, "PID #10000", "chain", "FirstDeposit index 10,000", "W_LIFE"],
-  [1104, "PID #19522", "chain", "FirstDeposit index 19,522", "W_LIFE"],
+  [
+    601,
+    "Swarmed",
+    "panel",
+    SWARMED,
+    "From the start of the IdentityMD collection to 64 blocks before your request",
+  ],
+  [701, "Uptime", "chain", "Deposited again in hours 24–65", W.JUDGED],
+  [801, "Holdout", "chain", "Deposited in hour 64", W.LIFE],
+  [901, "Final Token", "chain", "The last deposit, in hour 65", W.LIFE],
+  [1001, "Hotfix", "chain", "Saved an hour with HourSaved", W.LIFE],
+  [1101, "PID #1", "chain", "FirstDeposit index 1", W.LIFE],
+  [1102, "PID #1000", "chain", "FirstDeposit index 1,000", W.LIFE],
+  [1103, "PID #10000", "chain", "FirstDeposit index 10,000", W.LIFE],
+  [1104, "PID #19522", "chain", "FirstDeposit index 19,522", W.LIFE],
   [
     1105,
     "First thousand",
     "chain",
     "First deposit among the first 1,000",
-    "W_FIRST1000",
+    W.FIRST1000,
   ],
-  [1201, "Top Weights", "shared", "Top 32 by summed weightAdded", "W_LIFE"],
-  [1301, "Pretrained", "panel", "Account nonce ≥ 20 at launch", "W_DEPLOY"],
+  [1201, "Top Weights", "shared", "Top 32 by summed weightAdded", W.LIFE],
+  [1301, "Pretrained", "panel", "Account nonce ≥ 20 at launch", W.DEPLOY],
 ];
 export const TRAITS: Trait[] = rows.map(([id, name, c, rule, window]) => ({
   id,
@@ -140,14 +153,12 @@ export const ROUTES = [
   ["/explorer", "Explorer"],
   ["/mint", "Mint"],
   ["/wallet", "Wallet"],
-  ["/fact-vs-artifact", "Fact vs artifact"],
   ["/integrate", "Integrate"],
-  ["/whitelistcurator", "WhitelistCurator"],
   ["/about", "About"],
 ];
 export const WINDOWS = [
-  ["W_LIFE", "25,769,870", "25,789,604"],
-  ["W_JUDGED", "25,777,045", "25,789,604"],
-  ["W_FIRST1000", "25,769,870", "25,770,897"],
-  ["W_DEPLOY", "25,769,870", "25,769,870"],
+  [W.LIFE, "25,769,870", "25,789,604"],
+  [W.JUDGED, "25,777,045", "25,789,604"],
+  [W.FIRST1000, "25,769,870", "25,770,897"],
+  [W.DEPLOY, "25,769,870", "25,769,870"],
 ];

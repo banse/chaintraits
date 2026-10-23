@@ -869,6 +869,12 @@ fieldset {
 .picker-row .accent {
   display: block;
 }
+/* Label and Already proven follow the rule and window on one line. */
+.picker-row .rule .class-mark,
+.picker-row .rule .accent {
+  display: inline;
+  font-size: inherit;
+}
 /* Text, preview and action keep shared edges across every row. */
 .picker-text {
   min-width: 0;
@@ -882,7 +888,8 @@ fieldset {
   grid-column: 2;
   grid-row: 1;
   align-self: center;
-  border: 1px solid var(--accent);
+  /* The hairline of a disabled button. */
+  border: 1px solid var(--rule);
 }
 .picker-row > .row-actions {
   grid-column: 3;

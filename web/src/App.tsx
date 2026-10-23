@@ -16,9 +16,7 @@ import {
   Home,
   Catalog,
   Explorer,
-  FactArtifact,
   Integrate,
-  WhitelistCurator,
   About,
 } from "./pages";
 import { Claim } from "./claim";
@@ -28,6 +26,19 @@ function routeInfo() {
   const hash = location.hash.slice(1) || "/";
   const [path, rest] = hash.split("#");
   const requested = path.split("?")[0];
+  // Former pages that became sections open their section.
+  if (requested === "/fact-vs-artifact")
+    return {
+      route: "/integrate",
+      anchor: "fact-vs-artifact",
+      query: new URLSearchParams(),
+    };
+  if (requested === "/whitelistcurator")
+    return {
+      route: "/about",
+      anchor: rest === "hours" || rest === "source" ? rest : "whitelistcurator",
+      query: new URLSearchParams(),
+    };
   const route =
     requested === "/claim"
       ? "/mint"
@@ -159,9 +170,7 @@ export function App({ r }: { r: Runtime }) {
     "/explorer": Explorer,
     "/mint": Claim,
     "/wallet": WalletFacts,
-    "/fact-vs-artifact": FactArtifact,
     "/integrate": Integrate,
-    "/whitelistcurator": WhitelistCurator,
     "/about": About,
   };
   const Page = pages[route.route];
@@ -193,7 +202,7 @@ export function App({ r }: { r: Runtime }) {
       </a>
       <header className="site-header">
         <a className="brand" href="#/" aria-label="Sworn home">
-          <img src={asset("favicon.svg")} width="32" height="32" alt="" />
+          <img src={asset("art/full-house.svg")} width="40" height="40" alt="" />
           <span>SWORN</span>
         </a>
         <nav aria-label="Main navigation">
@@ -226,7 +235,7 @@ export function App({ r }: { r: Runtime }) {
             SWORN
           </a>
           <span>An ownerless registry on Ethereum.</span>
-          <a href="#/fact-vs-artifact">A fact is not an artifact ↗</a>
+          <a href="#/integrate#fact-vs-artifact">A fact is not an artifact ↗</a>
         </div>
         <ContractList />
         <div className="rpc-controls">

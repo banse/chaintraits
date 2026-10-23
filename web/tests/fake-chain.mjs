@@ -11,6 +11,12 @@ import {
   zeroHash,
 } from "viem";
 export const wallet = "0x2000000000000000000000000000000000000001";
+export const multicall3 = "0xca11bde05977b3631167028862be2a173976ca11";
+const aggregate3Abi = [
+  parseAbiItem(
+    "function aggregate3((address target, bool allowFailure, bytes callData)[] calls) payable returns ((bool success, bytes returnData)[] returnData)",
+  ),
+];
 const root = new URL("../../dist/", import.meta.url);
 const deployment = JSON.parse(
   fs.readFileSync(new URL("imd-deployment.json", root)),
@@ -251,6 +257,34 @@ export function fakeChain(options = {}) {
           }),
           data: encodeAbiParameters(inputs, values),
         };
+      });
+    }
+    if (p.method === "eth_call" && a.to?.toLowerCase() === multicall3) {
+      // Multicall3 aggregate3: answer each inner call as its own eth_call.
+      const { args: inner } = decodeFunctionData({
+        abi: aggregate3Abi,
+        data: a.data,
+      });
+      state.multicalls = (state.multicalls || 0) + 1;
+      const results = inner[0].map((c) => {
+        try {
+          return {
+            success: true,
+            returnData: answer({
+              method: "eth_call",
+              params: [{ to: c.target, data: c.callData }, ...p.params.slice(1)],
+              inner: true,
+            }),
+          };
+        } catch (e) {
+          if (!c.allowFailure) throw e;
+          return { success: false, returnData: e.data || "0x" };
+        }
+      });
+      return encodeFunctionResult({
+        abi: aggregate3Abi,
+        functionName: "aggregate3",
+        result: results,
       });
     }
     if (p.method === "eth_call") {

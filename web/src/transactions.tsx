@@ -76,6 +76,12 @@ function restored() {
           : v,
     );
     if (!saved) return {};
+    // A prepared action that sent nothing is not restored: only a journal
+    // holding a sent or confirmed transaction survives a reload.
+    const kept = (Array.isArray(saved) ? saved : saved.steps || []).some(
+      (s: Step) => s.hash || s.state === "confirmed",
+    );
+    if (!kept) return {};
     // Migrate older receipt-only journals without inventing a resumable action.
     if (Array.isArray(saved))
       return {
@@ -677,7 +683,9 @@ export function useTransactions() {
     },
     execute,
     recover,
-    clear: () => {
+    // Close the dialog; clear the journal unless a transaction is pending.
+    close: () => {
+      setOpen(false);
       if (
         !lock.current &&
         !steps.some((s) => ["pending", "unknown"].includes(s.state))
@@ -749,24 +757,16 @@ export function TransactionJournal({ journal: j }: { journal: Journal }) {
   const registrationPayment = j.plan?.calls.some(
     (c) => c.functionName === "registerSpec",
   );
+  // Shown only once an action is prepared or a journal is saved.
+  if (!j.plan && !j.steps.length) return null;
   return (
     <section id="transaction-steps" className="section journal">
       <h2>Transaction steps</h2>
-      {j.plan || j.steps.length ? (
-        <>
-          <p>
-            {j.plan?.title || "Saved transaction receipts"} ·{" "}
-            {complete ? "Confirmed" : "Saved on this browser"}
-          </p>
-          <button onClick={() => j.setOpen(true)}>
-            Review transaction steps
-          </button>
-        </>
-      ) : (
-        <p className="muted">
-          Prepare an action above to review its price and wallet confirmations.
-        </p>
-      )}
+      <p>
+        {j.plan?.title || "Saved transaction receipts"} ·{" "}
+        {complete ? "Confirmed" : "Saved on this browser"}
+      </p>
+      <button onClick={() => j.setOpen(true)}>Review transaction steps</button>
       <dialog
         ref={dialog}
         className="payment-dialog"
@@ -1030,15 +1030,8 @@ export function TransactionJournal({ journal: j }: { journal: Journal }) {
               <button disabled={j.busy}>Recover receipt</button>
             </form>
           </details>
-          <button
-            className="secondary"
-            disabled={
-              j.busy ||
-              j.steps.some((s) => ["pending", "unknown"].includes(s.state))
-            }
-            onClick={j.clear}
-          >
-            Clear journal
+          <button className="secondary" onClick={j.close}>
+            Close
           </button>
         </div>
       </dialog>

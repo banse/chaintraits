@@ -51,7 +51,7 @@ function Why() {
         at mint time: there is no merkle root to publish and no snapshot to
         maintain.”
       </blockquote>
-      <a className="source" href="#/whitelistcurator#source">
+      <a className="source" href="#/about#source">
         WhitelistCurator.sol · for builders ↗
       </a>
     </>
@@ -405,6 +405,10 @@ export function Explorer() {
   return (
     <>
       <h1>Explorer</h1>
+      <p className="prose">
+        Look up any wallet: its card, the facts it holds and any open request,
+        read straight from the Registry. No wallet connection is needed.
+      </p>
       <AddressForm
         initial={initial}
         onSubmit={(a) => {
@@ -547,17 +551,18 @@ export function Explorer() {
     </>
   );
 }
-export function FactArtifact() {
+// A section of Integrate; #/fact-vs-artifact opens it.
+function FactArtifact() {
   return (
-    <>
-      <h1>Fact vs artifact</h1>
+    <section id="fact-vs-artifact" className="section">
+      <h2>Fact vs artifact</h2>
       <p className="prose">
         A fact is about a wallet. A card is a transferable view of that wallet’s
         record.
       </p>
       <div className="comparison">
         <article>
-          <h2>The fact</h2>
+          <h3>The fact</h3>
           <p>
             A credential is the Registry’s <code>hasTrait(wallet, id)</code>. A
             card is not required. The wallet that proves an oracle fact is its
@@ -565,7 +570,7 @@ export function FactArtifact() {
           </p>
         </article>
         <article>
-          <h2>The artifact</h2>
+          <h3>The artifact</h3>
           <p>
             A Sworn card is an ERC-721. It may be sold or transferred, but its
             facts stay about the original claimant. Direct facts are frozen at
@@ -573,7 +578,7 @@ export function FactArtifact() {
           </p>
         </article>
         <article>
-          <h2>The attestation</h2>
+          <h3>The attestation</h3>
           <p>
             A signed answer binds a request, question hash, rule, chain, panel
             and block window. A chain-proven fact has a reproducible recipe. A
@@ -582,7 +587,8 @@ export function FactArtifact() {
           </p>
         </article>
       </div>
-      <Section title="How to verify a card">
+      <div className="subsection">
+        <h3>How to verify a card</h3>
         <ol className="story">
           <li>
             Read <code>claimantOf(tokenId)</code> on the authentic Registry.
@@ -613,8 +619,8 @@ export function FactArtifact() {
             Agent verification skill ↗
           </a>
         </div>
-      </Section>
-    </>
+      </div>
+    </section>
   );
 }
 export function Integrate() {
@@ -630,6 +636,7 @@ export function Integrate() {
         ownership check is needed. Ids are family × 100 + tier; community specs
         begin at 10001.
       </p>
+      <FactArtifact />
       <Section title="Gate with hasTrait">
         <CodeBlock>{solidity}</CodeBlock>
       </Section>
@@ -761,7 +768,8 @@ function HourChart({ hours }: { hours: any[] }) {
     </div>
   );
 }
-export function WhitelistCurator() {
+// The WhitelistCurator part of About; #/whitelistcurator opens it.
+function WhitelistCurator() {
   const [data, setData] = useState<any>();
   const [source, setSource] = useState<any>();
   const [error, setError] = useState("");
@@ -778,19 +786,20 @@ export function WhitelistCurator() {
   }, []);
   return (
     <>
-      <h1>WhitelistCurator</h1>
-      <p className="prose">
-        A 66-hour onchain game became a permanent wallet record. Every deposit
-        sent its ETH straight back; the history is what remains.
-      </p>
-      <div className="bands">
+      <section id="whitelistcurator" className="section">
+        <h2>WhitelistCurator</h2>
+        <p className="prose">
+          A 66-hour onchain game became a permanent wallet record. Every deposit
+          sent its ETH straight back; the history is what remains.
+        </p>
+        <div className="bands">
         {[
           ["Hours 0–23", "22,395", "15,620", "114,291"],
           ["Hours 24–45", "5,073", "3,095", "12,846"],
           ["Hours 46–65", "885", "807", "994"],
         ].map(([title, d, c, e]) => (
           <div key={title}>
-            <h2>{title}</h2>
+            <h3>{title}</h3>
             <dl>
               <div>
                 <dt>Deposits</dt>
@@ -807,7 +816,8 @@ export function WhitelistCurator() {
             </dl>
           </div>
         ))}
-      </div>
+        </div>
+      </section>
       <Section title="The hour-24 cliff">
         <p className="prose">
           The grace period ended after hour 23. From hour 24, an unsaved hour
@@ -863,9 +873,8 @@ export function About() {
   return (
     <>
       <h1>About Sworn</h1>
-      <Section title="WHY SWORN">
-        <Why />
-      </Section>
+      <Why />
+      <WhitelistCurator />
       <Section title="Ownerless">
         <p className="prose">{OWNERLESS}</p>
         <p className="prose">{NOCOIN}</p>
@@ -893,7 +902,7 @@ export function About() {
           alive. The last deposit came in hour 65. Sworn makes that settled
           history readable as credentials.
         </p>
-        <a href="#/whitelistcurator">Read the 66-hour record ↗</a>
+        <a href="#/about#hours">Read the 66-hour record ↗</a>
       </Section>
       <Section title="Contracts">
         <ContractList />

@@ -25,13 +25,57 @@ const sizeRefused = (text) =>
   !/archive/i.test(text) && !RATE_LIMIT.test(text) && SIZE_REFUSAL.test(text);
 const hex = (v) =>
   typeof v === "string" && /^0x[0-9a-f]+$/i.test(v) ? BigInt(v) : null;
+// At most this many requests are in flight at once; the rest wait their turn.
+export const MAX_IN_FLIGHT = 6;
+// A first-in, first-out gate: run(task) starts task once fewer than `limit`
+// tasks are running.
+export function limiter(limit = MAX_IN_FLIGHT) {
+  let active = 0;
+  const queue = [];
+  const release = () => {
+    active--;
+    queue.shift()?.();
+  };
+  return async function run(task) {
+    if (active >= limit) await new Promise((go) => queue.push(go));
+    active++;
+    try {
+      return await task();
+    } finally {
+      release();
+    }
+  };
+}
 export function resilientRpc({
   urls = READ_RPCS,
-  fetcher = fetch,
+  fetcher: send = fetch,
   timeout = 8000,
   now = () => Date.now(),
   onRead,
+  maxInFlight = MAX_IN_FLIGHT,
 } = {}) {
+  const gate = limiter(maxInFlight);
+  // The timeout starts when the request leaves the queue, not while it waits.
+  const fetcher = (url, init, signal) =>
+    gate(() => {
+      halt(signal);
+      return send(url, {
+        ...init,
+        signal: signal
+          ? AbortSignal.any([signal, AbortSignal.timeout(timeout)])
+          : AbortSignal.timeout(timeout),
+      }).then(async (response) => {
+        // Read the body inside the slot so a slow body still counts as in flight.
+        let text = "";
+        try {
+          text =
+            typeof response.text === "function"
+              ? await response.text()
+              : JSON.stringify(await response.json());
+        } catch {}
+        return { ok: response.ok, status: response.status, text };
+      });
+    });
   let sequence = 0;
   const health = new Map(urls.map((u) => [u, { until: 0, failures: 0 }]));
   const verifiedChains = new Set();
@@ -49,21 +93,22 @@ export function resilientRpc({
     for (let attempt = 0; attempt < 2; attempt++) {
       halt(signal);
       try {
-        const response = await fetcher(url, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            jsonrpc: "2.0",
-            id: ++sequence,
-            method,
-            params,
-          }),
-          signal: signal
-            ? AbortSignal.any([signal, AbortSignal.timeout(timeout)])
-            : AbortSignal.timeout(timeout),
-        });
+        const response = await fetcher(
+          url,
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              jsonrpc: "2.0",
+              id: ++sequence,
+              method,
+              params,
+            }),
+          },
+          signal,
+        );
         if (!response.ok) {
-          const text = await response.text().catch(() => "");
+          const text = response.text;
           throw Object.assign(Error(`RPC HTTP ${response.status}`), {
             status: response.status,
             sizeRefusal:
@@ -74,7 +119,7 @@ export function resilientRpc({
             final: response.status === 403,
           });
         }
-        const body = await response.json();
+        const body = JSON.parse(response.text);
         if (body.error) {
           const error = Object.assign(
             new Error(body.error.message || "RPC read refused"),

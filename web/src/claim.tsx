@@ -11,6 +11,7 @@ import {
   type WalletFacts,
 } from "./chain";
 import { TRAITS, SWARMED, FEE } from "./data";
+import { specExamples, templateStart, applyExample } from "./spec-examples.mjs";
 import {
   imd,
   exactUnits,
@@ -396,37 +397,55 @@ function SharedFactRow({
               {t.id} / {t.name}
             </strong>
             <span className="rule">
-              {t.rule} · {t.window}
+              {t.rule} · {t.window} · <Mark kind="shared" />
+              {proven && (
+                <>
+                  {" · "}
+                  <span className="accent">Already proven</span>
+                </>
+              )}
             </span>
-            <Mark kind="shared" />
           </span>
         </label>
-        <div className="shared-details">
-          <span className="rule">
-            One attempt at panel 11 / quorum 7 costs{" "}
-            {site.health
-              ? `${imd(site.health.price)} IMD (priceOf · live)`
-              : "the live oracle price per fact"}
-            . An attempt whose panel misses the quorum refunds nothing.
-          </span>
-          <span className="muted">
-            {!value
-              ? "Reading the shared fact…"
-              : stored
-                ? "Stored · no further request needed. Listed wallets can apply it for gas only."
-                : pending
-                  ? "Request pending."
-                  : "not requested yet"}
-            {value
-              ? ` Attempts in the last 24 hours: ${num(value.attempts)}. Last panel result: ${value.last ? (value.last.eventName === "Missed" ? `Missed: ${MISS_REASONS[Number(value.last.args.reason)] || value.last.args.reason}` : value.last.eventName === "NoVerdict" ? `No verdict (${value.last.args.agreed}/${value.last.args.answered} agreed)` : value.last.eventName) : "none in the last 24 hours"}.`
-              : ""}
-          </span>
-          <span className="muted">
-            Pay with: {stored ? "gas only" : payment}
-          </span>
-          {proven && <span className="accent">Already proven</span>}
-        </div>
-        {value?.result?.txHash && (
+        {t.id === 1201 ? (
+          // 1201 keeps one short line, only while its list is stored or a
+          // request is pending.
+          (stored || pending) && (
+            <div className="shared-details">
+              <span className="muted">
+                {stored
+                  ? "Stored: listed wallets can apply it for gas only."
+                  : "Request pending."}
+              </span>
+            </div>
+          )
+        ) : (
+          <div className="shared-details">
+            <span className="rule">
+              One attempt at panel 11 / quorum 7 costs{" "}
+              {site.health
+                ? `${imd(site.health.price)} IMD (priceOf · live)`
+                : "the live oracle price per fact"}
+              . An attempt whose panel misses the quorum refunds nothing.
+            </span>
+            <span className="muted">
+              {!value
+                ? "Reading the shared fact…"
+                : stored
+                  ? "Stored · no further request needed. Listed wallets can apply it for gas only."
+                  : pending
+                    ? "Request pending."
+                    : "not requested yet"}
+              {value
+                ? ` Attempts in the last 24 hours: ${num(value.attempts)}. Last panel result: ${value.last ? (value.last.eventName === "Missed" ? `Missed: ${MISS_REASONS[Number(value.last.args.reason)] || value.last.args.reason}` : value.last.eventName === "NoVerdict" ? `No verdict (${value.last.args.agreed}/${value.last.args.answered} agreed)` : value.last.eventName) : "none in the last 24 hours"}.`
+                : ""}
+            </span>
+            <span className="muted">
+              Pay with: {stored ? "gas only" : payment}
+            </span>
+          </div>
+        )}
+        {t.id !== 1201 && value?.result?.txHash && (
           <a
             className="source row-detail"
             href={`${site.r.deployment.network.explorer}/tx/${value.result.txHash}`}
@@ -434,7 +453,7 @@ function SharedFactRow({
             Oracle completion and signed result ↗
           </a>
         )}
-        {(error || status || reason) && (
+        {(error || status || (reason && reason !== "Already proven")) && (
           <div className="row-detail">
             <Status
               error={
@@ -503,6 +522,14 @@ function CommunityForm({
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [edited, setEdited] = useState<Record<string, boolean>>({});
+  const [exampleIndex, setExampleIndex] = useState("");
+  const examples = form.kind
+    ? (specExamples({
+        curator: site.health?.deps.curator || "",
+        imd: site.r.deployment.network.pairToken.address,
+      }) as Record<string, any[]>)[form.kind] || []
+    : [];
+  const example = exampleIndex === "" ? null : examples[Number(exampleIndex)];
   const normalized = {
     ...form,
     target: form.kind === "5" ? zeroAddress : form.target,
@@ -540,13 +567,27 @@ function CommunityForm({
     setEdited((old) => ({ ...old, [key]: true }));
     setForm((old) =>
       key === "kind"
-        ? { ...defaultForm, kind: value, name: old.name }
+        ? { ...templateStart(value, defaultForm), name: old.name }
         : { ...old, [key]: value },
     );
     if (key === "kind") {
       setEdited({ kind: true });
       setSent(false);
+      setExampleIndex("");
     }
+  }
+  function choose(index: string) {
+    setStatus("");
+    setExampleIndex(index);
+    setForm(
+      applyExample(
+        form.kind,
+        index === "" ? null : examples[Number(index)],
+        defaultForm,
+      ),
+    );
+    setEdited({ kind: true });
+    setSent(false);
   }
   async function prepare(e: React.FormEvent) {
     e.preventDefault();
@@ -622,6 +663,28 @@ function CommunityForm({
             <option value="5">T5 · Account nonce at a block</option>
           </select>
         </label>
+        {form.kind && (
+          <label htmlFor="spec-example">
+            Example
+            <select
+              id="spec-example"
+              value={exampleIndex}
+              onChange={(e) => choose(e.target.value)}
+            >
+              <option value="">Your own rule</option>
+              {examples.map((x, i) => (
+                <option key={x.name} value={String(i)}>
+                  {x.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        {example && (
+          <p className="full muted example-proves" aria-live="polite">
+            {example.proves}
+          </p>
+        )}
         {Object.entries(labels)
           .filter(
             ([key]) =>
@@ -1062,6 +1125,11 @@ export function Claim() {
   return (
     <>
       <h1>Mint</h1>
+      <p className="prose">
+        Mint your Sworn card, then add facts to it. Direct facts are captured at
+        mint; chain-proven and panel-sworn facts are requested from the swarm's
+        oracle and land on your card when its panel agrees.
+      </p>
       {pendingFacts.length > 0 && (
         <section className="pending-notice" aria-label="Pending facts">
           <h2>Waiting for the swarm</h2>
@@ -1350,9 +1418,14 @@ export function Claim() {
                         {t.id} / {t.name}
                       </strong>
                       <span className="rule">
-                        {t.rule} · {t.window}
+                        {t.rule} · {t.window} · <Mark kind={t.class} />
+                        {proven && !cant && (
+                          <>
+                            {" · "}
+                            <span className="accent">Already proven</span>
+                          </>
+                        )}
                       </span>
-                      <Mark kind={t.class} />
                       {!proven &&
                         requestHistory.wallet === account.address &&
                         requestHistory.lines[t.id] && (
@@ -1380,9 +1453,7 @@ export function Claim() {
                         <span className="muted">
                           cannot be true: not in WhitelistCurator.sol
                         </span>
-                      ) : proven ? (
-                        <span className="accent">Already proven</span>
-                      ) : pending ? (
+                      ) : proven ? null : pending ? (
                         <span className="muted">Request pending</span>
                       ) : null}
                     </span>
