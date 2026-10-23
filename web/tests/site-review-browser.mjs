@@ -136,7 +136,7 @@ try {
         ["pick-1201", "pick-10001", "pick-10002"].includes(row.id),
       );
       for (const row of shared) {
-        assert.deepEqual(row.border, ["1px", "rgb(0, 255, 65)"]);
+        assert.deepEqual(row.border, ["1px", "rgb(31, 31, 31)"]);
         assert.ok(Math.abs(row.card.left - shared[0].card.left) < 1);
         assert.ok(Math.abs(row.button.left - shared[0].button.left) < 1);
         if (width === 1280) {

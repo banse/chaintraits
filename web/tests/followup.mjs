@@ -7,6 +7,7 @@ import {
   fakeWallet,
   mockPage,
   registryLog,
+  rpcCalls,
   wallet,
 } from "./fake-chain.mjs";
 import { server } from "./harness.mjs";
@@ -212,10 +213,13 @@ try {
       });
       f.answer = async (p) => {
         if (
-          p.method === "eth_call" &&
-          p.params[0].to.toLowerCase() === registry.toLowerCase() &&
-          decodeFunctionData({ abi, data: p.params[0].data }).functionName ===
-            "tokenOf"
+          rpcCalls(p).some(
+            (call) =>
+              call.method === "eth_call" &&
+              call.params[0].to.toLowerCase() === registry.toLowerCase() &&
+              decodeFunctionData({ abi, data: call.params[0].data })
+                .functionName === "tokenOf",
+          )
         ) {
           entered();
           await held;
@@ -223,7 +227,15 @@ try {
         return answer(p);
       };
       await setup(f);
-      await started;
+      await Promise.race([
+        started,
+        new Promise((_, reject) =>
+          setTimeout(
+            () => reject(Error("tokenOf did not reach the fake RPC barrier")),
+            15000,
+          ),
+        ),
+      ]);
       assert.match(
         await page.locator(".claim-copy").innerText(),
         /Reading your card…/,
@@ -353,10 +365,13 @@ try {
           });
           f.answer = async (p) => {
             if (
-              p.method === "eth_call" &&
-              p.params[0].to.toLowerCase() === registry.toLowerCase() &&
-              decodeFunctionData({ abi, data: p.params[0].data })
-                .functionName === "MINT_FEE"
+              rpcCalls(p).some(
+                (call) =>
+                  call.method === "eth_call" &&
+                  call.params[0].to.toLowerCase() === registry.toLowerCase() &&
+                  decodeFunctionData({ abi, data: call.params[0].data })
+                    .functionName === "MINT_FEE",
+              )
             )
               await held;
             return originalAnswer(p);
@@ -516,6 +531,13 @@ try {
         const key = "sworn.transaction-journal",
           value = JSON.parse(localStorage.getItem(key));
         value.ack = true;
+        // Keep a sent setup receipt so this is a restorable journal. A wholly
+        // unsent preparation is deliberately discarded on reload now.
+        value.steps.unshift({
+          label: "Previously sent setup",
+          state: "confirmed",
+          hash: "0x" + "77".repeat(32),
+        });
         localStorage.setItem(key, JSON.stringify(value));
       });
       await page.reload();

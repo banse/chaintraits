@@ -445,12 +445,17 @@ try {
         },
       });
       const list = page.locator(".fact-history");
-      const direct = list.locator("#held-101");
-      await direct
+      await page
+        .locator(".direct-note")
         .getByText(
           /Direct · frozen at the card's mint, block 26,245,000 · 2026-10-21 \d\d:\d\d UTC/,
         )
         .waitFor();
+      assert.equal(await page.locator(".direct-note").count(), 1);
+      assert.doesNotMatch(
+        await list.locator("#held-101").innerText(),
+        /Direct ·/,
+      );
       for (const id of [801, 10001]) {
         const row = list.locator(`#held-${id}`);
         await row.getByText("Panel-sworn", { exact: true }).waitFor();

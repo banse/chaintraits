@@ -164,17 +164,18 @@ try {
       await dismiss();
       await page.reload();
       await loaded();
+      // Rejected means nothing was sent: the preparation is not restored.
+      assert.equal(await page.locator("#transaction-steps").count(), 0);
       await page
-        .getByRole("button", { name: "Review transaction steps" })
+        .getByRole("button", { name: "Mint card", exact: true })
         .click();
       await d.waitFor();
       assert.equal(await d.locator("#payment-ack").isChecked(), false);
-      assert.match(await d.innerText(), /rejected/);
       assert.equal(await action.isDisabled(), true);
       await page.screenshot({
         path: new URL("mint-dialog-390.png", output).pathname,
       });
-      await d.getByRole("button", { name: "Clear journal" }).click();
+      await d.getByRole("button", { name: "Close", exact: true }).click();
     },
   );
   await run(
@@ -199,7 +200,7 @@ try {
         .getByText(/Rejected in your wallet/)
         .first()
         .waitFor();
-      await d.getByRole("button", { name: "Clear journal" }).click();
+      await d.getByRole("button", { name: "Close", exact: true }).click();
     },
   );
   async function paidTest(button, action) {
@@ -218,7 +219,7 @@ try {
       .getByText(/Rejected in your wallet/)
       .first()
       .waitFor();
-    await d.getByRole("button", { name: "Clear journal" }).click();
+    await d.getByRole("button", { name: "Close", exact: true }).click();
   }
   await run(
     "E personal fact dialog uses live request price, no unnecessary approval and a simulated call",
@@ -307,7 +308,7 @@ try {
       true,
     );
     f.state.failSimulation = false;
-    await d.getByRole("button", { name: "Clear journal" }).click();
+    await d.getByRole("button", { name: "Close", exact: true }).click();
   });
   await run("C tokenOf=1 displays card #1 with no mint button", async () => {
     f.state.token = 1n;

@@ -476,6 +476,7 @@ export function useTransactions() {
     )
       return;
     lock.current = true;
+    const run = generation.current;
     setBusy(true);
     setError("");
     const consent =
@@ -483,17 +484,22 @@ export function useTransactions() {
     let needsConsent = false;
     try {
       const request = await checkedCall(index);
+      if (run !== generation.current) return;
       // Simulation is refreshed immediately before a single wallet confirmation.
       const simulated = await site.client.simulateContract(request as any);
+      if (run !== generation.current) return;
       const provider: any = await connectedProvider(
         config.connectors,
         account.connector,
       );
+      if (run !== generation.current) return;
       // The latest eligibility is checked again at the signing request itself:
       // a not-met result that arrived during the wallet's own chain checks
       // still needs "Request anyway" before the wallet is asked to sign.
       const guarded = {
         request: (args: any) => {
+          if (run !== generation.current)
+            return Promise.reject(Error("The preparation was cleared."));
           const latest = latestEligibility.current;
           if (
             args?.method === "eth_sendTransaction" &&
@@ -517,6 +523,7 @@ export function useTransactions() {
           plan.account.toLowerCase()
       )
         throw Error("Wallet or network changed. Prepare again.");
+      if (run !== generation.current) return;
       const latest = latestEligibility.current;
       if (latest.eligibilityNegative && !latest.requestAnyway) {
         // The step stays checked; it unlocks again after "Request anyway".
@@ -525,6 +532,7 @@ export function useTransactions() {
       }
       update(index, { state: "awaiting signature", error: undefined });
       const hash = await wallet.writeContract(simulated.request);
+      if (run !== generation.current) return;
       update(index, { state: "pending", hash });
       let replaced = false;
       const receipt = await site.client.waitForTransactionReceipt({
@@ -532,6 +540,7 @@ export function useTransactions() {
         confirmations: 1,
         timeout: 180000,
         onReplaced: ({ transaction }: any) => {
+          if (run !== generation.current) return;
           replaced = true;
           update(index, {
             state: "unknown",
@@ -540,6 +549,7 @@ export function useTransactions() {
           });
         },
       });
+      if (run !== generation.current) return;
       if (replaced)
         throw Error(
           "Transaction replaced. Recover its receipt before continuing.",
@@ -550,6 +560,7 @@ export function useTransactions() {
       recordResult(index, receipt);
       await site.refresh();
     } catch (e) {
+      if (run !== generation.current) return;
       if (needsConsent) {
         // Nothing reached the wallet: the step returns to checked.
         update(index, { state: "simulated", error: undefined });
@@ -573,8 +584,10 @@ export function useTransactions() {
         error: message,
       });
     } finally {
-      lock.current = false;
-      setBusy(false);
+      if (run === generation.current) {
+        lock.current = false;
+        setBusy(false);
+      }
     }
   }
   function recordResult(index: number, receipt: any) {
@@ -631,16 +644,12 @@ export function useTransactions() {
   }
   // Clears a preparation that sent nothing, also while a simulation runs:
   // the running check finishes against a retired generation and changes
-  // nothing. A journal holding a sent, pending or confirmed transaction, or a
-  // request the wallet is still asked to sign, stays.
+  // nothing. Only a journal holding a sent, pending or confirmed transaction
+  // stays; an unanswered wallet request has sent nothing yet.
   function discard() {
     if (
       steps.some(
-        (s) =>
-          s.hash ||
-          ["pending", "unknown", "confirmed", "awaiting signature"].includes(
-            s.state,
-          ),
+        (s) => s.hash || ["pending", "unknown", "confirmed"].includes(s.state),
       )
     )
       return false;

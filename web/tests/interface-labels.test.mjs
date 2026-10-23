@@ -52,7 +52,7 @@ export async function interfaceLabels(files) {
   return [...labels].sort();
 }
 const src = new URL("../src/", import.meta.url);
-test("7 all original control/link/choice label fragments are unchanged except the four replacements", async () => {
+test("all original control/link/choice label fragments stay except the explicitly requested changes", async () => {
   const files = fs
     .readdirSync(src)
     .filter((p) => p.endsWith(".tsx"))
@@ -71,10 +71,18 @@ test("7 all original control/link/choice label fragments are unchanged except th
     // Round 8, items 5 and 7.
     "Mint this fact",
     "Retry",
+    // Previous step's Example choice and correction item 9's file links.
+    "Example",
+    "Your own rule",
+    "Sworn for agents",
+    "llms.txt",
   ];
   assert.deepEqual(
     labels.filter((label) => !added.includes(label)),
-    expected.filter((label) => label !== "Mint shared fact"),
+    expected
+      .filter((label) => label !== "Mint shared fact")
+      .map((label) => (label === "Clear journal" ? "Close" : label))
+      .sort(),
   );
   assert.deepEqual(
     labels.filter((label) => added.includes(label)),

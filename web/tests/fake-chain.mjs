@@ -17,6 +17,25 @@ const aggregate3Abi = [
     "function aggregate3((address target, bool allowFailure, bytes callData)[] calls) payable returns ((bool success, bytes returnData)[] returnData)",
   ),
 ];
+// Let failure/delay fixtures target the same read before and after batching.
+export function rpcCalls(payload) {
+  if (
+    payload?.method !== "eth_call" ||
+    payload.params?.[0]?.to?.toLowerCase() !== multicall3
+  )
+    return [payload];
+  const { args } = decodeFunctionData({
+    abi: aggregate3Abi,
+    data: payload.params[0].data,
+  });
+  return args[0].map((call) => ({
+    method: "eth_call",
+    params: [
+      { to: call.target, data: call.callData },
+      ...payload.params.slice(1),
+    ],
+  }));
+}
 const root = new URL("../../dist/", import.meta.url);
 const deployment = JSON.parse(
   fs.readFileSync(new URL("imd-deployment.json", root)),
@@ -272,7 +291,10 @@ export function fakeChain(options = {}) {
             success: true,
             returnData: answer({
               method: "eth_call",
-              params: [{ to: c.target, data: c.callData }, ...p.params.slice(1)],
+              params: [
+                { to: c.target, data: c.callData },
+                ...p.params.slice(1),
+              ],
               inner: true,
             }),
           };

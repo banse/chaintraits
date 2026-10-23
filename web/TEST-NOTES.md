@@ -2,6 +2,59 @@
 
 This is worker validation of the frontend source and static export, not an independent network certification. Contracts were already deployed; this task made no contract-source changes, live transactions, redeployments or publication calls.
 
+## Nine-item correction revision (2026-10-23 UTC)
+
+This section supersedes the historical delivery records below for the current source/export. The reopened reports were reproduced before editing: commit `64d5e3f` had no test changes; the old exact `Mint` h1 locator timed out; and Close left `#transaction-steps` present while the fake wallet's send request remained unanswered. No real wallet, signature, broadcast or live RPC/API was used.
+
+`tests/correction-browser.mjs` now exercises every correction item against the static export under `/preview/`, using the existing fake EIP-1193 wallet, fake RPC and fake API. Its eleven scenario groups passed in Chromium:
+
+| Item | Case prefix and checked behavior |
+| --- | --- |
+| 1 | `1 Wallet intro…`: exact `h1 + p.prose` text before and after connection. |
+| 2 | `2 ten direct facts…`: ten ids/names/meanings match Catalog; full content width at 1280; five paired, aligned rows; one mint block/time note; catalog and community panel meanings, windows and oracle links; single-column 390px layout; live/no-card note. |
+| 3 | `3 switching IMD and ETH…`: prepare, hide, switch each direction, verify no plan/steps/reopen control and no wallet request or exception. Typecheck also passes. |
+| 4 | `4 Close during a running simulation…`: explicit RPC barrier, Close, absent preparation, late result ignored, a fresh plan works, reload restores nothing unsent. `4a…` repeats Close and currency changes during an unanswered fake wallet request; both a late hash and rejection cannot revive the cleared plan or alter a fresh one. `4b…` retains a sent pending hash through Close/reload, with no resend. |
+| 5 | `5 pending 1201…`: exactly one pending sentence in its row, with no redundant already-pending sentence. |
+| 6 | `6 Catalog direct header…`: exact “Rule · window: Live”, all thirteen direct rule cells have one line and no per-row Live text. |
+| 7 | `7 standalone prose…`: standalone paragraph boxes reach the content edge on all six pages at 1280; Catalog prose and table widths match; Mint copy beside a card stays in its column; all pages fit at 390. |
+| 8 | `8 Mint Card, Explorer and Mint facts…`: title order/size and exact intros, Mint menu/no Explorer menu, Explorer aliases with address and optional trait, home form navigation, target scroll, loaded address, one prepared transaction section, no duplicate ids. |
+| 9 | `9 Integrate agents line…`: exact line immediately under the intro, both relative targets, actual navigation to the shipped Markdown/text files and their contents. |
+
+The new layout case reproduced an 8px first-row offset: the global `li + li` margin also applied inside the direct-facts grid. `web/src/styles.css:950` now resets that grid's item margin. The transaction fix is in `web/src/transactions.tsx:467` and `:649`: discard no longer retains `awaiting signature`; execute checks the preparation generation before sending and after awaited work, including late wallet results, catch/finally and receipt callbacks. A retired execution cannot mutate another plan or unlock its steps.
+
+Existing tests were updated only where they still expected superseded behavior: Mint's renamed h1; the disabled-control preview hairline; the short 1201 stored/pending details; one shared direct-provenance note; Close's label; discarding a wholly unsent journal on reload; and the merged Explorer's containing section. Supplemental restored-action/consent fixtures now include a synthetic sent setup receipt. Delay/refusal fixtures unwrap Multicall3 so they still test the intended contract read, and a token-read barrier has a bounded failure timeout. The test-only static server now declares UTF-8 for Markdown and plain text so linked files render correctly.
+
+Validation uses a clean copy of the repository files in `test/scratch/check`, with `npm ci --ignore-scripts --no-audit --no-fund` from the unchanged package/lockfile. The existing dependency location was not usable for the first direct typecheck; no protected package, lockfile, dependency or build configuration was edited. A scratch-only module resolver supplies those dependencies and the provided Playwright runtime to root-level browser scripts. Reproduction logs, screenshots and dependency installs remain in scratch and are not delivered.
+
+Commands actually run (paths are relative to the repository root):
+
+```sh
+npm --prefix test/scratch/check/web run typecheck
+npm --prefix test/scratch/check/web run build
+npm --prefix test/scratch/check/web run verify:export
+# With the scratch-only dependency resolver and the provided Chromium runtime:
+node --experimental-loader ./test/scratch/resolve-deps.mjs web/tests/correction-browser.mjs
+npm --prefix test/scratch/check/web test
+IMD_PLAYWRIGHT=/opt/imd-tools/playwright-mcp/node_modules/playwright/index.mjs PLAYWRIGHT_BROWSERS_PATH=/opt/imd-tools/ms-playwright node .imd/reads/skills/design-critic/scripts/taste.mjs --out test/scratch/taste --offline
+```
+
+Typecheck, production build and the three pinned ABI checks passed. The export check passed for 65 runtime assets, plus its manifest (66 files). A second production build was compared by path and SHA-256 with the delivered `dist/`: **all 66 files were byte-identical**, including `art/full-house.svg` and `imd-deployment.json`. `npm test` passed all 106 unit/export tests and 55 Chromium route/width combinations. The additional acceptance, action, follow-up, swarm, oracle-feed, personal-fact, snapshot, site-update, site-review and round-8 browser suites also pass; scenario counts and explicit live-read skips are in `docs/frontend/correction-results.json`. Formatting passed for every modified source/test file. The build retains upstream client-directive and plugin-timing warnings.
+
+The pinned taste@1 probe passes **14/16**. Its two flags are the existing uppercase “WHY SWORN”/“BUILT BY THE SWARM” headings and the established monospace prose. The brief explicitly requires preserving other labels and the existing design; they remain unchanged. Render, layout, target spacing, measured text contrast, tracking, eyebrows, type sizes, glyphs, slogans, repetition, first-screen copy budget, chrome, reduced motion and metadata pass. The 390px home screenshot was inspected: the product and Explore control are visible in the first 844px screen. Wallet screenshots at 1280/390 were inspected for alignment, meanings, proof wrapping and single-column reflow.
+
+| Better Interface domain | Current coverage / findings / limits |
+| --- | --- |
+| Accessibility | Native field/button semantics and named controls retained; the route suite checks keyboard invalid-form focus and native wallet-dialog focus/return. New cases use accessible control names. Screen-reader, physical-device and native 200% zoom checks were not performed. |
+| Layout | Reproduced/fixed the direct grid's first-pair margin; measured full-width text and five paired rows, tested one-column 390px reflow and all canonical/legacy route widths. No layout redesign. RTL/translation expansion were not tested. |
+| Writing | Exact required intros, status count, title/menu labels and agents line tested. The AST label test accepts only the brief's explicit replacements/additions; other labels remain protected. |
+| Typography | Existing font/tokens remain. Three part-title sizes measured equal; 1280/390 screenshots inspected. Full-width prose intentionally follows item 7, overriding the guide's usual long-line cap. |
+| Colors | Existing tokens retained; the probe passes the actual entry-page text contrast check. Existing oracle-feed tests measure their rendered text pairs. No claim covers every decorative art pixel. |
+| UI | Running/failed/retried simulations, rejected/late wallet replies, clearing, saved sent receipts and reload exercised with fake providers. Existing loading/empty/error states remain; dialogs and square surfaces retain their design. |
+
+A standalone Git snapshot of all deliverable files, including the entire export, was bundled and checked below the 8,388,608-byte limit. No dependency/cache directory or submodule is included; protected build and dependency paths are unchanged.
+
+The browser connector tool returned `Transport closed`, so rendered validation used the provided Playwright Chromium directly. The attempted WebKit launch reported a missing WebKit executable; no Safari result is claimed. Live mainnet/provider health and fork scenarios remain explicitly skipped without a supplied test RPC. No physical-wallet, passkey, real payment, live settlement, hosted-domain update or publication result is claimed.
+
 ## Rounds 7 and 8
 
 ### Reopened review: reproduced and corrected

@@ -278,7 +278,7 @@ export async function walletBrowserChecks({ url, client, account, r, output }) {
       .getByRole("button", { name: "Confirm transaction steps" })
       .click();
     await page
-      .getByRole("button", { name: "Clear journal", exact: true })
+      .getByRole("button", { name: "Close", exact: true })
       .waitFor({ state: "visible" });
     await page.waitForFunction(
       () => document.querySelectorAll(".journal-steps li .accent").length === 4,
@@ -325,9 +325,7 @@ export async function walletBrowserChecks({ url, client, account, r, output }) {
       .waitFor();
     assert.equal(sendCount, beforePriceChange);
     changedPrice = false;
-    await page
-      .getByRole("button", { name: "Clear journal", exact: true })
-      .click();
+    await page.getByRole("button", { name: "Close", exact: true }).click();
     await page
       .getByRole("button", { name: "Retry reads", exact: true })
       .click();
@@ -363,9 +361,7 @@ export async function walletBrowserChecks({ url, client, account, r, output }) {
       .waitFor();
     assert.equal(sendCount, beforeExpiry);
     await page.clock.setFixedTime(new Date());
-    await page
-      .getByRole("button", { name: "Clear journal", exact: true })
-      .click();
+    await page.getByRole("button", { name: "Close", exact: true }).click();
     await page.getByRole("radio", { name: "IMD", exact: true }).check();
     for (const id of [801, 901, 1001])
       await page.locator(`#pick-${id} input`).uncheck();
@@ -441,9 +437,7 @@ export async function walletBrowserChecks({ url, client, account, r, output }) {
     checks.push(
       "A real fork transaction replacement leaves the original step unknown, shows both hashes and disables continuation until receipt recovery; replacement is never marked as the prepared action’s success.",
     );
-    await page
-      .getByRole("button", { name: "Clear journal", exact: true })
-      .click();
+    await page.getByRole("button", { name: "Close", exact: true }).click();
     outage = true;
     await page
       .getByRole("button", { name: "Retry reads", exact: true })

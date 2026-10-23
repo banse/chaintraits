@@ -254,9 +254,7 @@ try {
         0,
       );
       assert.deepEqual(await page.evaluate(() => window.__signing), []);
-      await dialog
-        .getByRole("button", { name: "Clear journal", exact: true })
-        .click();
+      await dialog.getByRole("button", { name: "Close", exact: true }).click();
     },
   );
   await run(
@@ -447,9 +445,7 @@ try {
           (b) => b.textContent === "Request 701 / Uptime" && !b.disabled,
         ),
       );
-      await page
-        .getByRole("button", { name: "Clear journal", exact: true })
-        .click();
+      await page.getByRole("button", { name: "Close", exact: true }).click();
       const before = countReads("tokenURI");
       f.state.pending[0].cleared = true;
       f.state.proven = [601];
@@ -533,7 +529,7 @@ try {
         .getByRole("heading", { name: "All 25 facts", exact: true })
         .waitFor();
       const settlement = page
-        .locator(".settlement")
+        .locator("#explorer .settlement")
         .filter({ hasText: second.requestId });
       await settlement
         .getByRole("button", { name: "Check swarm", exact: true })

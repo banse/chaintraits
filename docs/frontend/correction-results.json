@@ -1,0 +1,262 @@
+{
+  "kind": "worker-validation",
+  "at": "2026-10-23T03:43:54.300043+00:00",
+  "correction": {
+    "checks": [
+      "1 Wallet intro uses p.prose directly under the title with and without a wallet",
+      "2 ten direct facts form five aligned full-width rows; every fact has its catalog meaning and panel proof",
+      "3 switching IMD and ETH discards unsent preparations without an exception",
+      "4 Close during a running simulation discards it and ignores the late result",
+      "4a Close and currency changes discard awaiting-signature plans; late success and rejection cannot revive or alter a new plan",
+      "4b a sent pending transaction survives Close and reload without resending",
+      "5 pending 1201 shows exactly one pending status line",
+      "6 Catalog direct header states Live once and every rule cell has one line",
+      "7 standalone prose spans the content on every page; beside-card text retains its column",
+      "8 Mint Card, Explorer and Mint facts share titles/intros; legacy Explorer links and the home form load and scroll without duplicate ids",
+      "9 Integrate agents line immediately follows its intro and opens both shipped files"
+    ],
+    "errors": [],
+    "widths": [
+      {
+        "name": "wallet-intro",
+        "width": 1280,
+        "actual": 1280
+      },
+      {
+        "name": "wallet-intro",
+        "width": 390,
+        "actual": 390
+      },
+      {
+        "name": "claimed-facts",
+        "width": 1280,
+        "actual": 1280
+      },
+      {
+        "name": "claimed-facts",
+        "width": 390,
+        "actual": 390
+      },
+      {
+        "name": "catalog",
+        "width": 1280,
+        "actual": 1280
+      },
+      {
+        "name": "catalog",
+        "width": 390,
+        "actual": 390
+      },
+      {
+        "name": "home",
+        "width": 1280,
+        "actual": 1280
+      },
+      {
+        "name": "home",
+        "width": 390,
+        "actual": 390
+      },
+      {
+        "name": "catalog",
+        "width": 1280,
+        "actual": 1280
+      },
+      {
+        "name": "catalog",
+        "width": 390,
+        "actual": 390
+      },
+      {
+        "name": "mint",
+        "width": 1280,
+        "actual": 1280
+      },
+      {
+        "name": "mint",
+        "width": 390,
+        "actual": 390
+      },
+      {
+        "name": "wallet",
+        "width": 1280,
+        "actual": 1280
+      },
+      {
+        "name": "wallet",
+        "width": 390,
+        "actual": 390
+      },
+      {
+        "name": "integrate",
+        "width": 1280,
+        "actual": 1280
+      },
+      {
+        "name": "integrate",
+        "width": 390,
+        "actual": 390
+      },
+      {
+        "name": "about",
+        "width": 1280,
+        "actual": 1280
+      },
+      {
+        "name": "about",
+        "width": 390,
+        "actual": 390
+      },
+      {
+        "name": "mint-explorer",
+        "width": 1280,
+        "actual": 1280
+      },
+      {
+        "name": "mint-explorer",
+        "width": 390,
+        "actual": 390
+      }
+    ]
+  },
+  "additionalSuites": [
+    {
+      "file": "browser.mjs",
+      "code": 0,
+      "seconds": 18,
+      "coverage": "passed with fake providers; optional live portions skipped",
+      "routeWidthCombinations": 55
+    },
+    {
+      "file": "site-update-browser.mjs",
+      "code": 0,
+      "seconds": 26,
+      "scenarioGroups": 9,
+      "coverage": "passed with fake providers; optional live portions skipped"
+    },
+    {
+      "file": "site-review-browser.mjs",
+      "code": 0,
+      "seconds": 14,
+      "scenarioGroups": 9,
+      "coverage": "passed with fake providers; optional live portions skipped"
+    },
+    {
+      "file": "acceptance.mjs",
+      "code": 0,
+      "seconds": 10,
+      "scenarioGroups": 12,
+      "coverage": "passed with fake providers; optional live portions skipped"
+    },
+    {
+      "file": "actions.mjs",
+      "code": 0,
+      "seconds": 22,
+      "scenarioGroups": 11,
+      "coverage": "passed with fake providers; optional live portions skipped"
+    },
+    {
+      "file": "followup.mjs",
+      "code": 0,
+      "seconds": 19,
+      "scenarioGroups": 10,
+      "coverage": "passed with fake providers; optional live portions skipped"
+    },
+    {
+      "file": "swarm-browser.mjs",
+      "code": 0,
+      "seconds": 7,
+      "scenarioGroups": 10,
+      "coverage": "passed with fake providers; optional live portions skipped"
+    },
+    {
+      "file": "oracle-feed-browser.mjs",
+      "code": 0,
+      "seconds": 17,
+      "scenarioGroups": 10,
+      "coverage": "passed with fake providers; optional live portions skipped"
+    },
+    {
+      "file": "personal-facts-browser.mjs",
+      "code": 0,
+      "seconds": 38,
+      "scenarioGroups": 15,
+      "coverage": "passed with fake providers; optional live portions skipped"
+    },
+    {
+      "file": "eligibility-snapshot-browser.mjs",
+      "code": 0,
+      "seconds": 18,
+      "scenarioGroups": 6,
+      "coverage": "passed with fake providers; optional live portions skipped"
+    },
+    {
+      "file": "round8-browser.mjs",
+      "code": 0,
+      "seconds": 16,
+      "scenarioGroups": 10,
+      "coverage": "passed with fake providers; optional live portions skipped"
+    },
+    {
+      "file": "round8-revision-browser.mjs",
+      "code": 0,
+      "seconds": 20,
+      "scenarioGroups": 4,
+      "coverage": "passed with fake providers; optional live portions skipped"
+    },
+    {
+      "file": "wallet-browser.mjs",
+      "code": 0,
+      "seconds": 1,
+      "scenarioGroups": 0,
+      "coverage": "skipped without a test RPC"
+    },
+    {
+      "file": "revision.mjs",
+      "code": 0,
+      "seconds": 2,
+      "scenarioGroups": 1,
+      "coverage": "legacy-anchor check passed; live price, preparation and refresh cases skipped without a test RPC"
+    },
+    {
+      "file": "explorer-health.mjs",
+      "code": 0,
+      "seconds": 1,
+      "scenarioGroups": 0,
+      "coverage": "skipped without a test RPC"
+    }
+  ],
+  "unitTests": {
+    "passed": 106,
+    "failed": 0
+  },
+  "routeWidthCombinations": 55,
+  "typecheck": "passed",
+  "productionBuild": "passed; all three pinned ABI hashes match",
+  "rebuild": "66 export files byte-identical by path and SHA-256",
+  "export": {
+    "files": 66,
+    "assets": 65,
+    "assetBytes": 1466264,
+    "manifestSha256": "2df13c459c3f198ce7841ce1f95ab9c1a0fa664ce127200af9935fe1d70b379f"
+  },
+  "taste": {
+    "passed": 14,
+    "total": 16,
+    "retainedFlags": [
+      "Existing uppercase section titles",
+      "Existing monospace prose"
+    ]
+  },
+  "limitations": [
+    "Browser connector returned Transport closed; provided Playwright Chromium used directly.",
+    "WebKit executable unavailable; Safari was not validated.",
+    "No live RPC/API, physical wallet, signature, broadcast, settlement or publication.",
+    "No screen-reader, physical-device, native 200% zoom, RTL or translation session."
+  ],
+  "submissionBundle": {
+    "limit": 8388608,
+    "method": "standalone Git snapshot of all deliverable files; excludes scratch/dependencies and pinned inputs",
+    "withinLimit": true
+  }
+}

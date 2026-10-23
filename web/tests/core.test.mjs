@@ -247,7 +247,15 @@ test("static title, metadata and generated art meet export requirements", () => 
   for (const name of ["og:title", "og:image", "description", "icon"])
     assert.ok(html.includes(name));
   const dir = new URL("../public/art/", import.meta.url);
-  assert.equal(fs.readdirSync(dir).length, 26);
+  assert.equal(fs.readdirSync(dir).length, 27);
+  assert.ok(fs.existsSync(new URL("full-house.svg", dir)));
+  assert.equal(
+    fs.readFileSync(
+      new URL("../../dist/art/full-house.svg", import.meta.url),
+      "utf8",
+    ),
+    fs.readFileSync(new URL("full-house.svg", dir), "utf8"),
+  );
   for (const f of fs.readdirSync(dir))
     assert.ok(
       !/>#[0-9]*<\/text>/.test(fs.readFileSync(new URL(f, dir), "utf8")),

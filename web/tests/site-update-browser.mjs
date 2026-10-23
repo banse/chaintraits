@@ -244,7 +244,7 @@ try {
     async () => {
       await setup({ connect: false, route: "#/claim?trait=1201#shared-fact" });
       await page
-        .getByRole("heading", { name: "Mint", exact: true, level: 1 })
+        .getByRole("heading", { name: "Mint Card", exact: true, level: 1 })
         .waitFor();
       await page.locator("#pick-1201 input").waitFor();
       assert.equal(await page.locator("#pick-1201 input").isChecked(), true);
@@ -316,7 +316,7 @@ try {
     },
   );
   await run(
-    "5 every row uses the same centred preview/action columns and green 1 px border, including rows without buttons",
+    "5 every row uses the same centred preview/action columns and disabled-control 1 px border, including rows without buttons",
     async () => {
       await setup({
         options: {
@@ -374,7 +374,7 @@ try {
             );
           }
         if (b.card) {
-          assert.deepEqual(b.border, ["1px", "rgb(0, 255, 65)"]);
+          assert.deepEqual(b.border, ["1px", "rgb(31, 31, 31)"]);
           assert.ok(
             Math.abs(b.card.left - b.text.right - parseFloat(b.gap)) < 1,
           );
@@ -638,8 +638,13 @@ try {
         const row = page.locator(`#pick-${id}`);
         await row.getByRole("checkbox").waitFor();
         assert.equal(await row.locator(".mini-card").count(), 1);
-        await row.getByText(/panel 11 \/ quorum 7/).waitFor();
-        await row.getByText(/Attempts in the last 24 hours/).waitFor();
+        if (id === 1201) {
+          // The catalog shared row keeps only its short stored/pending line.
+          assert.equal(await row.locator(".shared-details").count(), 0);
+        } else {
+          await row.getByText(/panel 11 \/ quorum 7/).waitFor();
+          await row.getByText(/Attempts in the last 24 hours/).waitFor();
+        }
         await row.getByRole("button", { name: /Mint this fact/ }).waitFor();
       }
       await page

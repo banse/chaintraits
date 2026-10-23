@@ -12,7 +12,8 @@ const mime = {
   ".css": "text/css",
   ".json": "application/json",
   ".svg": "image/svg+xml",
-  ".md": "text/markdown",
+  ".md": "text/markdown; charset=utf-8",
+  ".txt": "text/plain; charset=utf-8",
   ".png": "image/png",
 };
 export async function forwardRpc(url, payload) {

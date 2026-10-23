@@ -319,7 +319,7 @@ async function setup({
     await page.locator(`#pick-${id >= 10001 ? id : 801}`).waitFor();
     if (feed) await page.evaluate(() => (location.hash = "#/mint"));
   }
-  if (kind === 3)
+  if (kind === 3 && pending)
     await page
       .locator(".settlement")
       .filter({ hasText: requestId })
@@ -805,9 +805,7 @@ try {
         .locator("#pick-801")
         .getByText(/^Last request .* UTC: answer false$/)
         .waitFor();
-      assert.ok(
-        (await page.locator("#pick-801 .row-actions button").count()) > 0,
-      );
+      await page.locator("#pick-801 .row-actions button").waitFor();
       await capture("history-other-wallet", page.locator("#pick-801"));
     },
   );
@@ -817,12 +815,14 @@ try {
       const head = 26260000n;
       await setup({
         pending: false,
+        id: 10001,
+        kind: 3,
         prepare: (f, c) => {
           c.head = Number(head);
         },
       });
       await page
-        .locator("#pick-1201")
+        .locator("#pick-10001")
         .getByText(
           /Attempts in the last 24 hours: 0\. Last panel result: none in the last 24 hours\./,
         )
@@ -852,7 +852,9 @@ try {
       });
       await page
         .locator("#pick-1201")
-        .getByText(/^Stored · no further request needed/)
+        .getByText("Stored: listed wallets can apply it for gas only.", {
+          exact: true,
+        })
         .waitFor();
       assert.ok(
         control.logs.some(

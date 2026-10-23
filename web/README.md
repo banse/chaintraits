@@ -13,6 +13,7 @@ npx playwright install chromium webkit
 node scripts/agents.mjs
 npm run typecheck
 npm run build
+node tests/correction-browser.mjs
 npm test
 node tests/acceptance.mjs
 node tests/actions.mjs
@@ -25,7 +26,7 @@ npm run preview
 
 Open the URL printed by Vite. The preview serves the committed export. `npm run dev` starts the source development server. On Linux, Playwright may also need its documented browser system dependencies. Browser downloads and dependency caches belong outside Git.
 
-`npm test` runs the unit/export checks and browser interactions. `node tests/acceptance.mjs` runs the A–E fake-chain/fake-wallet payment and RPC regressions; it never forwards a write to a network. `node tests/acceptance.mjs --webkit` runs those cases in WebKit when its system libraries are available. If `SWORN_TEST_RPC` is set, it also includes the isolated mainnet fork rehearsal; Anvil must be installed for that part. To run all checks with a public read endpoint:
+`node tests/correction-browser.mjs` tests each of the nine correction items on the production export with fake EIP-1193, RPC and API replies. It also tests Close/currency changes during an unanswered wallet request, ignored late success/rejection, and saved sent receipts after reload. `--only=4a` selects a case prefix and `--webkit` selects WebKit. `npm test` runs the unit/export checks and browser interactions. `node tests/acceptance.mjs` runs the A–E fake-chain/fake-wallet payment and RPC regressions; it never forwards a write to a network. `node tests/acceptance.mjs --webkit` runs those cases in WebKit when its system libraries are available. If `SWORN_TEST_RPC` is set, it also includes the isolated mainnet fork rehearsal; Anvil must be installed for that part. To run all checks with a public read endpoint:
 
 ```sh
 SWORN_TEST_RPC=https://ethereum-rpc.publicnode.com npm test

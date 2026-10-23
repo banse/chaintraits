@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { chromium } from "playwright";
 import { encodeFunctionData } from "viem";
-import { fakeChain, mockPage, wallet } from "./fake-chain.mjs";
+import { fakeChain, mockPage, rpcCalls, wallet } from "./fake-chain.mjs";
 import { server } from "./harness.mjs";
 
 const output = new URL("../../test/scratch/round8-revision/", import.meta.url);
@@ -105,16 +105,6 @@ async function setup({ route, options = {}, api, prepare }) {
   });
   control = { specCalls: [], refuseSpec: false, delayMint: false };
   fixture = fakeChain({ token: 1n, allowance: 10n ** 22n, ...options });
-  const base = fixture.answer;
-  fixture.answer = async (p) => {
-    if (
-      control.delayMint &&
-      p.method === "eth_call" &&
-      p.params[0].data?.startsWith(MINTED)
-    )
-      await new Promise((r) => setTimeout(r, 3000));
-    return base(p);
-  };
   prepare?.(fixture);
   await mockPage(page, fixture);
   // Only Registry.specOf(601) answers HTTP 503 after 200 ms, once enabled.
@@ -122,9 +112,16 @@ async function setup({ route, options = {}, api, prepare }) {
     /ethereum-rpc.publicnode.com|gateway.tenderly.co|rpc.mevblocker.io|1.rpc.thirdweb.com/,
     async (r) => {
       const body = r.request().postDataJSON();
+      const calls = rpcCalls(body);
       if (
-        body?.method === "eth_call" &&
-        body.params?.[0]?.data?.toLowerCase() === SPEC_601.toLowerCase()
+        control.delayMint &&
+        calls.some((p) => p.params?.[0]?.data?.startsWith(MINTED))
+      )
+        await new Promise((resolve) => setTimeout(resolve, 3000));
+      if (
+        calls.some(
+          (p) => p.params?.[0]?.data?.toLowerCase() === SPEC_601.toLowerCase(),
+        )
       ) {
         control.specCalls.push({ url: r.request().url(), at: Date.now() });
         if (control.refuseSpec) {

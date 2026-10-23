@@ -239,7 +239,7 @@ try {
   );
   await page.getByRole("button", { name: "Copy", exact: true }).first().click();
   await page.getByText(/Copied\.|Copy unavailable\./).waitFor();
-  assert.equal(await page.locator('a[href$="agents/sworn.md"]').count(), 1);
+  assert.equal(await page.locator('a[href$="agents/sworn.md"]').count(), 2);
   evidence.interactions.push(
     "Integrate has two working Copy controls, a Solidity gate that compiles with 0.8.24, and a linked exported agent skill.",
   );

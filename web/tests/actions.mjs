@@ -174,7 +174,15 @@ try {
           payment: "IMD",
           lines: [],
         },
-        steps: [{ label: scenario.label, state: "ready", call }],
+        steps: [
+          // Only a journal containing a sent transaction can be restored.
+          {
+            label: "Previously sent setup",
+            state: "confirmed",
+            hash: "0x" + "77".repeat(32),
+          },
+          { label: scenario.label, state: "ready", call },
+        ],
         ack: false,
       };
       const encoded = JSON.stringify(saved, (_, v) =>
