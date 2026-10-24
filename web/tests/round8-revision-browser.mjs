@@ -253,13 +253,13 @@ try {
       });
       control.delayMint = true;
       await page.evaluate((b) => window.__switch(b), B);
-      await page.getByText(/Card #2\./).waitFor();
       await page.getByText("Reading your facts…").waitFor();
       assert.equal(
         await page.locator("#held-801").count(),
         0,
         "A's fact hidden",
       );
+      await page.getByText(/Card #2\./).waitFor();
       await page
         .locator("#held-901")
         .getByText("Panel-sworn")
@@ -299,12 +299,13 @@ try {
       });
       control.delayMint = true;
       await page.evaluate((b) => window.__switch(b), B);
-      await page.getByText(/Card #2\./).waitFor();
+      await page.getByText("Reading your facts…").waitFor();
       assert.equal(
         await row.count(),
         0,
         "A's row hidden while B's history is read",
       );
+      await page.getByText(/Card #2\./).waitFor();
       await row.getByText(uuidB).waitFor({ timeout: 8000 });
       await row.getByText("Attested: time unavailable").waitFor();
       assert.equal(await row.locator('a[href*="wallet-A-job"]').count(), 0);

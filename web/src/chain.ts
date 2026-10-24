@@ -14,8 +14,10 @@ import {
   type Abi,
   type PublicClient,
 } from "viem";
-import { canonical, decodeMetadata, MISS_REASONS } from "./pure.mjs";
+import { decodeMetadata, MISS_REASONS } from "./pure.mjs";
 import { READ_RPCS, resilientRpc } from "./rpc.mjs";
+import { runtimeAssets } from "./runtime-assets";
+import { validateRuntimeAssets } from "./runtime-integrity.mjs";
 export type Deployment = {
   version: 1;
   launchId: string;
@@ -28,7 +30,6 @@ export type Deployment = {
     abiHash: string;
     abiPath: string;
   }[];
-  assets: { path: string; sha256: string }[];
   network: {
     chainId: number;
     name: string;
@@ -47,33 +48,15 @@ export type Runtime = {
   chain: ReturnType<typeof defineChain>;
 };
 // Multicall3, deployed at the same address on Ethereum and Sepolia.
-export const MULTICALL3 = "0xcA11bde05977b3631167028862bE2a173976CA11" as Address;
+export const MULTICALL3 =
+  "0xcA11bde05977b3631167028862bE2a173976CA11" as Address;
 export const asset = (p: string) => new URL(p, document.baseURI).href;
-async function json(p: string) {
-  const r = await fetch(asset(p));
-  if (!r.ok) throw Error(`Cannot load ${p}: HTTP ${r.status}`);
-  return r.json();
-}
 export async function loadRuntime(): Promise<Runtime> {
-  const deployment: Deployment = await json("imd-deployment.json");
-  if (
-    deployment.version !== 1 ||
-    deployment.chainId !== deployment.network.chainId
-  )
-    throw Error("Deployment network mismatch.");
-  const abis: Record<string, Abi> = {};
-  for (const c of deployment.contracts) {
-    if (c.abiPath.includes("..") || c.abiPath.startsWith("/"))
-      throw Error("Unsafe ABI path");
-    abis[c.name] = await json(c.abiPath);
-    if (keccak256(stringToHex(canonical(abis[c.name]))).slice(2) !== c.abiHash)
-      throw Error(`${c.name} ABI integrity check failed.`);
-  }
-  for (const name of ["WhitelistCurator", "IntakeV2"])
-    abis[name] = await json(`abi/${name}.json`);
-  const preview = await json("data/renderer-preview.json");
-  if (preview.sourceCommit !== deployment.sourceCommit)
-    throw Error("Preview storage layout source mismatch.");
+  const { deployment, abis, preview } = validateRuntimeAssets(
+    runtimeAssets.deployment,
+    runtimeAssets.abis,
+    runtimeAssets.preview,
+  ) as { deployment: Deployment; abis: Record<string, Abi>; preview: any };
   return {
     deployment,
     abis,
@@ -212,6 +195,8 @@ export type WalletFacts = {
   capital: bigint;
   points: bigint;
   frozen: bigint | null;
+  mintBlock: bigint | null;
+  mintTime: bigint | null;
   uri: string;
   metadata: any;
   raw: string;
@@ -252,12 +237,16 @@ export async function lookup(
       ),
     ]);
   let frozen = null,
+    mintBlock: bigint | null = null,
+    mintTime: bigint | null = null,
     uri;
   if (token !== 0n) {
-    [frozen, uri] = await Promise.all([
+    [frozen, uri, mintBlock] = await Promise.all([
       read(client, r, "Registry", "frozenDirect", [token]),
       read(client, r, "Registry", "tokenURI", [token]),
+      read(client, r, "Registry", "mintedAtBlock", [token]),
     ]);
+    mintTime = (await client.getBlock({ blockNumber: mintBlock! })).timestamp;
   } else {
     const snapshot = await read(client, r, "Composer", "directSnapshot", [
       address,
@@ -318,6 +307,8 @@ export async function lookup(
     capital,
     points,
     frozen,
+    mintBlock,
+    mintTime,
     uri,
     metadata: data,
     raw,
@@ -373,7 +364,7 @@ export const explain = (e: any, abi?: Abi) => {
     fromBlock: "first block",
     toBlock: "last block",
     window: "block window",
-    name: "trait name",
+    name: "fact name",
     question: "question length",
     definitions: "rule length",
   };

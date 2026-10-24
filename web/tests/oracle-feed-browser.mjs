@@ -216,14 +216,20 @@ async function setup({
   await page
     .getByRole("button", { name: "Browser wallet", exact: true })
     .click();
-  if (dialog)
+  if (dialog) {
     await page
       .getByRole("button", { name: "Review transaction steps", exact: true })
       .click();
-  // Round 8: the wallet's swarm progress lives on Wallet Facts.
-  else await page.evaluate(() => (location.hash = "#/mint"));
+    assert.equal(
+      await page.locator(".payment-dialog .swarm-request").count(),
+      0,
+    );
+    await page
+      .getByRole("button", { name: "Follow progress on the Wallet page" })
+      .click();
+  } else await page.evaluate(() => (location.hash = "#/mint"));
   return page.locator(
-    dialog ? ".payment-dialog .swarm-request" : "#swarm-" + requestId,
+    dialog ? ".swarm-feed .swarm-request" : "#swarm-" + requestId,
   );
 }
 const poll = () => page.evaluate(() => window.__pollSwarm());
@@ -621,7 +627,7 @@ try {
     },
   );
   await run(
-    "1–7 confirmed result dialog uses the same waiting, wallet guard, job link, question and live quorum rows",
+    "1–7 following a confirmed result opens Wallet with the same waiting, wallet guard, job link, question and live quorum rows",
     async () => {
       const live = record();
       const records = [];
@@ -644,7 +650,7 @@ try {
         1,
       );
       await feed.getByRole("button", { name: "Show full question" }).click();
-      await capture(feed, "dialog");
+      await capture(feed, "wallet-progress");
       live.members.push(answer(true, 8));
       await poll();
       await feed.getByText(finishing, { exact: true }).waitFor();

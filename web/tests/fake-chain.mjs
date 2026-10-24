@@ -372,13 +372,15 @@ export function fakeChain(options = {}) {
       else if (fn === "nextSpecId") result = state.nextSpecId || 10001;
       else if (fn === "tokenOf") result = state.token;
       else if (fn === "claimantOf") result = wallet;
-      else if (fn === "traitsOf") result = [101, ...state.proven];
+      else if (fn === "traitsOf")
+        result = state.traits || [101, ...state.proven];
       else if (fn === "verifiedSpecsOf") result = state.verifiedSpecs || [];
       else if (fn === "mintedAtBlock") result = state.mintedAtBlock ?? 0n;
       else if (fn === "hasTrait")
-        result =
-          Number(values[1]) === 101 || state.proven.includes(Number(values[1]));
-      else if (fn === "firstHourOf") result = [0n, true];
+        result = (state.traits || [101, ...state.proven]).includes(
+          Number(values[1]),
+        );
+      else if (fn === "firstHourOf") result = [0n, state.joined ?? true];
       else if (
         [
           "txCountOf",
@@ -389,7 +391,8 @@ export function fakeChain(options = {}) {
         ].includes(fn)
       )
         result = 1n;
-      else if (["tokenURI", "tokenURIOf"].includes(fn)) result = uri;
+      else if (["tokenURI", "tokenURIOf"].includes(fn))
+        result = state.uri || uri;
       else if (fn === "pendingOf")
         result =
           state.pending.find(

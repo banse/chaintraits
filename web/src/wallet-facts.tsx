@@ -9,10 +9,14 @@ import {
   type WalletFacts as Facts,
 } from "./chain";
 import { TRAITS } from "./data";
-import { Status, num } from "./components";
+import { Card, Status, num } from "./components";
 import { useWalletSheet } from "./wallet";
 import { openRequests } from "./claim";
-import { SWARM_POLL_MS } from "./swarm";
+import { useTransactions } from "./transactions";
+import type { WatchedFact } from "./swarm";
+import { SwarmFeed, SWARM_POLL_MS } from "./swarm";
+import { FAMILIES } from "./data";
+import { HIVE_CELLS } from "./hive-layout";
 import { oracleUuid } from "./oracle-progress.mjs";
 
 import { attestedRecords } from "./attested-records.mjs";
@@ -115,6 +119,7 @@ export function WalletFacts() {
   const site = useSite();
   const account = useAccount();
   const { open } = useWalletSheet();
+  const journal = useTransactions();
   const reader = useMemo(() => attestedRecords(), [account.address]);
   useEffect(() => () => reader.stop(), [reader]);
   const [facts, setFacts] = useState<Facts | null>(null);
@@ -130,11 +135,67 @@ export function WalletFacts() {
       : null;
   const [error, setError] = useState("");
   const [tick, setTick] = useState(0);
+  const [family, setFamily] = useState<number>();
+  useEffect(() => setFamily(undefined), [account.address]);
   const current =
     facts?.address.toLowerCase() === account.address?.toLowerCase()
       ? facts
       : null;
-  const requests = openRequests(current, account.address, site.specs);
+  const [shared, setShared] = useState<{
+    wallet?: string;
+    facts: WatchedFact[];
+  }>({ facts: [] });
+  const savedShared =
+    journal.plan?.account.toLowerCase() === account.address?.toLowerCase()
+      ? journal.steps
+          .flatMap((step) => step.result?.facts || [])
+          .filter(
+            (fact) =>
+              fact.id === 1201 ||
+              site.specs.some((s) => s.id === fact.id && s.kind === 3),
+          )
+      : [];
+  const savedSharedKey = savedShared
+    .map((f) => `${f.id}:${f.requestId}`)
+    .join(",");
+  useEffect(() => {
+    const controller = new AbortController();
+    if (!account.address || !site.health || !savedShared.length) {
+      setShared({ facts: [] });
+      return;
+    }
+    const client = scopedClient(site.client, controller.signal);
+    void Promise.all(
+      savedShared.map(async (fact) =>
+        (await read(client, site.r, "Registry", "sharedPending", [fact.id])) ===
+        fact.requestId
+          ? fact
+          : null,
+      ),
+    )
+      .then((values) => {
+        if (!controller.signal.aborted)
+          setShared({
+            wallet: account.address,
+            facts: values.filter((f): f is WatchedFact => !!f),
+          });
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) setShared({ facts: [] });
+      });
+    return () => controller.abort();
+  }, [
+    account.address,
+    site.client,
+    site.health,
+    savedSharedKey,
+    tick,
+    site.readRetry,
+  ]);
+  const requests = [
+    ...openRequests(current, account.address, site.specs),
+    ...(shared.wallet === account.address ? shared.facts : []),
+  ];
   const pendingKey = requests.map((f) => `${f.id}:${f.requestId}`).join(",");
   // Registry state only: the card's facts, its mint block and each verified
   // record. No event history is read, so no older blocks are ever needed.
@@ -149,14 +210,8 @@ export function WalletFacts() {
       const v = await lookup(client, site.r, site.health!, wallet, ids);
       if (controller.signal.aborted) return;
       setFacts(v);
-      let block: bigint | null = null,
-        time: bigint | null = null;
-      if (v.token !== 0n) {
-        block = BigInt(
-          await read(client, site.r, "Registry", "mintedAtBlock", [v.token]),
-        );
-        time = (await client.getBlock({ blockNumber: block })).timestamp;
-      }
+      const block = v.mintBlock,
+        time = v.mintTime;
       const held = [
         ...v.traits.map((id) => ({ id: Number(id), community: false })),
         ...v.verifiedSpecs
@@ -228,10 +283,19 @@ export function WalletFacts() {
       try {
         const now = await Promise.all(
           requests.map((f) =>
-            read(client, site.r, "Registry", "pendingOf", [
-              account.address,
-              f.id,
-            ]),
+            read(
+              client,
+              site.r,
+              "Registry",
+              f.id === 1201 ||
+                site.specs.some((s) => s.id === f.id && s.kind === 3)
+                ? "sharedPending"
+                : "pendingOf",
+              f.id === 1201 ||
+                site.specs.some((s) => s.id === f.id && s.kind === 3)
+                ? [f.id]
+                : [account.address, f.id],
+            ),
           ),
         );
         if (now.some((rid, i) => rid !== requests[i].requestId))
@@ -267,97 +331,182 @@ export function WalletFacts() {
         </section>
       ) : (
         <>
-          <section className="section wallet-facts" aria-label="Claimed facts">
-            <h2>Claimed facts</h2>
-            <p className="muted">
-              Every fact this wallet holds, read from Registry state.
-              {current && current.token !== 0n
-                ? ` Card #${current.token}.`
-                : ""}
-            </p>
-            {error ? (
-              <>
-                <Status error>{error}</Status>
-                <button onClick={() => setTick((v) => v + 1)}>
-                  Retry wallet reads
-                </button>
-              </>
-            ) : !rows || !current ? (
-              <Status>Reading your facts…</Status>
-            ) : !rows.length ? (
-              <p>No claimed fact for this wallet.</p>
-            ) : (
-              <>
-                {frozen && (
-                  // Direct facts share one snapshot: it is stated once.
-                  <p className="info direct-note">
-                    Direct ·{" "}
-                    {frozen.block !== null && frozen.time !== null ? (
-                      <>
-                        frozen at the card's mint, block {num(frozen.block)} ·{" "}
-                        <time
-                          dateTime={new Date(
-                            Number(frozen.time) * 1000,
-                          ).toISOString()}
-                        >
-                          {utc(frozen.time)}
-                        </time>
-                      </>
-                    ) : (
-                      "read live; no card minted"
-                    )}
-                  </p>
-                )}
-                {direct.length > 0 && (
-                  <ul className="fact-history direct-facts" aria-label="Direct facts">
-                    {direct.map((row) => (
-                      <li key={row.id} id={`held-${row.id}`}>
-                        <strong>
-                          {row.id} / {row.name}
-                        </strong>
-                        <span className="meaning">{row.meaning}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-                {sworn.length > 0 && (
-                  <ul
-                    className="fact-history sworn-facts"
-                    aria-label="Panel-sworn facts"
-                  >
-                    {sworn.map(
-                      (row) =>
-                        row.proof.how === "panel" && (
-                          <li key={row.id} id={`held-${row.id}`}>
-                            <strong>
-                              {row.id} / {row.name}
-                            </strong>
-                            <div className="proof-lines">
-                              <span className="meaning">{row.meaning}</span>
-                              <span>Panel-sworn</span>
-                              <span>
-                                Evidence window: blocks{" "}
-                                {num(row.proof.fromBlock)} →{" "}
-                                {num(row.proof.toBlock)}
-                              </span>
-                              {row.proof.oracleId ? (
-                                <Attested
-                                  key={row.proof.oracleId}
-                                  oracleId={row.proof.oracleId}
-                                  reader={reader}
-                                />
-                              ) : (
-                                <span>Oracle request unavailable</span>
-                              )}
-                            </div>
-                          </li>
-                        ),
-                    )}
-                  </ul>
-                )}
-              </>
+          <div
+            className={
+              current && current.token !== 0n
+                ? "wallet-record with-card"
+                : "wallet-record"
+            }
+          >
+            {current && current.token !== 0n && (
+              <aside className="wallet-card" aria-label="Your rendered card">
+                <Card
+                  facts={current}
+                  interactive
+                  availableFamilies={[
+                    ...new Set([
+                      ...current.traits.map((id) => Math.floor(id / 100)),
+                      ...current.verifiedSpecs
+                        .slice(0, 39)
+                        .map((_, i) => HIVE_CELLS[i % 13].family),
+                    ]),
+                  ]}
+                  activeFamily={family ?? 0}
+                  onFamily={(n) =>
+                    setFamily((old) => (old === n ? undefined : n))
+                  }
+                />
+                <p className="muted">
+                  Select a non-empty hive cell to highlight its claimed facts.
+                  Select it again to clear.
+                </p>
+                <Status>
+                  {family
+                    ? `${FAMILIES[family - 1]} family selected.`
+                    : "All claimed facts shown."}
+                </Status>
+              </aside>
             )}
-          </section>
+            <section
+              className="section wallet-facts"
+              aria-label="Claimed facts"
+            >
+              <h2>Claimed facts</h2>
+              <p className="muted">
+                Every fact this wallet holds, read from Registry state.
+                {current && current.token !== 0n
+                  ? ` Card #${current.token}.`
+                  : ""}
+              </p>
+              {error ? (
+                <>
+                  <Status error>{error}</Status>
+                  <button onClick={() => setTick((v) => v + 1)}>
+                    Retry wallet reads
+                  </button>
+                </>
+              ) : !rows || !current ? (
+                <Status>Reading your facts…</Status>
+              ) : !rows.length ? (
+                <p>No claimed fact for this wallet.</p>
+              ) : (
+                <>
+                  {frozen && (
+                    // Direct facts share one snapshot: it is stated once.
+                    <p className="info direct-note">
+                      Direct ·{" "}
+                      {frozen.block !== null && frozen.time !== null ? (
+                        <>
+                          frozen at the card's mint, block {num(frozen.block)} ·{" "}
+                          <time
+                            dateTime={new Date(
+                              Number(frozen.time) * 1000,
+                            ).toISOString()}
+                          >
+                            {utc(frozen.time)}
+                          </time>
+                        </>
+                      ) : (
+                        "read live; no card minted"
+                      )}
+                    </p>
+                  )}
+                  {direct.length > 0 && (
+                    <ul
+                      className="fact-history direct-facts"
+                      aria-label="Direct facts"
+                    >
+                      {direct.map((row) => (
+                        <li
+                          key={row.id}
+                          id={`held-${row.id}`}
+                          className={
+                            family && Math.floor(row.id / 100) === family
+                              ? "highlight"
+                              : ""
+                          }
+                        >
+                          <strong>
+                            {row.id} / {row.name}
+                          </strong>
+                          <span className="meaning">{row.meaning}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  )}
+                  {sworn.length > 0 && (
+                    <ul
+                      className="fact-history sworn-facts"
+                      aria-label="Panel-sworn facts"
+                    >
+                      {sworn.map(
+                        (row) =>
+                          row.proof.how === "panel" && (
+                            <li
+                              key={row.id}
+                              id={`held-${row.id}`}
+                              className={
+                                family &&
+                                (row.community
+                                  ? current.verifiedSpecs.indexOf(row.id) < 39
+                                    ? HIVE_CELLS[
+                                        current.verifiedSpecs.indexOf(row.id) %
+                                          13
+                                      ]?.family
+                                    : undefined
+                                  : Math.floor(row.id / 100)) === family
+                                  ? "highlight"
+                                  : ""
+                              }
+                            >
+                              <strong>
+                                {row.id} / {row.name}
+                              </strong>
+                              <div className="proof-lines">
+                                <span className="meaning">{row.meaning}</span>
+                                <span>Panel-sworn</span>
+                                <span>
+                                  Evidence window: blocks{" "}
+                                  {num(row.proof.fromBlock)} →{" "}
+                                  {num(row.proof.toBlock)}
+                                </span>
+                                {row.proof.oracleId ? (
+                                  <Attested
+                                    key={row.proof.oracleId}
+                                    oracleId={row.proof.oracleId}
+                                    reader={reader}
+                                  />
+                                ) : (
+                                  <span>Oracle request unavailable</span>
+                                )}
+                              </div>
+                            </li>
+                          ),
+                      )}
+                    </ul>
+                  )}
+                </>
+              )}
+            </section>
+          </div>
+          {requests.length > 0 && (
+            <section className="section swarm-feed" aria-label="Swarm progress">
+              <h2>Swarm progress</h2>
+              <p className="muted">
+                Live panel progress, not proof. Facts and card updates come from
+                the Registry.
+              </p>
+              {requests.map((fact) => (
+                <SwarmFeed
+                  key={fact.requestId}
+                  fact={fact}
+                  focus={null}
+                  idPrefix="wallet"
+                  onAttested={() => setTick((n) => n + 1)}
+                />
+              ))}
+            </section>
+          )}
         </>
       )}
     </>

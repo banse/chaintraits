@@ -74,14 +74,26 @@ test("all original control/link/choice label fragments stay except the explicitl
     // Previous step's Example choice and correction item 9's file links.
     "Example",
     "Your own rule",
+    // Current assignment: progress navigation and the four explanation links.
+    "Follow progress on the Wallet page",
+    "Mint a card",
+    "Request a fact",
+    "Agents check the rule",
+    "Your card updates",
+    // The contract name is now marked up as code within its link.
+    "hasTrait",
     "Sworn for agents",
     "llms.txt",
   ];
   assert.deepEqual(
     labels.filter((label) => !added.includes(label)),
     expected
-      .filter((label) => label !== "Mint shared fact")
-      .map((label) => (label === "Clear journal" ? "Close" : label))
+      .filter((label) => !["Mint shared fact", "Read hasTrait"].includes(label))
+      .map((label) =>
+        (label === "Clear journal" ? "Close" : label)
+          .replace(/\btraits\b/g, "facts")
+          .replace(/\btrait\b/g, "fact"),
+      )
       .sort(),
   );
   assert.deepEqual(

@@ -458,31 +458,51 @@ try {
         assert.equal((await page.evaluate(() => window.__signing)).length, 1);
         if (action.kind === "mint") {
           await d
-            .getByRole("heading", { name: "Your Sworn card #1", exact: true })
+            .getByText("Your Sworn card #1 · minted", { exact: true })
             .waitFor();
-          await d.getByText("Sworn #1 · minted", { exact: true }).waitFor();
+          assert.equal(await d.locator(".card-figure").count(), 0);
+          await d
+            .getByRole("button", { name: "Follow progress on the Wallet page" })
+            .click();
+          await page
+            .locator(".wallet-card")
+            .getByText("Sworn #1 · minted", { exact: true })
+            .waitFor();
           assert.equal(
-            await d
-              .locator(".card-figure img")
+            await page
+              .locator(".wallet-card img")
               .evaluate((el) => el.complete && el.naturalWidth > 0),
             true,
           );
-          assert.doesNotMatch(
-            await d.innerText(),
-            /Preview only|no card minted/,
-          );
         } else if (action.kind === "registration") {
-          await d.getByText(/Registered trait 10001\./).waitFor();
+          await d.getByText(/Registered fact 10001\./).waitFor();
         } else {
           await d
             .getByText("request sent, the panel answers in a few minutes", {
               exact: true,
             })
             .waitFor();
+          assert.equal(await d.locator(".swarm-request").count(), 0);
           await d
+            .getByRole("button", { name: "Follow progress on the Wallet page" })
+            .click();
+          await page
+            .locator(".swarm-feed")
             .getByText("Oracle request: exact-request · exact", { exact: true })
             .waitFor();
-          assert.equal(await d.locator(".swarm-request li").count(), 5);
+          assert.equal(
+            await page.locator(".swarm-feed .swarm-request li").count(),
+            5,
+          );
+        }
+        if (action.kind !== "registration") {
+          await page.goto(preview.url + "#/mint");
+          await page
+            .getByRole("button", {
+              name: "Review transaction steps",
+              exact: true,
+            })
+            .click();
         }
         await checkLayout(action.kind);
         await d.getByRole("button", { name: "Close payment dialog" }).click();
@@ -493,7 +513,9 @@ try {
           })
           .click();
         if (action.kind === "mint")
-          await d.getByText("Sworn #1 · minted", { exact: true }).waitFor();
+          await d
+            .getByText("Your Sworn card #1 · minted", { exact: true })
+            .waitFor();
         await page.keyboard.press("Escape");
         await page.reload();
         await page
@@ -505,10 +527,14 @@ try {
         assert.equal(await d.locator("#payment-ack").isChecked(), false);
         assert.deepEqual(await page.evaluate(() => window.__signing), []);
         if (action.kind === "mint")
-          await d.getByText("Sworn #1 · minted", { exact: true }).waitFor();
+          await d
+            .getByText("Your Sworn card #1 · minted", { exact: true })
+            .waitFor();
         else if (action.id)
           await d
-            .getByText("Oracle request: exact-request · exact", { exact: true })
+            .getByText("Progress continues on the Wallet page.", {
+              exact: true,
+            })
             .waitFor();
       },
     );
@@ -686,6 +712,9 @@ try {
         }),
       ];
       f.state.proven = [601];
+      f.state.verifiedRecords = {
+        601: [requestId, confirmedBytes, 25769870n, 25789604n],
+      };
       await page.evaluate(() => window.__pollSwarm());
       await feed
         .getByText(
@@ -723,7 +752,7 @@ try {
     },
   );
   await run(
-    "8 delivered request can be reconstructed after reload from its Registry event",
+    "8 delivered request journal survives reload and Wallet shows its Registry oracle id",
     async () => {
       const call = {
         label: "Request 601 / Swarmed",
@@ -769,20 +798,18 @@ try {
       await page
         .getByRole("button", { name: "Review transaction steps", exact: true })
         .click();
-      await page
-        .locator(".payment-dialog")
-        .getByText(
-          `Oracle request: ${confirmedId} · confirmed by the Registry`,
-          { exact: true },
-        )
-        .waitFor();
       assert.equal(
-        await page
-          .locator(".payment-dialog")
-          .getByText(/different oracle request/)
-          .count(),
+        await page.locator(".payment-dialog .swarm-request").count(),
         0,
       );
+      await page
+        .getByRole("button", { name: "Follow progress on the Wallet page" })
+        .click();
+      await page
+        .locator("#held-601")
+        .getByText(`Oracle request: ${confirmedId}`, { exact: true })
+        .waitFor();
+      assert.equal(await page.locator(".swarm-feed").count(), 0);
     },
   );
   await run(

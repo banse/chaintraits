@@ -29,7 +29,11 @@ import {
 } from "./components";
 import { imd, exactUnits } from "./pure.mjs";
 import { Settlement } from "./claim";
-import type { Journal } from "./transactions";
+import {
+  useTransactions,
+  TransactionJournal,
+  type Journal,
+} from "./transactions";
 function IntroDescription() {
   const [a, b] = DESCRIPTION.split("IMD agents");
   return (
@@ -45,7 +49,11 @@ function IntroDescription() {
 function Why() {
   return (
     <>
-      <p className="prose">{WHY}</p>
+      <p className="prose">
+        {WHY.split("hasTrait")[0]}
+        <code>hasTrait</code>
+        {WHY.split("hasTrait")[1]}
+      </p>
       <blockquote>
         “Because the list lives onchain, a gating contract can read it directly
         at mint time: there is no merkle root to publish and no snapshot to
@@ -149,17 +157,17 @@ export function Home() {
                 </p>
               </li>
               <li>
-                <strong>Add traits</strong>
+                <strong>Add facts</strong>
                 <p>
                   Request evidence for a paid oracle fact.{" "}
-                  <a href="#/mint#step-02">Add traits</a>.
+                  <a href="#/mint#step-02">Add facts</a>.
                 </p>
               </li>
               <li>
                 <strong>Swear new facts</strong>
                 <p>
                   Define an immutable community rule.{" "}
-                  <a href="#/mint#step-03">Register a trait</a>.
+                  <a href="#/mint#step-03">Register a fact</a>.
                 </p>
               </li>
             </ol>
@@ -178,7 +186,10 @@ export function Home() {
                 <strong>Read the fact</strong>
                 <p>
                   Gate a mint, grant or allowlist directly.{" "}
-                  <a href="#/integrate">Read hasTrait</a>.
+                  <a href="#/integrate">
+                    Read <code>hasTrait</code>
+                  </a>
+                  .
                 </p>
               </li>
               <li>
@@ -203,14 +214,16 @@ export function Home() {
   );
 }
 export function Catalog() {
+  const journal = useTransactions();
   const { health, specs, specError, loading, error } = useSite();
   return (
     <>
       <h1>Catalog</h1>
       <p className="prose">
         25 facts, thirteen families. Every id names a rule any contract can
-        check. A white dot marks a rare trait.
+        check. A white dot marks a rare fact.
       </p>
+      <Explorer journal={journal} />
       {classes.map((c) => (
         <Section key={c.key} title={c.name} id={c.key}>
           <p className="prose">
@@ -309,6 +322,7 @@ export function Catalog() {
           label="CATALOG · community registration"
         />
       </Section>
+      <TransactionJournal journal={journal} />
       <Section title="Four fixed block windows">
         <div className="window-grid">
           {WINDOWS.map(([name, a, b]) => (
@@ -327,7 +341,7 @@ export function Catalog() {
           WhitelistCurator.sol records wallet behavior, not people. It is not
           sybil-resistant. An oracle attestation shows which agents agreed on a
           rule and a block window; it does not make the rule a measure of
-          character. No verdict and a false answer grant no trait.
+          character. No verdict and a false answer grant no fact.
         </p>
         <p>
           Direct tiers are monotone. A card shows the highest level per family,
@@ -338,12 +352,13 @@ export function Catalog() {
     </>
   );
 }
-// The Explorer part of the Mint page; #/explorer?address=… opens it.
+// The Explorer part of the Catalog page; #/explorer?address=… opens it.
 export function Explorer({ journal }: { journal: Journal }) {
   const site = useSite();
-  const initial = /^#\/explorer\b/.test(location.hash)
-    ? new URLSearchParams(location.hash.split("?")[1]).get("address") || ""
-    : "";
+  const initial =
+    new URLSearchParams(location.hash.split("?")[1]?.split("#")[0]).get(
+      "address",
+    ) || "";
   const [address, setAddress] = useState(initial);
   const [facts, setFacts] = useState<WalletFacts | null>(null);
   const [error, setError] = useState("");
@@ -455,7 +470,8 @@ export function Explorer({ journal }: { journal: Journal }) {
               <p className="break">{facts.address}</p>
               <p className="muted">
                 Live reads at Ethereum block {num(site.health.block)}.
-                Credentials use hasTrait and tokenOf, never ownerOf.
+                Credentials use <code>hasTrait</code> and <code>tokenOf</code>,
+                never <code>ownerOf</code>.
               </p>
               <dl className="wallet-metrics">
                 <div>
@@ -546,7 +562,23 @@ export function Explorer({ journal }: { journal: Journal }) {
                 Integers below are the original Renderer text. They are never
                 converted to floating-point values.
               </p>
-              <pre tabIndex={0}>{facts.raw}</pre>
+              <p className="muted">
+                Preview uses fact labels. The download preserves the exact
+                Renderer field names and text.
+              </p>
+              <pre tabIndex={0}>
+                <code>
+                  {facts.raw.replace(/(?<![?&])\btraits?\b/gi, (word) =>
+                    word[0] === "T"
+                      ? word.length === 5
+                        ? "Fact"
+                        : "Facts"
+                      : word.length === 5
+                        ? "fact"
+                        : "facts",
+                  )}
+                </code>
+              </pre>
               <a
                 download="sworn-metadata.json"
                 href={`data:application/json;charset=utf-8,${encodeURIComponent(facts.raw)}`}
@@ -652,7 +684,13 @@ export function Integrate() {
         authentic addresses and RPC-only examples for checking a fact.
       </p>
       <FactArtifact />
-      <Section title="Gate with hasTrait">
+      <Section
+        title={
+          <>
+            Gate with <code>hasTrait</code>
+          </>
+        }
+      >
         <CodeBlock>{solidity}</CodeBlock>
       </Section>
       <Section title="Read with cast">
@@ -808,29 +846,29 @@ function WhitelistCurator() {
           sent its ETH straight back; the history is what remains.
         </p>
         <div className="bands">
-        {[
-          ["Hours 0–23", "22,395", "15,620", "114,291"],
-          ["Hours 24–45", "5,073", "3,095", "12,846"],
-          ["Hours 46–65", "885", "807", "994"],
-        ].map(([title, d, c, e]) => (
-          <div key={title}>
-            <h3>{title}</h3>
-            <dl>
-              <div>
-                <dt>Deposits</dt>
-                <dd>{d}</dd>
-              </div>
-              <div>
-                <dt>New contributors</dt>
-                <dd>{c}</dd>
-              </div>
-              <div>
-                <dt>ETH sent and returned</dt>
-                <dd>{e}</dd>
-              </div>
-            </dl>
-          </div>
-        ))}
+          {[
+            ["Hours 0–23", "22,395", "15,620", "114,291"],
+            ["Hours 24–45", "5,073", "3,095", "12,846"],
+            ["Hours 46–65", "885", "807", "994"],
+          ].map(([title, d, c, e]) => (
+            <div key={title}>
+              <h3>{title}</h3>
+              <dl>
+                <div>
+                  <dt>Deposits</dt>
+                  <dd>{d}</dd>
+                </div>
+                <div>
+                  <dt>New contributors</dt>
+                  <dd>{c}</dd>
+                </div>
+                <div>
+                  <dt>ETH sent and returned</dt>
+                  <dd>{e}</dd>
+                </div>
+              </dl>
+            </div>
+          ))}
         </div>
       </section>
       <Section title="The hour-24 cliff">

@@ -259,7 +259,7 @@ try {
           /Direct ·|frozen at|read live/,
         );
       }
-      const main = await page.locator("main").evaluate((el) => {
+      const main = await page.locator(".wallet-facts").evaluate((el) => {
         const box = el.getBoundingClientRect(),
           css = getComputedStyle(el);
         const left = parseFloat(css.paddingLeft),
@@ -268,7 +268,7 @@ try {
       });
       const list = await page.locator(".direct-facts").boundingBox();
       near(list.x, main.x, "direct list left edge");
-      near(list.width, main.width, "direct list fills content");
+      near(list.width, main.width, "direct list fills its left column");
       const boxes = await direct.evaluateAll((els) =>
         els.map((el) => {
           const rect = el.getBoundingClientRect();
@@ -416,6 +416,14 @@ try {
           await dialog()
             .getByText("awaiting signature", { exact: true })
             .waitFor();
+          assert.equal(
+            await dialog()
+              .getByRole("button", {
+                name: "Follow progress on the Wallet page",
+              })
+              .isDisabled(),
+            true,
+          );
           await page.waitForFunction(() => !!window.__resolveSignature);
           if (action === "Close") await close();
           else {
@@ -592,12 +600,11 @@ try {
     },
   );
   await run(
-    "8 Mint Card, Explorer and Mint facts share titles/intros; legacy Explorer links and the home form load and scroll without duplicate ids",
+    "8 Mint titles/intros remain and Catalog hosts Explorer; legacy Explorer links and the home form load and scroll without duplicate ids",
     async () => {
       await setup({ connected: false });
       assert.deepEqual(await page.locator(".part-title").allInnerTexts(), [
         "Mint Card",
-        "Explorer",
         "Mint facts",
       ]);
       assert.equal(
@@ -614,7 +621,6 @@ try {
         await page.locator(".part-title + p.prose").allInnerTexts(),
         [
           "Mint your Sworn card. It captures your direct facts at mint and updates itself when new facts land.",
-          "Look up any wallet: its card, the facts it holds and any open request, read straight from the Registry. No wallet connection is needed.",
           "Add facts to your wallet: chain-proven and panel-sworn facts are requested from the swarm's oracle and land on your card when its panel agrees.",
         ],
       );
@@ -632,7 +638,7 @@ try {
           .count(),
         0,
       );
-      for (const trait of ["", "&trait=801"]) {
+      for (const trait of ["", "&trait=101"]) {
         await page.goto(`${preview.url}#/explorer?address=${wallet}${trait}`);
         await page
           .locator("#explorer")
@@ -647,11 +653,11 @@ try {
             const el = document.getElementById(id);
             return el && Math.abs(el.getBoundingClientRect().top - 24) < 16;
           },
-          trait ? "trait-801" : "explorer",
+          trait ? "trait-101" : "explorer",
         );
         assert.equal(
           await page
-            .getByRole("heading", { name: "Mint Card", exact: true, level: 1 })
+            .getByRole("heading", { name: "Catalog", exact: true, level: 1 })
             .count(),
           1,
         );
@@ -674,6 +680,7 @@ try {
               24,
           ) < 16,
       );
+      await page.goto(preview.url + "#/mint");
       await connect();
       await prepare();
       assert.equal(

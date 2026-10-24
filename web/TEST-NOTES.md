@@ -2,6 +2,12 @@
 
 This is worker validation of the frontend source and static export, not an independent network certification. Contracts were already deployed; this task made no contract-source changes, live transactions, redeployments or publication calls.
 
+## Site refresh (2026-10-24 UTC)
+
+This assignment’s current implementation, eleven-item test mapping, actual commands/results, six-domain review and limits are in [VALIDATION.md](VALIDATION.md). `tests/site-refresh-browser.mjs` adds 14 production-export scenarios and `runtime-integrity.test.mjs` verifies the bundled runtime and every retained startup rejection. Dependencies and browsers were installed in a temporary validation copy, outside the submitted repository. The existing package/lockfile, build configuration, contracts, ABI files, RPC pool, snapshot and read windows are unchanged.
+
+The older scripts retain their safety and interaction assertions. Expectations changed only for this brief: fact wording, Catalog’s Explorer location, counted disclosure before inspecting a known negative row, Wallet’s card column/progress, dialog progress navigation and the ordering of loading versus mint-time reads. Completed requests leave the pending feed; their receipts and claimed Registry proof remain available on Wallet. Historical results below remain records of their own earlier exports, not claims about this export.
+
 ## Nine-item correction revision (2026-10-23 UTC)
 
 This section supersedes the historical delivery records below for the current source/export. The reopened reports were reproduced before editing: commit `64d5e3f` had no test changes; the old exact `Mint` h1 locator timed out; and Close left `#transaction-steps` present while the fake wallet's send request remained unanswered. No real wallet, signature, broadcast or live RPC/API was used.

@@ -275,7 +275,7 @@ try {
     },
   );
   await run(
-    "4 Swarm progress is its own Mint section between Why and Add traits, and absent from Wallet",
+    "4 Mint retains Swarm progress and Wallet now follows pending requests too",
     async () => {
       await setup({
         options: {
@@ -294,10 +294,10 @@ try {
       await feed.locator(".swarm-request").waitFor();
       assert.deepEqual(
         await feed.evaluate((el) => [
-          el.previousElementSibling.querySelector("h2").textContent,
-          el.nextElementSibling.querySelector("h2").textContent,
+          el.parentElement.id,
+          el.nextElementSibling.id,
         ]),
-        ["Why add traits after minting?", "Add traits"],
+        ["mint-facts", "add-traits"],
       );
       assert.equal(await feed.locator(".swarm-request").count(), 1);
       assert.equal(
@@ -309,10 +309,8 @@ try {
       await page
         .getByRole("heading", { name: "Claimed facts", exact: true })
         .waitFor();
-      assert.equal(
-        await page.locator(".swarm-feed, .swarm-request").count(),
-        0,
-      );
+      await page.locator(".swarm-feed .swarm-request").waitFor();
+      assert.equal(await page.locator(".swarm-feed .swarm-request").count(), 1);
     },
   );
   await run(

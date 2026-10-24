@@ -37,7 +37,12 @@ import {
 } from "./settlement";
 import { pageReads } from "./page-reads.mjs";
 import { claimAnchor } from "./navigation";
-import { Explorer } from "./pages";
+import {
+  IneligibleControl,
+  MintedFact,
+  ineligibleFact,
+  useAttestedReader,
+} from "./fact-ui";
 import {
   RequestTime,
   SwarmFeed,
@@ -288,6 +293,9 @@ function SharedFactRow({
   cache,
   wanted,
   onPending,
+  hidden,
+  onEligibility,
+  reader,
 }: {
   trait: any;
   payment: string;
@@ -299,6 +307,9 @@ function SharedFactRow({
   cache: ReturnType<typeof pageReads>;
   wanted: number;
   onPending: (id: number, requestId: string | null) => void;
+  hidden: boolean;
+  onEligibility: (id: number, ineligible: boolean) => void;
+  reader: ReturnType<typeof useAttestedReader>;
 }) {
   const site = useSite();
   const account = useAccount();
@@ -338,6 +349,9 @@ function SharedFactRow({
   const included = value?.list.some(
     (a: string) => a.toLowerCase() === account.address?.toLowerCase(),
   );
+  useEffect(() => {
+    onEligibility(t.id, !!facts && !!stored && !included);
+  }, [stored, included, facts?.address]);
   const cannot = t.id === 1201 && facts && !facts.joined;
   const proven =
     facts?.traits.includes(t.id) || facts?.verifiedSpecs.includes(t.id);
@@ -387,6 +401,7 @@ function SharedFactRow({
     <div
       className={`picker-row ${wanted === t.id ? "highlight" : ""}`}
       id={`pick-${t.id}`}
+      hidden={hidden}
     >
       <div className="picker-text">
         <label>
@@ -482,7 +497,11 @@ function SharedFactRow({
         )}
       </div>
       {t.id === 1201 ? <Card miniId={t.id} /> : <CommunityCard fact={t} />}
-      {!proven && (
+      {proven && facts ? (
+        <div className="row-actions">
+          <MintedFact facts={facts} id={t.id} reader={reader} />
+        </div>
+      ) : (
         <div className="row-actions">
           <button
             type="button"
@@ -532,10 +551,12 @@ function CommunityForm({
   const [edited, setEdited] = useState<Record<string, boolean>>({});
   const [exampleIndex, setExampleIndex] = useState("");
   const examples = form.kind
-    ? (specExamples({
-        curator: site.health?.deps.curator || "",
-        imd: site.r.deployment.network.pairToken.address,
-      }) as Record<string, any[]>)[form.kind] || []
+    ? (
+        specExamples({
+          curator: site.health?.deps.curator || "",
+          imd: site.r.deployment.network.pairToken.address,
+        }) as Record<string, any[]>
+      )[form.kind] || []
     : [];
   const example = exampleIndex === "" ? null : examples[Number(exampleIndex)];
   const normalized = {
@@ -551,7 +572,7 @@ function CommunityForm({
     errors = { fixedVal: "Use unsigned integer values." };
   }
   const labels: Record<string, [string, string]> = {
-    name: ["Trait name", "Community contributor"],
+    name: ["Fact name", "Community contributor"],
     target: ["Contract address", "The contract that emits the event"],
     item: [
       "Event or function signature",
@@ -622,7 +643,7 @@ function CommunityForm({
         site.health.block,
       ]);
       const prepared = await journal.prepare(
-        "Register a community trait",
+        "Register a community fact",
         "step-03",
         [
           {
@@ -757,8 +778,8 @@ function CommunityForm({
       </div>
       <p>
         {site.health
-          ? `A community trait costs ${imd(6400000000000000000n + site.health.price)} IMD: ${exactUnits(site.health.price)} for your first claim and 6.4 IMD that registerSpec() forwards to the BurnExecutor for bridging and burning on Base.`
-          : "A community trait costs 6.4 IMD plus the live oracle price for your first claim; the fee is forwarded to the BurnExecutor for bridging and burning on Base."}{" "}
+          ? `A community fact costs ${imd(6400000000000000000n + site.health.price)} IMD: ${exactUnits(site.health.price)} for your first claim and 6.4 IMD that registerSpec() forwards to the BurnExecutor for bridging and burning on Base.`
+          : "A community fact costs 6.4 IMD plus the live oracle price for your first claim; the fee is forwarded to the BurnExecutor for bridging and burning on Base."}{" "}
         The request price is read again when you prepare; it can change.
         Registration and your first claim are separate transactions.
       </p>
@@ -815,6 +836,13 @@ export function Claim() {
   const [factError, setFactError] = useState("");
   const [payment, setPayment] = useState("IMD");
   const [selected, setSelected] = useState<number[]>([]);
+  const [showIneligible, setShowIneligible] = useState(false);
+  const [showDirectIneligible, setShowDirectIneligible] = useState(false);
+  const [sharedEligibility, setSharedEligibility] = useState<{
+    wallet?: string;
+    ids: Record<number, boolean>;
+  }>({ ids: {} });
+  const mintedReader = useAttestedReader(account.address);
   const [sharedPendings, setSharedPendings] = useState<Record<number, string>>(
     {},
   );
@@ -1063,6 +1091,19 @@ export function Claim() {
     })),
     ...customTraits,
   ].sort((a, b) => a.id - b.id);
+  function paidIneligible(id: number) {
+    return (
+      ineligibleFact(
+        facts,
+        id,
+        journal.eligibility[journal.eligibilityKey(id)],
+      ) ||
+      (!facts?.traits.includes(id) &&
+        !facts?.verifiedSpecs.includes(id) &&
+        sharedEligibility.wallet === account.address &&
+        !!sharedEligibility.ids[id])
+    );
+  }
   async function prepareMint() {
     setBusy("mint");
     setStatus((v) => ({ ...v, mint: "Checking…" }));
@@ -1170,7 +1211,7 @@ export function Claim() {
           {(!account.address || (cardReady && minted === 0n)) && (
             <>
               <p>
-                A card costs 0.10 IMD; no trait claim is needed before minting.
+                A card costs 0.10 IMD; no fact claim is needed before minting.
               </p>
               <p className="accent">Mint your card now. It updates itself.</p>
               <p>{FEE}.</p>
@@ -1236,8 +1277,11 @@ export function Claim() {
           <Card sample />
         )}
       </section>
-      <Explorer journal={journal} />
-      <section className="part" id="mint-facts" aria-labelledby="mint-facts-title">
+      <section
+        className="part"
+        id="mint-facts"
+        aria-labelledby="mint-facts-title"
+      >
         <h2 className="part-title" id="mint-facts-title">
           Mint facts
         </h2>
@@ -1246,362 +1290,416 @@ export function Claim() {
           requested from the swarm's oracle and land on your card when its panel
           agrees.
         </p>
-      <Section title="Why add traits after minting?">
-        <p>
-          Your card captures direct facts at mint. Paid requests can add
-          verified facts later, and the card updates itself. A false answer or a
-          panel without a verdict adds no fact; its request price is still
-          spent.
-        </p>
-        <ol className="flow">
-          <li>Mint a card</li>
-          <li>Request a fact</li>
-          <li>Agents check the rule</li>
-          <li>Your card updates</li>
-        </ol>
-      </Section>
-      {pendingFacts.length > 0 && (
-        <section className="section swarm-feed" aria-label="Swarm progress">
-          <h2>Swarm progress</h2>
-          <p className="muted">
-            Live panel progress, not proof. Facts and card updates come from the
-            Registry.
-          </p>
-          {pendingFacts.map((fact) => (
-            <SwarmFeed
-              key={fact.requestId}
-              fact={fact}
-              focus={null}
-              onAttested={() => setRefreshTick((n) => n + 1)}
-            />
-          ))}
-        </section>
-      )}
-      <section className="section" id="add-traits">
-        <h2>Add traits</h2>
-        <fieldset className="payment">
-          <legend>Pay for minting and paid traits with</legend>
-          {["IMD", "ETH"].map((v) => (
-            <label key={v}>
-              <input
-                type="radio"
-                name="payment"
-                value={v}
-                checked={payment === v}
-                onChange={() => {
-                  setPayment(v);
-                  // An unsent preparation was priced for the other currency.
-                  journal.discard();
-                }}
+
+        {pendingFacts.length > 0 && (
+          <section className="section swarm-feed" aria-label="Swarm progress">
+            <h2>Swarm progress</h2>
+            <p className="muted">
+              Live panel progress, not proof. Facts and card updates come from
+              the Registry.
+            </p>
+            {pendingFacts.map((fact) => (
+              <SwarmFeed
+                key={fact.requestId}
+                fact={fact}
+                focus={null}
+                onAttested={() => setRefreshTick((n) => n + 1)}
               />
-              {v}
-            </label>
-          ))}
-        </fieldset>
-        <p className="muted">
-          IMD is the default. ETH buys exactly the missing IMD with a live
-          exact-output quote, a 1% maximum input margin and a 120-second
-          deadline.
-        </p>
-        <section id="step-01" className="step">
-          <h3 aria-label="Step 01 · Direct reads">
-            <span aria-hidden="true">Step 01 · </span>Direct reads
-          </h3>
-          <div className="info-grid">
-            <p>
-              <strong>Who can</strong> · Any wallet. The Curator determines
-              which facts are true.
-            </p>
-            <p>
-              <strong>Cost and risk</strong> · No claim fee. A card freezes
-              these direct reads at mint.
-            </p>
-            <p>
-              <strong>Who benefits</strong> · Your wallet can use these
-              credentials without minting.
-            </p>
-          </div>
-          <p>
-            {facts
-              ? `${facts.traits.filter((id) => id < 601).length} direct traits present.`
-              : "Connect to see your live direct facts."}{" "}
-            <a href="#/catalog#direct">Read the direct rules</a>.
-          </p>
-          <div className="direct-summary">
-            {TRAITS.filter((t) => t.class === "direct").map((t) => (
-              <span
-                className={facts?.traits.includes(t.id) ? "accent" : "muted"}
-                key={t.id}
-              >
-                {t.id} / {t.name}
-                {facts
-                  ? facts.traits.includes(t.id)
-                    ? " · present"
-                    : " · absent"
-                  : ""}
-              </span>
             ))}
-          </div>
-        </section>
-        <section id="step-02" className="step">
-          <h3 aria-label="Step 02 · Request facts">
-            <span aria-hidden="true">Step 02 · </span>Request facts
-          </h3>
-          <div className="info-grid">
+          </section>
+        )}
+        <section className="section" id="add-traits">
+          <h2>Add facts</h2>
+          <section id="step-01" className="step">
+            <h3 aria-label="Step 01 · Direct reads">
+              <span aria-hidden="true">Step 01 · </span>Direct reads
+            </h3>
+            <div className="info-grid">
+              <p>
+                <strong>Who can</strong> · Any wallet. The Curator determines
+                which facts are true.
+              </p>
+              <p>
+                <strong>Cost and risk</strong> · No claim fee. A card freezes
+                these direct reads at mint.
+              </p>
+              <p>
+                <strong>Who benefits</strong> · Your wallet can use these
+                credentials without minting.
+              </p>
+            </div>
             <p>
-              <strong>Who can</strong> · Any eligible wallet, with or without a
-              card.
+              {facts
+                ? `${facts.traits.filter((id) => id < 601).length} direct facts present.`
+                : "Connect to see your live direct facts."}{" "}
+              <a href="#/catalog#direct">Read the direct rules</a>.
             </p>
-            <p>
-              <strong>Cost and risk</strong> · Each fact is a separate request
-              at{" "}
-              {site.health
-                ? `${imd(site.health.price)} IMD (priceOf · live)`
-                : "the live oracle price per fact"}
-              . The price is spent whatever the answer.
-            </p>
-            <p>
-              <strong>Who benefits</strong> · Your wallet, and anyone checking
-              its credentials.
-            </p>
-          </div>
-          <p>
-            Chain-proven facts use 5 agents / quorum 3. Panel-sworn facts use 11
-            / 7. For a requestable fact, unclaimed means unproven. It does not
-            mean the fact is false. {SWARMED}
-          </p>
-          <div
-            className="trait-picker"
-            role="group"
-            aria-label="Select paid facts"
-          >
-            {paid.map((t) => {
-              const cant = facts && impossible(facts.joined, t.id);
-              const proven =
-                facts?.traits.includes(t.id) ||
-                facts?.verifiedSpecs.includes(t.id);
-              const pending =
-                facts?.pending[t.id] && !/^0x0+$/.test(facts.pending[t.id]);
-              const requestable =
-                !!facts && !!account.address && !cant && !proven && !pending;
-              if (t.kind === 3)
-                return (
-                  <SharedFactRow
-                    key={t.id}
-                    trait={t}
-                    payment={payment}
-                    journal={journal}
-                    facts={facts}
-                    selected={selected.includes(t.id)}
-                    onSelect={(checked) =>
-                      setSelected((old) =>
-                        checked
-                          ? old.includes(t.id)
-                            ? old
-                            : [...old, t.id]
-                          : old.filter((id) => id !== t.id),
-                      )
-                    }
-                    request={() => prepareFacts([t.id])}
-                    cache={backfills}
-                    wanted={wanted}
-                    onPending={(id, rid) =>
-                      setSharedPendings((old) => {
-                        if ((old[id] || null) === rid) return old;
-                        const next = { ...old };
-                        if (rid) next[id] = rid;
-                        else delete next[id];
-                        return next;
-                      })
-                    }
-                  />
-                );
-              return (
-                <div
+            <IneligibleControl
+              count={
+                TRAITS.filter(
+                  (t) => t.class === "direct" && ineligibleFact(facts, t.id),
+                ).length
+              }
+              shown={showDirectIneligible}
+              onChange={() => setShowDirectIneligible((v) => !v)}
+            />
+            <div className="direct-summary">
+              {TRAITS.filter(
+                (t) =>
+                  t.class === "direct" &&
+                  (showDirectIneligible || !ineligibleFact(facts, t.id)),
+              ).map((t) => (
+                <span
+                  className={facts?.traits.includes(t.id) ? "accent" : "muted"}
                   key={t.id}
-                  id={`pick-${t.id}`}
-                  className={`picker-row ${wanted === t.id ? "highlight" : ""}`}
                 >
-                  <label>
-                    <input
-                      type="checkbox"
-                      checked={selected.includes(t.id)}
-                      disabled={!!cant || proven || !!pending}
-                      onChange={(e) =>
+                  {t.id} / {t.name}
+                  {facts
+                    ? facts.traits.includes(t.id)
+                      ? " · present"
+                      : " · absent"
+                    : ""}
+                </span>
+              ))}
+            </div>
+          </section>
+          <section id="step-02" className="step">
+            <h3 aria-label="Step 02 · Request facts">
+              <span aria-hidden="true">Step 02 · </span>Request facts
+            </h3>
+            <div className="info-grid">
+              <p>
+                <strong>Who can</strong> · Any eligible wallet, with or without
+                a card.
+              </p>
+              <p>
+                <strong>Cost and risk</strong> · Each fact is a separate request
+                at{" "}
+                {site.health
+                  ? `${imd(site.health.price)} IMD (priceOf · live)`
+                  : "the live oracle price per fact"}
+                . The price is spent whatever the answer.
+              </p>
+              <p>
+                <strong>Who benefits</strong> · Your wallet, and anyone checking
+                its credentials.
+              </p>
+            </div>
+            <p>
+              Chain-proven facts use 5 agents / quorum 3. Panel-sworn facts use
+              11 / 7. For a requestable fact, unclaimed means unproven. It does
+              not mean the fact is false. {SWARMED}
+            </p>
+            <fieldset className="payment">
+              <legend>Pay for minting and paid facts with</legend>
+              {["IMD", "ETH"].map((v) => (
+                <label key={v}>
+                  <input
+                    type="radio"
+                    name="payment"
+                    value={v}
+                    checked={payment === v}
+                    onChange={() => {
+                      setPayment(v);
+                      // An unsent preparation was priced for the other currency.
+                      journal.discard();
+                    }}
+                  />
+                  {v}
+                </label>
+              ))}
+            </fieldset>
+            <p className="muted">
+              IMD is the default. ETH buys exactly the missing IMD with a live
+              exact-output quote, a 1% maximum input margin and a 120-second
+              deadline.
+            </p>
+            <IneligibleControl
+              count={paid.filter((t) => paidIneligible(t.id)).length}
+              shown={showIneligible}
+              onChange={() => setShowIneligible((v) => !v)}
+            />
+            <div
+              className="trait-picker"
+              role="group"
+              aria-label="Select paid facts"
+            >
+              {paid.map((t) => {
+                const hidden = !showIneligible && paidIneligible(t.id);
+                const cant = facts && impossible(facts.joined, t.id);
+                const proven =
+                  facts?.traits.includes(t.id) ||
+                  facts?.verifiedSpecs.includes(t.id);
+                const pending =
+                  facts?.pending[t.id] && !/^0x0+$/.test(facts.pending[t.id]);
+                const requestable =
+                  !!facts && !!account.address && !cant && !proven && !pending;
+                if (t.kind === 3)
+                  return (
+                    <SharedFactRow
+                      key={t.id}
+                      trait={t}
+                      hidden={hidden}
+                      reader={mintedReader}
+                      onEligibility={(id, ineligible) =>
+                        setSharedEligibility((old) => ({
+                          wallet: account.address,
+                          ids: {
+                            ...(old.wallet === account.address ? old.ids : {}),
+                            [id]: ineligible,
+                          },
+                        }))
+                      }
+                      payment={payment}
+                      journal={journal}
+                      facts={facts}
+                      selected={selected.includes(t.id)}
+                      onSelect={(checked) =>
                         setSelected((old) =>
-                          e.target.checked
-                            ? [...old, t.id]
+                          checked
+                            ? old.includes(t.id)
+                              ? old
+                              : [...old, t.id]
                             : old.filter((id) => id !== t.id),
                         )
                       }
+                      request={() => prepareFacts([t.id])}
+                      cache={backfills}
+                      wanted={wanted}
+                      onPending={(id, rid) =>
+                        setSharedPendings((old) => {
+                          if ((old[id] || null) === rid) return old;
+                          const next = { ...old };
+                          if (rid) next[id] = rid;
+                          else delete next[id];
+                          return next;
+                        })
+                      }
                     />
-                    <span>
-                      <strong>
-                        {t.id} / {t.name}
-                      </strong>
-                      <span className="rule">
-                        {t.rule} · {t.window} · <Mark kind={t.class} />
-                        {proven && !cant && (
-                          <>
-                            {" · "}
-                            <span className="accent">Already proven</span>
-                          </>
-                        )}
-                      </span>
-                      {!proven &&
-                        requestHistory.wallet === account.address &&
-                        requestHistory.lines[t.id] && (
-                          <span className="muted">
-                            {requestHistory.lines[t.id]}
-                          </span>
-                        )}
-                      {selected.includes(t.id) && account.address && (
-                        <span
-                          className={
-                            journal.eligibility[journal.eligibilityKey(t.id)]
-                              ?.state === "not-met"
-                              ? "danger eligibility-advice"
-                              : "muted eligibility-advice"
-                          }
-                          role="status"
-                        >
-                          {eligibilityText(
-                            journal.eligibility[journal.eligibilityKey(t.id)],
-                            site.health?.price,
+                  );
+                if (hidden) return null;
+                return (
+                  <div
+                    key={t.id}
+                    id={`pick-${t.id}`}
+                    className={`picker-row ${wanted === t.id ? "highlight" : ""}`}
+                  >
+                    <label>
+                      <input
+                        type="checkbox"
+                        checked={selected.includes(t.id)}
+                        disabled={!!cant || proven || !!pending}
+                        onChange={(e) =>
+                          setSelected((old) =>
+                            e.target.checked
+                              ? [...old, t.id]
+                              : old.filter((id) => id !== t.id),
+                          )
+                        }
+                      />
+                      <span>
+                        <strong>
+                          {t.id} / {t.name}
+                        </strong>
+                        <span className="rule">
+                          {t.rule} · {t.window} · <Mark kind={t.class} />
+                          {proven && !cant && (
+                            <>
+                              {" · "}
+                              <span className="accent">Already proven</span>
+                            </>
                           )}
                         </span>
-                      )}
-                      {cant ? (
-                        <span className="muted">
-                          cannot be true: not in WhitelistCurator.sol
-                        </span>
-                      ) : proven ? null : pending ? (
-                        <span className="muted">Request pending</span>
-                      ) : null}
-                    </span>
-                  </label>
-                  {t.id < 10001 && <Card miniId={t.id} />}
-                  {requestable && (
-                    <div className="row-actions">
-                      <button
-                        type="button"
-                        className="secondary"
-                        disabled={!!reason || !!busy}
-                        aria-label={`Mint this fact: ${t.id} / ${t.name}`}
-                        onClick={() => prepareFacts([t.id])}
-                      >
-                        Mint this fact
-                      </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-          <p id="oracle-ack" className="muted">
-            The payment dialog explains the cost and requires your confirmation
-            before any wallet signature.
-          </p>
-          <button
-            disabled={
-              !!reason ||
-              !facts ||
-              selected.length === 0 ||
-              !!busy ||
-              selected.some(
-                (id) =>
-                  impossible(facts?.joined, id) ||
-                  facts?.traits.includes(id) ||
-                  facts?.verifiedSpecs.includes(id) ||
-                  (facts?.pending[id] && !/^0x0+$/.test(facts.pending[id])),
-              )
-            }
-            onClick={() => prepareFacts()}
-          >
-            {busy === "facts" ? "Checking…" : "Mint selected facts"}
-          </button>
-          <Status
-            error={
-              !!status.facts &&
-              !status.facts.startsWith("Ready:") &&
-              status.facts !== "Checking…"
-            }
-          >
-            {status.facts ||
-              reason ||
-              (!facts
-                ? "Wait for wallet reads."
-                : !selected.length
-                  ? "Select at least one fact."
-                  : "")}
-          </Status>
-          {status.facts?.startsWith("Ready:") && (
-            <a href={claimAnchor("transaction-steps")}>Transaction steps ↓</a>
-          )}
-          {facts &&
-            Object.entries({ ...facts.pending, ...sharedPendings })
-              .filter(([, rid]) => !/^0x0+$/.test(rid))
-              .map(([id, rid]) => (
-                <div key={id}>
-                  <h4>{id} / pending request</h4>
-                  <Settlement
-                    requestId={rid}
-                    journal={journal}
-                    onCheckSwarm={
-                      sharedPendings[Number(id)]
-                        ? undefined
-                        : () => {
-                            const feed = document.getElementById(
-                              `swarm-${rid}`,
-                            );
-                            if (feed instanceof HTMLDetailsElement) {
-                              feed.open = true;
-                              feed.querySelector("summary")?.focus();
-                              feed.scrollIntoView({ block: "nearest" });
+                        {!proven &&
+                          requestHistory.wallet === account.address &&
+                          requestHistory.lines[t.id] && (
+                            <span className="muted">
+                              {requestHistory.lines[t.id]}
+                            </span>
+                          )}
+                        {selected.includes(t.id) && account.address && (
+                          <span
+                            className={
+                              journal.eligibility[journal.eligibilityKey(t.id)]
+                                ?.state === "not-met"
+                                ? "danger eligibility-advice"
+                                : "muted eligibility-advice"
                             }
-                          }
-                    }
-                  />
-                </div>
-              ))}
-          <h3>Community facts</h3>
-          {site.loading ? (
-            <Status>Reading community specs…</Status>
-          ) : site.error ? (
-            <Status error>{site.error}</Status>
-          ) : site.specError ? (
-            <Status error>{site.specError}</Status>
-          ) : !site.specs.length ? (
-            <p className="muted">
-              No community specs registered yet. Register an immutable spec in
-              step 03.
+                            role="status"
+                          >
+                            {eligibilityText(
+                              journal.eligibility[journal.eligibilityKey(t.id)],
+                              site.health?.price,
+                            )}
+                          </span>
+                        )}
+                        {cant ? (
+                          <span className="muted">
+                            cannot be true: not in WhitelistCurator.sol
+                          </span>
+                        ) : proven ? null : pending ? (
+                          <span className="muted">Request pending</span>
+                        ) : null}
+                      </span>
+                    </label>
+                    {t.id < 10001 && <Card miniId={t.id} />}
+                    {proven && facts ? (
+                      <div className="row-actions">
+                        <MintedFact
+                          facts={facts}
+                          id={t.id}
+                          reader={mintedReader}
+                        />
+                      </div>
+                    ) : (
+                      requestable && (
+                        <div className="row-actions">
+                          <button
+                            type="button"
+                            className="secondary"
+                            disabled={!!reason || !!busy}
+                            aria-label={`Mint this fact: ${t.id} / ${t.name}`}
+                            onClick={() => prepareFacts([t.id])}
+                          >
+                            Mint this fact
+                          </button>
+                        </div>
+                      )
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            <p id="oracle-ack" className="muted">
+              The payment dialog explains the cost and requires your
+              confirmation before any wallet signature.
             </p>
-          ) : (
-            <p className="muted">Community facts appear in the picker above.</p>
-          )}
+            <button
+              disabled={
+                !!reason ||
+                !facts ||
+                selected.length === 0 ||
+                !!busy ||
+                selected.some(
+                  (id) =>
+                    impossible(facts?.joined, id) ||
+                    facts?.traits.includes(id) ||
+                    facts?.verifiedSpecs.includes(id) ||
+                    (facts?.pending[id] && !/^0x0+$/.test(facts.pending[id])),
+                )
+              }
+              onClick={() => prepareFacts()}
+            >
+              {busy === "facts" ? "Checking…" : "Mint selected facts"}
+            </button>
+            <Status
+              error={
+                !!status.facts &&
+                !status.facts.startsWith("Ready:") &&
+                status.facts !== "Checking…"
+              }
+            >
+              {status.facts ||
+                reason ||
+                (!facts
+                  ? "Wait for wallet reads."
+                  : !selected.length
+                    ? "Select at least one fact."
+                    : "")}
+            </Status>
+            {status.facts?.startsWith("Ready:") && (
+              <a href={claimAnchor("transaction-steps")}>Transaction steps ↓</a>
+            )}
+            {facts &&
+              Object.entries({ ...facts.pending, ...sharedPendings })
+                .filter(([, rid]) => !/^0x0+$/.test(rid))
+                .map(([id, rid]) => (
+                  <div key={id}>
+                    <h4>{id} / pending request</h4>
+                    <Settlement
+                      requestId={rid}
+                      journal={journal}
+                      onCheckSwarm={
+                        sharedPendings[Number(id)]
+                          ? undefined
+                          : () => {
+                              const feed = document.getElementById(
+                                `swarm-${rid}`,
+                              );
+                              if (feed instanceof HTMLDetailsElement) {
+                                feed.open = true;
+                                feed.querySelector("summary")?.focus();
+                                feed.scrollIntoView({ block: "nearest" });
+                              }
+                            }
+                      }
+                    />
+                  </div>
+                ))}
+            <h3>Community facts</h3>
+            {site.loading ? (
+              <Status>Reading community specs…</Status>
+            ) : site.error ? (
+              <Status error>{site.error}</Status>
+            ) : site.specError ? (
+              <Status error>{site.specError}</Status>
+            ) : !site.specs.length ? (
+              <p className="muted">
+                No community specs registered yet. Register an immutable spec in
+                step 03.
+              </p>
+            ) : (
+              <p className="muted">
+                Community facts appear in the picker above.
+              </p>
+            )}
+            <section className="section why-facts">
+              <h4>Why add facts after minting?</h4>
+              <p>
+                Your card captures direct facts at mint. Paid requests can add
+                verified facts later, and the card updates itself. A false
+                answer or a panel without a verdict adds no fact; its request
+                price is still spent.
+              </p>
+              <ol className="flow">
+                <li>
+                  <a href="#/mint#mint">Mint a card</a>
+                </li>
+                <li>
+                  <a href="#/mint#step-02">Request a fact</a>
+                </li>
+                <li>
+                  <a href="#/wallet">Agents check the rule</a>
+                </li>
+                <li>
+                  <a href="#/wallet">Your card updates</a>
+                </li>
+              </ol>
+            </section>
+          </section>
+          <section id="step-03" className="step">
+            <h3 aria-label="Step 03 · Register a community fact">
+              <span aria-hidden="true">Step 03 · </span>Register a community
+              fact
+            </h3>
+            <div className="info-grid">
+              <p>
+                <strong>Who can</strong> · Anyone with a supported, immutable
+                rule.
+              </p>
+              <p>
+                <strong>Cost and risk</strong> · 6.4 IMD; {FEE}. A refused
+                oracle question keeps its request price.
+              </p>
+              <p>
+                <strong>Who benefits</strong> · A curator can define a fact for
+                their community. Eligible wallets request and prove it.
+              </p>
+            </div>
+            <CommunityForm payment={payment} journal={journal} />
+          </section>
         </section>
-        <section id="step-03" className="step">
-          <h3 aria-label="Step 03 · Register a community trait">
-            <span aria-hidden="true">Step 03 · </span>Register a community trait
-          </h3>
-          <div className="info-grid">
-            <p>
-              <strong>Who can</strong> · Anyone with a supported, immutable
-              rule.
-            </p>
-            <p>
-              <strong>Cost and risk</strong> · 6.4 IMD; {FEE}. A refused oracle
-              question keeps its request price.
-            </p>
-            <p>
-              <strong>Who benefits</strong> · A curator can define a fact for
-              their community. Eligible wallets request and prove it.
-            </p>
-          </div>
-          <CommunityForm payment={payment} journal={journal} />
-        </section>
-      </section>
-      <TransactionJournal journal={journal} />
+        <TransactionJournal journal={journal} />
       </section>
     </>
   );

@@ -33,12 +33,12 @@ function routeInfo() {
       anchor: rest === "hours" || rest === "source" ? rest : "whitelistcurator",
       query: new URLSearchParams(),
     };
-  // Explorer is a part of Mint: #/explorer?address=…&trait=… opens that part
+  // Explorer is a part of Catalog: #/explorer?address=…&trait=… opens that part
   // with the wallet loaded and scrolls to the fact once its row arrives.
   if (requested === "/explorer") {
     const query = new URLSearchParams(path.split("?")[1]);
     return {
-      route: "/mint",
+      route: "/catalog",
       anchor: query.get("trait") ? `trait-${query.get("trait")}` : "explorer",
       query,
     };
@@ -131,6 +131,11 @@ export function App({ r }: { r: Runtime }) {
     const label =
       ROUTES.find(([path]) => path === route.route)?.[1] || "Page not found";
     document.title = `Sworn | ${label}`;
+    // Establish route focus before the visitor starts typing. A delayed anchor
+    // observer must never steal focus back from an already-used form.
+    const main = document.getElementById("main");
+    main?.focus({ preventScroll: true });
+    window.scrollTo(0, 0);
     let observer: MutationObserver | undefined;
     const timeout = setTimeout(() => {
       const trait = route.query.get("trait");
@@ -153,15 +158,12 @@ export function App({ r }: { r: Runtime }) {
         return false;
       };
       if (scrollToTarget()) return;
-      const main = document.getElementById("main");
       if (id && main) {
         // Community rows and wallet history can arrive after navigation.
         // Stop watching after the first match or when the route changes.
         observer = new MutationObserver(scrollToTarget);
         observer.observe(main, { childList: true, subtree: true });
       }
-      main?.focus({ preventScroll: true });
-      window.scrollTo(0, 0);
     }, 100);
     return () => {
       clearTimeout(timeout);
@@ -205,7 +207,12 @@ export function App({ r }: { r: Runtime }) {
       </a>
       <header className="site-header">
         <a className="brand" href="#/" aria-label="Sworn home">
-          <img src={asset("art/full-house.svg")} width="40" height="40" alt="" />
+          <img
+            src={asset("art/full-house.svg")}
+            width="40"
+            height="40"
+            alt=""
+          />
           <span>SWORN</span>
         </a>
         <nav aria-label="Main navigation">
@@ -241,29 +248,6 @@ export function App({ r }: { r: Runtime }) {
           <a href="#/integrate#fact-vs-artifact">A fact is not an artifact ↗</a>
         </div>
         <ContractList />
-        <div className="rpc-controls">
-          <label htmlFor="rpc-choice">Public RPC</label>
-          <select
-            id="rpc-choice"
-            value={rpcUrl}
-            onChange={(e) => setRpcUrl(e.target.value)}
-          >
-            {Array.from(new Set(READ_RPCS)).map((url) => (
-              <option key={url} value={url}>
-                {new URL(url).hostname}
-              </option>
-            ))}
-          </select>
-          <button
-            onClick={() => {
-              setReadRetry((n) => n + 1);
-              void refresh();
-            }}
-            disabled={loading}
-          >
-            {loading ? "Checking…" : "Retry reads"}
-          </button>
-        </div>
         <Status error={!!error}>
           {error ||
             (health
@@ -274,6 +258,29 @@ export function App({ r }: { r: Runtime }) {
           <span>No owner. No backend. No coin.</span>
           <a href={asset("imd-deployment.json")}>Deployment manifest ↗</a>
           <a href="#/about">About & sources ↗</a>
+          <div className="rpc-controls">
+            <label htmlFor="rpc-choice">Public RPC</label>
+            <select
+              id="rpc-choice"
+              value={rpcUrl}
+              onChange={(e) => setRpcUrl(e.target.value)}
+            >
+              {Array.from(new Set(READ_RPCS)).map((url) => (
+                <option key={url} value={url}>
+                  {new URL(url).hostname}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => {
+                setReadRetry((n) => n + 1);
+                void refresh();
+              }}
+              disabled={loading}
+            >
+              {loading ? "Checking…" : "Retry reads"}
+            </button>
+          </div>
         </div>
       </footer>
     </SiteContext.Provider>

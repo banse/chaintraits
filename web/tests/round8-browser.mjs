@@ -244,6 +244,7 @@ try {
           f.state.proven = [701];
         },
       });
+      await page.locator("#step-02 .eligibility-toggle").click();
       const r1001 = page.locator("#pick-1001");
       await r1001.getByRole("button", { name: /Mint this fact/ }).waitFor();
       await r1001.locator("input").check();
@@ -372,7 +373,7 @@ try {
   );
 
   await run(
-    "7 Mint has the progress section and Check swarm; Wallet has history only",
+    "7 Mint retains progress and Check swarm; Wallet follows the same pending request",
     async () => {
       await setup({ pending: { id: 801, requestedAt: age(600) } });
       const nav = await page
@@ -401,10 +402,8 @@ try {
       await noOverflow("mint-open");
       await page.getByRole("link", { name: "Wallet", exact: true }).click();
       await page.getByRole("heading", { name: "Wallet", level: 1 }).waitFor();
-      assert.equal(
-        await page.locator(".swarm-feed, .swarm-request").count(),
-        0,
-      );
+      await page.locator(".swarm-feed .swarm-request").waitFor();
+      assert.equal(await page.locator(".swarm-feed .swarm-request").count(), 1);
       await page.getByRole("heading", { name: "Claimed facts" }).waitFor();
       await noOverflow("wallet-open");
     },

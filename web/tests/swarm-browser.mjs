@@ -313,7 +313,7 @@ try {
     },
   );
   await run(
-    "6 full-width progress after Why and before Add traits; no overflow",
+    "6 full-width Mint progress stays before Add facts; no overflow",
     async () => {
       for (const width of [1280, 1000, 780, 390, 320]) {
         await page.setViewportSize({ width, height: 844 });
@@ -343,11 +343,8 @@ try {
         assert.deepEqual(
           await page
             .locator(".swarm-feed")
-            .evaluate((el) => [
-              el.previousElementSibling.querySelector("h2").textContent,
-              el.nextElementSibling.querySelector("h2").textContent,
-            ]),
-          ["Why add traits after minting?", "Add traits"],
+            .evaluate((el) => [el.parentElement.id, el.nextElementSibling.id]),
+          ["mint-facts", "add-traits"],
         );
         if ([1280, 390].includes(width)) {
           await page.evaluate(() => scrollTo(0, 0));
@@ -430,6 +427,12 @@ try {
       unavailable = true;
       await page.evaluate(() => window.__pollSwarm());
       await feed.getByText("progress unavailable", { exact: true }).waitFor();
+      if (
+        (await page
+          .locator("#step-02 .eligibility-toggle")
+          .getAttribute("aria-pressed")) === "false"
+      )
+        await page.locator("#step-02 .eligibility-toggle").click();
       assert.equal(await page.locator("#pick-701 input").isEnabled(), true);
       await page.locator("#pick-701 input").check();
       await page

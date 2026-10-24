@@ -15,7 +15,15 @@ test("Explorer request rows show live IMD prices or explicit unavailability", as
     const { WalletFactRows } = await vite.ssrLoadModule("/src/components.tsx");
     const { SiteContext } = await vite.ssrLoadModule("/src/context.tsx");
     globalThis.location = { hash: "#/explorer" };
-    const facts = { answers: [], joined: false, pending: {}, verified: {} };
+    const facts = {
+      address: "0x2000000000000000000000000000000000000001",
+      traits: [],
+      verifiedSpecs: [],
+      answers: [],
+      joined: false,
+      pending: {},
+      verified: {},
+    };
     for (const [health, label] of [
       [null, "Live price unavailable"],
       [{ price: 500000000000000000n }, "0.50 IMD · priceOf · live"],

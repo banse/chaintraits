@@ -5,6 +5,13 @@ import { useSite } from "./context";
 import { asset, explain, type WalletFacts } from "./chain";
 import { completion } from "./settlement";
 import { FAMILIES, TRAITS } from "./data";
+import {
+  IneligibleControl,
+  MintedFact,
+  ineligibleFact,
+  useAttestedReader,
+  useFactChecks,
+} from "./fact-ui";
 import { imd } from "./pure.mjs";
 export const num = (n: bigint | number) => n.toLocaleString("en-US");
 export function Section({
@@ -12,7 +19,7 @@ export function Section({
   id,
   children,
 }: {
-  title: string;
+  title: ReactNode;
   id?: string;
   children: ReactNode;
 }) {
@@ -177,6 +184,8 @@ export function Card({
   image,
   interactive = false,
   onFamily,
+  activeFamily,
+  availableFamilies,
 }: {
   facts?: Pick<WalletFacts, "token" | "metadata">;
   sample?: boolean;
@@ -184,6 +193,8 @@ export function Card({
   image?: string;
   interactive?: boolean;
   onFamily?: (n: number) => void;
+  activeFamily?: number;
+  availableFamilies?: number[];
 }) {
   return (
     <figure className={miniId ? "mini-card" : "card-figure"}>
@@ -206,10 +217,18 @@ export function Card({
         />
         {interactive && (
           <div className="cell-controls" aria-label="Explore hive families">
-            {HIVE_CELLS.map(({ family, x, y }) => (
+            {HIVE_CELLS.filter(
+              ({ family }) =>
+                !availableFamilies || availableFamilies.includes(family),
+            ).map(({ family, x, y }) => (
               <button
                 key={family}
                 aria-label={`Inspect ${FAMILIES[family - 1]} cell`}
+                aria-pressed={
+                  activeFamily === undefined
+                    ? undefined
+                    : activeFamily === family
+                }
                 style={{
                   left: `${(x - 89) / 10}%`,
                   top: `${(y - 77.1) / 10}%`,
@@ -316,11 +335,13 @@ function SignedVerdict({ requestId }: { requestId: string }) {
             Signed completion transaction ↗
           </a>
           <pre tabIndex={0}>
-            {JSON.stringify(
-              result,
-              (_, v) => (typeof v === "bigint" ? v.toString() : v),
-              2,
-            )}
+            <code>
+              {JSON.stringify(
+                result,
+                (_, v) => (typeof v === "bigint" ? v.toString() : v),
+                2,
+              )}
+            </code>
           </pre>
         </details>
       )}
@@ -335,65 +356,85 @@ export function WalletFactRows({
   family?: number;
 }) {
   const { health } = useSite();
+  const [showIneligible, setShowIneligible] = useState(false);
+  const checks = useFactChecks(
+    facts,
+    TRAITS.map((t) => t.id),
+  );
+  const reader = useAttestedReader(facts.address);
   const rows = TRAITS.filter((t) => !family || t.family === family);
+  const hiddenCount = rows.filter((t) =>
+    ineligibleFact(facts, t.id, checks[t.id]),
+  ).length;
   return (
     <div className="fact-rows">
-      {rows.map((t) => {
-        const i = TRAITS.findIndex((row) => row.id === t.id);
-        const result = facts.answers[i];
-        const cannot =
-          !facts.joined && ((t.id >= 701 && t.id <= 1105) || t.id === 1201);
-        const pending = facts.pending[t.id];
-        const proof = facts.verified[t.id];
-        return (
-          <div
-            id={`trait-${t.id}`}
-            className={`fact-row ${new URLSearchParams(location.hash.split("?")[1]).get("trait") === String(t.id) ? "highlight" : ""}`}
-            key={t.id}
-          >
-            <div>
-              <strong>
-                {t.id} / {t.name}
-              </strong>
-              <Mark kind={t.class} rare={t.rare} />
-            </div>
-            <div className={result ? "accent" : "muted"}>
-              {result
-                ? "Proven"
-                : t.class === "direct"
-                  ? "Not present"
-                  : cannot
-                    ? "cannot be true: not in WhitelistCurator.sol"
-                    : pending && !/^0x0+$/.test(pending)
-                      ? "Request pending"
-                      : "not claimed"}
-            </div>
-            <div className="rule">
-              {t.rule} · {t.window}
-            </div>
-            {proof && !/^0x0+$/.test(proof[0]) && (
-              <div className="proof">
-                <SignedVerdict requestId={proof[0]} />
-                <span>
-                  Window {num(proof[2])} → {num(proof[3])}
-                </span>
+      <IneligibleControl
+        count={hiddenCount}
+        shown={showIneligible}
+        onChange={() => setShowIneligible((v) => !v)}
+      />
+      {rows
+        .filter(
+          (t) => showIneligible || !ineligibleFact(facts, t.id, checks[t.id]),
+        )
+        .map((t) => {
+          const i = TRAITS.findIndex((row) => row.id === t.id);
+          const result = facts.answers[i];
+          const cannot =
+            !facts.joined && ((t.id >= 701 && t.id <= 1105) || t.id === 1201);
+          const pending = facts.pending[t.id];
+          const proof = facts.verified[t.id];
+          return (
+            <div
+              id={`trait-${t.id}`}
+              className={`fact-row ${new URLSearchParams(location.hash.split("?")[1]).get("trait") === String(t.id) ? "highlight" : ""}`}
+              key={t.id}
+            >
+              <div>
+                <strong>
+                  {t.id} / {t.name}
+                </strong>
+                <Mark kind={t.class} rare={t.rare} />
               </div>
-            )}
-            {!result && t.class !== "direct" && !cannot && (
-              <div className="fact-request">
-                <span className="muted">
-                  {health
-                    ? `${imd(health.price)} IMD · priceOf · live`
-                    : "Live price unavailable"}
-                </span>
-                <a className="source" href={`#/mint?trait=${t.id}`}>
-                  Request {t.name} ↗
-                </a>
+              <div className={result ? "accent" : "muted"}>
+                {result ? (
+                  <MintedFact facts={facts} id={t.id} reader={reader} />
+                ) : t.class === "direct" ? (
+                  "Not present"
+                ) : cannot ? (
+                  "cannot be true: not in WhitelistCurator.sol"
+                ) : pending && !/^0x0+$/.test(pending) ? (
+                  "Request pending"
+                ) : (
+                  "not claimed"
+                )}
               </div>
-            )}
-          </div>
-        );
-      })}
+              <div className="rule">
+                {t.rule} · {t.window}
+              </div>
+              {proof && !/^0x0+$/.test(proof[0]) && (
+                <div className="proof">
+                  <SignedVerdict requestId={proof[0]} />
+                  <span>
+                    Window {num(proof[2])} → {num(proof[3])}
+                  </span>
+                </div>
+              )}
+              {!result && t.class !== "direct" && !cannot && (
+                <div className="fact-request">
+                  <span className="muted">
+                    {health
+                      ? `${imd(health.price)} IMD · priceOf · live`
+                      : "Live price unavailable"}
+                  </span>
+                  <a className="source" href={`#/mint?trait=${t.id}`}>
+                    Request {t.name} ↗
+                  </a>
+                </div>
+              )}
+            </div>
+          );
+        })}
     </div>
   );
 }

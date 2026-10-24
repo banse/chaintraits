@@ -153,6 +153,8 @@ async function setup(wallet, mode = "ok") {
     .getByRole("button", { name: "Browser wallet", exact: true })
     .click();
   await page.locator("#pick-701 input:enabled").waitFor();
+  // This suite inspects negative advice; opt into the now-hidden rows.
+  await page.locator("#step-02 .eligibility-toggle").click();
 }
 async function capture(name, row) {
   for (const width of [1280, 390]) {

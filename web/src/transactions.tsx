@@ -19,13 +19,13 @@ import {
   ACTION,
   type WalletFacts,
 } from "./chain";
-import { imd, ethCeiling, decodeMetadata } from "./pure.mjs";
+import { imd, ethCeiling } from "./pure.mjs";
 import { checkEligibility, eligibilityText } from "./eligibility.mjs";
 import { checkSharedSpec } from "./shared-safety.mjs";
 import { quoteEth, swapCall, type SwapQuote } from "./swap";
 import { Card, Status } from "./components";
 import { TRAITS } from "./data";
-import { SwarmFeed, type WatchedFact } from "./swarm";
+import { type WatchedFact } from "./swarm";
 export type Call = {
   label: string;
   functionName: string;
@@ -737,44 +737,6 @@ export function useTransactions() {
   };
 }
 export type Journal = ReturnType<typeof useTransactions>;
-function MintResult({ token }: { token: bigint }) {
-  const { client, r } = useSite();
-  const [metadata, setMetadata] = useState<any>();
-  const [error, setError] = useState("");
-  const [retry, setRetry] = useState(0);
-  useEffect(() => {
-    let active = true;
-    setMetadata(undefined);
-    setError("");
-    read(client, r, "Registry", "tokenURI", [token])
-      .then((uri) => {
-        if (active) setMetadata(decodeMetadata(uri).data);
-      })
-      .catch((e) => {
-        if (active) setError(explain(e));
-      });
-    return () => {
-      active = false;
-    };
-  }, [client, r, token, retry]);
-  return (
-    <div className="payment-preview">
-      <h3>Your Sworn card #{token.toString()}</h3>
-      {metadata ? (
-        <Card facts={{ token, metadata }} />
-      ) : (
-        <Status error={!!error}>
-          {error || "Reading its facts and image…"}
-        </Status>
-      )}
-      {error && (
-        <button onClick={() => setRetry((n) => n + 1)}>
-          Retry wallet reads
-        </button>
-      )}
-    </div>
-  );
-}
 export function TransactionJournal({ journal: j }: { journal: Journal }) {
   const site = useSite(),
     dialog = useRef<HTMLDialogElement>(null);
@@ -831,23 +793,30 @@ export function TransactionJournal({ journal: j }: { journal: Journal }) {
               aria-label="Transaction result"
             >
               {s.result!.token !== undefined && (
-                <MintResult token={s.result!.token} />
+                <p className="accent" role="status">
+                  Your Sworn card #{s.result!.token.toString()} · minted
+                </p>
               )}
               {s.result!.facts?.map((fact) => (
                 <div key={fact.requestId}>
                   <p className="accent" role="status">
                     request sent, the panel answers in a few minutes
                   </p>
-                  <SwarmFeed
-                    fact={fact}
-                    focus={null}
-                    onAttested={site.refresh}
-                    idPrefix="result"
-                  />
                 </div>
               ))}
             </section>
           ))}
+          <p>Progress continues on the Wallet page.</p>
+          <button
+            type="button"
+            disabled={j.busy}
+            onClick={() => {
+              j.setOpen(false);
+              location.hash = "/wallet";
+            }}
+          >
+            Follow progress on the Wallet page
+          </button>
           {j.plan && (
             <>
               <dl className="payment-summary">
@@ -1037,7 +1006,7 @@ export function TransactionJournal({ journal: j }: { journal: Journal }) {
           )}
           {j.registered && (
             <p className="accent" role="status">
-              Registered trait {j.registered}. The id comes from SpecRegistered
+              Registered fact {j.registered}. The id comes from SpecRegistered
               in your receipt.{" "}
               <a
                 href={`#/mint?trait=${j.registered}`}
