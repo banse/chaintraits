@@ -25,6 +25,7 @@ import {
   Sources,
   CodeBlock,
   WalletFactRows,
+  CommunityIntro,
   num,
 } from "./components";
 import { imd, exactUnits } from "./pure.mjs";
@@ -280,11 +281,7 @@ export function Catalog() {
         </Section>
       ))}
       <Section title="Community facts" id="community">
-        <p className="prose">
-          Anyone can define an immutable T1–T5 rule. Registration costs 6.4 IMD;{" "}
-          {FEE}. BurnExecutor V2 receives this fee. Every request then costs the
-          live oracle price per fact.
-        </p>
+        <CommunityIntro />
         {loading ? (
           <Status>Reading community specs…</Status>
         ) : error ? (

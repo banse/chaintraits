@@ -1,3 +1,4 @@
+import { inspectAllFacts } from "./fake-chain.mjs";
 // Round 8, items 2 and 4 to 7, on the built export with a fake EIP-1193
 // wallet, fake RPC answers and a fake progress API. Nothing is signed or sent.
 import assert from "node:assert/strict";
@@ -244,7 +245,7 @@ try {
           f.state.proven = [701];
         },
       });
-      await page.locator("#step-02 .eligibility-toggle").click();
+      await inspectAllFacts(page);
       const r1001 = page.locator("#pick-1001");
       await r1001.getByRole("button", { name: /Mint this fact/ }).waitFor();
       await r1001.locator("input").check();

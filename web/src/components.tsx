@@ -4,7 +4,7 @@ import { isAddress, getAddress } from "viem";
 import { useSite } from "./context";
 import { asset, explain, type WalletFacts } from "./chain";
 import { completion } from "./settlement";
-import { FAMILIES, TRAITS } from "./data";
+import { FAMILIES, TRAITS, FEE } from "./data";
 import {
   IneligibleControl,
   MintedFact,
@@ -145,12 +145,21 @@ export function Sources({
   return (
     <a
       className="source"
-      href={`https://github.com/banse/sworn/blob/${r.deployment.sourceCommit}/CATALOG.md#${part}`}
+      href={`https://github.com/identity-md-launches/launch-2404-renderer-composer-registry/blob/${r.deployment.sourceCommit}/CATALOG.md#${part}`}
       target="_blank"
       rel="noreferrer"
     >
       {label} ↗
     </a>
+  );
+}
+export function CommunityIntro() {
+  return (
+    <p className="prose">
+      Anyone can define an immutable T1–T5 rule. Registration costs 6.4 IMD;{" "}
+      {FEE}. BurnExecutor V2 receives this fee. Every request then costs the
+      live oracle price per fact.
+    </p>
   );
 }
 export function CodeBlock({ children }: { children: string }) {

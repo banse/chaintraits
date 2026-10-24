@@ -182,6 +182,13 @@ try {
       `hour tooltip is hoverable, dismissible and focusable at ${width}px`,
       async () => {
         await setup({ route: "#/whitelistcurator", width });
+        // Let the alias's scheduled anchor navigation finish before scrolling
+        // to the chart; otherwise it can move the pointer target mid-hover.
+        await page.waitForFunction(
+          () =>
+            document.getElementById("whitelistcurator")?.getBoundingClientRect()
+              .top < 30,
+        );
         await page
           .locator("#hours")
           .evaluate((node) => node.scrollIntoView({ block: "start" }));

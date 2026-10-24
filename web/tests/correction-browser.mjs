@@ -421,7 +421,7 @@ try {
               .getByRole("button", {
                 name: "Follow progress on the Wallet page",
               })
-              .isDisabled(),
+              .isEnabled(),
             true,
           );
           await page.waitForFunction(() => !!window.__resolveSignature);
@@ -603,22 +603,20 @@ try {
     "8 Mint titles/intros remain and Catalog hosts Explorer; legacy Explorer links and the home form load and scroll without duplicate ids",
     async () => {
       await setup({ connected: false });
-      assert.deepEqual(await page.locator(".part-title").allInnerTexts(), [
-        "Mint Card",
-        "Mint facts",
-      ]);
-      assert.equal(
-        new Set(
-          await page
-            .locator(".part-title")
-            .evaluateAll((els) =>
-              els.map((el) => getComputedStyle(el).fontSize),
-            ),
-        ).size,
-        1,
-      );
       assert.deepEqual(
-        await page.locator(".part-title + p.prose").allInnerTexts(),
+        await page.locator("main > h1, .part-title").allInnerTexts(),
+        ["Mint Card", "Mint facts"],
+      );
+      const titleSizes = await page
+        .locator("main > h1, .part-title")
+        .evaluateAll((els) =>
+          els.map((el) => parseFloat(getComputedStyle(el).fontSize)),
+        );
+      assert.ok(titleSizes[0] > titleSizes[1]);
+      assert.deepEqual(
+        await page
+          .locator("main > h1 + p.prose, .part-title + p.prose")
+          .allInnerTexts(),
         [
           "Mint your Sworn card. It captures your direct facts at mint and updates itself when new facts land.",
           "Add facts to your wallet: chain-proven and panel-sworn facts are requested from the swarm's oracle and land on your card when its panel agrees.",

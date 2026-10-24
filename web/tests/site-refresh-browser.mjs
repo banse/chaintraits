@@ -304,10 +304,14 @@ try {
     "3 Mint and Explorer hide impossible facts, toggle counts, unknown facts stay; Catalog retains every fact",
     async () => {
       await setup({ options: { joined: false, traits: [] } });
-      await page
-        .locator("#step-01 .eligibility-toggle")
-        .filter({ hasText: "13 hidden" })
-        .waitFor();
+      assert.equal(
+        await page.locator("#step-01 .eligibility-toggle").count(),
+        0,
+      );
+      assert.equal(
+        await page.locator("#step-01 .direct-summary > span").count(),
+        0,
+      );
       const toggle = page.locator("#step-02 .eligibility-toggle");
       await toggle.filter({ hasText: "10 hidden" }).waitFor();
       for (const id of [
@@ -429,13 +433,16 @@ try {
       );
       assert.equal(
         await page
-          .locator("#step-02 > :last-child")
-          .getByRole("heading", { name: "Why add facts after minting?" })
+          .locator("#mint-facts > h2 + p + .why-facts")
+          .getByRole("heading", {
+            name: "Why add facts after minting?",
+            exact: true,
+          })
           .count(),
         1,
       );
       assert.equal(
-        await page.locator("#step-02 > :last-child .flow a").count(),
+        await page.locator("#mint-facts > .why-facts .flow a").count(),
         4,
       );
       assert.equal(

@@ -809,7 +809,6 @@ export function TransactionJournal({ journal: j }: { journal: Journal }) {
           <p>Progress continues on the Wallet page.</p>
           <button
             type="button"
-            disabled={j.busy}
             onClick={() => {
               j.setOpen(false);
               location.hash = "/wallet";

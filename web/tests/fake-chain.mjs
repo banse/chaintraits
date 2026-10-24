@@ -571,3 +571,25 @@ export async function fakeWallet(context, address = wallet) {
     };
   }, address);
 }
+
+// Eligibility-focused suites inspect negative advice. The disclosure is absent
+// until a negative async result exists, so opt in when it first becomes available.
+// Layout/filter suites deliberately do not use this helper.
+export async function inspectAllFacts(page) {
+  await page.evaluate(() => {
+    const reveal = () => {
+      document
+        .querySelectorAll('#step-02 .eligibility-toggle[aria-pressed="false"]')
+        .forEach((button) => button.click());
+    };
+    const step = document.querySelector("#step-02");
+    if (!step) return;
+    new MutationObserver(reveal).observe(step, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["aria-pressed"],
+    });
+    reveal();
+  });
+}

@@ -13,6 +13,7 @@ npx playwright install chromium webkit
 node scripts/agents.mjs
 npm run typecheck
 npm run build
+node tests/layout-refinement-browser.mjs
 node tests/site-refresh-browser.mjs
 node tests/correction-browser.mjs
 npm test
@@ -27,7 +28,7 @@ npm run preview
 
 Open the URL printed by Vite. The preview serves the committed export. `npm run dev` starts the source development server. On Linux, Playwright may also need its documented browser system dependencies. Browser downloads and dependency caches belong outside Git.
 
-`node tests/site-refresh-browser.mjs` checks this assignment’s eleven items in 14 scenario groups, including bundled startup, fact-only prose, eligibility disclosure, minted UTC provenance, Catalog navigation, footer alignment, step order, pending personal/shared progress, responsive cards and multi-fact family highlights. It uses only fake wallet/RPC/API answers. `node tests/correction-browser.mjs` tests each of the nine earlier correction items on the production export with fake EIP-1193, RPC and API replies. It also tests Close/currency changes during an unanswered wallet request, ignored late success/rejection, and saved sent receipts after reload. `--only=4a` selects a case prefix and `--webkit` selects WebKit. `npm test` runs the unit/export checks and browser interactions. `node tests/acceptance.mjs` runs the A–E fake-chain/fake-wallet payment and RPC regressions; it never forwards a write to a network. `node tests/acceptance.mjs --webkit` runs those cases in WebKit when its system libraries are available. If `SWORN_TEST_RPC` is set, it also includes the isolated mainnet fork rehearsal; Anvil must be installed for that part. To run all checks with a public read endpoint:
+`node tests/layout-refinement-browser.mjs` checks this assignment’s eleven items: all routes/aliases at 1280/390px, connected/disconnected, exact Mint content, footer geometry, separator pairs, heading hierarchy, source URLs, conditional disclosure and busy-dialog navigation. `node tests/site-refresh-browser.mjs` retains 14 previous-refresh scenario groups. Both use fake wallet/RPC/API answers. `node tests/correction-browser.mjs` tests each of the nine earlier correction items on the production export with fake EIP-1193, RPC and API replies. It also tests Close/currency changes during an unanswered wallet request, ignored late success/rejection, and saved sent receipts after reload. `--only=4a` selects a case prefix and `--webkit` selects WebKit. `npm test` runs the unit/export checks and browser interactions. `node tests/acceptance.mjs` runs the A–E fake-chain/fake-wallet payment and RPC regressions; it never forwards a write to a network. `node tests/acceptance.mjs --webkit` runs those cases in WebKit when its system libraries are available. If `SWORN_TEST_RPC` is set, it also includes the isolated mainnet fork rehearsal; Anvil must be installed for that part. To run all checks with a public read endpoint:
 
 ```sh
 SWORN_TEST_RPC=https://ethereum-rpc.publicnode.com npm test
@@ -199,3 +200,8 @@ That runner serves the current export at the site's HTTPS gateway origin through
 Wallet reads attestation records serially, retrying failures about two seconds later up to four total reads per id. After exhaustion only the row's Retry starts another batch. Automatic older-state backfills are cached for a page view; the existing Retry reads clears failed backfills. Shared 1201 and community facts are part of the id-sorted picker and one payment dialog. The hour table is replaced by the keyboard/touch-capable chart tooltip; the original census download remains.
 
 Current build, typecheck, interaction results and limits are recorded in [VALIDATION.md](VALIDATION.md), with an item-by-item mapping. These results supersede older layout/progress descriptions in historical validation records. The current unit suite has 108 cases; the route sweep covers 55 route/width combinations. The design probe retains its two established design/copy exceptions. No package, lockfile, build configuration or ignore file changes are required. Physical wallet, live transaction, screen-reader and native zoom sessions remain outside this worker check; WebKit launch was blocked by missing system libraries.
+
+
+## Current layout refinement
+
+The heading scale is page 34px, part 24px, step 15px and muted uppercase subpart 13px. Mint facts begins with its intro and four-link explanation, then 01 without an intervening rule. Step 01 lists held direct facts only; Catalog retains all thirteen direct rules. Public RPC and Retry reads share the desktop footer row. See [VALIDATION.md](VALIDATION.md) for actual commands/results, the six-domain review, reproducibility/size checks and browser limitations; this section supersedes earlier descriptions of those changed surfaces.

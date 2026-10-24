@@ -84,6 +84,7 @@ test("all original control/link/choice label fragments stay except the explicitl
     "hasTrait",
     "Sworn for agents",
     "llms.txt",
+    "WhitelistCurator.sol on Etherscan: Read Contract ↗",
   ];
   assert.deepEqual(
     labels.filter((label) => !added.includes(label)),

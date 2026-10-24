@@ -1,3 +1,4 @@
+import { inspectAllFacts } from "./fake-chain.mjs";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { chromium, webkit } from "playwright";
@@ -154,7 +155,7 @@ async function setup(wallet, mode = "ok") {
     .click();
   await page.locator("#pick-701 input:enabled").waitFor();
   // This suite inspects negative advice; opt into the now-hidden rows.
-  await page.locator("#step-02 .eligibility-toggle").click();
+  await inspectAllFacts(page);
 }
 async function capture(name, row) {
   for (const width of [1280, 390]) {

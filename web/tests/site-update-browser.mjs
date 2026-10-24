@@ -156,6 +156,8 @@ async function setup({
     await page
       .getByRole("button", { name: "Browser wallet", exact: true })
       .click();
+    if (["#/mint", "#/claim"].includes(route))
+      await page.getByText(/\d+ direct facts present\./).waitFor();
   }
 }
 async function widths(name, target) {

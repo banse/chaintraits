@@ -1,3 +1,4 @@
+import { inspectAllFacts } from "./fake-chain.mjs";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { chromium, webkit } from "playwright";
@@ -317,7 +318,7 @@ async function setup({
       .getByRole("button", { name: "Browser wallet", exact: true })
       .click();
     await page.locator(`#pick-${id >= 10001 ? id : 801}`).waitFor();
-    if (!explorer) await page.locator("#step-02 .eligibility-toggle").click();
+    if (!explorer) await inspectAllFacts(page);
     if (feed) await page.evaluate(() => (location.hash = "#/mint"));
   }
   if (kind === 3 && pending)

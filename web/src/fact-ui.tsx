@@ -34,6 +34,7 @@ export function IneligibleControl({
   shown: boolean;
   onChange: () => void;
 }) {
+  if (count < 1) return null;
   return (
     <button
       type="button"

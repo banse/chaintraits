@@ -160,7 +160,7 @@ blockquote {
   margin: 0;
 }
 h1 {
-  font-size: var(--title);
+  font-size: var(--display);
   font-weight: 600;
   line-height: 1.3;
   letter-spacing: -0.02em;
@@ -170,12 +170,21 @@ h1 {
 h2,
 h3,
 h4 {
-  font-size: var(--prose);
   font-weight: 600;
   line-height: 1.5;
 }
 h2 {
+  font-size: var(--title);
   margin-block-end: 16px;
+}
+h3 {
+  font-size: var(--prose);
+}
+h4,
+.subpart-title {
+  font-size: var(--body);
+  color: var(--muted);
+  text-transform: uppercase;
 }
 h3,
 h4 {
@@ -300,7 +309,7 @@ blockquote {
 .section > h2 {
   margin-block-end: 20px;
 }
-/* Page parts share the page title size. */
+/* Parts sit between page titles and numbered step titles. */
 .part {
   margin-block-start: 64px;
   padding-block-start: 32px;
@@ -451,7 +460,7 @@ main {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   padding-block: 24px;
-  border-block: 1px solid var(--rule);
+  border-block-start: 1px solid var(--rule);
   margin-block-start: 40px;
   gap: 24px;
 }
@@ -552,7 +561,8 @@ main {
 }
 .rpc-controls {
   display: flex;
-  flex-wrap: wrap;
+  flex: none;
+  flex-wrap: nowrap;
   gap: 12px;
   align-items: center;
   margin: 0;
@@ -564,7 +574,10 @@ main {
 }
 .rpc-controls select {
   max-width: 100%;
-  flex: 0 1 300px;
+  width: 256px;
+}
+.rpc-controls button {
+  white-space: nowrap;
 }
 .footer-bottom {
   display: flex;
@@ -679,11 +692,8 @@ a.wallet-row:hover {
   grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.8fr);
   gap: 48px;
   align-items: center;
-  border-block: 1px solid var(--rule);
+  border-block-start: 1px solid var(--rule);
   padding-block: 24px;
-}
-.mint-panel h2 {
-  font-size: var(--prose);
 }
 .mint-panel .card-figure {
   max-width: 300px;
@@ -701,10 +711,6 @@ a.wallet-row:hover {
   border-inline-start: 2px solid var(--accent);
   padding-inline-start: var(--s4);
   margin-block-end: var(--s6);
-}
-.pending-notice h2,
-.swarm-feed h2 {
-  font-size: var(--prose);
 }
 .pending-notice p,
 .swarm-feed p {
@@ -821,6 +827,22 @@ fieldset {
   margin-block-start: 40px;
   scroll-margin-block-start: 24px;
 }
+#step-01 {
+  border-block-start: 0;
+  padding-block-start: 0;
+}
+.step-number {
+  color: var(--accent);
+}
+.step-description {
+  font-weight: 400;
+}
+.step-title + .source {
+  margin-block: 0 var(--s4);
+}
+.step-intros > p {
+  margin-block-end: var(--s2);
+}
 .info-grid {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -933,7 +955,7 @@ fieldset {
 }
 .fact-history li {
   padding-block: var(--s2);
-  border-block-end: 1px solid var(--rule);
+  border-block-start: 1px solid var(--rule);
   overflow-wrap: anywhere;
   min-width: 0;
 }
@@ -1508,6 +1530,7 @@ th {
   }
   .rpc-controls {
     gap: 12px;
+    flex-wrap: wrap;
   }
   .rpc-controls select {
     flex: 1;
@@ -1811,7 +1834,10 @@ th {
   }
 }
 
-.why-facts > h4 {
+.why-facts {
+  margin-block-start: var(--s8);
+}
+.why-facts > h3 {
   margin-block-end: 20px;
 }
 .fact-history li.highlight {

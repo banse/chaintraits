@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from "react";
 import { useAccount } from "wagmi";
-import { zeroAddress, type Address } from "viem";
+import { getAddress, zeroAddress, type Address } from "viem";
 import { useSite } from "./context";
+import handoff from "../deployment-handoff.json";
 import {
   lookup,
   read,
@@ -10,7 +11,7 @@ import {
   scopedClient,
   type WalletFacts,
 } from "./chain";
-import { TRAITS, SWARMED, FEE } from "./data";
+import { TRAITS, SWARMED, FEE, classes } from "./data";
 import { specExamples, templateStart, applyExample } from "./spec-examples.mjs";
 import {
   imd,
@@ -20,7 +21,15 @@ import {
   traitMethod,
   MISS_REASONS,
 } from "./pure.mjs";
-import { Card, CommunityCard, Mark, Status, Section, num } from "./components";
+import {
+  Card,
+  CommunityCard,
+  CommunityIntro,
+  Mark,
+  Status,
+  Section,
+  num,
+} from "./components";
 import {
   useTransactions,
   TransactionJournal,
@@ -837,7 +846,6 @@ export function Claim() {
   const [payment, setPayment] = useState("IMD");
   const [selected, setSelected] = useState<number[]>([]);
   const [showIneligible, setShowIneligible] = useState(false);
-  const [showDirectIneligible, setShowDirectIneligible] = useState(false);
   const [sharedEligibility, setSharedEligibility] = useState<{
     wallet?: string;
     ids: Record<number, boolean>;
@@ -1177,7 +1185,7 @@ export function Claim() {
   }
   return (
     <>
-      <h1 className="part-title">Mint Card</h1>
+      <h1>Mint Card</h1>
       <p className="prose">
         Mint your Sworn card. It captures your direct facts at mint and updates
         itself when new facts land.
@@ -1290,6 +1298,29 @@ export function Claim() {
           requested from the swarm's oracle and land on your card when its panel
           agrees.
         </p>
+        <section className="why-facts">
+          <h3 className="subpart-title">Why add facts after minting?</h3>
+          <p>
+            Your card captures direct facts at mint. Paid requests can add
+            verified facts later, and the card updates itself. A false answer or
+            a panel without a verdict adds no fact; its request price is still
+            spent.
+          </p>
+          <ol className="flow">
+            <li>
+              <a href="#/mint#mint">Mint a card</a>
+            </li>
+            <li>
+              <a href="#/mint#step-02">Request a fact</a>
+            </li>
+            <li>
+              <a href="#/wallet">Agents check the rule</a>
+            </li>
+            <li>
+              <a href="#/wallet">Your card updates</a>
+            </li>
+          </ol>
+        </section>
 
         {pendingFacts.length > 0 && (
           <section className="section swarm-feed" aria-label="Swarm progress">
@@ -1308,46 +1339,36 @@ export function Claim() {
             ))}
           </section>
         )}
-        <section className="section" id="add-traits">
-          <h2>Add facts</h2>
+        <div id="add-traits">
           <section id="step-01" className="step">
-            <h3 aria-label="Step 01 · Direct reads">
-              <span aria-hidden="true">Step 01 · </span>Direct reads
+            <h3 className="step-title">
+              <span className="step-number">01</span>
+              {" – "}
+              Direct WhitelistCurator facts{" – "}
+              <span className="step-description">
+                written onchain, readable from the contract
+              </span>
             </h3>
-            <div className="info-grid">
-              <p>
-                <strong>Who can</strong> · Any wallet. The Curator determines
-                which facts are true.
-              </p>
-              <p>
-                <strong>Cost and risk</strong> · No claim fee. A card freezes
-                these direct reads at mint.
-              </p>
-              <p>
-                <strong>Who benefits</strong> · Your wallet can use these
-                credentials without minting.
-              </p>
-            </div>
+            <a
+              className="source"
+              href={`https://etherscan.io/address/${getAddress(handoff.manifest.contracts.find((c) => c.contract === "Registry")!.constructorArgs[0])}#readContract`}
+              target="_blank"
+              rel="noreferrer"
+            >
+              WhitelistCurator.sol on Etherscan: Read Contract ↗
+            </a>
+            <p className="prose">
+              {classes[0].description} {classes[0].how}
+            </p>
             <p>
               {facts
                 ? `${facts.traits.filter((id) => id < 601).length} direct facts present.`
                 : "Connect to see your live direct facts."}{" "}
               <a href="#/catalog#direct">Read the direct rules</a>.
             </p>
-            <IneligibleControl
-              count={
-                TRAITS.filter(
-                  (t) => t.class === "direct" && ineligibleFact(facts, t.id),
-                ).length
-              }
-              shown={showDirectIneligible}
-              onChange={() => setShowDirectIneligible((v) => !v)}
-            />
             <div className="direct-summary">
               {TRAITS.filter(
-                (t) =>
-                  t.class === "direct" &&
-                  (showDirectIneligible || !ineligibleFact(facts, t.id)),
+                (t) => t.class === "direct" && facts?.traits.includes(t.id),
               ).map((t) => (
                 <span
                   className={facts?.traits.includes(t.id) ? "accent" : "muted"}
@@ -1364,26 +1385,22 @@ export function Claim() {
             </div>
           </section>
           <section id="step-02" className="step">
-            <h3 aria-label="Step 02 · Request facts">
-              <span aria-hidden="true">Step 02 · </span>Request facts
+            <h3 className="step-title">
+              <span className="step-number">02</span>
+              {" – "}
+              Sworn WhitelistCurator facts{" – "}
+              <span className="step-description">
+                provable onchain, sworn by the swarm
+              </span>
             </h3>
-            <div className="info-grid">
-              <p>
-                <strong>Who can</strong> · Any eligible wallet, with or without
-                a card.
-              </p>
-              <p>
-                <strong>Cost and risk</strong> · Each fact is a separate request
-                at{" "}
-                {site.health
-                  ? `${imd(site.health.price)} IMD (priceOf · live)`
-                  : "the live oracle price per fact"}
-                . The price is spent whatever the answer.
-              </p>
-              <p>
-                <strong>Who benefits</strong> · Your wallet, and anyone checking
-                its credentials.
-              </p>
+            <div className="step-intros">
+              {classes
+                .filter((c) => c.key !== "direct")
+                .map((c) => (
+                  <p className="prose" key={c.key}>
+                    <strong>{c.name}</strong> · {c.description}
+                  </p>
+                ))}
             </div>
             <p>
               Chain-proven facts use 5 agents / quorum 3. Panel-sworn facts use
@@ -1636,7 +1653,7 @@ export function Claim() {
                     />
                   </div>
                 ))}
-            <h3>Community facts</h3>
+            <h4>Community facts</h4>
             {site.loading ? (
               <Status>Reading community specs…</Status>
             ) : site.error ? (
@@ -1653,52 +1670,20 @@ export function Claim() {
                 Community facts appear in the picker above.
               </p>
             )}
-            <section className="section why-facts">
-              <h4>Why add facts after minting?</h4>
-              <p>
-                Your card captures direct facts at mint. Paid requests can add
-                verified facts later, and the card updates itself. A false
-                answer or a panel without a verdict adds no fact; its request
-                price is still spent.
-              </p>
-              <ol className="flow">
-                <li>
-                  <a href="#/mint#mint">Mint a card</a>
-                </li>
-                <li>
-                  <a href="#/mint#step-02">Request a fact</a>
-                </li>
-                <li>
-                  <a href="#/wallet">Agents check the rule</a>
-                </li>
-                <li>
-                  <a href="#/wallet">Your card updates</a>
-                </li>
-              </ol>
-            </section>
           </section>
           <section id="step-03" className="step">
-            <h3 aria-label="Step 03 · Register a community fact">
-              <span aria-hidden="true">Step 03 · </span>Register a community
-              fact
+            <h3 className="step-title">
+              <span className="step-number">03</span>
+              {" – "}
+              Sworn Community facts{" – "}
+              <span className="step-description">
+                not limited to WhitelistCurator
+              </span>
             </h3>
-            <div className="info-grid">
-              <p>
-                <strong>Who can</strong> · Anyone with a supported, immutable
-                rule.
-              </p>
-              <p>
-                <strong>Cost and risk</strong> · 6.4 IMD; {FEE}. A refused
-                oracle question keeps its request price.
-              </p>
-              <p>
-                <strong>Who benefits</strong> · A curator can define a fact for
-                their community. Eligible wallets request and prove it.
-              </p>
-            </div>
+            <CommunityIntro />
             <CommunityForm payment={payment} journal={journal} />
           </section>
-        </section>
+        </div>
         <TransactionJournal journal={journal} />
       </section>
     </>
