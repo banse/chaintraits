@@ -77,6 +77,21 @@ export function openRequests(
         }))
     : [];
 }
+// The three quiet steps under "Why add facts after minting?".
+const WHY_STEPS: [string, string][] = [
+  [
+    "Request a fact",
+    "Choose facts in 02 and pay the live oracle price, per fact.",
+  ],
+  [
+    "Agents check the rule",
+    "A panel of IMD agents checks your wallet against the fact's rule and block window.",
+  ],
+  [
+    "Your card updates",
+    "When the panel agrees, the fact lands on your card and in your wallet's record.",
+  ],
+];
 function disableReason(site: any, account: any, busy: boolean) {
   return busy
     ? "A transaction is in progress."
@@ -117,7 +132,7 @@ export function Settlement({
     setCanSettle(false);
     setCanAbandon(false);
     try {
-      if (!site.health) throw Error("Live reads unavailable. Retry reads.");
+      if (!site.health) throw Error("Live reads unavailable; retrying.");
       const pending = await read(
         site.client,
         site.r,
@@ -983,7 +998,7 @@ export function Claim() {
         if (active)
           setRequestHistory({ wallet, lines: Object.fromEntries(lines) });
       })().catch(() => {
-        // An incomplete read implies no outcome. Retry reads runs it again.
+        // An incomplete read implies no outcome. Read recovery runs it again.
         if (active) setRequestHistory({ wallet, lines: {} });
       });
     }
@@ -1099,13 +1114,12 @@ export function Claim() {
     })),
     ...customTraits,
   ].sort((a, b) => a.id - b.id);
+  // Hidden by default only on what is known before any selection; a
+  // selected fact keeps its row and shows its eligibility result there.
   function paidIneligible(id: number) {
+    if (selected.includes(id)) return false;
     return (
-      ineligibleFact(
-        facts,
-        id,
-        journal.eligibility[journal.eligibilityKey(id)],
-      ) ||
+      ineligibleFact(facts, id) ||
       (!facts?.traits.includes(id) &&
         !facts?.verifiedSpecs.includes(id) &&
         sharedEligibility.wallet === account.address &&
@@ -1151,7 +1165,7 @@ export function Claim() {
     setStatus((v) => ({ ...v, facts: "Checking…" }));
     try {
       if (!site.health || !facts)
-        throw Error("Wallet reads unavailable. Retry reads.");
+        throw Error("Wallet reads unavailable; retrying.");
       if (!ids.length) throw Error("Select at least one fact.");
       const price = site.health.price;
       const rows = ids.map((id) => paid.find((t) => t.id === id)!);
@@ -1306,28 +1320,22 @@ export function Claim() {
             a panel without a verdict adds no fact; its request price is still
             spent.
           </p>
-          <ol className="flow">
-            <li>
-              <a href="#/mint#mint">Mint a card</a>
-            </li>
-            <li>
-              <a href="#/mint#step-02">Request a fact</a>
-            </li>
-            <li>
-              <a href="#/wallet">Agents check the rule</a>
-            </li>
-            <li>
-              <a href="#/wallet">Your card updates</a>
-            </li>
+          <ol className="why-steps">
+            {WHY_STEPS.map(([title, text]) => (
+              <li key={title}>
+                <strong>→ {title}</strong>
+                <p>{text}</p>
+              </li>
+            ))}
           </ol>
         </section>
 
         <div id="add-traits">
           <section id="step-01" className="step">
             <h3 className="step-title">
-              <span className="step-number">01</span>
-              {" – "}
-              Direct WhitelistCurator facts{" – "}
+              <span className="step-name">
+                {"01 – Direct WhitelistCurator facts – "}
+              </span>
               <span className="step-description">
                 written onchain, readable from the contract
               </span>
@@ -1369,9 +1377,9 @@ export function Claim() {
           </section>
           <section id="step-02" className="step">
             <h3 className="step-title">
-              <span className="step-number">02</span>
-              {" – "}
-              Sworn WhitelistCurator facts{" – "}
+              <span className="step-name">
+                {"02 – Sworn WhitelistCurator facts – "}
+              </span>
               <span className="step-description">
                 provable onchain, sworn by the swarm
               </span>
@@ -1380,12 +1388,12 @@ export function Claim() {
               {classes
                 .filter((c) => c.key !== "direct")
                 .map((c) => (
-                  <p className="prose" key={c.key}>
+                  <p key={c.key}>
                     <strong>{c.name}</strong> · {c.description}
                   </p>
                 ))}
             </div>
-            <p>
+            <p className="step-note">
               Chain-proven facts use 5 agents / quorum 3. Panel-sworn facts use
               11 / 7. For a requestable fact, unclaimed means unproven. It does
               not mean the fact is false. {SWARMED}
@@ -1674,9 +1682,9 @@ export function Claim() {
           </section>
           <section id="step-03" className="step">
             <h3 className="step-title">
-              <span className="step-number">03</span>
-              {" – "}
-              Sworn Community facts{" – "}
+              <span className="step-name">
+                {"03 – Sworn Community facts – "}
+              </span>
               <span className="step-description">
                 not limited to WhitelistCurator
               </span>

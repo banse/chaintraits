@@ -24,6 +24,7 @@
   --small: 12px;
   --body: 13px;
   --prose: 15px;
+  --step: 19px;
   --title: 24px;
   --display: 34px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
@@ -532,6 +533,15 @@ main {
   color: var(--muted);
   margin-block-start: 4px;
 }
+/* Integrate: the verification steps are grey; function names keep their look. */
+.verify-steps,
+.verify-note {
+  color: var(--muted);
+}
+.verify-steps code,
+.verify-note code {
+  color: var(--text);
+}
 .site-footer {
   border-block-start: 1px solid var(--rule);
   padding-block: 32px;
@@ -558,26 +568,6 @@ main {
   min-height: 24px;
   display: inline-block;
   line-height: 1.7;
-}
-.rpc-controls {
-  display: flex;
-  flex: none;
-  flex-wrap: nowrap;
-  gap: 12px;
-  align-items: center;
-  margin: 0;
-  margin-inline-start: auto;
-  justify-content: flex-end;
-}
-.rpc-controls label {
-  white-space: nowrap;
-}
-.rpc-controls select {
-  max-width: 100%;
-  width: 256px;
-}
-.rpc-controls button {
-  white-space: nowrap;
 }
 .footer-bottom {
   display: flex;
@@ -789,24 +779,6 @@ a.wallet-row:hover {
     grid-template-columns: minmax(0, 1fr);
   }
 }
-.flow {
-  list-style: none;
-  padding: 0;
-  display: flex;
-  gap: 12px;
-  flex-wrap: wrap;
-  color: var(--muted);
-  margin-block: 24px;
-}
-.flow li {
-  border-block-end: 1px solid var(--faint);
-  padding: 8px 12px;
-  margin: 0;
-}
-.flow li::before {
-  content: "→ ";
-  color: var(--accent);
-}
 fieldset {
   border: 1px solid var(--rule);
   padding: 16px;
@@ -834,17 +806,37 @@ fieldset {
   border-block-start: 0;
   padding-block-start: 0;
 }
-.step-number {
+/* Number and name in the accent; the tail after the second dash in grey. */
+.step-title {
+  font-size: var(--step);
+  line-height: 1.4;
+}
+.step-name {
   color: var(--accent);
 }
 .step-description {
+  font-size: var(--prose);
   font-weight: 400;
+  color: var(--muted);
 }
 .step-title + .source {
   margin-block: 0 var(--s4);
 }
+/* 02: the three class lines and the note after them share the note's size. */
+.step-intros > p,
+.step-note {
+  font-size: var(--body);
+  color: var(--muted);
+  max-width: 75ch;
+}
 .step-intros > p {
   margin-block-end: var(--s2);
+}
+.step-intros strong {
+  color: var(--text);
+}
+.step-intros + .step-note {
+  margin-block-start: 1lh;
 }
 .info-grid {
   display: grid;
@@ -965,8 +957,8 @@ fieldset {
 .fact-history .meaning {
   color: var(--muted);
 }
-.info.direct-note {
-  margin-block: 0 var(--s2);
+.fact-group-title {
+  color: var(--accent);
 }
 /* Direct facts: two per row; id and name, then meaning, in aligned columns. */
 .direct-facts {
@@ -983,29 +975,13 @@ fieldset {
   column-gap: var(--s4);
   align-items: baseline;
 }
-/* Panel-sworn facts: id and name, then the meaning with its proof below. */
-.sworn-facts li {
-  display: grid;
-  grid-template-columns: minmax(12rem, 18rem) minmax(0, 1fr);
-  column-gap: var(--s4);
-  align-items: baseline;
-}
-.proof-lines {
-  display: grid;
-  gap: var(--s1);
-  min-width: 0;
-}
 @media (max-width: 780px) {
   .direct-facts,
-  .direct-facts li,
-  .sworn-facts li {
+  .direct-facts li {
     grid-template-columns: minmax(0, 1fr);
   }
   .direct-facts li {
     grid-column: auto;
-    row-gap: var(--s1);
-  }
-  .sworn-facts li {
     row-gap: var(--s1);
   }
 }
@@ -1535,17 +1511,6 @@ th {
     gap: 4px;
     margin-block: 16px;
   }
-  .rpc-controls {
-    gap: 12px;
-    flex-wrap: wrap;
-  }
-  .rpc-controls select {
-    flex: 1;
-    min-width: 0;
-  }
-  .rpc-controls button {
-    width: 100%;
-  }
   .footer-top {
     align-items: start;
     flex-direction: column;
@@ -1579,8 +1544,7 @@ th {
   .form-grid input,
   .form-grid select,
   .address-form input,
-  .recover-form input,
-  .rpc-controls select {
+  .recover-form input {
     font-size: 16px;
   }
   .trait-picker {
@@ -1804,22 +1768,8 @@ th {
   }
 }
 @media (max-width: 780px) {
-  .wallet-record.with-card .direct-facts,
-  .wallet-record.with-card .sworn-facts li {
+  .wallet-record.with-card .direct-facts {
     grid-template-columns: minmax(0, 1fr);
-  }
-}
-@media (max-width: 600px) {
-  .footer-bottom .rpc-controls {
-    width: 100%;
-    justify-content: flex-end;
-  }
-  .footer-bottom .rpc-controls button {
-    width: auto;
-  }
-  .footer-bottom .rpc-controls select {
-    flex: 1 0 100%;
-    width: 100%;
   }
 }
 
@@ -1846,6 +1796,30 @@ th {
 }
 .why-facts > h3 {
   margin-block-end: 20px;
+}
+/* Quiet info items: a smaller, grey form of Integrate's comparison. */
+.why-steps {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s6);
+  margin-block: var(--s6);
+  font-size: var(--small);
+  color: var(--muted);
+}
+.why-steps strong {
+  display: block;
+  font-size: var(--body);
+  margin-block-end: var(--s1);
+}
+.why-steps p {
+  margin: 0;
+}
+@media (max-width: 640px) {
+  .why-steps {
+    grid-template-columns: minmax(0, 1fr);
+  }
 }
 .fact-history li.highlight {
   border-inline-start: 0;

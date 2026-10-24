@@ -1,3 +1,4 @@
+import { noteReadFailure } from "./read-recovery.mjs";
 // Public reads only. Wallet submissions always use the connected EIP-1193 provider.
 export const READ_RPCS = [
   "https://ethereum-rpc.publicnode.com",
@@ -186,9 +187,8 @@ export function resilientRpc({
         pause(url);
       }
     }
-    throw Error(
-      "Cannot read the chain, retrying. Use Retry reads to try again now.",
-    );
+    noteReadFailure();
+    throw Error("Cannot read the chain, retrying.");
   }
   const logKey = (logs) =>
     JSON.stringify(
@@ -255,10 +255,11 @@ export function resilientRpc({
         ...(await logs(part(middle + 1n, to), signal)),
       ];
     }
+    noteReadFailure();
     throw Error(
       answers.length
         ? "Historical logs need two agreeing RPCs; logs were not read in full. Payment blocked."
-        : "Cannot read the chain, retrying. Use Retry reads to try again now.",
+        : "Cannot read the chain, retrying.",
     );
   }
   async function request({ method, params = [] }, signal) {

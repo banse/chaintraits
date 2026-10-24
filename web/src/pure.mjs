@@ -55,9 +55,7 @@ export const MISS_REASONS = {
 };
 export function decodeMetadata(uri) {
   if (!uri.startsWith("data:application/json;base64,"))
-    throw Error(
-      "Renderer returned an unsupported metadata envelope. Retry reads.",
-    );
+    throw Error("Renderer returned an unsupported metadata envelope.");
   const raw = atob(uri.slice(uri.indexOf(",") + 1));
   const data = JSON.parse(
     new TextDecoder().decode(Uint8Array.from(raw, (c) => c.charCodeAt(0))),
@@ -66,7 +64,7 @@ export function decodeMetadata(uri) {
     typeof data.image !== "string" ||
     !data.image.startsWith("data:image/svg+xml")
   )
-    throw Error("Renderer metadata has no SVG image. Retry reads.");
+    throw Error("Renderer metadata has no SVG image.");
   // Keep the raw string: exact uint256 fields must never round through Number.
   return { data, raw };
 }

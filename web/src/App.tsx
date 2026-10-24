@@ -16,6 +16,16 @@ import { Home, Catalog, Integrate, About } from "./pages";
 import { Claim } from "./claim";
 import { WalletFacts } from "./wallet-facts";
 import { READ_RPCS } from "./rpc.mjs";
+import { onReadFailure, RECOVERY_MS } from "./read-recovery.mjs";
+const FOOTER_LINKS: [string, string][] = [
+  [
+    "Source repository ↗",
+    "https://github.com/identity-md-launches/launch-2404-renderer-composer-registry",
+  ],
+  ["Identity.md ↗", "https://imd.fun"],
+  ["IMD agents ↗", "https://imd.fun/docs"],
+  ["Sworn on X ↗", "https://x.com/swornbyswarm"],
+];
 function routeInfo() {
   const hash = location.hash.slice(1) || "/";
   const [path, rest] = hash.split("#");
@@ -97,9 +107,7 @@ export function App({ r }: { r: Runtime }) {
     } catch (e) {
       if (ticket !== refreshId.current) return;
       setHealth(null);
-      setError(
-        "Cannot read the chain, retrying. Use Retry reads to try again now.",
-      );
+      setError("Cannot read the chain, retrying.");
     } finally {
       if (ticket === refreshId.current) setLoading(false);
     }
@@ -110,6 +118,31 @@ export function App({ r }: { r: Runtime }) {
     return () => {
       ++refreshId.current;
       clearInterval(id);
+    };
+  }, [refresh]);
+  // Reads fall back across the RPC pool by themselves. When a read exhausted
+  // the pool, every failed read runs again after a short, growing pause.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    let attempt = 0;
+    const stop = onReadFailure(() => {
+      if (timer) return;
+      const wait = RECOVERY_MS[Math.min(attempt, RECOVERY_MS.length - 1)];
+      attempt++;
+      timer = setTimeout(() => {
+        timer = undefined;
+        setReadRetry((n) => n + 1);
+        void refresh();
+      }, wait);
+    });
+    // A quiet minute resets the pause to its shortest.
+    const reset = setInterval(() => {
+      if (!timer) attempt = 0;
+    }, 60000);
+    return () => {
+      stop();
+      clearTimeout(timer);
+      clearInterval(reset);
     };
   }, [refresh]);
   function setRpcUrl(value: string) {
@@ -256,31 +289,11 @@ export function App({ r }: { r: Runtime }) {
         </Status>
         <div className="footer-bottom">
           <span>No owner. No backend. No coin.</span>
-          <a href={asset("imd-deployment.json")}>Deployment manifest ↗</a>
-          <a href="#/about">About & sources ↗</a>
-          <div className="rpc-controls">
-            <label htmlFor="rpc-choice">Public RPC</label>
-            <select
-              id="rpc-choice"
-              value={rpcUrl}
-              onChange={(e) => setRpcUrl(e.target.value)}
-            >
-              {Array.from(new Set(READ_RPCS)).map((url) => (
-                <option key={url} value={url}>
-                  {new URL(url).hostname}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={() => {
-                setReadRetry((n) => n + 1);
-                void refresh();
-              }}
-              disabled={loading}
-            >
-              {loading ? "Checking…" : "Retry reads"}
-            </button>
-          </div>
+          {FOOTER_LINKS.map(([label, href]) => (
+            <a key={href} href={href}>
+              {label}
+            </a>
+          ))}
         </div>
       </footer>
     </SiteContext.Provider>

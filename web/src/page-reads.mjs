@@ -1,5 +1,5 @@
 // Expensive launch-to-head reads run once in a page view. Keep both success
-// and failure; only the existing explicit Retry reads clears failed entries.
+// and failure; only the automatic read recovery (readRetry) clears failed entries.
 export function pageReads() {
   const entries = new Map();
   const controller = new AbortController();

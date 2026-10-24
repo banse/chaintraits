@@ -627,7 +627,7 @@ function FactArtifact() {
       </div>
       <div className="subsection">
         <h3>How to verify a card</h3>
-        <ol className="story">
+        <ol className="story verify-steps">
           <li>
             Read <code>claimantOf(tokenId)</code> on the authentic Registry.
           </li>
@@ -643,7 +643,7 @@ function FactArtifact() {
             Check the attestation against the fixed attester and panel rules.
           </li>
         </ol>
-        <p>
+        <p className="verify-note">
           Never substitute <code>ownerOf</code> for claimant credentials. A
           Renderer accepts a registry supplied by its caller, so an image alone
           proves nothing.
@@ -919,7 +919,7 @@ function WhitelistCurator() {
   );
 }
 export function About() {
-  const { r, health } = useSite();
+  const { health } = useSite();
   return (
     <>
       <h1>About Sworn</h1>
@@ -954,28 +954,6 @@ export function About() {
         </p>
         <a href="#/about#hours">Read the 66-hour record ↗</a>
       </Section>
-      <Section title="Contracts">
-        <ContractList />
-        <p>
-          Chain: {r.deployment.network.name} · {r.deployment.chainId}
-        </p>
-        <p className="break">Attested source: {r.deployment.sourceCommit}</p>
-        <p>
-          Three earlier deployments (Registry 0x39bec764…95a6, swarm launch
-          #2147, 2026-10-18; Registry 0xdd0017e4…5edb, swarm launch #2341,
-          2026-10-20; Registry 0x9cb36ecc…a828, swarm launch #2362, 2026-10-21)
-          were tests, never announced; this registry replaced them on
-          2026-10-21.
-        </p>
-      </Section>
-      <div className="inline-links">
-        <a href="https://github.com/identity-md-launches/launch-2404-renderer-composer-registry">
-          Source repository ↗
-        </a>
-        <a href="https://imd.fun">Identity.md ↗</a>
-        <a href="https://imd.fun/docs">IMD agents ↗</a>
-        <a href="https://x.com/swornbyswarm">Sworn on X ↗</a>
-      </div>
     </>
   );
 }

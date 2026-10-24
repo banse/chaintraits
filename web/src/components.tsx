@@ -304,7 +304,7 @@ function SignedVerdict({ requestId }: { requestId: string }) {
     setStatus("Reading signed verdict from the selected RPC…");
     setResult(null);
     try {
-      if (!health) throw Error("Live reads unavailable. Retry reads.");
+      if (!health) throw Error("Live reads unavailable; retrying.");
       const found = await completion(client, r, health, requestId as any);
       if (!found)
         throw Error(
