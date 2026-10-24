@@ -4,7 +4,7 @@ Worker checks on 2026-10-24; these are not independent certification. Scope: the
 
 ## Item coverage
 
-`node tests/layout-refinement-browser.mjs` serves the production export under `/preview/`, using fake EIP-1193, RPC and API responses. Six scenario groups pass, including 44 route/width/wallet combinations and two additional Mint measurements; no console/page/local-resource errors or horizontal overflow were recorded.
+`node tests/layout-refinement-browser.mjs` serves the production export under `/preview/`, using fake EIP-1193, RPC and API responses. Seven scenario groups pass, including 44 route/width/wallet combinations, two additional Mint measurements, a pending-wallet Mint case and a populated Explorer with and without a wallet (52 geometry observations); no console/page/local-resource errors or horizontal overflow were recorded.
 
 | Item | Test case prefix and result |
 | --- | --- |
@@ -12,12 +12,12 @@ Worker checks on 2026-10-24; these are not independent certification. Scope: the
 | 2 | `2 busy transaction…`: hold a fake wallet reply in awaiting-signature state, assert Follow progress enabled, focus/Enter opens Wallet and closes the dialog, reject the held fake call. No RPC send/sign call. |
 | 3 | `3 six Catalog sources…`: all six exact URLs preserve the full c4ff3238 commit, CATALOG.md and original anchors in the deployed repository. The linked GitHub file separately returned HTTP 200. |
 | 4 | `4,6,7,8,10 Mint structure…`: no Add facts heading or per-step Who can/Cost and risk/Who benefits block. |
-| 5 | `1,5,8…`: inspect rendered structural borders against text/control/image rectangles; no consecutive empty boundaries. Includes Mint panel/part, first step, 02/03, home strip/evidence and final Wallet history/footer. |
+| 5 | `1,5,8…`: inspect rendered structural borders against text/control/image rectangles; no consecutive empty boundaries. Includes Mint panel/part, first step, 02/03, home strip/evidence and final Wallet history/footer. `5,10 a pending fact…`: a wallet with pending fact 601 shows Swarm progress inside 02 (no own rule), and `#/explorer?address=0x2000…0001` with facts 101/201/301 ends its list without a rule under the last row, connected and disconnected, at 1280/390px. |
 | 6 | `4,6,7,8,10…`: exact three titles, accent number, 600 name/400 description, exact checksummed Read Contract URL, new-tab target. |
 | 7 | Same case compares direct/community intros to Catalog and paid descriptions to their Catalog topics with step-02 pointers removed; three separate paragraphs start with bold topic names. |
 | 8 | `1,5,8…` and Mint case measure page/part/step/subpart at 34/24/15/13px. Both named subparts are uppercase and muted. |
 | 9 | `9,11 zero hidden…`: zero-count controls absent before connection and with no known negative result; positive count appears, shows/hides negative rows and exposes pressed state. |
-| 10 | Mint case checks immediate intro/explanation adjacency, all four original link destinations, no explanation-bottom or 01-top rule, retained rules before 02/03. |
+| 10 | Mint case checks immediate intro/explanation adjacency (the explanation's next sibling is the 01 wrapper even with a pending fact), all four original link destinations, no explanation-bottom or 01-top rule, retained rules before 02/03. |
 | 11 | `9,11…`: no 01 disclosure; disconnected/empty wallets list no direct facts, a two-fact wallet lists exactly its two held ids. Catalog retains thirteen direct rules. |
 
 The existing refresh/correction suites retain their other checks. Only superseded assertions changed: descending title sizes, explanation position, direct filtering, busy navigation and conditional disclosure. Eligibility-focused suites now opt into negative rows when their asynchronous disclosure appears. Shared-request setup waits for wallet facts, and the tooltip test waits for the alias's initial anchor scroll before moving to the chart; neither changes product behavior.
@@ -30,7 +30,7 @@ Installation used the unchanged web package/lockfile in an isolated temporary co
 - `npm run typecheck`: passed.
 - `npm run build`: passed; three pinned ABI byte/canonical-Keccak comparisons pass. Existing upstream client-directive, worker-module and plugin-timing warnings remain.
 - `npm test`: 108 unit/export tests passed; 55 Chromium route/width combinations at 320, 390, 780, 1280 and 1440 passed, including forms, wallet dialog focus/return, copy, compiled integration example and census interactions. Optional live RPC/fork cases explicitly skipped.
-- `node tests/layout-refinement-browser.mjs`: six groups passed, 46 geometry observations, zero unexpected errors.
+- `node tests/layout-refinement-browser.mjs`: seven groups passed, 52 geometry observations, zero unexpected errors.
 - `node tests/site-refresh-browser.mjs`: 14 groups passed. `node tests/correction-browser.mjs`: 11 groups passed, including late wallet reply, currency changes and sent-receipt persistence.
 - Additional suites passed: `site-update-browser.mjs` (9 groups), `round8-browser.mjs` (10), `round8-revision-browser.mjs` (4), `eligibility-snapshot-browser.mjs` (6), `acceptance.mjs` (12), `actions.mjs` (11), `oracle-feed-browser.mjs` (10), `personal-facts-browser.mjs` (15), `followup.mjs` (10), `swarm-browser.mjs` (10), `site-review-browser.mjs` (9). All used fake wallet/RPC/API answers.
 
@@ -58,6 +58,8 @@ Findings fixed and rechecked:
 | Medium: indistinct titles | `src/styles.css:162`, `src/claim.tsx:1344`: descending scale, accent numbers, regular descriptions, muted uppercase subparts. | Computed heading matrix and screenshots. |
 | Medium: obsolete/misplaced Mint content | `src/claim.tsx:1301`: move explanation below intro, remove title-only section and per-step blocks, reuse Catalog intros. | Exact content/order/link checks. |
 | Medium: misleading empty disclosure and absent direct rules | `src/fact-ui.tsx:37`, `src/claim.tsx:1369`: suppress zero count; direct summary contains held ids only. | Zero/positive counts, two-fact and empty fixtures; complete Catalog. |
+| High (review): pending Swarm progress inserted a ruled section between the Mint facts explanation and 01 | `src/claim.tsx` (end of `#step-02`): feed moved into 02 with the same feed, anchors and copy, title now a sub-part `h4`; `src/styles.css` `.step > .swarm-feed` spacing. `swarm-browser.mjs`/`site-update-browser.mjs` placement assertions updated to `step-02`. | Pending-wallet case at 1280/390px; swarm, site-update, oracle-feed, round8, followup suites. |
+| High (review): populated Explorer drew the last fact row's bottom rule and the next section's top rule across empty space | `src/styles.css` `.fact-rows > .fact-row:last-child`: no bottom rule. | Populated Explorer, connected/disconnected, 1280/390px. |
 | Medium: progress navigation blocked during wallet work; stale source links | `src/transactions.tsx:809`, `src/components.tsx:148`: enable navigation and correct repository while retaining commit/file/anchors. | Held fake wallet reply and exact six-link assertions; source HTTP 200. |
 
 Scratch screenshots/results are reproducible under `test/scratch/layout-refinement-chromium/`, `test/scratch/taste/` and `test/scratch/manual-shots/`; they are intentionally excluded from submission. The supplied-browser preview served the actual export assets with a scratch-only fake-RPC bootstrap; no service answers were treated as live evidence.

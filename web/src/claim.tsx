@@ -1322,23 +1322,6 @@ export function Claim() {
           </ol>
         </section>
 
-        {pendingFacts.length > 0 && (
-          <section className="section swarm-feed" aria-label="Swarm progress">
-            <h2>Swarm progress</h2>
-            <p className="muted">
-              Live panel progress, not proof. Facts and card updates come from
-              the Registry.
-            </p>
-            {pendingFacts.map((fact) => (
-              <SwarmFeed
-                key={fact.requestId}
-                fact={fact}
-                focus={null}
-                onAttested={() => setRefreshTick((n) => n + 1)}
-              />
-            ))}
-          </section>
-        )}
         <div id="add-traits">
           <section id="step-01" className="step">
             <h3 className="step-title">
@@ -1669,6 +1652,24 @@ export function Claim() {
               <p className="muted">
                 Community facts appear in the picker above.
               </p>
+            )}
+            {/* Pending requests follow inside 02, so the Mint facts intro runs into 01 without a rule. */}
+            {pendingFacts.length > 0 && (
+              <section className="swarm-feed" aria-label="Swarm progress">
+                <h4 className="subpart-title">Swarm progress</h4>
+                <p className="muted">
+                  Live panel progress, not proof. Facts and card updates come
+                  from the Registry.
+                </p>
+                {pendingFacts.map((fact) => (
+                  <SwarmFeed
+                    key={fact.requestId}
+                    fact={fact}
+                    focus={null}
+                    onAttested={() => setRefreshTick((n) => n + 1)}
+                  />
+                ))}
+              </section>
             )}
           </section>
           <section id="step-03" className="step">

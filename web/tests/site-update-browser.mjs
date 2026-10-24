@@ -297,9 +297,9 @@ try {
       assert.deepEqual(
         await feed.evaluate((el) => [
           el.parentElement.id,
-          el.nextElementSibling.id,
+          el.closest(".step")?.id,
         ]),
-        ["mint-facts", "add-traits"],
+        ["step-02", "step-02"],
       );
       assert.equal(await feed.locator(".swarm-request").count(), 1);
       assert.equal(

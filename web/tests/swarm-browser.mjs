@@ -313,7 +313,7 @@ try {
     },
   );
   await run(
-    "6 full-width Mint progress stays before Add facts; no overflow",
+    "6 full-width Mint progress sits inside step 02; no overflow",
     async () => {
       for (const width of [1280, 1000, 780, 390, 320]) {
         await page.setViewportSize({ width, height: 844 });
@@ -343,8 +343,8 @@ try {
         assert.deepEqual(
           await page
             .locator(".swarm-feed")
-            .evaluate((el) => [el.parentElement.id, el.nextElementSibling.id]),
-          ["mint-facts", "add-traits"],
+            .evaluate((el) => [el.closest(".step")?.id, el.parentElement.id]),
+          ["step-02", "step-02"],
         );
         if ([1280, 390].includes(width)) {
           await page.evaluate(() => scrollTo(0, 0));

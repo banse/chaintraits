@@ -40,7 +40,7 @@ Navigation wraps below 1150px; evidence grids reduce at 900px; main paired colum
 
 Data rows use at most 8px vertical padding while buttons retain 44px targets. Picker columns are text, 56px preview and 164px actions, with 16px gaps. At 640px text spans the first row; preview/actions follow below.
 
-Each boundary has one separator owner: the record strip and Mint panel keep their top rule; the following section owns the next rule. Fact-history rows draw leading rules, avoiding an extra trailing line before the footer. Mint facts' intro and four-link explanation flow into 01 with space and no rule. Rules remain before 02 and 03. The old `add-traits` anchor remains on an unstyled wrapper.
+Each boundary has one separator owner: the record strip and Mint panel keep their top rule; the following section owns the next rule. Fact-history rows draw leading rules, avoiding an extra trailing line before the footer. Explorer and Catalog fact lists (`.fact-rows`) draw rules between rows but not under the last row, because the following section's top rule closes the list. Mint facts' intro and four-link explanation flow into 01 with space and no rule; a wallet's pending Swarm progress feed sits at the end of 02 (24px top margin, no rule of its own, a muted uppercase sub-part title), never between the explanation and 01. Rules remain before 02 and 03. The old `add-traits` anchor remains on an unstyled wrapper.
 
 Desktop footer controls form a non-shrinking, non-wrapping group with a 256px selector, automatic leading margin and end alignment. At 600px they may wrap; the group stays right aligned.
 

@@ -716,6 +716,9 @@ a.wallet-row:hover {
 .swarm-feed p {
   margin-block: var(--s2);
 }
+.step > .swarm-feed {
+  margin-block-start: var(--s6);
+}
 .swarm-feed,
 .claim-copy {
   min-width: 0;
@@ -1132,6 +1135,10 @@ fieldset {
   padding-block: 8px;
   border-block-end: 1px solid var(--rule);
   scroll-margin-block-start: 24px;
+}
+/* The following section's top rule closes the list; a bottom rule here would double it. */
+.fact-rows > .fact-row:last-child {
+  border-block-end: 0;
 }
 .fact-row > .rule,
 .fact-row > .proof {

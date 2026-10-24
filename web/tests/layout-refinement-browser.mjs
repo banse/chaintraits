@@ -268,6 +268,60 @@ try {
     },
   );
   await run(
+    "5,10 a pending fact keeps its Swarm progress inside 02; the populated Explorer ends its fact list with one rule",
+    async () => {
+      const pending = [
+        {
+          id: 601,
+          requestId: "0x" + "a1".repeat(32),
+          questionHash: "0x" + "b2".repeat(32),
+          requestedAt: 1792600000n,
+        },
+      ];
+      await setup({
+        route: "#/mint",
+        options: { token: 7n, traits: [101, 201, 301], pending },
+      });
+      await page.locator(".swarm-feed .swarm-request").waitFor();
+      const placement = await page.evaluate(() => ({
+        afterWhy: document.querySelector(".why-facts").nextElementSibling.id,
+        feedStep: document.querySelector(".swarm-feed").closest(".step")?.id,
+        feedRule: getComputedStyle(document.querySelector(".swarm-feed"))
+          .borderTopWidth,
+      }));
+      assert.deepEqual(placement, {
+        afterWhy: "add-traits",
+        feedStep: "step-02",
+        feedRule: "0px",
+      });
+      for (const width of [1280, 390])
+        await geometry("#/mint pending wallet=true", width);
+      for (const connected of [false, true]) {
+        await setup({
+          route: "#/",
+          connected,
+          options: { token: 7n, traits: [101, 201, 301] },
+        });
+        await page.goto(
+          preview.url +
+            "#/explorer?address=0x2000000000000000000000000000000000000001",
+        );
+        await page.locator("#trait-101").waitFor();
+        assert.equal(
+          await page.evaluate(
+            () =>
+              getComputedStyle(
+                document.querySelector(".fact-rows > .fact-row:last-child"),
+              ).borderBottomWidth,
+          ),
+          "0px",
+        );
+        for (const width of [1280, 390])
+          await geometry(`#/explorer populated wallet=${connected}`, width);
+      }
+    },
+  );
+  await run(
     "3 six Catalog sources keep commit, file and anchors in the deployed repository",
     async () => {
       await setup({ route: "#/catalog", connected: false });
