@@ -935,11 +935,7 @@ export function About() {
             ? `The live registry currently has ${num(health.supply)} minted cards.`
             : "Live supply is unavailable until the deployment check finishes."}
         </p>
-        <p>
-          For minting and registration, {FEE}. BurnExecutor V2 receives fees;
-          its bridge configuration, message delivery and Base execution are
-          external dependencies.
-        </p>
+        <p>For minting and registration, {FEE}.</p>
       </Section>
       <Section title="BUILT BY THE SWARM">
         <Built />

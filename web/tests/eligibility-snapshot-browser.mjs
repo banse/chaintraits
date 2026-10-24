@@ -310,7 +310,9 @@ try {
     .locator("#pick-601")
     .getByText(/received an IdentityMD seat/)
     .waitFor();
-  assert.equal(files.length, 0);
+  // All unheld paid facts are now checked on load, loading one wallet shard.
+  assert.equal(files.length, 1);
+  assert.ok(files[0].endsWith(`wallets-${absent[2]}.json`));
   const nonces = calls.filter((p) => p.method === "eth_getTransactionCount");
   assert.ok(nonces.length >= 1);
   for (const call of nonces)
@@ -320,11 +322,12 @@ try {
       p.method === "eth_getLogs" &&
       p.params[0].address?.toLowerCase() === specs[601].target,
   );
-  assert.equal(seatCalls.length, 2);
-  assert.equal(seatCalls[0].params[0].fromBlock, toHex(25090085));
+  assert.ok([2, 4].includes(seatCalls.length));
+  for (const call of seatCalls)
+    assert.equal(call.params[0].fromBlock, toHex(25090085));
   await capture("live-seat-nonce", page.locator("#pick-601"));
   evidence.checks.push(
-    "601 retains two-endpoint seat Transfer check from block 25090085; 1301 retains historical nonce at block 25769870; neither loads a snapshot.",
+    "601 retains two-endpoint seat Transfer checks from block 25090085; 1301 retains historical nonce at block 25769870; on-load settled checks share one wallet snapshot shard.",
   );
   assert.deepEqual(evidence.errors, []);
 } catch (error) {

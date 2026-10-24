@@ -281,12 +281,14 @@ try {
       f.state.token = 1n;
       await retry.click();
       await page
-        .getByRole("heading", { name: "Your Sworn card #1", exact: true })
+        .getByText(
+          "Your Sworn card #1 is minted. It is on the Wallet page with every fact it holds.",
+          { exact: true },
+        )
         .waitFor();
-      await page.getByText("Sworn #1 · minted", { exact: true }).waitFor();
       assert.equal(
         await page
-          .locator(".claim-copy")
+          .locator("#mint")
           .getByRole("button", { name: "Mint card", exact: true })
           .count(),
         0,
@@ -465,9 +467,16 @@ try {
             .getByRole("button", { name: "Follow progress on the Wallet page" })
             .click();
           await page
-            .locator(".wallet-card")
-            .getByText("Sworn #1 · minted", { exact: true })
+            .getByRole("heading", { name: "Your Sworn card #1", exact: true })
             .waitFor();
+          await page
+            .locator(".wallet-record .claim-copy")
+            .getByText("already minted", { exact: true })
+            .waitFor();
+          assert.equal(
+            await page.locator(".wallet-card figcaption").count(),
+            0,
+          );
           assert.equal(
             await page
               .locator(".wallet-card img")
@@ -806,9 +815,18 @@ try {
         .getByRole("button", { name: "Follow progress on the Wallet page" })
         .click();
       await page
-        .locator("#held-601")
-        .getByText(`Oracle request: ${confirmedId}`, { exact: true })
+        .locator("#held-601 .meaning")
+        .getByText("Accepted swarm jobs >= 3", { exact: true })
         .waitFor();
+      assert.equal(
+        await page.locator("#held-601 .class-mark").innerText(),
+        "Panel-sworn",
+      );
+      assert.ok(
+        !(await page.locator("#held-601").innerText()).includes(
+          "Oracle request:",
+        ),
+      );
       assert.equal(await page.locator(".swarm-feed").count(), 0);
     },
   );

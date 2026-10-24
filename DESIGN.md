@@ -2,7 +2,7 @@
 
 ## Overview
 
-Sworn explores and requests Ethereum wallet facts. Keep the established terminal design: dark canvas, system monospace, green hive art, square controls and quiet structural rules. Six canonical hash routes share the header, Connect control and deployment footer. Catalog starts with Explorer, Mint has card minting followed by Mint facts, and Wallet pairs claimed facts with the Registry-rendered card. At 390px the first home screen contains the product, address field and Explore action.
+Sworn explores and requests Ethereum wallet facts. Keep the established terminal design: dark canvas, system monospace, green hive art, square controls and quiet structural rules. Six canonical hash routes share the header, Connect control and deployment footer. Catalog starts with Explorer. Mint offers card minting to wallets without a card and links minted wallets to Wallet. Wallet places the card block before its full-width claimed facts. At 390px the first home screen contains the product, address field and Explore action.
 
 ## Colors
 
@@ -22,27 +22,29 @@ Canonical tokens live in `web/src/styles.css`, `:root`.
 | `--panel` | `#8ff0a4` | Panel evidence |
 | `--danger` | `#ff7777` | Errors |
 
-Status words accompany color. Selected families expose pressed state, a named status and fact outlines. The modal backdrop is `#000c`. The inspected subpart pair (`--muted` on `--bg`) measures 6.48:1; broader coverage and limits are in `web/VALIDATION.md`.
+Status words accompany color. Selected families expose `aria-pressed` and fact outlines; each cell has an accessible family name. Sworn fact rows use the same text labels and colors as Mint: Chain-proven uses `--accent`, Shared uses `--shared`, and Panel-sworn uses `--panel`. The modal backdrop is `#000c`. Measured pairs and review limits are in `web/VALIDATION.md`.
 
 ## Typography
 
-Use `ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`, weights 400 and 600, with tabular numbers. No font downloads. Six source tokens are `--label:11px`, `--small:12px`, `--body:13px`, `--prose:15px`, `--title:24px`, `--display:34px`. Phone form inputs use 16px.
+Use `ui-monospace, SFMono-Regular, Menlo, Consolas, monospace`, weights 400 and 600, with tabular numbers. No font downloads. The regular source tokens are `--label:11px`, `--small:12px`, `--body:13px`, `--prose:15px`, `--title:24px`, `--display:34px`; numbered Mint steps retain the previous step’s `--step:19px`. Phone form inputs use 16px.
 
-Page h1 is 34px/1.3, part h2 is 24px/1.5, step h3 is 15px/1.5, and subpart h4 is 13px/1.5. `.subpart-title` also uses 13px muted capitals: the explanation is semantically h3 under the Mint facts h2, but visually subordinate to the numbered steps. Page/part tracking is -0.02em; the landing headline retains 34px/1.25 and -0.03em. Step numbers use accent; the name inherits weight 600 and `.step-description` uses 400. Subparts use CSS uppercase without changing their source copy.
+Page h1 is 34px/1.3, part h2 is 24px/1.5, ordinary h3 is 15px/1.5, and subpart h4 is 13px/1.5. `.step-title` is 19px/1.4, with an accent name and a grey 15px description. `.subpart-title` uses 13px muted capitals: the explanation is semantically h3 under the Mint facts h2, but visually subordinate to the numbered steps. Page/part tracking is -0.02em; the landing headline retains 34px/1.25 and -0.03em. Step names inherit weight 600; `.step-description` uses 400. Subparts use CSS uppercase without changing their source copy.
 
-Body is 13px/1.6 and prose 15px/1.65. Standalone prose retains the full content width; copy beside art stays within its column. Addresses, hashes, amounts and times wrap; code blocks scroll internally. Contract identifiers retain their original spelling. Explorer's fact-labelled metadata preview preserves the exact raw download and integer bytes.
+Body is 13px/1.6 and prose 15px/1.65. Standalone prose retains the full content width; the three 02 category lines and following note also span that width at 13px. Copy beside art stays within its column. Addresses, hashes, amounts and times wrap; code blocks scroll internally. Contract identifiers retain their original spelling. Explorer's fact-labelled metadata preview preserves the exact raw download and integer bytes.
 
 ## Layout
 
 The shared maximum width is 1264px with 32px gutters, reduced to 16px below 600px. Spacing tokens are 4, 8, 12, 16, 20, 24, 32, 40 and 48px. Main padding is 40px above/72px below, or 28px/48px on phones. Sections start after 48px (32px on phones), with a 24px inset. Parts use 64px before and 32px inset.
 
-Navigation wraps below 1150px; evidence grids reduce at 900px; main paired columns stack at 780px; forms and picker rows adapt at 640px. Wallet uses `minmax(0,1fr) minmax(280px,360px)` and a 32px gap. At 900px and below its card comes above the facts. No-card Wallet history stays full width. Direct facts use two aligned name/meaning pairs at 1280px, one pair at 901–1150px, and stacked fields at 780px.
+Navigation wraps below 1150px; evidence grids reduce at 900px; main paired columns stack at 780px; forms and picker rows adapt at 640px. Wallet reuses `.mint-panel`: `minmax(0,1.2fr) minmax(0,0.8fr)` with a 48px gap, claimant copy left and card right, stacked at 780px. The figure is centered and capped at 300px, 280px below 780px and 240px below 600px. The only text under it is a selection hint when a cell can be selected. The card block is absent without a card.
+
+Claimed facts always follow at full content width. `.direct-facts` retains two name/meaning pairs per row with subgrid alignment. `.sworn-facts` has one fact per row, using `1fr 1.5fr 12ch` columns for id/name, short rule and type; both sworn groups share these edges. All row fields stack at 780px. Group titles stay green and every row retains its leading rule and inset highlight. `.why-steps > li` resets the global sibling margin so the three info columns begin together.
 
 Data rows use at most 8px vertical padding while buttons retain 44px targets. Picker columns are text, 56px preview and 164px actions, with 16px gaps. At 640px text spans the first row; preview/actions follow below.
 
-Each boundary has one separator owner: the record strip and Mint panel keep their top rule; the following section owns the next rule. Fact-history rows draw leading rules, avoiding an extra trailing line before the footer. Explorer and Catalog fact lists (`.fact-rows`) draw rules between rows but not under the last row, because the following section's top rule closes the list. Mint facts' intro and four-link explanation flow into 01 with space and no rule; a wallet's pending Swarm progress feed sits at the end of 02 (24px top margin, no rule of its own, a muted uppercase sub-part title), never between the explanation and 01. Rules remain before 02 and 03. The old `add-traits` anchor remains on an unstyled wrapper.
+Each boundary has one separator owner: the record strip and Mint panel keep their top rule; the following section owns the next rule. Fact-history rows draw leading rules, avoiding an extra trailing line before the footer. Explorer and Catalog fact lists (`.fact-rows`) draw rules between rows but not under the last row. Mint steps 01, 02 and 03 each own one leading rule. Pending Swarm progress stays inside 02, with a 24px top margin and no own rule; the last `.swarm-seats li` has no trailing rule. The old `add-traits` anchor remains on an unstyled wrapper.
 
-Desktop footer controls form a non-shrinking, non-wrapping group with a 256px selector, automatic leading margin and end alignment. At 600px they may wrap; the group stays right aligned.
+The footer’s bottom row contains the established owner/backend/coin line and four source links, wrapping on phones. It has no public RPC selector or Retry reads control, as delivered by the previous step.
 
 ## Elevation & Depth
 
@@ -57,10 +59,10 @@ Controls are square; buttons have a 44px minimum and source links a 24px minimum
 | Source | Reuse and behavior |
 | --- | --- |
 | `App.tsx`, `navigation.ts` | Shared shell, hash routes/aliases, titles, focus and footer. |
-| `components.tsx` | `Section`, `Status`, `Mark`, labelled `AddressForm`, `Card`, `WalletFactRows`; `Sources` links to the deployed source; `CommunityIntro` shares exact Catalog/Mint wording. |
+| `components.tsx` | `Section`, `Status`, `Mark`, labelled `AddressForm`, `Card`, `WalletFactRows`; `Card.showCaption` defaults true, with false only for Wallet. `Sources` links to the deployed source; `CommunityIntro` shares exact Catalog/Mint wording. |
 | `claim.tsx` | Card minting, held-only direct summary, three numbered steps, paid picker and immutable community form. Catalog topic descriptions feed the step intros. |
-| `fact-ui.tsx` | Counted ineligible disclosure only for positive counts; unknown eligibility remains visible. Step 01 has no disclosure. Held facts show UTC attestation or direct mint block/time. |
-| `wallet-facts.tsx` | Detailed proof/history, authentic card, family highlights and pending progress. |
+| `fact-ui.tsx` | Mint and Explorer share `useFactChecks`, with bounded/cancelled checks, a positive-count disclosure and visible unknown results. Selected paid rows keep their advice. Step 01 has no disclosure; Mint/Explorer retain held-fact provenance. |
+| `wallet-facts.tsx` | Mint-style card/title/claimant block, grouped short fact rows, evidence type labels, family highlights and pending progress. Wallet has no proof details or redundant caption/status below its card. |
 | `transactions.tsx` | Prices, consent, simulation, refusal/retry and receipt recovery. Follow-progress navigation remains enabled during wallet work and opens Wallet. |
 | `wallet.tsx`, `swarm.tsx` | Existing wallet discovery/mobile handoff, modal focus/return and read-only oracle progress. API progress never establishes a credential. |
 | `chain.ts`, `runtime-assets.ts`, `runtime-integrity.mjs` | Bundled pinned inputs and retained integrity/dependency checks. |

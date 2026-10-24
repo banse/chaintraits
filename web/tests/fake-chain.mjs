@@ -578,13 +578,20 @@ export async function fakeWallet(context, address = wallet) {
 export async function inspectAllFacts(page) {
   await page.evaluate(() => {
     const reveal = () => {
-      document
-        .querySelectorAll('#step-02 .eligibility-toggle[aria-pressed="false"]')
-        .forEach((button) => button.click());
+      const button = document.querySelector(
+        '#step-02 .eligibility-toggle[aria-pressed="false"]',
+      );
+      if (button) {
+        // Many on-load checks can settle in one frame. Reveal once, so their
+        // mutations cannot click the same pending React toggle twice.
+        observer.disconnect();
+        button.click();
+      }
     };
     const step = document.querySelector("#step-02");
     if (!step) return;
-    new MutationObserver(reveal).observe(step, {
+    const observer = new MutationObserver(reveal);
+    observer.observe(step, {
       childList: true,
       subtree: true,
       attributes: true,

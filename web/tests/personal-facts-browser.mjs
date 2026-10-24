@@ -317,8 +317,11 @@ async function setup({
     await page
       .getByRole("button", { name: "Browser wallet", exact: true })
       .click();
+    if (!explorer) {
+      await page.locator("#step-02").waitFor();
+      await inspectAllFacts(page);
+    }
     await page.locator(`#pick-${id >= 10001 ? id : 801}`).waitFor();
-    if (!explorer) await inspectAllFacts(page);
     if (feed) await page.evaluate(() => (location.hash = "#/mint"));
   }
   if (kind === 3 && pending)
@@ -343,7 +346,8 @@ const poll = () => page.evaluate(() => window.__poll());
 async function capture(name, element) {
   for (const width of [1280, 390]) {
     await page.setViewportSize({ width, height: width === 390 ? 844 : 900 });
-    if (element) await element.scrollIntoViewIfNeeded();
+    if (element)
+      await element.evaluate((e) => e.scrollIntoView({ block: "center" }));
     const actual = await page.evaluate(
       () => document.documentElement.scrollWidth,
     );
@@ -500,6 +504,8 @@ try {
           ending("Missed", 7, "0x" + "c1".repeat(32)),
         );
         await page.reload();
+        await page.locator("#step-02").waitFor();
+        await inspectAllFacts(page);
         await row.getByText(line, { exact: true }).waitFor();
         assert.equal(await row.getByText(/Last request/).count(), 1);
         await capture(`history-${eventName}-${reason}`, row);
@@ -752,12 +758,14 @@ try {
           p.method === "eth_getLogs" &&
           p.params[0].address.toLowerCase().startsWith("0x0000ec"),
       );
-      assert.equal(
-        seats.length,
-        2,
-        "two endpoint agreement, one bounded chunk",
+      // The initial disclosure check and selected-fact advice each use two
+      // agreeing endpoints; overlapping calls may share their in-flight read.
+      assert.ok(
+        [2, 4].includes(seats.length),
+        "bounded on-load and selected checks",
       );
-      assert.equal(seats[0].params[0].fromBlock, toHex(25090085));
+      for (const call of seats)
+        assert.equal(call.params[0].fromBlock, toHex(25090085));
       assert.deepEqual(await page.evaluate(() => window.__signing), []);
       await capture("eligibility-seat", page.locator("#pick-601"));
     },

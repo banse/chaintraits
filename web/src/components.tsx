@@ -157,8 +157,7 @@ export function CommunityIntro() {
   return (
     <p className="prose">
       Anyone can define an immutable T1–T5 rule. Registration costs 6.4 IMD;{" "}
-      {FEE}. BurnExecutor V2 receives this fee. Every request then costs the
-      live oracle price per fact.
+      {FEE}. Every request then costs the live oracle price per fact.
     </p>
   );
 }
@@ -195,6 +194,7 @@ export function Card({
   onFamily,
   activeFamily,
   availableFamilies,
+  showCaption = true,
 }: {
   facts?: Pick<WalletFacts, "token" | "metadata">;
   sample?: boolean;
@@ -204,6 +204,7 @@ export function Card({
   onFamily?: (n: number) => void;
   activeFamily?: number;
   availableFamilies?: number[];
+  showCaption?: boolean;
 }) {
   return (
     <figure className={miniId ? "mini-card" : "card-figure"}>
@@ -250,7 +251,7 @@ export function Card({
           </div>
         )}
       </div>
-      {!miniId && (
+      {!miniId && showCaption && (
         <figcaption>
           {sample
             ? "Synthetic illustration · no wallet credential"

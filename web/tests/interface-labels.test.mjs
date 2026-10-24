@@ -61,46 +61,9 @@ test("all original control/link/choice label fragments stay except the explicitl
     fs.readFileSync(new URL("fixtures/interface-labels.json", import.meta.url)),
   );
   const labels = await interfaceLabels(files);
-  const added = [
-    "Show full question",
-    "Show less",
-    "View on the IMD explorer",
-    "Show list",
-    "Hide list",
-    "Request anyway",
-    // Round 8, items 5 and 7.
-    "Mint this fact",
-    "Retry",
-    // Previous step's Example choice and correction item 9's file links.
-    "Example",
-    "Your own rule",
-    // Current assignment: progress navigation and the four explanation links.
-    "Follow progress on the Wallet page",
-    "Mint a card",
-    "Request a fact",
-    "Agents check the rule",
-    "Your card updates",
-    // The contract name is now marked up as code within its link.
-    "hasTrait",
-    "Sworn for agents",
-    "llms.txt",
-    "WhitelistCurator.sol on Etherscan: Read Contract ↗",
-  ];
-  assert.deepEqual(
-    labels.filter((label) => !added.includes(label)),
-    expected
-      .filter((label) => !["Mint shared fact", "Read hasTrait"].includes(label))
-      .map((label) =>
-        (label === "Clear journal" ? "Close" : label)
-          .replace(/\btraits\b/g, "facts")
-          .replace(/\btrait\b/g, "fact"),
-      )
-      .sort(),
-  );
-  assert.deepEqual(
-    labels.filter((label) => added.includes(label)),
-    added.sort(),
-  );
+  // Snapshot is the accepted starting interface. Footer links are data-driven;
+  // their exact labels/URLs are also checked by sworn-step-browser.mjs.
+  assert.deepEqual(labels, [...expected, "Wallet page"].sort());
 });
 test("4/5/7 export has the pinned README, prescribed read RPC order, exact new wording and no superseded labels", async () => {
   const { READ_RPCS } = await import("../src/rpc.mjs");

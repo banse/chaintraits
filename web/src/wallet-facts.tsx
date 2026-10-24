@@ -9,13 +9,12 @@ import {
   type WalletFacts as Facts,
 } from "./chain";
 import { TRAITS } from "./data";
-import { Card, Status, num } from "./components";
+import { Card, Mark, Status, num } from "./components";
 import { useWalletSheet } from "./wallet";
 import { openRequests } from "./claim";
 import { useTransactions } from "./transactions";
 import type { WatchedFact } from "./swarm";
 import { SwarmFeed, SWARM_POLL_MS } from "./swarm";
-import { FAMILIES } from "./data";
 import { HIVE_CELLS } from "./hive-layout";
 
 // The short line each claimed fact shows; a catalog rule unless named here.
@@ -27,6 +26,7 @@ type Row = {
   meaning: string;
   community: boolean;
   group: Group;
+  kind: string;
 };
 const GROUPS: [Group, string][] = [
   ["direct", "Direct facts"],
@@ -150,6 +150,13 @@ export function WalletFacts() {
           name,
           meaning,
           community: community || id >= 10001,
+          kind:
+            trait?.class ||
+            (spec?.kind === 3
+              ? "shared"
+              : spec?.kind === 5
+                ? "panel"
+                : "chain"),
           group: !trait
             ? ("community" as const)
             : trait.class === "direct"
@@ -224,6 +231,16 @@ export function WalletFacts() {
         ? HIVE_CELLS[current.verifiedSpecs.indexOf(row.id) % 13]?.family
         : undefined
       : Math.floor(row.id / 100);
+  const availableFamilies = current
+    ? [
+        ...new Set([
+          ...current.traits.map((id) => Math.floor(id / 100)),
+          ...current.verifiedSpecs
+            .slice(0, 39)
+            .map((_, i) => HIVE_CELLS[i % 13].family),
+        ]),
+      ]
+    : [];
   return (
     <>
       <h1>Wallet</h1>
@@ -239,53 +256,47 @@ export function WalletFacts() {
         </section>
       ) : (
         <>
-          <div
-            className={
-              current && current.token !== 0n
-                ? "wallet-record with-card"
-                : "wallet-record"
-            }
-          >
+          <div className="wallet-record">
             {current && current.token !== 0n && (
-              <aside className="wallet-card" aria-label="Your rendered card">
-                <Card
-                  facts={current}
-                  interactive
-                  availableFamilies={[
-                    ...new Set([
-                      ...current.traits.map((id) => Math.floor(id / 100)),
-                      ...current.verifiedSpecs
-                        .slice(0, 39)
-                        .map((_, i) => HIVE_CELLS[i % 13].family),
-                    ]),
-                  ]}
-                  activeFamily={family ?? 0}
-                  onFamily={(n) =>
-                    setFamily((old) => (old === n ? undefined : n))
-                  }
-                />
-                <p className="muted">
-                  Select a non-empty hive cell to highlight its claimed facts.
-                  Select it again to clear.
-                </p>
-                <Status>
-                  {family
-                    ? `${FAMILIES[family - 1]} family selected.`
-                    : "All claimed facts shown."}
-                </Status>
-              </aside>
+              <section
+                className="mint-panel"
+                aria-labelledby="wallet-card-title"
+              >
+                <div className="claim-copy">
+                  <h2 id="wallet-card-title">
+                    Your Sworn card #{current.token.toString()}
+                  </h2>
+                  <p className="accent">
+                    Card #{current.token.toString()} · Original claimant:{" "}
+                    {current.address}
+                  </p>
+                  <Status>already minted</Status>
+                </div>
+                <aside className="wallet-card" aria-label="Your rendered card">
+                  <Card
+                    facts={current}
+                    interactive
+                    showCaption={false}
+                    availableFamilies={availableFamilies}
+                    activeFamily={family ?? 0}
+                    onFamily={(n) =>
+                      setFamily((old) => (old === n ? undefined : n))
+                    }
+                  />
+                  {availableFamilies.length > 0 && (
+                    <p className="muted">
+                      Select a non-empty hive cell to highlight its claimed
+                      facts. Select it again to clear.
+                    </p>
+                  )}
+                </aside>
+              </section>
             )}
             <section
               className="section wallet-facts"
               aria-label="Claimed facts"
             >
               <h2>Claimed facts</h2>
-              <p className="muted">
-                Every fact this wallet holds, read from Registry state.
-                {current && current.token !== 0n
-                  ? ` Card #${current.token}.`
-                  : ""}
-              </p>
               {error ? (
                 <>
                   <Status error>{error}</Status>
@@ -298,7 +309,6 @@ export function WalletFacts() {
               ) : !rows.length ? (
                 <p>No claimed fact for this wallet.</p>
               ) : (
-                // Every group uses the direct facts' two-column form.
                 GROUPS.map(([group, title]) => {
                   const list = rows.filter((row) => row.group === group);
                   return (
@@ -306,7 +316,7 @@ export function WalletFacts() {
                       <div className="fact-group" key={group}>
                         <h3 className="fact-group-title">{title}</h3>
                         <ul
-                          className="fact-history direct-facts"
+                          className={`fact-history ${group === "direct" ? "direct-facts" : "sworn-facts"}`}
                           aria-label={title}
                         >
                           {list.map((row) => (
@@ -323,6 +333,7 @@ export function WalletFacts() {
                                 {row.id} / {row.name}
                               </strong>
                               <span className="meaning">{row.meaning}</span>
+                              {group !== "direct" && <Mark kind={row.kind} />}
                             </li>
                           ))}
                         </ul>

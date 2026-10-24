@@ -51,6 +51,7 @@ import {
   MintedFact,
   ineligibleFact,
   useAttestedReader,
+  useFactChecks,
 } from "./fact-ui";
 import {
   RequestTime,
@@ -1114,12 +1115,18 @@ export function Claim() {
     })),
     ...customTraits,
   ].sort((a, b) => a.id - b.id);
+  const checks = useFactChecks(
+    facts?.address.toLowerCase() === account.address?.toLowerCase()
+      ? facts
+      : null,
+    paid.map((t) => t.id),
+  );
   // Hidden by default only on what is known before any selection; a
   // selected fact keeps its row and shows its eligibility result there.
   function paidIneligible(id: number) {
     if (selected.includes(id)) return false;
     return (
-      ineligibleFact(facts, id) ||
+      ineligibleFact(facts, id, checks[id]) ||
       (!facts?.traits.includes(id) &&
         !facts?.verifiedSpecs.includes(id) &&
         sharedEligibility.wallet === account.address &&
@@ -1219,86 +1226,79 @@ export function Claim() {
           ))}
         </section>
       )}
-      <section className="mint-panel" id="mint">
-        <div className="claim-copy">
-          <h2>
-            {minted !== null && minted !== 0n
-              ? `Your Sworn card #${minted}`
-              : account.address && !cardReady
+      {minted !== null && minted !== 0n ? (
+        <p className="minted-card" id="mint">
+          Your Sworn card #{minted.toString()} is minted. It is on the{" "}
+          <a href="#/wallet">Wallet page</a> with every fact it holds.
+        </p>
+      ) : (
+        <section className="mint-panel" id="mint">
+          <div className="claim-copy">
+            <h2>
+              {account.address && !cardReady
                 ? factError
                   ? "Retry wallet reads"
                   : "Reading your card…"
                 : "Mint your Sworn card"}
-          </h2>
-          {(!account.address || (cardReady && minted === 0n)) && (
-            <>
-              <p>
-                A card costs 0.10 IMD; no fact claim is needed before minting.
-              </p>
-              <p className="accent">Mint your card now. It updates itself.</p>
-              <p>{FEE}.</p>
-              <p className="muted">Pay with: {payment}</p>
-            </>
-          )}
-          {!account.address ? (
-            <button className="primary" onClick={open}>
-              Connect to mint
-            </button>
-          ) : minted !== null && minted !== 0n ? (
-            <p className="accent">
-              Card #{minted.toString()} · Original claimant: {account.address}
-            </p>
-          ) : !cardReady ? null : (
-            <button
-              className="primary"
-              disabled={!!reason || !facts || facts.token !== 0n || !!busy}
-              onClick={prepareMint}
+            </h2>
+            {(!account.address || (cardReady && minted === 0n)) && (
+              <>
+                <p>
+                  A card costs 0.10 IMD; no fact claim is needed before minting.
+                </p>
+                <p className="accent">Mint your card now. It updates itself.</p>
+                <p>{FEE.charAt(0).toUpperCase() + FEE.slice(1)}.</p>
+                <p className="muted">Pay with: {payment}</p>
+              </>
+            )}
+            {!account.address ? (
+              <button className="primary" onClick={open}>
+                Connect to mint
+              </button>
+            ) : !cardReady ? null : (
+              <button
+                className="primary"
+                disabled={!!reason || !facts || facts.token !== 0n || !!busy}
+                onClick={prepareMint}
+              >
+                {busy === "mint"
+                  ? "Checking…"
+                  : facts && facts.token !== 0n
+                    ? "Already minted"
+                    : "Mint card"}
+              </button>
+            )}
+            <Status
+              error={
+                !!factError ||
+                (!!status.mint &&
+                  !status.mint.startsWith("Ready:") &&
+                  status.mint !== "Checking…")
+              }
             >
-              {busy === "mint"
-                ? "Checking…"
-                : facts && facts.token !== 0n
-                  ? "Already minted"
-                  : "Mint card"}
-            </button>
-          )}
-          <Status
-            error={
-              !!factError ||
-              (!!status.mint &&
-                !status.mint.startsWith("Ready:") &&
-                status.mint !== "Checking…")
-            }
-          >
-            {factError ||
-              (facts && facts.token !== 0n
-                ? "already minted"
-                : status.mint ||
-                  reason ||
-                  (!facts ? "Reading your wallet…" : ""))}
-          </Status>
-          {status.mint?.startsWith("Ready:") && (
-            <a href={claimAnchor("transaction-steps")}>
-              {facts && facts.token !== 0n
-                ? "View mint receipts ↓"
-                : "Transaction steps ↓"}
-            </a>
-          )}
-          {factError && (
-            <button onClick={() => setRefreshTick((v) => v + 1)}>
-              Retry wallet reads
-            </button>
-          )}
-        </div>
-        {facts ? (
-          <Card facts={facts} />
-        ) : minted !== null && minted !== 0n ? (
-          <Status>
-            Card #{minted.toString()} · Reading its facts and image…
-          </Status>
-        ) : (
-          <Card sample />
-        )}
-      </section>
+              {factError ||
+                (facts && facts.token !== 0n
+                  ? "already minted"
+                  : status.mint ||
+                    reason ||
+                    (!facts ? "Reading your wallet…" : ""))}
+            </Status>
+            {status.mint?.startsWith("Ready:") && (
+              <a href={claimAnchor("transaction-steps")}>
+                {facts && facts.token !== 0n
+                  ? "View mint receipts ↓"
+                  : "Transaction steps ↓"}
+              </a>
+            )}
+            {factError && (
+              <button onClick={() => setRefreshTick((v) => v + 1)}>
+                Retry wallet reads
+              </button>
+            )}
+          </div>
+          {facts ? <Card facts={facts} /> : <Card sample />}
+        </section>
+      )}
       <section
         className="part"
         id="mint-facts"
@@ -1578,6 +1578,11 @@ export function Claim() {
                 );
               })}
             </div>
+            {site.loading ? (
+              <Status>Reading community specs…</Status>
+            ) : site.error || site.specError ? (
+              <Status error>{site.error || site.specError}</Status>
+            ) : null}
             <p id="oracle-ack" className="muted">
               The payment dialog explains the cost and requires your
               confirmation before any wallet signature.
@@ -1644,24 +1649,7 @@ export function Claim() {
                     />
                   </div>
                 ))}
-            <h4>Community facts</h4>
-            {site.loading ? (
-              <Status>Reading community specs…</Status>
-            ) : site.error ? (
-              <Status error>{site.error}</Status>
-            ) : site.specError ? (
-              <Status error>{site.specError}</Status>
-            ) : !site.specs.length ? (
-              <p className="muted">
-                No community specs registered yet. Register an immutable spec in
-                step 03.
-              </p>
-            ) : (
-              <p className="muted">
-                Community facts appear in the picker above.
-              </p>
-            )}
-            {/* Pending requests follow inside 02, so the Mint facts intro runs into 01 without a rule. */}
+            {/* Pending requests remain inside the fact-request step. */}
             {pendingFacts.length > 0 && (
               <section className="swarm-feed" aria-label="Swarm progress">
                 <h4 className="subpart-title">Swarm progress</h4>

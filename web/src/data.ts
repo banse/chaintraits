@@ -121,7 +121,13 @@ const rows: [number, string, string, string, string][] = [
     W.FIRST1000,
   ],
   [1201, "Top Weights", "shared", "Top 32 by summed weightAdded", W.LIFE],
-  [1301, "Pretrained", "panel", "Account nonce ≥ 20 at launch", W.DEPLOY],
+  [
+    1301,
+    "Pretrained",
+    "panel",
+    "Account nonce ≥ 20 at launch of WhitelistCurator",
+    W.DEPLOY,
+  ],
 ];
 export const TRAITS: Trait[] = rows.map(([id, name, c, rule, window]) => ({
   id,

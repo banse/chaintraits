@@ -1,77 +1,80 @@
-# Layout refinement validation
+# Wallet and Mint validation
 
-Worker checks on 2026-10-24; these are not independent certification. Scope: the eleven requested interface changes in the existing static Sworn site. Contracts, addresses, chain, ABI/runtime integrity, RPC pool, eligibility snapshot, routes, dependency manifests/lockfile and build configuration are preserved. No live signing, broadcast, deployment or publication occurred.
+Worker checks on 2026-10-24 UTC, not independent certification. Scope: the ten requested changes to the existing Sworn site. Addresses, chain, ABIs, RPC pool, runtime integrity checks, routes, snapshot, contracts, build configuration and dependencies remain unchanged. Static source and the rebuilt repository-root `dist/` are the delivery; hosting follows network submission.
 
-## Item coverage
+## Requirement coverage
 
-`node tests/layout-refinement-browser.mjs` serves the production export under `/preview/`, using fake EIP-1193, RPC and API responses. Seven scenario groups pass, including 44 route/width/wallet combinations, two additional Mint measurements, a pending-wallet Mint case and a populated Explorer with and without a wallet (52 geometry observations); no console/page/local-resource errors or horizontal overflow were recorded.
+`tests/wallet-mint-browser.mjs` serves the production export under `/preview/` with fake EIP-1193, RPC and API replies. Its eleven scenario groups pass, with 54 geometry observations and no console/page/local-resource errors or signing calls. All ten items have explicit assertions.
 
-| Item | Test case prefix and result |
+| Item | Passing case and evidence |
 | --- | --- |
-| 1 | `1,5,8 all routes…`: selector/Retry top coordinates match at 1280px, controls remain inside the bottom row, group right edge equals footer right edge. All six canonical routes and five aliases, connected/disconnected, at 1280/390px. |
-| 2 | `2 busy transaction…`: hold a fake wallet reply in awaiting-signature state, assert Follow progress enabled, focus/Enter opens Wallet and closes the dialog, reject the held fake call. No RPC send/sign call. |
-| 3 | `3 six Catalog sources…`: all six exact URLs preserve the full c4ff3238 commit, CATALOG.md and original anchors in the deployed repository. The linked GitHub file separately returned HTTP 200. |
-| 4 | `4,6,7,8,10 Mint structure…`: no Add facts heading or per-step Who can/Cost and risk/Who benefits block. |
-| 5 | `1,5,8…`: inspect rendered structural borders against text/control/image rectangles; no consecutive empty boundaries. Includes Mint panel/part, first step, 02/03, home strip/evidence and final Wallet history/footer. `5,10 a pending fact…`: a wallet with pending fact 601 shows Swarm progress inside 02 (no own rule), and `#/explorer?address=0x2000…0001` with facts 101/201/301 ends its list without a rule under the last row, connected and disconnected, at 1280/390px. |
-| 6 | `4,6,7,8,10…`: exact three titles, accent number, 600 name/400 description, exact checksummed Read Contract URL, new-tab target. |
-| 7 | Same case compares direct/community intros to Catalog and paid descriptions to their Catalog topics with step-02 pointers removed; three separate paragraphs start with bold topic names. |
-| 8 | `1,5,8…` and Mint case measure page/part/step/subpart at 34/24/15/13px. Both named subparts are uppercase and muted. |
-| 9 | `9,11 zero hidden…`: zero-count controls absent before connection and with no known negative result; positive count appears, shows/hides negative rows and exposes pressed state. |
-| 10 | Mint case checks immediate intro/explanation adjacency (the explanation's next sibling is the 01 wrapper even with a pending fact), all four original link destinations, no explanation-bottom or 01-top rule, retained rules before 02/03. |
-| 11 | `9,11…`: no 01 disclosure; disconnected/empty wallets list no direct facts, a two-fact wallet lists exactly its two held ids. Catalog retains thirteen direct rules. |
+| 1 | `1 Wallet card…` checks exact title, claimant and minted status, below-intro ordering, left/right layout at 1280 and stacking at 390, authentic fixture image, no caption/status in the card aside, only the requested hint. Pointer, Space and Enter select/clear a family; catalog and community facts sharing its cell highlight together; empty cells have no control. `1,3 Wallet without…` checks no block without a card and no hint/controls on a minted empty card. |
+| 2 | `2 Wallet full-width groups…` measures full content width, two direct facts per row, one sworn fact per row and three aligned columns across both sworn groups. Exact type labels, Mint colors, green titles, short rules and phone stacking are asserted. |
+| 3 | `3 Mint with card…` asserts the exact single line, its Wallet link and navigation, and no card block. No-card controls/preview remain, with the exact capitalized fee sentence. Wallet's redundant Claimed facts line and empty-card hint are absent. |
+| 4 | `4,7 Mint 02 intro…` compares each category paragraph and the note's width to 01 and 03 at 1280px. |
+| 5 | `5 Community rows…` holds a spec read to check the single loading status immediately above the payment notice, releases it and checks the registered row, then tests empty and failed reads. Trailing Community facts heading/success/empty copy are absent. |
+| 6 | `6 Paid facts checked…` checks the historical nonce request at block 25,769,870 and nonce 5 hiding 1301 on load in a counted disclosure. Reveal/select/hide retains its row and exact note; the dialog repeats the note; deselecting hides it again. Held 1301 remains visible without a nonce check. `6 Failed or unanswered…` covers unavailable history and the deadline branch (20-second timer shortened to 200ms in that test only), with no inferred negative. |
+| 7 | `4,7…` measures equal top edges of all three Why columns at 1280px. |
+| 8 | `8 Pending seats…` uses an expanded 11-seat panel with true, false, failed and waiting seats. Its final row has no trailing rule, earlier rows retain their lines, and 01/02/03 each have one leading rule. Rendered borders are compared with intervening content across every canonical route, connected/disconnected, at 1280/390/320; no empty separator pair. |
+| 9 | `9,10 Exact BurnExecutor…` checks rendered Mint, Catalog, Wallet and About text for the removed version/dependency phrases and burned-fee claims, plus About's exact paragraph. `3…` checks the capitalized no-card fee sentence. |
+| 10 | `9,10…` asserts `Account nonce ≥ 20 at launch of WhitelistCurator` on Mint, Catalog and held Wallet. |
 
-The existing refresh/correction suites retain their other checks. Only superseded assertions changed: descending title sizes, explanation position, direct filtering, busy navigation and conditional disclosure. Eligibility-focused suites now opt into negative rows when their asynchronous disclosure appears. Shared-request setup waits for wallet facts, and the tooltip test waits for the alias's initial anchor scroll before moving to the chart; neither changes product behavior.
+The last group also checks Explore and Connect on the first 390×844 screen, address validation/keyboard navigation, title/favicon/description/OG metadata and no signing. Screenshots of Wallet at 1280/390, Why columns, 02 intros, populated pending seats and focused phone Home were made and visually inspected.
 
 ## Actual checks
 
-Installation used the unchanged web package/lockfile in an isolated temporary copy, with dependencies, npm cache and browsers outside the repository. Commands below are web-relative unless noted.
+Dependencies were installed from the unchanged lockfile in a temporary repository copy, with npm cache and dependencies outside the submission. The provided Playwright installation was used with its Chromium runtime. The original Git object store was read for the pinned ABI comparison; no repository metadata was edited. Commands are web-relative unless noted.
 
-- `npm ci --no-audit --no-fund`: passed.
-- `npm run typecheck`: passed.
-- `npm run build`: passed; three pinned ABI byte/canonical-Keccak comparisons pass. Existing upstream client-directive, worker-module and plugin-timing warnings remain.
-- `npm test`: 108 unit/export tests passed; 55 Chromium route/width combinations at 320, 390, 780, 1280 and 1440 passed, including forms, wallet dialog focus/return, copy, compiled integration example and census interactions. Optional live RPC/fork cases explicitly skipped.
-- `node tests/layout-refinement-browser.mjs`: seven groups passed, 52 geometry observations, zero unexpected errors.
-- `node tests/site-refresh-browser.mjs`: 14 groups passed. `node tests/correction-browser.mjs`: 11 groups passed, including late wallet reply, currency changes and sent-receipt persistence.
-- Additional suites passed: `site-update-browser.mjs` (9 groups), `round8-browser.mjs` (10), `round8-revision-browser.mjs` (4), `eligibility-snapshot-browser.mjs` (6), `acceptance.mjs` (12), `actions.mjs` (11), `oracle-feed-browser.mjs` (10), `personal-facts-browser.mjs` (15), `followup.mjs` (10), `swarm-browser.mjs` (10), `site-review-browser.mjs` (9). All used fake wallet/RPC/API answers.
+- `npm ci --cache /tmp/sworn-npm-cache --no-audit --no-fund`: passed in the temporary build copy.
+- `npm run typecheck`: passed on final source.
+- `npm run build`: passed on final source; all three pinned ABI byte/canonical-Keccak checks passed. Inherited upstream client-directive, worker-module and bundler timing warnings remain.
+- `npm run verify:export`: passed, 65 manifest-listed assets and 1,524,359 listed bytes. With `imd-deployment.json`, the export has 66 files and 1,535,577 bytes.
+- A second production build was compared to delivered `dist/`: identical relative paths and SHA-256 values for all 66 files, including index, assets, `art/full-house.svg` and manifest. No obsolete hashed assets remain.
+- `npm test`: passed, 108 unit/export tests and 55 Chromium route/width combinations at 320, 390, 780, 1280 and 1440, plus legacy anchor checks. Optional live RPC/fork cases explicitly skipped.
+- `node tests/wallet-mint-browser.mjs`: 11 groups passed, 54 geometry observations, zero errors or signing calls.
+- `node tests/sworn-step-browser.mjs`: all 6 previous-step groups passed, including 34 separator observations and unchanged footer/Integrate/About behavior.
+- Additional fake-wallet regression suites passed: `acceptance.mjs` (12 groups), `actions.mjs` (11), `followup.mjs` (10), `swarm-browser.mjs` (10), `oracle-feed-browser.mjs` (10), `personal-facts-browser.mjs` (15), `eligibility-snapshot-browser.mjs` (6). Fake wallet prompts in those suites never sign or broadcast to a network.
+- Source/test formatting and `git diff --check`: passed for changed formatted files. The previous step's existing unformatted test file retains its formatting except the changed assertions.
 
-The pinned probe ran from the repository root: `node .imd/reads/skills/design-critic/scripts/taste.mjs --out test/scratch/taste --offline`, using the externally installed Playwright module. It passes 14/16 checks. The two flags are inherited uppercase WHY SWORN/BUILT BY THE SWARM headings and established monospace prose, retained under the brief's copy/design constraint. Render, layout, targets, measured entry-page contrast, tracking, eyebrows, sizes, glyphs, slogans, repetition, copy budget, chrome, motion and share metadata pass.
+Some inherited test expectations predated the accepted starting tree. The interface-label snapshot was regenerated from that starting tree, not the new implementation: the only added control/link label is `Wallet page`, and none was removed. Browser expectations now reflect the requested card move/type/rule changes and the previous step's already-removed proof/footer controls. Disclosure helpers reveal once to avoid repeated clicks while on-load checks settle; bounded read tests account for both initial checks and selected-fact advice. Safety, consent, retry, receipt and integrity assertions remain exercised.
 
 ## Better Interface review
 
-The pinned workflow, six domains and documentation method informed implementation. Existing licenses remain in `web/LICENSES/Better-Interface.txt`. `DESIGN.md` describes actual source values.
+The pinned workflow, all six domain cores and documentation method were read and applied. Final tokens/components/responsive behavior are in root `DESIGN.md`; existing attribution remains in `web/LICENSES/Better-Interface.txt`.
 
-| Domain | Checked evidence and limitations |
+| Domain | Checked coverage and limits |
 | --- | --- |
-| Accessibility | Native labelled controls, keyboard follow-progress activation, pressed disclosure, route/form focus and native wallet-dialog focus/return. Focused 390px Explore screenshot inspected. Screen reader, native zoom and physical devices unperformed. |
-| Layout | 1280/390 connected/disconnected route matrix; existing 320–1440 sweep. Desktop footer and phone home/Mint screenshots inspected using the supplied browser. No empty border pairs or overflow measured. RTL/translation expansion unperformed. |
-| Writing | Exact titles, source link, shared topic intros and four moved links tested. AST test protects unchanged control/link labels; no public version labels or burned-fee claim introduced. |
-| Typography | Distinct descending sizes and step weights measured on every route; phone/desktop Mint screenshots inspected. Existing monospace/full-width prose retained. Platform font fallback may vary. |
-| Colors | Existing tokens retained; computed muted `rgb(140,150,142)` on canvas `rgb(10,10,10)` measures 6.475:1 in the supplied browser. Entry-page probe contrast passes. Decorative SVG pixels/overlays not comprehensively measured. |
-| UI | Native controls and flat surfaces retained; loading, empty, refusal, retry, held facts, conditional disclosure and busy dialog exercised. No new motion; existing reduced-motion probe passes. Physical wallet handoff/passkeys unperformed. |
+| Accessibility | Native named links/buttons, cell pressed state, pointer/Space/Enter toggling, checkbox disclosure, keyboard form submission and existing wallet-dialog focus/return. Focus screenshot inspected. Screen readers, physical devices and native 200% zoom unperformed. |
+| Layout | Card/fact order, full widths, row/column alignment, equal info tops and separator/content geometry at desktop/phone widths. Existing route sweep adds 780/1440 coverage. Wallet and Home screenshots inspected. RTL/localization expansion unperformed. |
+| Writing | Exact requested rule/fee/minted-link copy, removed redundant lines and unchanged control/link labels. Loading, failure, empty and unknown states retain only supported claims. |
+| Typography | Reused existing tokens, full-width 02 prose, compact row types and wrapping; phone and desktop screenshots inspected. Existing monospace design and previous step's 19px Mint titles retained. Font fallback can vary by platform. |
+| Colors | Rendered Wallet text pairs measured against `rgb(10,10,10)`: muted 6.475:1, accent/Chain-proven 14.500:1, Panel-sworn 14.300:1, Shared 18.225:1. All exceed 4.5:1. Entry-page probe contrast passes. SVG pixels/overlays not comprehensively measured. |
+| UI | Reused flat surfaces and card/hive geometry, preserved empty/loading/error/pending/selected states, and centered Wallet art using Mint's existing caps. No new motion; reduced-motion probe passes. Native wallet handoff and passkeys unperformed. |
 
-Findings fixed and rechecked:
+Findings corrected and rechecked:
 
-| Finding | Source and correction | Recheck |
+| Finding | Final source and fix | Recheck |
 | --- | --- | --- |
-| Medium: desktop footer button wrapped | `src/styles.css:562`: give RPC controls a non-shrinking nowrap group and 256px selector, retain phone wrapping. | All route desktop rectangles; supplied-browser footer screenshot. |
-| Medium: repeated empty boundaries | `src/styles.css:459`, `:690`, `:830`, `:956`: single top-rule ownership for strip/panel/history, no rule before 01. | Rendered border/content matrix and Mint screenshots. |
-| Medium: indistinct titles | `src/styles.css:162`, `src/claim.tsx:1344`: descending scale, accent numbers, regular descriptions, muted uppercase subparts. | Computed heading matrix and screenshots. |
-| Medium: obsolete/misplaced Mint content | `src/claim.tsx:1301`: move explanation below intro, remove title-only section and per-step blocks, reuse Catalog intros. | Exact content/order/link checks. |
-| Medium: misleading empty disclosure and absent direct rules | `src/fact-ui.tsx:37`, `src/claim.tsx:1369`: suppress zero count; direct summary contains held ids only. | Zero/positive counts, two-fact and empty fixtures; complete Catalog. |
-| High (review): pending Swarm progress inserted a ruled section between the Mint facts explanation and 01 | `src/claim.tsx` (end of `#step-02`): feed moved into 02 with the same feed, anchors and copy, title now a sub-part `h4`; `src/styles.css` `.step > .swarm-feed` spacing. `swarm-browser.mjs`/`site-update-browser.mjs` placement assertions updated to `step-02`. | Pending-wallet case at 1280/390px; swarm, site-update, oracle-feed, round8, followup suites. |
-| High (review): populated Explorer drew the last fact row's bottom rule and the next section's top rule across empty space | `src/styles.css` `.fact-rows > .fact-row:last-child`: no bottom rule. | Populated Explorer, connected/disconnected, 1280/390px. |
-| Medium: progress navigation blocked during wallet work; stale source links | `src/transactions.tsx:809`, `src/components.tsx:148`: enable navigation and correct repository while retaining commit/file/anchors. | Held fake wallet reply and exact six-link assertions; source HTTP 200. |
+| Card and facts competed for Wallet width | `src/wallet-facts.tsx:260`, `src/styles.css:980`: reuse Mint's card block, followed by full-width direct pairs and sworn columns. | Exact copy, layout rectangles, pointer/keyboard highlights and screenshots. |
+| Redundant captions/status and empty hint | `src/components.tsx:197`, `src/wallet-facts.tsx:286`: optional caption, Wallet hint only with selectable families, remove below-card status. | Empty/nonempty/no-card fixtures; previous suite. |
+| Known ineligible paid facts stayed visible on load | `src/claim.tsx:1118`: use Explorer's existing bounded hook and pass its result to disclosure; selected facts stay visible. | Nonce-5, held, failure/deadline and personal/snapshot regression cases. |
+| Narrow 02 copy, offset Why columns, redundant community text | `src/styles.css:829`, `:1795`, `src/claim.tsx:1582`: remove measure cap, reset item margin, keep one loading/error line above payment notice. | Width/top-edge metrics and held/released/failed community reads. |
+| Adjacent empty separator lines with populated pending panel | `src/styles.css:745`, `:806`: remove last seat's line and restore 01's leading rule. | Expanded populated panel plus all-route border/content matrix. |
+| Old Wallet style left art aligned to its column edge | `src/styles.css:1751`: center figure while retaining Mint's responsive caps. | Final 1280/390 screenshots and geometry suite. |
+| Outdated fee/rule wording | `src/components.tsx:156`, `src/pages.tsx`, `src/data.ts`: exact requested public copy. | Four rendered routes and pinned label test. |
 
-Scratch screenshots/results are reproducible under `test/scratch/layout-refinement-chromium/`, `test/scratch/taste/` and `test/scratch/manual-shots/`; they are intentionally excluded from submission. The supplied-browser preview served the actual export assets with a scratch-only fake-RPC bootstrap; no service answers were treated as live evidence.
+The pinned probe ran from the repository root against final `dist/`:
 
-## Final export and delivery
+```sh
+IMD_PLAYWRIGHT=/opt/imd-tools/playwright-mcp/node_modules/playwright/index.mjs PLAYWRIGHT_BROWSERS_PATH=/opt/imd-tools/ms-playwright node .imd/reads/skills/design-critic/scripts/taste.mjs --out test/scratch/taste --offline
+```
 
-`npm run verify:export` passes: 65 manifest-listed assets plus `imd-deployment.json`, 66 files total, 1,539,295 runtime bytes. Rebuilding after the final source change produced the same 66 paths and SHA-256 values as delivered `dist/`, including `index.html`, `art/full-house.svg` and the manifest. Only current hashed assets remain; relative asset URLs and metadata pass existing export tests.
+Result: **14/16 checks pass**. Render, layout, targets, contrast, tracking, eyebrows, sizes, glyphs, slogans, repetition, copy budget, chrome, motion and share pass. The flags are the inherited WHY SWORN/BUILT BY THE SWARM headings and monospace prose, retained because the brief preserves existing copy/style. Both screenshots and the probe's 390px first screen confirm the Explore action is visible. Full-width Mint text follows the brief despite the guide's usual prose measure recommendation.
 
-Prettier passes for every changed source/test file; `git diff --check` passes. Protected paths, manifests/lockfile, ignore files and inherited dependency entries are unchanged. No dependency/cache directory, new submodule, registry mirror or npm archive is submitted; all required inherited/runtime assets remain. The complete current-tree Git pack is below **8,388,608 bytes**, measured with temporary index/objects outside the repository.
+## Delivery and limitations
 
-Complete for the requested implementation/build scope, subject to these explicit verification limits.
+The complete export is present with relative asset URLs, verified manifest and existing required artwork. Build configuration, dependencies/lockfile, ignore files, contracts, ABIs and network inputs are unchanged. No generated dependency/cache folder, registry archive or submodule is added. The current-tree Git pack is below 8,340,000 bytes against the 8,388,608-byte cap, measured in a separate temporary repository. One superseded historical preview, `docs/frontend/screenshots/explorer-390.webp`, was removed and its README updated; all runtime assets remain. Two inherited gitlinks under protected `lib/` remain unchanged; no new submodule is introduced.
 
-## Limits
+Chromium rendering/interactions are checked. The separate browser MCP returned `Transport closed`; local Playwright Chromium and its screenshots supplied the browser evidence instead. WebKit's executable is unavailable, so WebKit interactions are unperformed. No live service accuracy, physical wallet, passkey, real payment/settlement, screen-reader or native zoom claim is made. Scratch evidence is reproducible under `test/scratch/` and intentionally excluded from submission. Publication and the final network commit are outside this workspace edit; no publish command or direct `.git/` change was made.
 
-Chromium checks are performed. WebKit was downloaded but launch failed for missing host libraries (GTK4, Graphene, GStreamer and others), so WebKit interaction is unperformed. Live provider/CORS behavior, physical wallets, passkeys, real payments/settlement, screen readers and native 200% zoom are unverified. External source availability was checked once; future availability is outside this export. IPFS pinning/site-name update follow contributor submission; no publication is claimed. Repository metadata is protected, so the complete source/export is left for the submission system to commit.
+Complete for the requested implementation and worker-side build/check scope, with the explicit limits above.

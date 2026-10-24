@@ -315,7 +315,10 @@ try {
     await page.reload();
     await loaded();
     await page
-      .getByRole("heading", { name: "Your Sworn card #1", exact: true })
+      .getByText(
+        "Your Sworn card #1 is minted. It is on the Wallet page with every fact it holds.",
+        { exact: true },
+      )
       .waitFor();
     assert.equal(
       await page
@@ -328,7 +331,7 @@ try {
     });
   });
   await run(
-    "C every RPC failing disables paid actions and shows retrying; manual retry recovers",
+    "C every RPC failing disables paid actions and shows retrying; scheduled recovery recovers",
     async () => {
       f.state.failAll = true;
       await page.reload();
@@ -339,9 +342,6 @@ try {
       for (const b of await page.getByRole("button", { name: /^Mint/ }).all())
         assert.equal(await b.isDisabled(), true);
       f.state.failAll = false;
-      await page
-        .getByRole("button", { name: "Retry reads", exact: true })
-        .click();
       await loaded();
     },
   );

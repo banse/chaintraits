@@ -2,7 +2,17 @@
 
 This is worker validation of the frontend source and static export, not an independent network certification. Contracts were already deployed; this task made no contract-source changes, live transactions, redeployments or publication calls.
 
-## Current layout refinement (2026-10-24 UTC)
+## Current Wallet and Mint update (2026-10-24 UTC)
+
+[VALIDATION.md](VALIDATION.md) records this delivery's ten-item mapping, actual commands, final export comparison and six-domain design review. `tests/wallet-mint-browser.mjs` passes 11 scenario groups and 54 geometry observations on the production export; `tests/sworn-step-browser.mjs` retains all 6 previous-step groups. Wallet now owns the interactive card block before full-width grouped facts; Minted wallets see the one-line Wallet link. Mint checks unheld paid facts on load through the Explorer hook, hides known negatives behind its counted toggle, and keeps unknown and selected rows visible. The public rule/fee copy, community status placement, full-width 02 text, info alignment and separator changes have explicit browser assertions.
+
+The final build/typecheck/export verification pass. `npm test` passes 108 unit/export tests and the 55-route/width Chromium sweep. Additional fake-wallet suites checked payment consent, refusal/retry, receipts, pending oracle progress, personal/shared facts and the settled eligibility snapshot. The pinned probe passes 14/16 checks, preserving the inherited uppercase headings and monospace prose. No network signing/broadcast, live-provider verification or publication was performed. Full limitations and source references are in VALIDATION.md. Rebuilding produces the same 66 export paths and bytes (1,535,577 bytes including the manifest).
+
+The complete current-tree Git pack is below **8,340,000 bytes** (8,388,608-byte cap), checked with `git pack-objects` in a separate temporary repository. The superseded historical `docs/frontend/screenshots/explorer-390.webp` preview was removed and its documentation updated; no runtime asset was dropped. The two inherited gitlinks in protected `lib/` were preserved unchanged, and no new submodule was added.
+
+The label fixture was derived mechanically from the accepted starting source; only the requested `Wallet page` link label is added. Older notes below describe their earlier exports and do not supersede the current validation.
+
+## Prior layout refinement (2026-10-24 UTC)
 
 [VALIDATION.md](VALIDATION.md) records this delivery’s eleven-item mapping, actual results and limits. `tests/layout-refinement-browser.mjs` checks the new behavior against the production export. Older assertions were updated only for the requested changes: descending titles, moved explanation, held-only 01, enabled progress navigation and conditional disclosure. Eligibility-focused suites use `inspectAllFacts` to opt into negative rows when the async disclosure first appears; filtering/layout checks exercise the default hidden state independently. The shared-request test now waits for wallet facts before preparing. Historical results below describe earlier exports.
 

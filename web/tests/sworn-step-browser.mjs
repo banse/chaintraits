@@ -93,7 +93,7 @@ const style = (locator, ...props) =>
 try {
   browser = await chromium.launch();
   await run(
-    "1,2 Wallet: grouped two-column facts, short lines, no proof lines, green titles, new intro",
+    "1,2 Wallet: direct pairs, sworn rows with types, short lines, no proof details, green titles, new intro",
     async () => {
       await setup({
         route: "#/wallet",
@@ -113,7 +113,6 @@ try {
       const main = normal(await page.locator("main").innerText());
       for (const gone of [
         "frozen at the card's mint",
-        "Panel-sworn",
         "Evidence window",
         "Oracle request",
         "Attested",
@@ -142,20 +141,20 @@ try {
         })),
       );
       const by = Object.fromEntries(rows.map((r) => [r.id, r]));
-      assert.deepEqual(by["held-601"].cells, ["601 / Swarmed", "Accepted swarm jobs >= 3"]);
-      assert.deepEqual(by["held-701"].cells, ["701 / Uptime", "Deposited again in hours 24–65"]);
-      assert.deepEqual(by["held-1301"].cells, ["1301 / Pretrained", "Account nonce ≥ 20 at launch"]);
+      assert.deepEqual(by["held-601"].cells, ["601 / Swarmed", "Accepted swarm jobs >= 3", "Panel-sworn"]);
+      assert.deepEqual(by["held-701"].cells, ["701 / Uptime", "Deposited again in hours 24–65", "Chain-proven"]);
+      assert.deepEqual(by["held-1301"].cells, ["1301 / Pretrained", "Account nonce ≥ 20 at launch of WhitelistCurator", "Panel-sworn"]);
       assert.deepEqual(by["held-101"].cells, ["101 / Spawned", "Joined WhitelistCurator.sol"]);
-      assert.equal(by["held-10001"].cells.length, 2);
+      assert.equal(by["held-10001"].cells.length, 3);
       assert.equal(by["held-101"].group, "Direct facts");
       assert.equal(by["held-601"].group, "Sworn WhitelistCurator facts");
       assert.equal(by["held-10001"].group, "Sworn Community facts");
-      // Every row: the two direct-fact columns, two facts per line at 1280.
+      // Direct facts retain paired columns; sworn facts add their type.
       for (const r of rows) assert.ok(r.sideBySide, r.id);
       const lists = await page.locator(".fact-history").evaluateAll((es) =>
         es.map((e) => getComputedStyle(e).gridTemplateColumns.split(" ").length),
       );
-      assert.deepEqual(lists, [4, 4, 4]);
+      assert.deepEqual(lists, [4, 3, 3]);
       await page.screenshot({ path: new URL("wallet-1280.png", output).pathname, fullPage: true });
       await layout("#/wallet grouped");
       // A group with no fact shows no title.
@@ -280,6 +279,8 @@ try {
     "5 a not-met 1301 keeps its row when selected; the dialog shows the same note; no row disappears",
     async () => {
       await setup({ options: { token: 7n, traits: [101], specs: { 1301: nonceSpec } } });
+      await page.waitForFunction(() => document.querySelector(".minted-card") && !document.querySelector("#pick-1301"));
+      await page.locator('#step-02 .eligibility-toggle[aria-pressed="false"]').click();
       await page.locator("#pick-1301").waitFor();
       const before = await page.locator(".trait-picker > [id^=pick-]").evaluateAll((es) => es.map((e) => e.id));
       const row = page.locator("#pick-1301");

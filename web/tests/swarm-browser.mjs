@@ -2,7 +2,13 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import { chromium, webkit } from "playwright";
 import { decodeFunctionData } from "viem";
-import { fakeChain, fakeWallet, mockPage, wallet } from "./fake-chain.mjs";
+import {
+  fakeChain,
+  fakeWallet,
+  mockPage,
+  wallet,
+  inspectAllFacts,
+} from "./fake-chain.mjs";
 import { server } from "./harness.mjs";
 const engine = process.argv.includes("--webkit") ? "webkit" : "chromium";
 const output = new URL(`../../test/scratch/swarm-${engine}/`, import.meta.url);
@@ -56,6 +62,7 @@ try {
     window.setInterval = (callback, delay, ...args) => {
       const id = interval(callback, delay, ...args);
       if (delay === 5000) callbacks.set(id, () => callback(...args));
+      if (delay === 45000) window.__refreshSworn = () => callback(...args);
       return id;
     };
     window.clearInterval = (id) => {
@@ -173,6 +180,8 @@ try {
   await page
     .getByRole("button", { name: "Browser wallet", exact: true })
     .click();
+  await page.locator("#step-02").waitFor();
+  await inspectAllFacts(page);
   const feed = page.locator(".swarm-request");
   await run(
     "3 pending notice names the fact, exact Registry timestamp and per-fact lock",
@@ -318,28 +327,20 @@ try {
       for (const width of [1280, 1000, 780, 390, 320]) {
         await page.setViewportSize({ width, height: 844 });
         const boxes = await page.evaluate(() => ({
-          copy: document
-            .querySelector(".claim-copy")
+          mint: document
+            .querySelector(".minted-card")
             .getBoundingClientRect()
             .toJSON(),
           feed: document
             .querySelector(".swarm-feed")
             .getBoundingClientRect()
             .toJSON(),
-          card: document
-            .querySelector(".mint-panel>.card-figure")
-            .getBoundingClientRect()
-            .toJSON(),
           overflow: document.documentElement.scrollWidth > innerWidth,
-          order: [...document.querySelector(".mint-panel").children].map(
-            (e) => e.className,
-          ),
+          cards: document.querySelectorAll("#mint .card-figure").length,
         }));
         assert.equal(boxes.overflow, false, `overflow at ${width}`);
-        assert.ok(
-          boxes.feed.top >= Math.max(boxes.copy.bottom, boxes.card.bottom),
-        );
-        assert.deepEqual(boxes.order, ["claim-copy", "card-figure"]);
+        assert.ok(boxes.feed.top >= boxes.mint.bottom);
+        assert.equal(boxes.cards, 0);
         assert.deepEqual(
           await page
             .locator(".swarm-feed")
@@ -395,7 +396,7 @@ try {
         () =>
           document.querySelector(".pending-notice") &&
           document
-            .querySelector(".card-figure figcaption")
+            .querySelector(".minted-card")
             ?.textContent.includes("minted"),
       );
       await new Promise((resolve, reject) => {
@@ -505,9 +506,7 @@ try {
       };
       records.push(failed);
       unavailable = false;
-      await page
-        .getByRole("button", { name: "Retry reads", exact: true })
-        .click();
+      await page.evaluate(() => window.__refreshSworn());
       const failedFeed = page.locator("#swarm-" + second.requestId);
       await failedFeed.getByText("failed", { exact: true }).waitFor();
       await failedFeed

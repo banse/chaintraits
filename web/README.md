@@ -13,9 +13,8 @@ npx playwright install chromium webkit
 node scripts/agents.mjs
 npm run typecheck
 npm run build
-node tests/layout-refinement-browser.mjs
-node tests/site-refresh-browser.mjs
-node tests/correction-browser.mjs
+node tests/wallet-mint-browser.mjs
+node tests/sworn-step-browser.mjs
 npm test
 node tests/acceptance.mjs
 node tests/actions.mjs
@@ -25,6 +24,10 @@ node tests/oracle-feed-browser.mjs
 node tests/personal-facts-browser.mjs
 npm run preview
 ```
+
+The current Wallet/Mint update is covered by `wallet-mint-browser.mjs`: card location and hive toggles, full-width fact groups and types, empty/no-card states, the Mint link, full-width 02 copy, community loading/failure, automatic eligibility disclosure, aligned info columns, populated pending-seat separators, exact fee/rule copy, metadata and first-screen actions. It serves the finished export under `/preview/` at 1280, 390 and 320px, with fake EIP-1193/RPC/API replies and no signing or sending. `sworn-step-browser.mjs` retains the previous step’s checks with only superseded Wallet/rule/disclosure expectations updated. See [VALIDATION.md](VALIDATION.md) for commands actually run, results, design coverage and limitations; older test notes describe historical exports.
+
+Rebuild with `npm run build`, then run `npm run verify:export`. The production command checks the pinned ABIs before Vite writes repository-root `dist/` and its asset manifest. Keep the source Git history available for that ABI comparison. Rebuilding the delivered source produces the same export paths and bytes; the current verification records the comparison. The static host serves the committed `dist/`, with relative assets and hash routes.
 
 Open the URL printed by Vite. The preview serves the committed export. `npm run dev` starts the source development server. On Linux, Playwright may also need its documented browser system dependencies. Browser downloads and dependency caches belong outside Git.
 
