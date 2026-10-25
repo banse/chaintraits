@@ -3,6 +3,7 @@ import {
   type Runtime,
   type Health,
   makeClient,
+  scopedClient,
   health as readHealth,
   community,
   explain,
@@ -25,6 +26,7 @@ import { WalletFacts } from "./wallet-facts";
 import { Curator } from "./curator";
 import { READ_RPCS } from "./rpc.mjs";
 import { onReadFailure, RECOVERY_MS } from "./read-recovery.mjs";
+import { boundedRefresh } from "./read-loading.mjs";
 const FOOTER_LINKS: [string, string][] = [
   [
     "Source repository ↗",
@@ -53,50 +55,76 @@ export function App({ r }: { r: Runtime }) {
   const [specError, setSpecError] = useState("");
   const refreshId = useRef(0);
   const client = useMemo(() => makeClient(r, rpcUrl), [r, rpcUrl]);
+  const refreshReads = useMemo(
+    () =>
+      boundedRefresh({
+        visible: () => document.visibilityState !== "hidden",
+      }),
+    [client, r],
+  );
   const refresh = useCallback(async () => {
-    const ticket = ++refreshId.current;
-    setLoading(true);
-    setError("");
+    let ticket = 0;
     try {
-      const result = await readHealth(client, r);
-      if (ticket !== refreshId.current) return;
-      setHealth(result);
-      try {
-        const list = await community(client, r);
-        if (ticket !== refreshId.current) return;
-        setSpecs(list);
-        setSpecError("");
-      } catch (e) {
-        setSpecs([]);
-        setSpecError(`Community specs unavailable. ${explain(e)}`);
-      }
+      await refreshReads.run(async (signal: AbortSignal) => {
+        ticket = ++refreshId.current;
+        setLoading(true);
+        setError("");
+        const current = scopedClient(client, signal);
+        const result = await readHealth(current, r);
+        if (signal.aborted || ticket !== refreshId.current) return;
+        setHealth(result);
+        try {
+          const list = await community(current, r);
+          if (signal.aborted || ticket !== refreshId.current) return;
+          setSpecs(list);
+          setSpecError("");
+        } catch (e) {
+          if (signal.aborted || ticket !== refreshId.current) return;
+          setSpecs([]);
+          setSpecError(`Community specs unavailable. ${explain(e)}`);
+        }
+      });
     } catch (e) {
-      if (ticket !== refreshId.current) return;
+      if (!ticket || ticket !== refreshId.current) return;
       setHealth(null);
       setError("Cannot read the chain, retrying.");
     } finally {
-      if (ticket === refreshId.current) setLoading(false);
+      if (ticket && ticket === refreshId.current) setLoading(false);
     }
-  }, [client, r]);
+  }, [client, r, refreshReads]);
   useEffect(() => {
     refresh();
     const id = setInterval(refresh, 45000);
+    const visibility = () => {
+      if (document.visibilityState === "hidden") {
+        ++refreshId.current;
+        refreshReads.stop();
+        setLoading(false);
+      } else {
+        setReadRetry((n) => n + 1);
+        void refresh();
+      }
+    };
+    document.addEventListener("visibilitychange", visibility);
     return () => {
       ++refreshId.current;
+      refreshReads.stop();
       clearInterval(id);
+      document.removeEventListener("visibilitychange", visibility);
     };
-  }, [refresh]);
+  }, [refresh, refreshReads]);
   // Reads fall back across the RPC pool by themselves. When a read exhausted
   // the pool, every failed read runs again after a short, growing pause.
   useEffect(() => {
     let timer: ReturnType<typeof setTimeout> | undefined;
     let attempt = 0;
     const stop = onReadFailure(() => {
-      if (timer) return;
+      if (timer || document.visibilityState === "hidden") return;
       const wait = RECOVERY_MS[Math.min(attempt, RECOVERY_MS.length - 1)];
       attempt++;
       timer = setTimeout(() => {
         timer = undefined;
+        if (document.visibilityState === "hidden") return;
         setReadRetry((n) => n + 1);
         void refresh();
       }, wait);
@@ -225,8 +253,7 @@ export function App({ r }: { r: Runtime }) {
                   href={`#${path}`}
                   aria-current={
                     route.route === path ||
-                    (path === "/mint" &&
-                      route.route === "/request")
+                    (path === "/mint" && route.route === "/request")
                       ? "page"
                       : undefined
                   }

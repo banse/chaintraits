@@ -1,0 +1,29 @@
+{
+  "at": "2026-10-25T04:24:30.557Z",
+  "checks": [
+    "All four eligibility cases render under a nested static path without a backend; Mint completes the partial-evidence check after connecting with fact 601 preselected; no wallet signatures."
+  ],
+  "scenarios": [
+    {
+      "mode": "never-held",
+      "seatRpcCalls": 2,
+      "signatures": 0
+    },
+    {
+      "mode": "seat-only",
+      "seatRpcCalls": 6,
+      "signatures": 0
+    },
+    {
+      "mode": "unavailable",
+      "seatRpcCalls": 8,
+      "signatures": 0
+    },
+    {
+      "mode": "accepted-fact",
+      "seatRpcCalls": 0,
+      "signatures": 0
+    }
+  ],
+  "errors": []
+}

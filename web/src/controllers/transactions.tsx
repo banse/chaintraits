@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, createContext, useContext, type ReactNode } from "react";
+import { useState, useRef, useEffect, useLayoutEffect, createContext, useContext, type ReactNode } from "react";
 import { useAccount, useConfig } from "wagmi";
 import { getAccount } from "wagmi/actions";
 import { decodeEventLog, createWalletClient, custom, encodeFunctionData, type Address, type Hex } from "viem";
@@ -88,7 +88,9 @@ function useTransactionController() {
   // Checks belong to this page and this wallet: leaving the page or switching
   // wallets aborts them, and the RPC pool sends nothing more for them.
   const checks = useRef(new AbortController());
-  useEffect(() => {
+  // Claim starts checks in a child passive effect. Prepare the new wallet's
+  // scope first, rather than handing that effect the aborted previous scope.
+  useLayoutEffect(() => {
     const controller = new AbortController();
     checks.current = controller;
     return () => controller.abort();

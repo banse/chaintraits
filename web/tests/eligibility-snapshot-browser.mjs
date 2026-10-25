@@ -308,7 +308,7 @@ try {
   await page.locator("#pick-601 input").check();
   await page
     .locator("#pick-601")
-    .getByText(/received an IdentityMD seat/)
+    .getByText(/Seat history found; eligibility is not confirmed/)
     .waitFor();
   // All unheld paid facts are now checked on load, loading one wallet shard.
   assert.equal(files.length, 1);

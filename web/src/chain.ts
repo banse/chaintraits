@@ -18,6 +18,7 @@ import { decodeMetadata, MISS_REASONS } from "./pure.mjs";
 import { READ_RPCS, resilientRpc } from "./rpc.mjs";
 import { runtimeAssets } from "./runtime-assets";
 import { validateRuntimeAssets } from "./runtime-integrity.mjs";
+import { cachedReads } from "./read-loading.mjs";
 export type Deployment = {
   version: 1;
   launchId: string;
@@ -131,7 +132,27 @@ export type Health = {
   mintFee: bigint;
   specFee: bigint;
 };
-export async function health(client: any, r: Runtime): Promise<Health> {
+// Scoped clients retain the original pool identity. A new provider or pinned
+// deployment gets a separate cache; cancelled/failed validation is never kept.
+const readCaches = new WeakMap<
+  object,
+  WeakMap<Runtime, ReturnType<typeof cachedReads>>
+>();
+function readCache(client: any, r: Runtime) {
+  const provider = client.pool || client;
+  let deployments = readCaches.get(provider);
+  if (!deployments) {
+    deployments = new WeakMap();
+    readCaches.set(provider, deployments);
+  }
+  let cache = deployments.get(r);
+  if (!cache) {
+    cache = cachedReads();
+    deployments.set(r, cache);
+  }
+  return cache;
+}
+async function validatedDependencies(client: any, r: Runtime) {
   const chain = await client.getChainId();
   if (chain !== r.deployment.chainId)
     throw Error(`RPC answers chain ${chain}; Ethereum is required.`);
@@ -168,6 +189,14 @@ export async function health(client: any, r: Runtime): Promise<Health> {
     r.deployment.network.pairToken.address.toLowerCase()
   )
     throw Error("IMD getter does not match network.");
+  return deps;
+}
+export async function health(client: any, r: Runtime): Promise<Health> {
+  // The pinned contracts have no upgrade/setter paths for these constructor
+  // dependencies. Validate once per pool, keeping price/head/supply reads fresh.
+  const deps = await readCache(client, r).read("deployment", () =>
+    validatedDependencies(client, r),
+  );
   const [price, block, supply, mintFee, specFee] = await Promise.all([
     client.readContract({
       address: deps.intake,
@@ -320,18 +349,26 @@ export async function lookup(
 }
 export async function community(client: any, r: Runtime) {
   const next = Number(await read(client, r, "Registry", "nextSpecId"));
-  const ids = Array.from({ length: next - 10001 }, (_, i) => 10001 + i);
-  const result = [];
-  for (let start = 0; start < ids.length; start += 50)
-    result.push(
-      ...(await Promise.all(
-        ids.slice(start, start + 50).map(async (id) => ({
-          id,
-          ...(await read(client, r, "Registry", "specOf", [id])),
-        })),
-      )),
-    );
-  return result;
+  return readCache(client, r).read(
+    "community",
+    async () => {
+      const ids = Array.from({ length: next - 10001 }, (_, i) => 10001 + i);
+      const result = [];
+      for (let start = 0; start < ids.length; start += 50)
+        result.push(
+          ...(await Promise.all(
+            ids.slice(start, start + 50).map(async (id) => ({
+              id,
+              ...(await read(client, r, "Registry", "specOf", [id])),
+            })),
+          )),
+        );
+      return result;
+      // Re-read the count every refresh; a new rule is visible immediately. The
+      // bounded TTL also rechecks unchanged IDs after a possible short reorg.
+    },
+    { version: String(next), ttlMs: 300000 },
+  );
 }
 export const explain = (e: any, abi?: Abi) => {
   const reverted = e?.walk?.((cause: any) => cause.data?.errorName) || e;

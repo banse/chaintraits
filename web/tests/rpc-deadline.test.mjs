@@ -133,7 +133,8 @@ test("a range every endpoint refuses for size is still read in parts", async () 
     [thirdweb]: sized,
   });
   const result = await check(client(net));
-  assert.equal(result.state, "met");
+  assert.equal(result.state, "unknown");
+  assert.equal(result.reason, "accepted-work-unchecked");
   const answered = net
     .logs()
     .filter(
@@ -142,7 +143,7 @@ test("a range every endpoint refuses for size is still read in parts", async () 
     );
   assert.ok(answered.length >= 2, "parts were read");
   console.log(
-    `  all size refusals: ${net.logs().length} eth_getLogs, result met`,
+    `  all size refusals: ${net.logs().length} eth_getLogs, seat history found; work unchecked`,
   );
 });
 

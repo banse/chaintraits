@@ -36,6 +36,16 @@ Mint Card, Mint Facts, Mint Rule, clickable cards, dismissible success/progress,
 
 Curator separates discovery from eligibility. Published hash-pinned shards provide historical candidates, not granted credentials. A full census scan is optional; arbitrary addresses can be checked without cards or census membership. Current checks use the Registry; errors stay unknown. Exports record historical/current provenance and block information. The census is not a complete index of wallets with later community facts.
 
+Swarmed (601) requires at least three accepted feedback entries during qualifying seat ownership and agent bindings. A received-seat log alone is **not confirmed eligibility**; the browser reports partial evidence as unknown and leaves the complete history to the panel. A former holder may qualify. Complete empty seat-history reads are negative; unavailable reads remain unknown. Existing accepted Registry facts remain authoritative.
+
+## Static data loading
+
+The public RPC pool batches contract reads, caps concurrency at six, checks endpoint chain IDs and falls back on refusal. Historical logs require two agreeing endpoints. App-wide refreshes have a 25-second deadline, never overlap and pause while the tab is hidden. Validated immutable deployment code/dependencies are reused per provider and deployment; head, supply and prices stay live. Community definitions refresh when their count changes or after five minutes. Active verification polling remains separate.
+
+Historical eligibility shards are relative, hash-verified and shared by consumers. Each download has a 15-second deadline; a stalled or invalid download is evicted and can be retried. IPFS hosts static files only: RPCs and Swarm progress still require reachable browser-readable endpoints.
+
+The 2026-10-25 browser check measured 8 startup HTTP RPC requests and 3 on the next idle home refresh, with zero repeated bytecode downloads. All four configured RPCs served the actual batched read through native browser CORS; fallback worked with the primary forced to HTTP 429. These are dated measurements, not endpoint availability guarantees. Run `node tests/ipfs-eligibility-browser.mjs` from `web/` for the nested-path, controlled-wallet regression checks (Chrome required; no real signing or oracle request).
+
 Bundled docs reuse previous how-to content and illustrations. Sections about the local mock remain labeled as such.
 
 ## Deployment

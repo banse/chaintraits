@@ -406,7 +406,7 @@ test("6 1301 nonce at block 25769870, kind 4 historical view and all comparisons
     assert.equal(r.state, met ? "met" : "not-met");
   }
 });
-test("6 601 scans seat Transfer from its spec start and stops at first received seat", async () => {
+test("6 601 seat history alone never confirms accepted-work eligibility", async () => {
   const s = {
     ...spec,
     kind: 6,
@@ -440,11 +440,28 @@ test("6 601 scans seat Transfer from its spec start and stops at first received 
     wallet,
     601,
   );
-  assert.equal(r.state, "met");
+  assert.equal(r.state, "unknown");
+  assert.equal(r.reason, "accepted-work-unchecked");
+  assert.match(eligibilityText(r, 1n), /eligibility is not confirmed/i);
+  assert.match(eligibilityText(r, 1n), /3 accepted feedback entries/);
+  assert.doesNotMatch(eligibilityText(r, 1n), /finds this rule met/);
   assert.equal(calls.length, 2);
   assert.equal(calls[1].params[0].address, s.target);
   assert.equal(calls[1].params[0].fromBlock, toHex(25090085));
   assert.equal(calls[1].params[0].topics[2].slice(-40), wallet.slice(2));
+});
+
+test("6 601 never-held wallet is not-met; unavailable seat history is unknown", async () => {
+  const s = { ...spec, kind: 6, fromBlock: 25090085n, toBlock: 0n,
+    target: "0x0000eC93127BAA929E58E97dd0095A2BFb38ec1D" };
+  for (const unavailable of [false, true]) {
+    const r = await checkEligibility({ request: async (p) => {
+      if (p.method === "eth_blockNumber") return toHex(25100000);
+      if (unavailable) throw Error("Cannot read the chain");
+      return [];
+    } }, async () => s, wallet, 601);
+    assert.equal(r.state, unavailable ? "unknown" : "not-met");
+  }
 });
 
 test("4 matched detail rechecks the claimant even when the listing question was correct", async () => {

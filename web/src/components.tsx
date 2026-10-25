@@ -2,6 +2,7 @@ import { HIVE_CELLS } from "./hive-layout";
 import { useState, useRef, type ReactNode } from "react";
 import { isAddress, getAddress } from "viem";
 import { useSite } from "./context";
+import { eligibilityText } from "./eligibility.mjs";
 import { asset, explain, type WalletFacts } from "./chain";
 import { completion } from "./settlement";
 import { FAMILIES, TRAITS, FEE } from "./data";
@@ -421,6 +422,11 @@ export function WalletFactRows({
               </div>
               <div className="rule">
                 {t.rule} · {t.window}
+                {t.id === 601 && !result && !(pending && !/^0x0+$/.test(pending)) && (
+                  <p className="eligibility-advice" role="status">
+                    {eligibilityText(checks[t.id], health?.price)}
+                  </p>
+                )}
               </div>
               {proof && !/^0x0+$/.test(proof[0]) && (
                 <div className="proof">

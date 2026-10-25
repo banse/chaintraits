@@ -41,6 +41,37 @@ const noSpec = () => {
   throw Error("No live spec allowed for a snapshot fact");
 };
 
+test("a stalled IPFS shard is aborted, evicted and can be retried by all consumers", async () => {
+  for (const mode of ["headers", "body"]) {
+    let stalled = true, calls = 0, signal;
+    const snapshot = snapshotReader({
+      base: () => "https://gateway.example/ipfs/cid/",
+      timeoutMs: 50,
+      digest: (bytes) => createHash("sha256").update(Buffer.from(bytes)).digest(),
+      fetcher: async (url, options) => {
+        calls++;
+        signal = options?.signal;
+        if (!stalled) return new Response(fs.readFileSync(new URL(url.split("/").pop(), data)));
+        const hanging = new Promise(() => {});
+        return mode === "headers" ? hanging : { ok: true, arrayBuffer: () => hanging };
+      },
+    });
+    let guard;
+    try {
+      const results = await Promise.race([
+        Promise.allSettled([snapshot(absent, 701), snapshot(absent, 801)]),
+        new Promise((_, reject) => { guard = setTimeout(() => reject(Error("Shard remained stuck")), 1000); }),
+      ]);
+      assert.equal(calls, 1, "concurrent readers share one request");
+      assert.ok(results.every(r => r.status === "rejected" && /timed out/i.test(r.reason.message)));
+      assert.equal(signal.aborted, true);
+      stalled = false;
+      assert.equal((await snapshot(absent, 701)).state, "not-met");
+      assert.equal(calls, 2, "retry starts a new fetch after timeout");
+    } finally { clearTimeout(guard); }
+  }
+});
+
 test("exported snapshot pins manifest, every shard, exact counts, windows and byte budget", () => {
   assert.equal(digest(manifestBytes), pin.manifestSha256);
   assert.deepEqual(manifest.files, pin.files);

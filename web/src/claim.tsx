@@ -1587,7 +1587,7 @@ export function Claim({ task = "/mint" }: { task?: string }) {
                               {requestHistory.lines[t.id]}
                             </span>
                           )}
-                        {selected.includes(t.id) && account.address && (
+                        {!proven && account.address && (selected.includes(t.id) || t.id === 601) && (
                           <span
                             className={
                               journal.eligibility[journal.eligibilityKey(t.id)]
@@ -1598,7 +1598,7 @@ export function Claim({ task = "/mint" }: { task?: string }) {
                             role="status"
                           >
                             {eligibilityText(
-                              journal.eligibility[journal.eligibilityKey(t.id)],
+                              journal.eligibility[journal.eligibilityKey(t.id)] || checks[t.id],
                               site.health?.price,
                             )}
                           </span>

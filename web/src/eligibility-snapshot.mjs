@@ -8,15 +8,27 @@ export function snapshotReader({
   fetcher = (...args) => fetch(...args),
   digest = (bytes) => crypto.subtle.digest("SHA-256", bytes),
   base = () => document.baseURI,
+  timeoutMs = 15000,
 } = {}) {
   const shards = new Map();
   async function load(prefix) {
     const name = `wallets-${prefix}.json`,
       file = pin.files[name];
     if (!shards.has(name)) {
-      const pending = (async () => {
+      // One bounded request per shard, independent of any one consumer's
+      // cancellation. A stalled gateway must not poison this cache forever.
+      const controller = new AbortController();
+      let timer;
+      const timeout = new Promise((_, reject) => {
+        timer = setTimeout(() => {
+          controller.abort();
+          reject(Error("Snapshot timed out; retry the check."));
+        }, timeoutMs);
+      });
+      const loading = (async () => {
         const response = await fetcher(
           new URL(`data/eligibility/${name}`, base()).href,
+          { signal: controller.signal },
         );
         if (!response.ok) throw Error("Snapshot unavailable");
         const bytes = await response.arrayBuffer();
@@ -40,6 +52,7 @@ export function snapshotReader({
         }
         return rows;
       })();
+      const pending = Promise.race([loading, timeout]).finally(() => clearTimeout(timer));
       shards.set(name, pending);
       pending.catch(() => {
         if (shards.get(name) === pending) shards.delete(name);

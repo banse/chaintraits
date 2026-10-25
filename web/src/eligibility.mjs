@@ -13,6 +13,8 @@ export const NOT_CHECKABLE =
   "Could not check eligibility; the request price is spent whatever the answer.";
 export function eligibilityText(result, price) {
   if (!result || result.state === "checking") return "Checking eligibility…";
+  if (result.state === "unknown" && result.reason === "accepted-work-unchecked")
+    return "Seat history found; eligibility is not confirmed. Swarmed requires at least 3 accepted feedback entries during qualifying seat ownership and agent bindings. The panel must check that history; the request price is spent whatever the answer.";
   if (
     result.state === "unknown" ||
     (result.state === "not-met" && price == null)
@@ -225,11 +227,11 @@ export async function checkEligibility(
             String(args[spec.fixedArg]).toLowerCase()
         )
           continue;
+        // A transfer proves only that this wallet held a seat. It proves
+        // neither the agent binding nor three accepted-work entries. Current
+        // balance is also insufficient: qualifying former holders can apply.
         if (seat)
-          return result(
-            true,
-            "received an IdentityMD seat; accepted jobs still need the panel's check",
-          );
+          return { state: "unknown", reason: "accepted-work-unchecked" };
         if (
           kind === 2 &&
           (typeof decoded[spec.sumArg] !== "bigint" ||
