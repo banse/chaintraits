@@ -1,0 +1,16 @@
+{
+  "frontendRepository": "https://github.com/identity-md-launches/launch-2412-workflow-frontend-stage-context",
+  "frontendCommit": "55475816f2b5d548a3e89a9a4042b02539ced51b",
+  "contractSource": "c4ff3238390fc51962fb67e86affc20cf418126e",
+  "chainId": 1,
+  "files": {
+    "deployment-handoff.json": "baf089cf06700d456b38803b028d9af2e6fe4bd00bd84dd0049d4904f2573a4a",
+    "network.json": "a58e371203abcb49a0eb81677413f833f5315a1451aca1e1521b5580746d5b81",
+    "public/data/renderer-preview.json": "5c979a4a65212a174559bb9fb4129b4c47142074bd85ae84ec109e91def29069",
+    "public/abi/Registry.json": "662ad6516dbfea0c5282d1001c3c0ac4d8111af05381f37434e8173f0e3acaa8",
+    "public/abi/Renderer.json": "c5c4a6392f06c2461c67cf05baa72c8b07e2a4871147272cf428a6dca98c29c1",
+    "public/abi/Composer.json": "37c04500905facc0ac4aba421a31886dae70fe440b226c0da331c47c189213c8",
+    "public/abi/WhitelistCurator.json": "924c02c3004271a92d133fd54ab1c83237d97c21346632d65e9f08ce74c415c6",
+    "public/abi/IntakeV2.json": "8dc80498ae23b30dc34da3831cd038aeaa1940c66faeafab8ddbaf672b913062"
+  }
+}

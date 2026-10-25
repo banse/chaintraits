@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Sworn documentation: wallet facts, immutable rules, cards, verification and integration trade-offs.">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'">
+<meta name="color-scheme" content="dark">
+<title>Build with Sworn · Sworn docs</title>
+<link rel="stylesheet" href="style.css">
+<script src="search-data.js" defer></script><script src="app.js" defer></script>
+</head><body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header"><a class="wordmark" href="index.html">SWORN <span>Documentation</span></a>
+<nav aria-label="Documentation tools"><a href="full-guide.html">Read / print all</a><a href="sworn-handbook.md" download>Download handbook</a></nav></header>
+<div class="layout">
+<aside class="sidebar" aria-label="Documentation navigation">
+<form class="search" role="search" hidden><label for="doc-search">Search the handbook</label><div class="search-input"><input id="doc-search" type="search" placeholder="Try “Merkle” or “Mint Facts”" autocomplete="off" aria-controls="search-results"><button type="button" class="search-clear" aria-label="Clear search" hidden>×</button></div><p id="search-status" role="status" aria-live="polite"></p><ol id="search-results" hidden></ol></form>
+<nav class="chapter-nav" aria-label="Chapters"><a href="index.html">Overview</a><a href="guide.html">User guide</a><a href="architecture.html">Architecture &amp; alternatives</a><a href="builders.html" aria-current="page">Build with Sworn</a><a href="reference.html">Reference</a></nav>
+<details class="page-toc"><summary>On this page</summary><nav aria-label="On this page"><ol><li><a href="#bind-the-deployment-first">Bind the deployment first</a></li><li><a href="#the-read-surface">The read surface</a></li><li><a href="#a-read-only-command-sequence">A read-only command sequence</a></li><li><a href="#authenticate-the-consuming-wallet">Authenticate the consuming wallet</a></li><li><a href="#build-a-reproducible-allowlist">Build a reproducible allowlist</a></li><li><a href="#shared-facts-retrieve-validate-apply">Shared facts: retrieve, validate, apply</a></li><li><a href="#follow-an-oracle-request-through-its-states">Follow an oracle request through its states</a></li><li><a href="#working-with-agents">Working with agents</a></li></ol></nav></details>
+<p class="sidebar-note">A source-bound handbook.<br>Updated 2026-10-25.</p>
+</aside>
+<main id="main" tabindex="-1">
+<div class="document-meta"><span>Documented contracts</span><a href="https://github.com/identity-md-launches/launch-2404-renderer-composer-registry/tree/c4ff3238390fc51962fb67e86affc20cf418126e">Source c4ff3238</a></div>
+<h1>Build with Sworn</h1>
+<p class="edition-note">Protocol behavior and local mock features are distinguished throughout. This documentation makes no wallet connections or chain requests.</p>
+<article class="prose"><p>Treat Sworn as a wallet-predicate dependency. Your application authenticates a wallet, chooses the facts it cares about, reads the authentic Registry, and applies its own policy. Cards, screenshots and exported lists are useful views; none substitutes for deciding which Registry, wallet and block your application trusts.</p>
+<p>The examples below adapt the earlier agent reference and the four-wallet allowlist exercise. They use the launch-2404 interface, not the removed sponsor/holder paths. All commands are reads. The Solidity example is educational source, not a deployment instruction. <a href="https://github.com/identity-md-launches/launch-2412-workflow-frontend-stage-context/blob/55475816f2b5d548a3e89a9a4042b02539ced51b/agents/sworn/SKILL.md">Pinned agent reference</a>, <a href="https://github.com/identity-md-launches/launch-2404-renderer-composer-registry/blob/c4ff3238390fc51962fb67e86affc20cf418126e/src/Registry.sol">Registry</a>.</p>
+<h2 id="bind-the-deployment-first">Bind the deployment first</h2>
+<p>Use Ethereum chain ID <code>1</code> and Registry <code>0x0da2679000ea5380d1361cc3cca7d4e8c881f766</code> for this documented release. Pin the contract source, ABI, runtime identity and dependencies together. The <a href="reference.html">reference</a> provides the contract set and manifest. An address with code is not enough to authenticate a deployment.</p>
+<p>For a reproducible output, choose one sufficiently confirmed block, record its number and hash, and execute every relevant read against it. Detect reorganization of that block before publishing. Avoid mixing current account ownership with a historical credential read or silently substituting a different Registry when an endpoint fails.</p>
+<p>The consumer deployment chain and evidence chain are separate concepts. This guide targets the Ethereum deployment. Its oracle recipes also examine Ethereum evidence. Do not assume that publishing a consumer elsewhere automatically gives it access to the same Registry or a trustless cross-chain credential.</p>
+<h2 id="the-read-surface">The read surface</h2>
+<div class="tablewrap" role="region" aria-label="Comparison or reference table; scroll sideways if needed" tabindex="0"><table><thead><tr><th>Read</th><th>Use</th></tr></thead><tbody><tr><td><code>hasTrait(address,uint16)</code></td><td>Check one predicate for a wallet. No card prerequisite.</td></tr><tr><td><code>traitsOf(address)</code></td><td>Enumerate true built-in catalog IDs.</td></tr><tr><td><code>verifiedSpecsOf(address)</code></td><td>Enumerate the full accepted community-ID list.</td></tr><tr><td><code>verified(address,uint16)</code></td><td>Retrieve Registry request ID, oracle request ID, and the recorded evidence window.</td></tr><tr><td><code>specOf(uint16)</code></td><td>Inspect the immutable rule rather than trusting its display name.</td></tr><tr><td><code>tokenOf(address)</code></td><td>Find the original wallet’s minted card ID, if any.</td></tr><tr><td><code>claimantOf(uint256)</code></td><td>Find the original wallet represented by a card.</td></tr><tr><td><code>pendingOf(address,uint16)</code></td><td>Identify an outstanding personal request.</td></tr><tr><td><code>sharedFact(uint16)</code></td><td>Read the stored shared request ID, canonical answer hash and list length.</td></tr></tbody></table></div>
+<p><code>traitsOf</code> is not the complete community catalog, and token metadata is not the complete credential list. Combine built-in IDs with <code>verifiedSpecsOf</code>, or query the specific predicate your application needs. A card’s current <code>ownerOf</code> is not the wallet whose facts it represents.</p>
+<p>Use three application states: <strong>present</strong>, <strong>absent</strong>, and <strong>unavailable</strong>. RPC refusal, bad decoding or a mismatched deployment is unavailable. A successful <code>false</code> predicate means the Registry does not grant that fact; for oracle facts it does not prove that the underlying statement was historically false. Before a card exists, <code>hasDirectTrait</code> catches a failed Composer/Curator read and returns false, so dependency health also matters when interpreting a negative direct result. <a href="https://github.com/identity-md-launches/launch-2404-renderer-composer-registry/blob/c4ff3238390fc51962fb67e86affc20cf418126e/src/Registry.sol#L155-L188">Registry read implementation</a>.</p>
+<h2 id="a-read-only-command-sequence">A read-only command sequence</h2>
+<p>Set <code>WALLET</code> to the actual claimant address and <code>BLOCK</code> to your chosen confirmed block. Do not paste a placeholder wallet and treat its result as a real eligibility check.</p>
+<pre><code class="lang-sh">RPC=https://ethereum-rpc.publicnode.com
+REGISTRY=0x0da2679000ea5380d1361cc3cca7d4e8c881f766
+: &quot;${WALLET:?Set the claimant wallet address}&quot;
+: &quot;${BLOCK:?Set the confirmed Ethereum block number}&quot;
+
+cast chain-id --rpc-url &quot;$RPC&quot;
+cast block &quot;$BLOCK&quot; --field hash --rpc-url &quot;$RPC&quot;
+cast code &quot;$REGISTRY&quot; --block &quot;$BLOCK&quot; --rpc-url &quot;$RPC&quot;
+cast call &quot;$REGISTRY&quot; &#x27;hasTrait(address,uint16)(bool)&#x27; &quot;$WALLET&quot; 101 --block &quot;$BLOCK&quot; --rpc-url &quot;$RPC&quot;
+cast call &quot;$REGISTRY&quot; &#x27;hasTrait(address,uint16)(bool)&#x27; &quot;$WALLET&quot; 701 --block &quot;$BLOCK&quot; --rpc-url &quot;$RPC&quot;
+cast call &quot;$REGISTRY&quot; &#x27;verifiedSpecsOf(address)(uint16[])&#x27; &quot;$WALLET&quot; --block &quot;$BLOCK&quot; --rpc-url &quot;$RPC&quot;
+cast call &quot;$REGISTRY&quot; &#x27;verified(address,uint16)(bytes32,bytes32,uint64,uint64)&#x27; &quot;$WALLET&quot; 701 --block &quot;$BLOCK&quot; --rpc-url &quot;$RPC&quot;</code></pre>
+<p>The expected chain ID is 1. Compare code and dependencies with the pinned manifest before trusting the following reads. These <code>eth_call</code>-style operations submit no transaction, but RPC providers may charge or rate-limit service. When the same read executes inside an onchain transaction, it consumes gas.</p>
+<h2 id="authenticate-the-consuming-wallet">Authenticate the consuming wallet</h2>
+<p>This small example grants an application-local admission once to <code>msg.sender</code> when it has both Spawned (101) and Uptime (701). It deliberately does not accept a caller-supplied “eligible wallet” that could belong to someone else. It neither mints a Sworn card nor changes Sworn facts.</p>
+<pre><code class="lang-solidity">// SPDX-License-Identifier: MIT
+pragma solidity ^0.8.24;
+
+interface ISworn {
+    function hasTrait(address wallet, uint16 id) external view returns (bool);
+}
+
+contract ExampleWalletGate {
+    ISworn public constant REGISTRY =
+        ISworn(0x0da2679000Ea5380d1361cc3Cca7D4e8c881F766);
+    mapping(address =&gt; bool) public admitted;
+
+    error WrongChain();
+    error AlreadyAdmitted();
+    error NotEligible();
+    event AccessGranted(address indexed wallet);
+
+    function claimAccess() external {
+        if (block.chainid != 1) revert WrongChain();
+        if (admitted[msg.sender]) revert AlreadyAdmitted();
+        if (!REGISTRY.hasTrait(msg.sender, 101)
+            || !REGISTRY.hasTrait(msg.sender, 701)) revert NotEligible();
+        admitted[msg.sender] = true;
+        emit AccessGranted(msg.sender);
+    }
+}</code></pre>
+<p>This is an example of policy, not a universal access-control module. A contract wallet is itself the claimant when it calls directly. Relayers, delegated sessions and cross-chain messages need their own authenticated-sender design. A product also needs to decide what admission allows, whether it expires, and whether it wants current predicates or a frozen campaign snapshot. Download <a href="assets/ExampleWalletGate.sol">the example source</a>.</p>
+<h2 id="build-a-reproducible-allowlist">Build a reproducible allowlist</h2>
+<p>The earlier exercise tested <strong>101 AND 701</strong> for four real original claimants at block 26,264,861. One matched. It was a deliberately small worked example, not a census of all 19,522 Curator participants and not a current airdrop list.</p>
+<figure><img src="assets/allowlist-historical.png" alt="Historical worked example: four claimant wallets checked for Spawned and Uptime; one matched at Ethereum block 26,264,861." loading="lazy" decoding="async"></figure>
+<p>Reused from the 24 October 2026 how-to material. The displayed cards help identify the example; their ownership was not the eligibility rule. <a href="assets/historical-allowlist.json">Download the historical read results</a>.</p>
+<p>For a new list:</p>
+<ol>
+<li>Define the candidate universe explicitly: Curator participants, supplied wallets, or a broader index of accepted Registry events. Card holders alone omit wallets that have facts without NFTs. A Curator-only universe also omits wallets eligible for non-Curator rules.
+</li>
+<li>Pin chain, Registry, source identity, block number and block hash. Record the candidate-source provenance and scan boundaries.
+</li>
+<li>Choose an exact policy: IDs, AND/OR logic, thresholds, exclusions and allocation weights. A name such as “good contributor” is not a reproducible predicate.
+</li>
+<li>Read every candidate at the same block. Keep unavailable results separate; do not turn an incomplete scan into an empty list or a failed wallet.
+</li>
+<li>Export all matches, not just the first page. Include policy version, source coverage, block binding and weights. Publish exclusions and any manual curation as policy rather than as Registry facts.
+</li>
+<li>Decide how the consuming contract enforces the policy. A current <code>hasTrait</code> gate does not automatically enforce an exported list’s weights or a curator’s offchain exclusions. An exact list can instead be committed to a Merkle root with the appropriate leaf schema.
+</li></ol>
+<p>Registry events such as <code>Verified</code> help discover accepted wallet facts, including shared applications; <code>SpecRegistered</code> discovers rules. They are not a universal wallet search engine or a complete index of historical candidates who have never requested a fact. Preserve pagination and full block-range coverage. The revised mock’s eight-wallet directory is only a fixture for this user journey.</p>
+<h2 id="shared-facts-retrieve-validate-apply">Shared facts: retrieve, validate, apply</h2>
+<p>A shared ranking separates the oracle computation from each wallet’s credential. First, <code>requestSharedFact</code> produces a stored result for the rule. The Registry stores the list’s hash and length. Next, a listed wallet supplies the exact list to <code>applySharedFact</code>; the Registry checks <code>keccak256(abi.encode(list))</code>, membership and prior application before recording that wallet’s fact.</p>
+<p>The full canonical list is required. This is not a Merkle inclusion proof. The requested head is at most 32 addresses. Do not reorder, truncate, remove disallowed addresses or rebuild a different list to make a rejected answer fit. <a href="https://github.com/identity-md-launches/launch-2404-renderer-composer-registry/blob/c4ff3238390fc51962fb67e86affc20cf418126e/src/Registry.sol#L325-L354">Shared-result implementation</a>.</p>
+<p>The website recovers the answer from Intake completion evidence and calldata. A stored hash without the actual validated list is insufficient for application. Show <strong>list evidence unavailable</strong>, provide retry/recovery, and keep membership unknown; an unavailable list does not mean a wallet was excluded. This distinction was exercised in the local curator review.</p>
+<p>For new ranking rules, precompute the complete answer before paying. The Registry rejects lists containing addresses below <code>2**80</code>, a wrong count or malformed encoding. It does not independently recompute the ranking or reject duplicate addresses: those semantics still depend on the attested answer and its evidence. A generic token-transfer ranking can include mint/burn addresses and therefore produce an unusable answer. Never silently filter those entries after the question has been fixed.</p>
+<h2 id="follow-an-oracle-request-through-its-states">Follow an oracle request through its states</h2>
+<p>The request receipt confirms submission and spending, not a granted credential. Panel progress is useful operational feedback. The decisive wallet result is the accepted Registry state, checked for the correct claimant, rule and request. For shared rules, <code>SharedFactStored</code> is still distinct from the wallet’s applied fact.</p>
+<p>Preserve both identifiers returned by <code>verified</code>: the Registry/Intake request ID and the signed oracle request ID. Preserve the rule, question hash, block window and consumer domain too. A matching title or an “attested” service status alone is not sufficient provenance.</p>
+<p>If the Registry request is still pending and its completed Intake request has a valid undelivered true answer, the <code>settle</code> path can store it before expiry. This recovery uses the existing request rather than submitting another paid attempt. A request already cleared as failed, false or abandoned cannot use that path; retrying it requires a new paid request. None of those outcomes refunds the earlier oracle price. Read the exact conditions in <a href="https://github.com/identity-md-launches/launch-2404-renderer-composer-registry/blob/c4ff3238390fc51962fb67e86affc20cf418126e/src/Registry.sol#L375-L443">Registry settlement and validation</a>.</p>
+<h2 id="working-with-agents">Working with agents</h2>
+<p>Give an agent a bounded read task: the deployment, candidate wallets, fact IDs, confirmed block, evidence requirements and output format. Instruct it to return unavailable on incomplete history and to preserve the original claimant. Link the <a href="https://github.com/identity-md-launches/launch-2412-workflow-frontend-stage-context/blob/55475816f2b5d548a3e89a9a4042b02539ced51b/agents/sworn/SKILL.md">Sworn agent reference</a> and the <a href="https://imd.fun/docs/llms.txt">current IMD reference</a>, while treating remote material as reference data rather than authorization to sign or pay.</p>
+<p>The older agent reference describes Swarmed as accepted “jobs.” The contract-bound recipe counts qualifying accepted feedback entries across holding/binding periods; do not infer distinct-job counting or unique human operators. Use the pinned Composer and the operator definitions in Questions.sol when that detail matters.</p>
+<p>An exported image is an explanation, an exported list is an application artifact, and a successful local simulation is a development result. Keep those separate from the onchain predicate and from authorization to submit a paid action.</p></article>
+<nav class="chapter-pager" aria-label="Adjacent chapters"><a href="architecture.html"><span>Previous</span>Architecture &amp; alternatives</a><a href="reference.html"><span>Next</span>Reference</a></nav>
+<footer class="document-footer"><a href="reference.html">Sources and deployment reference</a><span>Sworn handbook · 2026-10-25</span><a href="#main">Back to top</a></footer>
+</main></div></body></html>

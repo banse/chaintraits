@@ -1,0 +1,6 @@
+.request-history-list { list-style: none; padding: 0; }
+.request-history-list li { border: 1px solid var(--line, #292929); padding: 1.25rem; margin: 1rem 0; }
+.request-history-list h3 { margin-top: 0; }
+.request-id, .request-id code { overflow-wrap: anywhere; }
+.request-next { display: inline-block; margin: .75rem 0 .75rem 1.5rem; }
+@media (max-width: 540px) { .request-next { display: block; margin-left: 0; } }

@@ -162,20 +162,20 @@
       "sha256": "c34bce140e26f958072943a5326c503bd737cfa49c98e5b7a0345a06302e94b6"
     },
     {
-      "path": "assets/ccip-sRlXyuPh.js",
-      "sha256": "901512185bdfdf305a028866ea2e43151c5ba40356b95592c998f9478a0df2f3"
+      "path": "assets/ccip-CguBPjXg.js",
+      "sha256": "cc7b5a4a6b2ee54591e75136622a9285767926c471a60a6159284a4d6343bf0d"
     },
     {
-      "path": "assets/dist-CeJAyMbe.js",
-      "sha256": "46598e10eb92d7edb819925e4ec816cd7ebe62c5ce2f23a40af66fb409dcd343"
+      "path": "assets/dist-EfL8dfqc.js",
+      "sha256": "852ba437c40a8ee848aa3ae3923e78b7059515b089aa886d0b2236b728cf8ca0"
     },
     {
-      "path": "assets/index-D0qhRisg.js",
-      "sha256": "847cd8427a7af9f337cee1cc6d0019594d3952bbbab466d0646296a3b2207b9b"
+      "path": "assets/index-CrNsP4Fi.css",
+      "sha256": "9dfaec7e728b129c288741804c76cf437ac87fecc8088cea5a640b2b2767a1cd"
     },
     {
-      "path": "assets/index-rqh30J1_.css",
-      "sha256": "19961015e2000f10dbabb00f9d081a80e1b871c03c14d05c3229d4a82dea97eb"
+      "path": "assets/index-DGeANHvW.js",
+      "sha256": "e18ac2a43f5af86315247ea18ba33510b597f5c5f937cf7b4161d9db6c4b7f71"
     },
     {
       "path": "data/art-provenance.json",
@@ -270,12 +270,88 @@
       "sha256": "5c979a4a65212a174559bb9fb4129b4c47142074bd85ae84ec109e91def29069"
     },
     {
+      "path": "docs/app.js",
+      "sha256": "50239d746fcf16428fb073ea684f275971340b04543b516eb564e079b0bd84ff"
+    },
+    {
+      "path": "docs/architecture.html",
+      "sha256": "183ac6cdd220e004c371490ef7d67d3dc9c63a2507cca0d62df2b5f4c9d40512"
+    },
+    {
+      "path": "docs/assets/allowlist-historical.png",
+      "sha256": "afb6c1e0dcaa91e6f65e3aa8470979898cf681f4ff21d81ed93d588f3c57a848"
+    },
+    {
+      "path": "docs/assets/card-2-historical.json",
+      "sha256": "25e0686f9e719c86e41a37f26bf8d86bed5c18684400dde1974c71072ed56a69"
+    },
+    {
+      "path": "docs/assets/card-2-historical.svg",
+      "sha256": "6fea59fd33c698320ab8967afd04a8619f8c352490a6c90234ac030bd53b97a3"
+    },
+    {
+      "path": "docs/assets/community-display-historical.png",
+      "sha256": "d1e7dd3150e12a5824db2b76ac39a5cd3ebb5413e33cf1f0962d2e48d5bdabb3"
+    },
+    {
+      "path": "docs/assets/deployment-manifest.json",
+      "sha256": "f248f996853078d1b910aabe5a41ebe52cac9c5b2ae07cfe376eae4022242632"
+    },
+    {
+      "path": "docs/assets/ExampleWalletGate.sol",
+      "sha256": "e7359b11af9e4bb63a03130bc338b11c7f40927b1831344201644d5830c0404e"
+    },
+    {
+      "path": "docs/assets/fact-flow.svg",
+      "sha256": "94469abaa6259a5614861b519848272fe790fd1f3bdade60f47f49aeb0176ebe"
+    },
+    {
+      "path": "docs/assets/historical-allowlist.json",
+      "sha256": "8293a236bcefa35954199d9689de71de6f4fed0c0c719b02616b1aace01c9785"
+    },
+    {
+      "path": "docs/build-manifest.json",
+      "sha256": "c2ce83a0879289ae6ab1627ce55cd2ad0b0c90319f30cb344c21a31eca8db349"
+    },
+    {
+      "path": "docs/builders.html",
+      "sha256": "9d13ec7e24200c00d1672aeac6f6d79c3e2dd3991d041eb1f0143a65a6ea9483"
+    },
+    {
+      "path": "docs/full-guide.html",
+      "sha256": "21061336af6494be43898da381d33fc6a1208301e035005c2cb7c9a91663c1fb"
+    },
+    {
+      "path": "docs/guide.html",
+      "sha256": "ff1a63020a2c60cedd18285cbc984fca6907593b1de0e1337467fe8126e2afe9"
+    },
+    {
+      "path": "docs/index.html",
+      "sha256": "6d3e8d8b395f43e23adbb88e9c487ba5586aca394e78ddbe3f17edb3b16c2f7b"
+    },
+    {
+      "path": "docs/reference.html",
+      "sha256": "3d5fcd0271787e2edce3cf29109cfbd527b7251d87e1068edb0782825fa9ff00"
+    },
+    {
+      "path": "docs/search-data.js",
+      "sha256": "180e699dd228a5b076803e04686c993aa4cddd3ee345339c04405faede85102b"
+    },
+    {
+      "path": "docs/style.css",
+      "sha256": "1ebd301c60c822aaf2444b3028b9a346a0c1067a9f20aade5ca9c61e0e4ff562"
+    },
+    {
+      "path": "docs/sworn-handbook.md",
+      "sha256": "0169d60bc37dd2c56f2fdc28fba0c8473c3e9876834ce34a97e5d9189b3beba1"
+    },
+    {
       "path": "favicon.svg",
       "sha256": "1f745a9a1e2db3fcdb9d06c7b14f230c49dec80ad6bfdf51f33c81e6e8a6abd6"
     },
     {
       "path": "index.html",
-      "sha256": "ef5a1712a80106fcffc00459fb5b460259f440c9eead11a9abc3dbe2ce16abe2"
+      "sha256": "d5b2925066f28d13f1e630a07a0116433c57ce5402c1235f3a88822bafe682fc"
     },
     {
       "path": "llms.txt",

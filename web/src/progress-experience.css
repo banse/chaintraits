@@ -1,0 +1,281 @@
+.verification-overview {
+  position: relative;
+  margin: 0 0 2rem;
+  border: 1px solid #285c35;
+  padding: 1.25rem;
+  background: #0b130d;
+}
+.verification-overview > h2 {
+  margin: 0 0 0.5rem;
+  padding-right: 2.5rem;
+}
+.verification-overview .swarm-request {
+  margin-top: 1rem;
+}
+.progress-summary-positive {
+  color: #69ed8b;
+}
+.progress-summary-negative {
+  color: #ff9d9d;
+}
+.progress-summary-pending {
+  color: #bdc8bf;
+}
+.verification-moment {
+  display: flex;
+  align-items: flex-start;
+  gap: 1.25rem;
+  margin: 1.25rem 0;
+  padding: 1.25rem;
+  border: 1px solid #36513c;
+  background: #0b130d;
+}
+.verification-moment h3 {
+  margin: 0;
+}
+.verification-moment p {
+  margin: 0.7rem 0;
+}
+.card-created {
+  position: relative;
+  padding-right: 3.25rem;
+}
+.card-created > div {
+  min-width: 0;
+}
+.card-created-dismiss,
+.verification-overview-dismiss {
+  position: absolute;
+  top: 0.45rem;
+  right: 0.45rem;
+  width: 2.25rem;
+  height: 2.25rem;
+  padding: 0;
+  display: grid;
+  place-items: center;
+  font-size: 1.5rem;
+  line-height: 1;
+}
+.verification-mark {
+  flex: 0 0 3.5rem;
+  height: 3.5rem;
+  display: grid;
+  place-items: center;
+  border: 2px solid currentColor;
+  border-radius: 50%;
+  font-size: 2.2rem;
+  line-height: 1;
+  color: #adb9b0;
+}
+.phase-proven,
+.phase-shared,
+.phase-approved {
+  border-color: #2fbd56;
+}
+.phase-proven .verification-mark,
+.phase-shared .verification-mark,
+.phase-approved .verification-mark {
+  color: #00ed42;
+}
+.phase-proven .verification-mark {
+  animation: sworn-confirm 0.55s ease-out 1;
+}
+.phase-failed .verification-mark,
+.phase-panel-failed .verification-mark,
+.phase-panel-negative .verification-mark {
+  color: #ff9d9d;
+}
+.verification-wallet-link {
+  display: inline-block;
+  padding: 0.7rem 1rem;
+  margin-top: 0.5rem;
+  color: #090909;
+  background: #00ed42;
+  font-weight: bold;
+  text-decoration: none;
+}
+.verification-phases {
+  list-style: none;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem 1.25rem;
+  padding: 0;
+  font-size: 0.85rem;
+  color: #b3bbb5;
+  align-items: flex-start;
+}
+.verification-phases > li {
+  margin: 0;
+  line-height: 1.5;
+}
+.verification-phases .done {
+  color: #69ed8b;
+}
+.agent-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  list-style: none;
+  padding: 0;
+  margin: 0.8rem 0;
+  align-items: stretch;
+}
+.agent-strip > li {
+  flex: 0 0 2.5rem;
+  width: 2.5rem;
+  min-height: 3.75rem;
+  margin: 0;
+  padding: 0.2rem;
+  text-align: center;
+  border: 1px solid #354038;
+  color: #adb9b0;
+}
+.swarm-question-full {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.swarm-question-fields dl {
+  display: block;
+  margin: 0;
+}
+.swarm-question-fields dl > div {
+  margin: 0.75rem 0;
+}
+.swarm-question-fields dt {
+  font-weight: bold;
+}
+.swarm-question-fields dd,
+.swarm-question-fields p {
+  margin: 0.25rem 0 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.agent-strip span {
+  display: block;
+  font-size: 1.5rem;
+  line-height: 1.4;
+}
+.agent-strip small {
+  display: block;
+  font-size: 0.65rem;
+}
+.agent-strip .strip-positive {
+  border-color: #269746;
+  color: #00ed42;
+}
+.agent-strip .strip-negative,
+.agent-strip .strip-error {
+  border-color: #985555;
+  color: #ff9d9d;
+}
+.agent-strip .strip-waiting span {
+  animation: sworn-wait 1.8s ease-in-out infinite;
+}
+.swarm-request .swarm-seats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 0.65rem;
+}
+.swarm-request .swarm-seats .agent-result {
+  position: relative;
+  padding: 1rem;
+  padding-left: 3.2rem;
+  border: 1px solid #354038;
+  background: #0b0e0b;
+  min-width: 0;
+  margin: 0;
+}
+.agent-result-icon {
+  position: absolute;
+  left: 0.8rem;
+  top: 0.8rem;
+  font-size: 1.5rem;
+  line-height: 1.4;
+}
+.agent-positive .agent-result-icon {
+  color: #00ed42;
+  animation: sworn-vote 0.3s ease-out 1;
+}
+.swarm-seats .agent-positive {
+  border-color: #269746;
+}
+.agent-negative .agent-result-icon,
+.agent-error .agent-result-icon {
+  color: #ff9d9d;
+}
+.swarm-seats .agent-negative,
+.swarm-seats .agent-error {
+  border-color: #985555;
+}
+.agent-result-label {
+  display: block;
+  font-weight: bold;
+  margin: 0.3rem 0;
+}
+.agent-waiting .agent-result-icon {
+  animation: sworn-wait 1.8s ease-in-out infinite;
+}
+.payment-dialog .swarm-request {
+  margin: 1.25rem 0;
+}
+.payment-dialog .swarm-seats {
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+}
+.payment-dialog .swarm-announcement {
+  font-size: 0.85rem;
+}
+@keyframes sworn-vote {
+  from {
+    opacity: 0.3;
+    transform: scale(0.65);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes sworn-confirm {
+  from {
+    box-shadow: 0 0 0 0 #00ed4270;
+    transform: scale(0.85);
+  }
+  to {
+    box-shadow: 0 0 0 15px #00ed4200;
+    transform: scale(1);
+  }
+}
+@keyframes sworn-wait {
+  50% {
+    opacity: 0.35;
+  }
+}
+@media (max-width: 540px) {
+  .verification-overview {
+    padding: 0.8rem;
+  }
+  .verification-moment {
+    gap: 0.8rem;
+    padding: 0.8rem;
+  }
+  .verification-mark {
+    flex-basis: 2.5rem;
+    height: 2.5rem;
+    font-size: 1.7rem;
+  }
+  .verification-moment h3 {
+    font-size: 1.1rem;
+  }
+  .card-created {
+    padding-right: 3.1rem;
+  }
+  .verification-phases {
+    display: grid;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .agent-result-icon,
+  .verification-mark,
+  .agent-strip span {
+    animation: none !important;
+  }
+}

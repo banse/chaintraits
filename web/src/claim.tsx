@@ -1,8 +1,7 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, type ReactNode } from "react";
 import { useAccount } from "wagmi";
 import { getAddress, zeroAddress, type Address } from "viem";
 import { useSite } from "./context";
-import handoff from "../deployment-handoff.json";
 import {
   lookup,
   read,
@@ -13,6 +12,7 @@ import {
 } from "./chain";
 import { TRAITS, SWARMED, FEE, classes } from "./data";
 import { specExamples, templateStart, applyExample } from "./spec-examples.mjs";
+import { sharedMembership } from "./shared-safety.mjs";
 import {
   imd,
   exactUnits,
@@ -27,15 +27,11 @@ import {
   CommunityIntro,
   Mark,
   Status,
-  Section,
   num,
 } from "./components";
-import {
-  useTransactions,
-  TransactionJournal,
-  type Journal,
-} from "./transactions";
-import { useWalletSheet } from "./wallet";
+import { useTransactions, type Journal } from "./transactions";
+import { useWalletSheet, SwitchNetworkButton } from "./wallet";
+import { TASKS } from "./task-navigation.mjs";
 import { eligibilityText } from "./eligibility.mjs";
 import { lastPersonalRequests, lastRequestText } from "./request-outcomes.mjs";
 import {
@@ -78,21 +74,68 @@ export function openRequests(
         }))
     : [];
 }
-// The three quiet steps under "Why add facts after minting?".
-const WHY_STEPS: [string, string][] = [
-  [
-    "Request a fact",
-    "Choose facts in 02 and pay the live oracle price, per fact.",
-  ],
-  [
-    "Agents check the rule",
-    "A panel of IMD agents checks your wallet against the fact's rule and block window.",
-  ],
-  [
-    "Your card updates",
-    "When the panel agrees, the fact lands on your card and in your wallet's record.",
-  ],
-];
+function TaskAction({
+  children,
+  connectLabel = "Connect wallet",
+}: {
+  children: ReactNode;
+  connectLabel?: string;
+}) {
+  const site = useSite();
+  const account = useAccount();
+  const { open } = useWalletSheet();
+  if (!account.address)
+    return (
+      <button type="button" className="primary" onClick={open}>
+        {connectLabel}
+      </button>
+    );
+  if (account.chainId !== site.r.deployment.chainId)
+    return <SwitchNetworkButton r={site.r} />;
+  return <>{children}</>;
+}
+function PaymentChoice({
+  id,
+  value,
+  onChange,
+  disabled,
+}: {
+  id: string;
+  value: string;
+  onChange: (value: string) => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="task-payment" id={id}>
+      <fieldset
+        className="payment"
+        disabled={disabled}
+        aria-describedby={`${id}-help`}
+      >
+        <legend>Payment method</legend>
+        {["IMD", "ETH"].map((method) => (
+          <label key={method}>
+            <input
+              type="radio"
+              name={id}
+              value={method}
+              checked={value === method}
+              onChange={() => onChange(method)}
+            />
+            {method}
+          </label>
+        ))}
+      </fieldset>
+      <p className="muted" id={`${id}-help`}>
+        {value === "ETH"
+          ? "Uses existing IMD first; ETH buys only the missing IMD. The swap quote has a 1% maximum input margin and a 120-second deadline."
+          : "Pay the fee from your IMD balance. A separate approval may be required."}{" "}
+        Ethereum gas is separate and estimated before each transaction. Fiat
+        equivalents are unavailable because no exchange-rate feed is configured.
+      </p>
+    </div>
+  );
+}
 function disableReason(site: any, account: any, busy: boolean) {
   return busy
     ? "A transaction is in progress."
@@ -186,7 +229,7 @@ export function Settlement({
       }
       if (!account.address) {
         setStatus(
-          "A true verdict may be stored by any connected wallet. Connect, then check again to simulate settlement.",
+          "An acceptable signed result may be stored by any connected wallet. Connect, then check again to simulate settlement.",
         );
         return;
       }
@@ -339,6 +382,7 @@ function SharedFactRow({
   const site = useSite();
   const account = useAccount();
   const [value, setValue] = useState<any>(null);
+  const [listRetry,setListRetry] = useState(0);
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -365,18 +409,17 @@ function SharedFactRow({
     return () => {
       active = false;
     };
-  }, [site.health, site.client, t.id, site.readRetry, cache]);
+  }, [site.health, site.client, t.id, site.readRetry, cache, listRetry]);
   const stored = value && !/^0x0+$/.test(value.fact[0]);
   const pending = value && !/^0x0+$/.test(value.pending);
   useEffect(() => {
     if (value) onPending(t.id, pending ? value.pending : null);
   }, [value?.pending]);
-  const included = value?.list.some(
-    (a: string) => a.toLowerCase() === account.address?.toLowerCase(),
-  );
+  const membership = sharedMembership(value,account.address);
+  const included = membership==='included';
   useEffect(() => {
-    onEligibility(t.id, !!facts && !!stored && !included);
-  }, [stored, included, facts?.address]);
+    onEligibility(t.id, !!facts && membership==='excluded');
+  }, [membership, facts?.address]);
   const cannot = t.id === 1201 && facts && !facts.joined;
   const proven =
     facts?.traits.includes(t.id) || facts?.verifiedSpecs.includes(t.id);
@@ -390,6 +433,8 @@ function SharedFactRow({
           ? "Already proven"
           : pending
             ? "A request is already pending."
+            : stored && membership==='unavailable'
+              ? "The stored list is unavailable. Retry its evidence; wallet membership is still unknown."
             : stored && !included
               ? "not in the list"
               : "");
@@ -402,7 +447,7 @@ function SharedFactRow({
     setStatus("Checking…");
     try {
       await journal.prepare(
-        `Apply shared fact ${t.id} / ${t.name}`,
+        `Mint Facts: apply shared fact ${t.id} / ${t.name}`,
         "step-02",
         [
           {
@@ -468,8 +513,8 @@ function SharedFactRow({
             <span className="rule">
               One attempt at panel 11 / quorum 7 costs{" "}
               {site.health
-                ? `${imd(site.health.price)} IMD (priceOf · live)`
-                : "the live oracle price per fact"}
+                ? `${imd(site.health.price)} IMD (current oracle quote)`
+                : "the current oracle price"}
               . An attempt whose panel misses the quorum refunds nothing.
             </span>
             <span className="muted">
@@ -520,6 +565,7 @@ function SharedFactRow({
             Transaction steps ↓
           </a>
         )}
+        {stored&&membership==='unavailable'&&<button className="secondary" onClick={()=>{cache.invalidate(`shared-completion:${value.fact[0]}`);setListRetry(n=>n+1);}}>Retry stored list</button>}
       </div>
       {t.id === 1201 ? <Card miniId={t.id} /> : <CommunityCard fact={t} />}
       {proven && facts ? (
@@ -528,19 +574,21 @@ function SharedFactRow({
         </div>
       ) : (
         <div className="row-actions">
-          <button
-            type="button"
-            className="secondary"
-            disabled={!!reason || busy}
-            aria-label={`${stored ? "Apply shared fact" : "Mint this fact"}: ${t.id} / ${t.name}`}
-            onClick={stored ? apply : request}
-          >
-            {busy
-              ? "Checking…"
-              : stored
-                ? "Apply shared fact"
-                : "Mint this fact"}
-          </button>
+          <TaskAction connectLabel="Connect to Mint Facts">
+            <button
+              type="button"
+              className="secondary"
+              disabled={!!reason || busy}
+              aria-label={`${stored ? "Apply shared fact" : "Mint Facts"}: ${t.id} / ${t.name}`}
+              onClick={stored ? apply : request}
+            >
+              {busy
+                ? "Checking…"
+                : stored
+                  ? "Apply shared fact"
+                  : "Mint Facts"}
+            </button>
+          </TaskAction>
         </div>
       )}
     </div>
@@ -562,9 +610,11 @@ const defaultForm = {
 };
 function CommunityForm({
   payment,
+  setPayment,
   journal,
 }: {
   payment: string;
+  setPayment: (value: string) => void;
   journal: Journal;
 }) {
   const site = useSite();
@@ -651,7 +701,7 @@ function CommunityForm({
       return;
     }
     setBusy(true);
-    setStatus("Validating the spec with the deployed Composer…");
+    setStatus("Validating the rule against the deployed Composer…");
     try {
       if (!site.health) throw Error("Live reads unavailable.");
       const s = {
@@ -668,17 +718,17 @@ function CommunityForm({
         site.health.block,
       ]);
       const prepared = await journal.prepare(
-        "Register a community fact",
+        "Mint Rule",
         "step-03",
         [
           {
-            label: "Register the immutable community spec",
+            label: "Mint Rule",
             functionName: "registerSpec",
             args: [s, 0n],
             amount: site.health.specFee,
           },
         ],
-        [{ name: "Register community spec", amount: site.health.specFee }],
+        [{ name: "Mint Rule", amount: site.health.specFee }],
         payment,
       );
       setStatus(
@@ -692,15 +742,17 @@ function CommunityForm({
   }
   return (
     <form className="community-form" onSubmit={prepare}>
-      <p>
-        The event must be written as its signature,{" "}
+      {(!form.kind||Number(form.kind)<=3)&&<p>
+        For event-based rules, write the complete signature,{" "}
         <code>event Name(type indexed name, …)</code>, and must not be{" "}
         <code>anonymous</code> or declare more than three indexed parameters;
         every parameter must be named; the claimant field must be an indexed
         address of that event; a sum only over an unsigned integer parameter; a
         second filter only on an indexed parameter of a fixed-size type. The
         registry refuses anything else before the fee is taken.
-      </p>
+      </p>}
+      {form.kind==='4'&&<p>Compare a contract’s unsigned integer view for the wallet at a fixed block. The function must take one address and return one uint256.</p>}
+      {form.kind==='5'&&<p>Check how many transactions the wallet had sent by one historical block. This template takes no contract or event signature.</p>}
       <div className="form-grid">
         <label htmlFor="spec-kind">
           Template
@@ -803,25 +855,34 @@ function CommunityForm({
       </div>
       <p>
         {site.health
-          ? `A community fact costs ${imd(6400000000000000000n + site.health.price)} IMD: ${exactUnits(site.health.price)} for your first claim and 6.4 IMD that registerSpec() forwards to the BurnExecutor for bridging and burning on Base.`
-          : "A community fact costs 6.4 IMD plus the live oracle price for your first claim; the fee is forwarded to the BurnExecutor for bridging and burning on Base."}{" "}
+          ? `Mint Rule costs 6.4 IMD. Using Mint Facts later costs ${exactUnits(site.health.price)} IMD per verification request at the current oracle quote, plus gas. The rule fee is forwarded to the BurnExecutor for bridging and burning on Base.`
+          : "Mint Rule costs 6.4 IMD. Using Mint Facts later pays the oracle price per verification request, plus gas. The rule fee is forwarded to the BurnExecutor for bridging and burning on Base."}{" "}
         The request price is read again when you prepare; it can change.
-        Registration and your first claim are separate transactions.
+        Mint Rule and Mint Facts are separate transactions; minting a rule alone adds no wallet fact.
       </p>
       <p className="muted">
-        Pay with: {payment}. This form prepares the 6.4 IMD registration first.
-        The receipt supplies its id; then request that id in step 02.
+        Mint Rule registers the definition in the contract. The receipt supplies
+        its ID; then use <a href="#/request">Mint Facts</a> separately to verify
+        it for your wallet.
       </p>
-      <button
-        disabled={
-          !!disableReason(site, account, journal.busy) ||
-          busy ||
-          Object.keys(errors).length > 0
-        }
-        type="submit"
-      >
-        {busy ? "Checking…" : "Mint registration"}
-      </button>
+      <PaymentChoice
+        id="registration-payment"
+        value={payment}
+        onChange={setPayment}
+        disabled={journal.busy || busy}
+      />
+      <TaskAction connectLabel="Connect to Mint Rule">
+        <button
+          disabled={
+            !!disableReason(site, account, journal.busy) ||
+            busy ||
+            Object.keys(errors).length > 0
+          }
+          type="submit"
+        >
+          {busy ? "Checking…" : "Mint Rule"}
+        </button>
+      </TaskAction>
       <Status
         error={
           !!status &&
@@ -841,10 +902,9 @@ function CommunityForm({
     </form>
   );
 }
-export function Claim() {
+export function Claim({ task = "/mint" }: { task?: string }) {
   const site = useSite();
   const account = useAccount();
-  const { open } = useWalletSheet();
   const journal = useTransactions();
   const [facts, setFacts] = useState<WalletFacts | null>(null);
   const [owned, setOwned] = useState<{ address: string; token: bigint } | null>(
@@ -859,7 +919,12 @@ export function Claim() {
   const cardReady =
     cardRead.address === account.address && cardRead.state === "ready";
   const [factError, setFactError] = useState("");
-  const [payment, setPayment] = useState("IMD");
+  const [payments, setPayments] = useState<Record<string, string>>({});
+  const payment = payments[task] || "IMD";
+  function setPayment(value: string) {
+    setPayments((old) => ({ ...old, [task]: value }));
+    journal.discard();
+  }
   const [selected, setSelected] = useState<number[]>([]);
   const [showIneligible, setShowIneligible] = useState(false);
   const [sharedEligibility, setSharedEligibility] = useState<{
@@ -1138,17 +1203,17 @@ export function Claim() {
     setStatus((v) => ({ ...v, mint: "Checking…" }));
     try {
       await journal.prepare(
-        "Mint your Sworn card",
+        "Mint Card",
         "mint",
         [
           {
-            label: "Mint one Sworn card",
+            label: "Mint Card",
             functionName: "mintCard",
             args: [],
             amount: site.health!.mintFee,
           },
         ],
-        [{ name: "Mint card", amount: site.health!.mintFee }],
+        [{ name: "Mint Card", amount: site.health!.mintFee }],
         payment,
         facts || undefined,
       );
@@ -1165,7 +1230,7 @@ export function Claim() {
       setBusy("");
     }
   }
-  // "Mint selected facts" and a row's "Mint this fact" open the same dialog;
+  // "Mint Facts" and a row's "Mint Facts" open the same dialog;
   // a row's button requests that fact alone and leaves the selection as is.
   async function prepareFacts(ids: number[] = selected) {
     setBusy("facts");
@@ -1178,8 +1243,8 @@ export function Claim() {
       const rows = ids.map((id) => paid.find((t) => t.id === id)!);
       await journal.prepare(
         rows.length === 1 && rows[0].kind === 3
-          ? `Request shared fact ${rows[0].id} / ${rows[0].name}`
-          : `Request ${rows.length} oracle ${rows.length === 1 ? "fact" : "facts"}: ${rows.map((t) => `${t.id} / ${t.name}`).join(", ")}`,
+          ? `Mint Facts: request shared list ${rows[0].id} / ${rows[0].name}`
+          : `Mint Facts: verify ${rows.map((t) => `${t.id} / ${t.name}`).join(", ")}`,
         "step-02",
         rows.map((t) => ({
           label: `${t.kind === 3 ? "Request shared fact" : "Request"} ${t.id} / ${t.name}`,
@@ -1206,184 +1271,199 @@ export function Claim() {
   }
   return (
     <>
-      <h1>Mint Card</h1>
-      <p className="prose">
-        Mint your Sworn card. It captures your direct facts at mint and updates
-        itself when new facts land.
-      </p>
-      {pendingFacts.length > 0 && (
-        <section className="pending-notice" aria-label="Pending facts">
-          <h2>Waiting for the swarm</h2>
-          {pendingFacts.map((fact) => (
-            <p key={fact.requestId}>
-              <strong>
-                {fact.id} / {fact.name}
-              </strong>{" "}
-              · Pending since <RequestTime requestId={fact.requestId} />. This
-              fact cannot be requested again until its answer arrives. Other
-              facts and actions remain available.
-            </p>
-          ))}
-        </section>
-      )}
-      {minted !== null && minted !== 0n ? (
-        <p className="minted-card" id="mint">
-          Your Sworn card #{minted.toString()} is minted. It is on the{" "}
-          <a href="#/wallet">Wallet page</a> with every fact it holds.
-        </p>
-      ) : (
-        <section className="mint-panel" id="mint">
-          <div className="claim-copy">
-            <h2>
-              {account.address && !cardReady
-                ? factError
-                  ? "Retry wallet reads"
-                  : "Reading your card…"
-                : "Mint your Sworn card"}
-            </h2>
-            {(!account.address || (cardReady && minted === 0n)) && (
-              <>
-                <p>
-                  A card costs 0.10 IMD; no fact claim is needed before minting.
-                </p>
-                <p className="accent">Mint your card now. It updates itself.</p>
-                <p>{FEE.charAt(0).toUpperCase() + FEE.slice(1)}.</p>
-                <p className="muted">Pay with: {payment}</p>
-              </>
-            )}
-            {!account.address ? (
-              <button className="primary" onClick={open}>
-                Connect to mint
-              </button>
-            ) : !cardReady ? null : (
-              <button
-                className="primary"
-                disabled={!!reason || !facts || facts.token !== 0n || !!busy}
-                onClick={prepareMint}
-              >
-                {busy === "mint"
-                  ? "Checking…"
-                  : facts && facts.token !== 0n
-                    ? "Already minted"
-                    : "Mint card"}
-              </button>
-            )}
-            <Status
-              error={
-                !!factError ||
-                (!!status.mint &&
-                  !status.mint.startsWith("Ready:") &&
-                  status.mint !== "Checking…")
-              }
-            >
-              {factError ||
-                (facts && facts.token !== 0n
-                  ? "already minted"
-                  : status.mint ||
-                    reason ||
-                    (!facts ? "Reading your wallet…" : ""))}
-            </Status>
-            {status.mint?.startsWith("Ready:") && (
-              <a href={claimAnchor("transaction-steps")}>
-                {facts && facts.token !== 0n
-                  ? "View mint receipts ↓"
-                  : "Transaction steps ↓"}
-              </a>
-            )}
-            {factError && (
-              <button onClick={() => setRefreshTick((v) => v + 1)}>
-                Retry wallet reads
-              </button>
-            )}
-          </div>
-          {facts ? <Card facts={facts} /> : <Card sample />}
-        </section>
-      )}
-      <section
-        className="part"
-        id="mint-facts"
-        aria-labelledby="mint-facts-title"
-      >
-        <h2 className="part-title" id="mint-facts-title">
-          Mint facts
-        </h2>
-        <p className="prose">
-          Add facts to your wallet: chain-proven and panel-sworn facts are
-          requested from the swarm's oracle and land on your card when its panel
-          agrees.
-        </p>
-        <section className="why-facts">
-          <h3 className="subpart-title">Why add facts after minting?</h3>
-          <p>
-            Your card captures direct facts at mint. Paid requests can add
-            verified facts later, and the card updates itself. A false answer or
-            a panel without a verdict adds no fact; its request price is still
-            spent.
+      <nav className="task-tabs" aria-label="Choose a task">
+        {TASKS.map(([path, title]) => (
+          <a
+            key={path}
+            href={`#${path}`}
+            aria-current={task === path ? "page" : undefined}
+          >
+            {title}
+          </a>
+        ))}
+      </nav>
+      <h1>{TASKS.find(([path]) => path === task)?.[1]}</h1>
+      {task === "/mint" && (
+        <>
+          <p className="prose">
+            The card is an optional collectible. You can use wallet facts and{" "}
+            <a href="#/request">Mint Facts</a> without minting a card. Facts
+            belong to your wallet in the Registry contract; the card reads
+            them from that contract to render its artwork.
           </p>
-          <ol className="why-steps">
-            {WHY_STEPS.map(([title, text]) => (
-              <li key={title}>
-                <strong>→ {title}</strong>
-                <p>{text}</p>
-              </li>
-            ))}
-          </ol>
-        </section>
-
-        <div id="add-traits">
-          <section id="step-01" className="step">
-            <h3 className="step-title">
-              <span className="step-name">
-                {"01 – Direct WhitelistCurator facts – "}
-              </span>
-              <span className="step-description">
-                written onchain, readable from the contract
-              </span>
-            </h3>
-            <a
-              className="source"
-              href={`https://etherscan.io/address/${getAddress(handoff.manifest.contracts.find((c) => c.contract === "Registry")!.constructorArgs[0])}#readContract`}
-              target="_blank"
-              rel="noreferrer"
-            >
-              WhitelistCurator.sol on Etherscan: Read Contract ↗
-            </a>
-            <p className="prose">
-              {classes[0].description} {classes[0].how}
+          {minted !== null && minted !== 0n ? (
+            <p className="minted-card" id="mint">
+              This original wallet already minted card #{minted.toString()} and
+              cannot mint again, even if that card is transferred.{" "}
+              <a href="#/wallet">View the card and wallet facts</a>. Ownership
+              of a card does not transfer the original wallet's credentials.
             </p>
-            <p>
-              {facts
-                ? `${facts.traits.filter((id) => id < 601).length} direct facts present.`
-                : "Connect to see your live direct facts."}{" "}
-              <a href="#/catalog#direct">Read the direct rules</a>.
-            </p>
-            <div className="direct-summary">
-              {TRAITS.filter(
-                (t) => t.class === "direct" && facts?.traits.includes(t.id),
-              ).map((t) => (
-                <span
-                  className={facts?.traits.includes(t.id) ? "accent" : "muted"}
-                  key={t.id}
+          ) : (
+            <section className="mint-panel" id="mint">
+              <div className="claim-copy">
+                <h2>
+                  {account.address && !cardReady
+                    ? factError
+                      ? "Retry wallet reads"
+                      : "Reading your card…"
+                    : "Mint your Sworn card"}
+                </h2>
+                {(!account.address || (cardReady && minted === 0n)) && (
+                  <>
+                    <p>
+                      Card fee:{" "}
+                      {site.health
+                        ? `${imd(site.health.mintFee)} IMD`
+                        : "reading fee…"}
+                      . No oracle request is needed.
+                    </p>
+                    <p>
+                      <strong>One card per original wallet, once.</strong>{" "}
+                      Transferring the NFT changes its owner, not whose facts it
+                      represents. The original wallet cannot mint again.
+                    </p>
+                    <section
+                      className="snapshot-summary"
+                      id="snapshot"
+                      aria-labelledby="snapshot-title"
+                    >
+                      <h3 id="snapshot-title">
+                        The direct facts you will save
+                      </h3>
+                      <p>
+                        Minting permanently saves this wallet's direct-fact
+                        result. Future direct-fact checks use that saved result,
+                        not later wallet changes. Oracle-verified facts can
+                        still be added.
+                      </p>
+                      {facts ? (
+                        <>
+                          <p className="wallet-address">
+                            Original wallet: <code>{facts.address}</code>
+                          </p>
+                          <ul>
+                            {TRAITS.filter(
+                              (t) =>
+                                t.class === "direct" &&
+                                facts.traits.includes(t.id),
+                            ).map((t) => (
+                              <li key={t.id}>
+                                <strong>{t.name}</strong> — {t.rule}{" "}
+                                <span className="muted">(fact {t.id})</span>
+                              </li>
+                            ))}
+                          </ul>
+                          {!TRAITS.some(
+                            (t) =>
+                              t.class === "direct" &&
+                              facts.traits.includes(t.id),
+                          ) && (
+                            <p>
+                              No direct facts present. Minting saves this empty
+                              result too.
+                            </p>
+                          )}
+                        </>
+                      ) : (
+                        <p className="muted">
+                          Connect to preview the direct facts for your wallet.
+                          The illustration is sample data.
+                        </p>
+                      )}
+                    </section>
+                    <p className="muted">
+                      {FEE.charAt(0).toUpperCase() + FEE.slice(1)}.
+                    </p>
+                    <PaymentChoice
+                      id="card-payment"
+                      value={payment}
+                      onChange={setPayment}
+                      disabled={journal.busy || !!busy}
+                    />
+                  </>
+                )}
+                <TaskAction connectLabel="Connect to Mint Card">
+                  {!cardReady ? null : (
+                    <button
+                      className="primary"
+                      disabled={
+                        !!reason || !facts || facts.token !== 0n || !!busy
+                      }
+                      onClick={prepareMint}
+                    >
+                      {busy === "mint"
+                        ? "Checking…"
+                        : facts && facts.token !== 0n
+                          ? "Already minted"
+                          : "Mint Card"}
+                    </button>
+                  )}
+                </TaskAction>
+                <Status
+                  error={
+                    !!factError ||
+                    (!!status.mint &&
+                      !status.mint.startsWith("Ready:") &&
+                      status.mint !== "Checking…")
+                  }
                 >
-                  {t.id} / {t.name}
-                  {facts
-                    ? facts.traits.includes(t.id)
-                      ? " · present"
-                      : " · absent"
-                    : ""}
-                </span>
+                  {factError ||
+                    (facts && facts.token !== 0n
+                      ? "already minted"
+                      : status.mint ||
+                        reason ||
+                        (!facts ? "Reading your wallet…" : ""))}
+                </Status>
+                {status.mint?.startsWith("Ready:") && (
+                  <a href={claimAnchor("transaction-steps")}>
+                    {facts && facts.token !== 0n
+                      ? "View mint receipts ↓"
+                      : "Transaction steps ↓"}
+                  </a>
+                )}
+                {factError && (
+                  <button onClick={() => setRefreshTick((v) => v + 1)}>
+                    Retry wallet reads
+                  </button>
+                )}
+              </div>
+              {facts ? <Card facts={facts} /> : <Card sample />}
+            </section>
+          )}
+        </>
+      )}
+      {task === "/request" && (
+        <section id="mint-facts" className="task-section">
+          <p className="prose">
+            <strong>Mint Facts stores facts in the Registry contract for your
+            wallet, not inside the card.</strong> The card reads those facts
+            from the contract to render its artwork. Here, “minted” means
+            recorded in the contract; it does not create another NFT. A card
+            is optional. Minting a rule or requesting verification uses real IMD and ETH gas.
+          </p>
+          <p className="prose">
+            Choose a rule and ask the swarm to check it. A confirmed request
+            starts verification; the fact is only minted after an accepted
+            result is stored for your wallet. A shared result must also be
+            applied to your wallet. Pending or failed requests add no fact.
+          </p>
+          {pendingFacts.length > 0 && (
+            <section className="pending-notice" aria-label="Pending facts">
+              <h2>Waiting for the swarm</h2>
+              {pendingFacts.map((fact) => (
+                <p key={fact.requestId}>
+                  <strong>
+                    {fact.id} / {fact.name}
+                  </strong>{" "}
+                  · Pending since <RequestTime requestId={fact.requestId} />.
+                  This fact cannot be requested again until its answer arrives.
+                  Other facts and actions remain available.
+                </p>
               ))}
-            </div>
-          </section>
+            </section>
+          )}
           <section id="step-02" className="step">
-            <h3 className="step-title">
-              <span className="step-name">
-                {"02 – Sworn WhitelistCurator facts – "}
-              </span>
-              <span className="step-description">
-                provable onchain, sworn by the swarm
-              </span>
-            </h3>
+            <h2>Choose facts to mint</h2>
             <div className="step-intros">
               {classes
                 .filter((c) => c.key !== "direct")
@@ -1398,30 +1478,12 @@ export function Claim() {
               11 / 7. For a requestable fact, unclaimed means unproven. It does
               not mean the fact is false. {SWARMED}
             </p>
-            <fieldset className="payment">
-              <legend>Pay for minting and paid facts with</legend>
-              {["IMD", "ETH"].map((v) => (
-                <label key={v}>
-                  <input
-                    type="radio"
-                    name="payment"
-                    value={v}
-                    checked={payment === v}
-                    onChange={() => {
-                      setPayment(v);
-                      // An unsent preparation was priced for the other currency.
-                      journal.discard();
-                    }}
-                  />
-                  {v}
-                </label>
-              ))}
-            </fieldset>
-            <p className="muted">
-              IMD is the default. ETH buys exactly the missing IMD with a live
-              exact-output quote, a 1% maximum input margin and a 120-second
-              deadline.
-            </p>
+            <PaymentChoice
+              id="request-payment"
+              value={payment}
+              onChange={setPayment}
+              disabled={journal.busy || !!busy}
+            />
             <IneligibleControl
               count={paid.filter((t) => paidIneligible(t.id)).length}
               shown={showIneligible}
@@ -1562,15 +1624,17 @@ export function Claim() {
                     ) : (
                       requestable && (
                         <div className="row-actions">
-                          <button
-                            type="button"
-                            className="secondary"
-                            disabled={!!reason || !!busy}
-                            aria-label={`Mint this fact: ${t.id} / ${t.name}`}
-                            onClick={() => prepareFacts([t.id])}
-                          >
-                            Mint this fact
-                          </button>
+                          <TaskAction connectLabel="Connect to Mint Facts">
+                            <button
+                              type="button"
+                              className="secondary"
+                              disabled={!!reason || !!busy}
+                              aria-label={`Mint Facts: ${t.id} / ${t.name}`}
+                              onClick={() => prepareFacts([t.id])}
+                            >
+                              Mint Facts
+                            </button>
+                          </TaskAction>
                         </div>
                       )
                     )}
@@ -1583,46 +1647,69 @@ export function Claim() {
             ) : site.error || site.specError ? (
               <Status error>{site.error || site.specError}</Status>
             ) : null}
-            <p id="oracle-ack" className="muted">
-              The payment dialog explains the cost and requires your
-              confirmation before any wallet signature.
-            </p>
-            <button
-              disabled={
-                !!reason ||
-                !facts ||
-                selected.length === 0 ||
-                !!busy ||
-                selected.some(
-                  (id) =>
-                    impossible(facts?.joined, id) ||
-                    facts?.traits.includes(id) ||
-                    facts?.verifiedSpecs.includes(id) ||
-                    (facts?.pending[id] && !/^0x0+$/.test(facts.pending[id])),
-                )
-              }
-              onClick={() => prepareFacts()}
-            >
-              {busy === "facts" ? "Checking…" : "Mint selected facts"}
-            </button>
-            <Status
-              error={
-                !!status.facts &&
-                !status.facts.startsWith("Ready:") &&
-                status.facts !== "Checking…"
-              }
-            >
-              {status.facts ||
-                reason ||
-                (!facts
-                  ? "Wait for wallet reads."
-                  : !selected.length
-                    ? "Select at least one fact."
-                    : "")}
-            </Status>
-            {status.facts?.startsWith("Ready:") && (
-              <a href={claimAnchor("transaction-steps")}>Transaction steps ↓</a>
-            )}
+            <div className="request-action-summary">
+              <h3>Review your selected requests</h3>
+              <p>
+                {selected.length} {selected.length === 1 ? "fact" : "facts"}{" "}
+                selected. Request fees:{" "}
+                {site.health
+                  ? `${imd(site.health.price * BigInt(selected.length))} IMD`
+                  : "reading price…"}
+                . A false answer or no verdict adds no fact; the request fee is
+                still spent.
+              </p>
+              <PaymentChoice
+                id="selected-request-payment"
+                value={payment}
+                onChange={setPayment}
+                disabled={journal.busy || !!busy}
+              />
+              <p id="oracle-ack" className="muted">
+                The payment dialog explains the cost and requires your
+                confirmation before any wallet signature.
+              </p>
+              <TaskAction connectLabel="Connect to Mint Facts">
+                <button
+                  disabled={
+                    !!reason ||
+                    !facts ||
+                    selected.length === 0 ||
+                    !!busy ||
+                    selected.some(
+                      (id) =>
+                        impossible(facts?.joined, id) ||
+                        facts?.traits.includes(id) ||
+                        facts?.verifiedSpecs.includes(id) ||
+                        (facts?.pending[id] &&
+                          !/^0x0+$/.test(facts.pending[id])),
+                    )
+                  }
+                  onClick={() => prepareFacts()}
+                >
+                  {busy === "facts" ? "Checking…" : "Mint Facts"}
+                </button>
+              </TaskAction>
+              <Status
+                error={
+                  !!status.facts &&
+                  !status.facts.startsWith("Ready:") &&
+                  status.facts !== "Checking…"
+                }
+              >
+                {status.facts ||
+                  reason ||
+                  (!facts
+                    ? "Wait for wallet reads."
+                    : !selected.length
+                      ? "Select at least one fact."
+                      : "")}
+              </Status>
+              {status.facts?.startsWith("Ready:") && (
+                <a href={claimAnchor("transaction-steps")}>
+                  Transaction steps ↓
+                </a>
+              )}
+            </div>
             {facts &&
               Object.entries({ ...facts.pending, ...sharedPendings })
                 .filter(([, rid]) => !/^0x0+$/.test(rid))
@@ -1668,21 +1755,31 @@ export function Claim() {
               </section>
             )}
           </section>
-          <section id="step-03" className="step">
-            <h3 className="step-title">
-              <span className="step-name">
-                {"03 – Sworn Community facts – "}
-              </span>
-              <span className="step-description">
-                not limited to WhitelistCurator
-              </span>
-            </h3>
-            <CommunityIntro />
-            <CommunityForm payment={payment} journal={journal} />
-          </section>
-        </div>
-        <TransactionJournal journal={journal} />
-      </section>
+        </section>
+      )}
+      {task === "/register" && (
+        <section id="step-03" className="task-section">
+          <p className="prose">
+            Mint Rule registers a reusable, immutable community rule in the
+            Registry contract and gives it a rule ID. It does not verify a
+            wallet or add a fact to a card. Use <a href="#/request">Mint Facts</a>{" "}
+            separately to verify the rule for your wallet and store an accepted
+            fact in the contract.
+          </p>
+          <CommunityIntro />
+          <ol className="community-journey">
+            <li><strong>Mint Rule.</strong> Choose a template, define its evidence window and register the rule in the contract.</li>
+            <li><strong>Mint Facts.</strong> Submit a separate verification request. Only an accepted result adds a wallet fact to the contract; shared results must also be applied.</li>
+            <li><strong>Use the fact.</strong> See it on the wallet’s card preview, select it in Curator or check its ID with <code>hasTrait</code>. A card is optional.</li>
+          </ol>
+          {!!journal.registered&&<div className="community-created" role="status"><strong>Rule {journal.registered} minted in the Registry.</strong><p>The rule is registered; no wallet fact has been verified or minted yet.</p><div className="inline-links"><a href={`#/request?trait=${journal.registered}`}>Mint Facts for your wallet</a><a href={`#/curator?trait=${journal.registered}`}>Use this rule in Curator</a></div></div>}
+          <CommunityForm
+            payment={payment}
+            setPayment={setPayment}
+            journal={journal}
+          />
+        </section>
+      )}
     </>
   );
 }

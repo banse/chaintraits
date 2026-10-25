@@ -1,0 +1,129 @@
+{
+  "at": "2026-10-25T03:35:43.318Z",
+  "chainId": 1,
+  "block": "26267034",
+  "contracts": [
+    {
+      "name": "Renderer",
+      "address": "0x3039eaf3b979759c77a2a3fc62850f9534162c3b",
+      "runtimeHash": "0xcca7bdf93d170adf0f56d8dd86f026178eecbbe332c6e3a0c672caf3bcbb548e"
+    },
+    {
+      "name": "Composer",
+      "address": "0xf564dd76bd081554170c5e0b78144abfb39f7061",
+      "runtimeHash": "0xbd07cb17d0496ea40e2ecdb7e941590d1323c5a5935e099d4832cc9379e83f4e"
+    },
+    {
+      "name": "Registry",
+      "address": "0x0da2679000ea5380d1361cc3cca7d4e8c881f766",
+      "runtimeHash": "0xd5dc762312cd6df0875e1fed5ec70ced7a721f7810355826796059f50df7288c"
+    }
+  ],
+  "state": {
+    "totalSupply": "11",
+    "MINT_FEE": "100000000000000000",
+    "SPEC_FEE": "6400000000000000000",
+    "curator": "0xcB0b0531e86A9aC36Fa865cA8e3dbccF047FDA91",
+    "imd": "0xD34a99Bc0f67aE1bbd63C660e6d0b0dd03E263B7",
+    "intake": "0xa43e6F75ee006411F79Ac1C84120606C2330DE82",
+    "attester": "0x5598Aa9146215Bc13eb26f2c692Ad1461Fd32982",
+    "renderer": "0x3039Eaf3B979759C77a2a3Fc62850F9534162c3b",
+    "composer": "0xF564dd76bd081554170c5e0b78144ABFB39F7061",
+    "burnExecutor": "0xe29386719C155B6847aD5a4E97C6674f10ffc750",
+    "oraclePrice": "500000000000000000"
+  },
+  "wallet": {
+    "address": "0xe5B1275FB926613D983dA33fBfe1F331b7f64F2A",
+    "tokenOf": "1",
+    "owner": "0xe5B1275FB926613D983dA33fBfe1F331b7f64F2A",
+    "verifiedSpecs": [],
+    "spawned": false
+  },
+  "calls": [
+    {
+      "url": "https://ethereum-rpc.publicnode.com",
+      "method": "eth_chainId"
+    },
+    {
+      "url": "https://ethereum-rpc.publicnode.com",
+      "method": "eth_blockNumber"
+    },
+    {
+      "url": "https://ethereum-rpc.publicnode.com",
+      "method": "eth_getCode"
+    },
+    {
+      "url": "https://ethereum-rpc.publicnode.com",
+      "method": "eth_getCode"
+    },
+    {
+      "url": "https://ethereum-rpc.publicnode.com",
+      "method": "eth_getCode"
+    },
+    {
+      "url": "https://ethereum-rpc.publicnode.com",
+      "method": "eth_call"
+    },
+    {
+      "url": "https://ethereum-rpc.publicnode.com",
+      "method": "eth_call"
+    },
+    {
+      "url": "https://ethereum-rpc.publicnode.com",
+      "method": "eth_call"
+    },
+    {
+      "url": "https://ethereum-rpc.publicnode.com",
+      "method": "eth_call"
+    },
+    {
+      "url": "https://ethereum-rpc.publicnode.com",
+      "method": "eth_call"
+    },
+    {
+      "url": "https://ethereum-rpc.publicnode.com",
+      "method": "eth_call"
+    },
+    {
+      "url": "https://ethereum-rpc.publicnode.com",
+      "method": "eth_call"
+    },
+    {
+      "url": "https://ethereum-rpc.publicnode.com",
+      "method": "eth_call"
+    },
+    {
+      "url": "https://ethereum-rpc.publicnode.com",
+      "method": "eth_call"
+    },
+    {
+      "url": "https://ethereum-rpc.publicnode.com",
+      "method": "eth_call"
+    },
+    {
+      "url": "https://ethereum-rpc.publicnode.com",
+      "method": "eth_call"
+    },
+    {
+      "url": "https://ethereum-rpc.publicnode.com",
+      "method": "eth_call"
+    },
+    {
+      "url": "https://ethereum-rpc.publicnode.com",
+      "method": "eth_call"
+    },
+    {
+      "url": "https://ethereum-rpc.publicnode.com",
+      "method": "eth_call"
+    },
+    {
+      "url": "https://ethereum-rpc.publicnode.com",
+      "method": "eth_call"
+    },
+    {
+      "url": "https://ethereum-rpc.publicnode.com",
+      "method": "eth_call"
+    }
+  ],
+  "publicWrites": 0
+}

@@ -1,5 +1,11 @@
 import { parseAbiItem, decodeEventLog, toEventSelector, toHex } from "viem";
 
+export function sharedMembership(value, wallet) {
+  if(!value || /^0x0+$/.test(value.fact[0]))return 'not-stored';
+  if(!value.result?.attestation || !Array.isArray(value.list) || !value.list.length || value.list.length!==Number(value.fact[2]))return 'unavailable';
+  return value.list.some(address=>address.toLowerCase()===wallet?.toLowerCase())?'included':'excluded';
+}
+
 export function unsafeTransferRanking(spec) {
   return (
     Number(spec.kind) === 3 &&

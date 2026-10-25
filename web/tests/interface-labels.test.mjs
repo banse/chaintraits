@@ -63,7 +63,53 @@ test("all original control/link/choice label fragments stay except the explicitl
   const labels = await interfaceLabels(files);
   // Snapshot is the accepted starting interface. Footer links are data-driven;
   // their exact labels/URLs are also checked by sworn-step-browser.mjs.
-  assert.deepEqual(labels, [...expected, "Wallet page"].sort());
+  // This mainnet version separates three tasks and restores real wallet controls.
+  // Keep every unrelated accepted label under the original
+  // assertion; do not regenerate the baseline snapshot from changed source.
+  const taskChanges = new Set([
+    // Request details now shows the entire question without a nested toggle.
+    "Show full question",
+    "Show less",
+    "Add facts",
+    "Connect to mint",
+    "Mint card",
+    "Mint registration",
+    "Mint selected facts",
+    "Mint this fact",
+    "Mint your card",
+    "Mint your card ↗",
+    "Pay for minting and paid facts with",
+    "Read the direct rules",
+    "Register a fact",
+    "Register the first rule",
+    "Request a fact ↗",
+    "Request this fact",
+    "Request this fact ↗",
+    "WhitelistCurator.sol on Etherscan: Read Contract ↗",
+    "Receipt:",
+    "Replacement:",
+    "Recover a transaction hash",
+    "I understand these transactions spend IMD and gas. Oracle requests spend their price whatever the answer, including false, no verdict or a refused answer; there is no refund.",
+  ]);
+  const unchanged = expected.filter((label) => !taskChanges.has(label));
+  assert.deepEqual(
+    labels.filter((label) => unchanged.includes(label)),
+    unchanged.sort(),
+  );
+  for (const label of [
+    "Mint Card",
+    "Mint Card ↗",
+    "Payment method",
+    "Mint Facts",
+    "Mint Facts ↗",
+    "Mint Rule",
+    "View the card and wallet facts",
+    "Switch to Ethereum",
+    "Ethereum receipt:",
+    "Replacement receipt:",
+    "Recover a saved transaction",
+  ])
+    assert.ok(labels.includes(label), `Missing after-version action: ${label}`);
 });
 test("4/5/7 export has the pinned README, prescribed read RPC order, exact new wording and no superseded labels", async () => {
   const { READ_RPCS } = await import("../src/rpc.mjs");

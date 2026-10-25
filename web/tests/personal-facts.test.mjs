@@ -118,7 +118,7 @@ test("1 boolean quorum true and false survives attestation, and Registry end sta
   }
   assert.equal(
     registryOutcome({ eventName: "Verified" }),
-    "Stored by the Registry; your card shows the fact.",
+    "Stored by the Registry for this wallet. If it has a card, the card reflects this fact.",
   );
   assert.equal(
     registryOutcome({ eventName: "Missed", args: { reason: 8 } }),

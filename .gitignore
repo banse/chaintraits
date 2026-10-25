@@ -2,7 +2,10 @@ out/
 cache/
 broadcast/
 .env
-node_modules/
+node_modules
 *.swp
 .DS_Store
 __pycache__/
+
+# Reproducible local packaging outputs
+release/

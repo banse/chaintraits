@@ -411,7 +411,7 @@ try {
             window.__holdSignature = true;
           });
           await dialog()
-            .getByRole("button", { name: "Mint one Sworn card", exact: true })
+            .getByRole("button", { name: "Mint Card", exact: true })
             .click();
           await dialog()
             .getByText("awaiting signature", { exact: true })
@@ -471,7 +471,7 @@ try {
         window.__accept = true;
       });
       await dialog()
-        .getByRole("button", { name: "Mint one Sworn card", exact: true })
+        .getByRole("button", { name: "Mint Card", exact: true })
         .click();
       await dialog().getByText("pending", { exact: true }).waitFor();
       await close();

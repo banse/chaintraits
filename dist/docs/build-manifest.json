@@ -1,0 +1,31 @@
+{
+  "date": "2026-10-25",
+  "sourceCommit": "c4ff3238390fc51962fb67e86affc20cf418126e",
+  "chapters": {
+    "overview.md": "17c37fcf997d015b7fb0b9c19ff1b205fa7da47ddf33d3b55e056dc0eb498d11",
+    "guide.md": "d14ac9035e0950993e1a6771b17c537b4540cd4b76da809d3d030217c3f33246",
+    "architecture.md": "a223c6a4f8b45830fd83f0ac9cbb7d87dfdea9d8da7c71053af75fe65b086e02",
+    "builders.md": "d36cc7b954c3931b6f179533d4ec169732c7d1c449167dbd8959ff4eb5a00c5b",
+    "reference.md": "ac8b49e08ea430e113464c56f1f396dd3091823e111f7b4d9677945796f90adc"
+  },
+  "artifacts": {
+    "app.js": "50239d746fcf16428fb073ea684f275971340b04543b516eb564e079b0bd84ff",
+    "architecture.html": "183ac6cdd220e004c371490ef7d67d3dc9c63a2507cca0d62df2b5f4c9d40512",
+    "assets/ExampleWalletGate.sol": "e7359b11af9e4bb63a03130bc338b11c7f40927b1831344201644d5830c0404e",
+    "assets/allowlist-historical.png": "afb6c1e0dcaa91e6f65e3aa8470979898cf681f4ff21d81ed93d588f3c57a848",
+    "assets/card-2-historical.json": "25e0686f9e719c86e41a37f26bf8d86bed5c18684400dde1974c71072ed56a69",
+    "assets/card-2-historical.svg": "6fea59fd33c698320ab8967afd04a8619f8c352490a6c90234ac030bd53b97a3",
+    "assets/community-display-historical.png": "d1e7dd3150e12a5824db2b76ac39a5cd3ebb5413e33cf1f0962d2e48d5bdabb3",
+    "assets/deployment-manifest.json": "f248f996853078d1b910aabe5a41ebe52cac9c5b2ae07cfe376eae4022242632",
+    "assets/fact-flow.svg": "94469abaa6259a5614861b519848272fe790fd1f3bdade60f47f49aeb0176ebe",
+    "assets/historical-allowlist.json": "8293a236bcefa35954199d9689de71de6f4fed0c0c719b02616b1aace01c9785",
+    "builders.html": "9d13ec7e24200c00d1672aeac6f6d79c3e2dd3991d041eb1f0143a65a6ea9483",
+    "full-guide.html": "21061336af6494be43898da381d33fc6a1208301e035005c2cb7c9a91663c1fb",
+    "guide.html": "ff1a63020a2c60cedd18285cbc984fca6907593b1de0e1337467fe8126e2afe9",
+    "index.html": "6d3e8d8b395f43e23adbb88e9c487ba5586aca394e78ddbe3f17edb3b16c2f7b",
+    "reference.html": "3d5fcd0271787e2edce3cf29109cfbd527b7251d87e1068edb0782825fa9ff00",
+    "search-data.js": "180e699dd228a5b076803e04686c993aa4cddd3ee345339c04405faede85102b",
+    "style.css": "1ebd301c60c822aaf2444b3028b9a346a0c1067a9f20aade5ca9c61e0e4ff562",
+    "sworn-handbook.md": "0169d60bc37dd2c56f2fdc28fba0c8473c3e9876834ce34a97e5d9189b3beba1"
+  }
+}

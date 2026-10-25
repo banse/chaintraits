@@ -1,7 +1,7 @@
 import { useState, useEffect } from "react";
 import { isAddress, getAddress, type Address } from "viem";
 import { useSite } from "./context";
-import { asset, lookup, read, explain, type WalletFacts } from "./chain";
+import { asset, lookup, read, explain, scopedClient, type WalletFacts } from "./chain";
 import {
   HEADLINE,
   DESCRIPTION,
@@ -35,6 +35,7 @@ import {
   TransactionJournal,
   type Journal,
 } from "./transactions";
+import { CardFactGuide } from "./card-fact-guide";
 function IntroDescription() {
   const [a, b] = DESCRIPTION.split("IMD agents");
   return (
@@ -100,7 +101,7 @@ export function Home() {
           <AddressForm />
           <IntroDescription />
           <div className="inline-links">
-            <a href="#/mint">Mint your card ↗</a>
+            <a href="#/mint">Mint Card ↗</a>
             <a href="#/catalog">Read the 25 facts ↗</a>
           </div>
         </div>
@@ -151,24 +152,26 @@ export function Home() {
             <h3>For a wallet</h3>
             <ol className="story">
               <li>
-                <strong>Mint a card</strong>
+                <strong>Mint Card (optional)</strong>
                 <p>
-                  Your direct facts are captured at mint.{" "}
-                  <a href="#/mint#mint">Mint your card</a>.
+                  Minting saves your direct facts permanently; wallet
+                  verification also works without a card.{" "}
+                  <a href="#/mint#mint">Mint Card</a>.
                 </p>
               </li>
               <li>
-                <strong>Add facts</strong>
+                <strong>Mint Facts</strong>
                 <p>
-                  Request evidence for a paid oracle fact.{" "}
-                  <a href="#/mint#step-02">Add facts</a>.
+                  Verify a fact and store the accepted result in the Registry
+                  contract for your wallet. The card reads it from the contract.{" "}
+                  <a href="#/request">Mint Facts</a>.
                 </p>
               </li>
               <li>
-                <strong>Swear new facts</strong>
+                <strong>Mint Rule</strong>
                 <p>
                   Define an immutable community rule.{" "}
-                  <a href="#/mint#step-03">Register a fact</a>.
+                  <a href="#/register">Mint Rule</a>.
                 </p>
               </li>
             </ol>
@@ -233,17 +236,16 @@ export function Catalog() {
           {c.key !== "direct" && (
             <div className="cost-line">
               {health
-                ? `${imd(health.price)} IMD · priceOf · live`
-                : "Cost: the live oracle price per fact"}{" "}
-              · <a href="#/mint#step-02">Request a fact ↗</a>
+                ? `${imd(health.price)} IMD · live oracle quote`
+                : "Cost: oracle price per request, simulated here"}{" "}
+              · <a href="#/request">Mint Facts ↗</a>
             </div>
           )}
           <div className="catalog-table" role="table" aria-label={c.name}>
             <div className="catalog-head" role="row">
               <span role="columnheader">Fact</span>
               <span role="columnheader">
-                {/* Every direct fact reads live: the window is stated once. */}
-                {c.key === "direct" ? "Rule · window: Live" : "Rule · window"}
+                {c.key === "direct" ? "Rule · live before mint; frozen at mint" : "Rule · window"}
               </span>
               <span role="columnheader">Evidence</span>
             </div>
@@ -291,12 +293,12 @@ export function Catalog() {
         ) : !specs.length ? (
           <p className="muted">
             No community specs registered yet.{" "}
-            <a href="#/mint#step-03">Register the first rule</a>.
+            <a href="#/register">Mint the first rule</a>.
           </p>
         ) : (
           <div className="fact-rows">
             {specs.map((s) => (
-              <div className="fact-row" key={s.id}>
+              <div className="fact-row" key={s.id} id={`community-${s.id}`}>
                 <strong>
                   {s.id} / {s.name}
                 </strong>
@@ -309,7 +311,8 @@ export function Catalog() {
                     s.kind === 3 ? "shared" : s.kind >= 5 ? "panel" : "chain"
                   }
                 />
-                <a href={`#/mint?trait=${s.id}`}>Request this fact ↗</a>
+                <a href={`#/request?trait=${s.id}`}>Mint Facts ↗</a>
+                <a href={`#/curator?trait=${s.id}`}>Use in Curator</a>
               </div>
             ))}
           </div>
@@ -382,12 +385,13 @@ export function Explorer({ journal }: { journal: Journal }) {
       return;
     }
     setBusy(true);
+    const controller=new AbortController();
     lookup(
-      site.client,
+      scopedClient(site.client,controller.signal),
       site.r,
       site.health,
       address as Address,
-      TRAITS.map((t) => t.id),
+      [...TRAITS.map(t=>t.id),...site.specs.map(s=>s.id)],
     )
       .then((value) => {
         if (active) setFacts(value);
@@ -403,8 +407,9 @@ export function Explorer({ journal }: { journal: Journal }) {
       });
     return () => {
       active = false;
+      controller.abort();
     };
-  }, [address, site.health, tick]);
+  }, [address, site.health, site.specs, site.client, site.r, site.readRetry, tick]);
   const factsAddress = facts?.address;
   useEffect(() => {
     if (!factsAddress) return;
@@ -420,22 +425,25 @@ export function Explorer({ journal }: { journal: Journal }) {
       return () => clearTimeout(timeout);
     }
   }, [factsAddress]);
+  function chooseWallet(value: string) {
+    if (address === value) setTick(t => t + 1);
+    setFamily(undefined);
+    setAddress(value);
+    history.replaceState(null, "", `#/explorer?address=${value}`);
+  }
   return (
     <section className="part" id="explorer" aria-labelledby="explorer-title">
       <h2 className="part-title" id="explorer-title">
         Explorer
       </h2>
       <p className="prose">
-        Look up any wallet: its card, the facts it holds and any open request,
-        read straight from the Registry. No wallet connection is needed.
+        Inspect any Ethereum wallet’s card, facts and request status, read from
+        the Registry, Curator and Renderer. Cards and wallet connections are optional.
       </p>
       <AddressForm
-        initial={initial}
-        onSubmit={(a) => {
-          if (address === a) setTick((t) => t + 1);
-          setAddress(a);
-          history.replaceState(null, "", `#/explorer?address=${a}`);
-        }}
+        key={address}
+        initial={address}
+        onSubmit={chooseWallet}
       />
       <Status error={!!error}>
         {error ||
@@ -446,7 +454,7 @@ export function Explorer({ journal }: { journal: Journal }) {
             : facts
               ? "Wallet facts loaded."
               : !address
-                ? "Enter any wallet to read its facts."
+                ? "Enter any wallet address to inspect its facts."
                 : "")}
       </Status>
       {error && (
@@ -466,7 +474,7 @@ export function Explorer({ journal }: { journal: Journal }) {
               <h2>Wallet facts</h2>
               <p className="break">{facts.address}</p>
               <p className="muted">
-                Live reads at Ethereum block {num(site.health.block)}.
+                Ethereum reads after deployment check at block {num(site.health.block)}.
                 Credentials use <code>hasTrait</code> and <code>tokenOf</code>,
                 never <code>ownerOf</code>.
               </p>
@@ -500,11 +508,11 @@ export function Explorer({ journal }: { journal: Journal }) {
                   </dd>
                 </div>
                 <div>
-                  <dt>Frozen direct snapshot</dt>
+                  <dt>Direct-fact snapshot</dt>
                   <dd>
                     {facts.frozen === null
                       ? "No card minted"
-                      : facts.frozen.toString()}
+                      : `Captured at Ethereum block ${num(facts.mintBlock || 0n)}`}
                   </dd>
                 </div>
               </dl>
@@ -532,6 +540,7 @@ export function Explorer({ journal }: { journal: Journal }) {
               }}
             />
           </div>
+          <CardFactGuide ids={facts.verifiedSpecs} onFamily={setFamily}/>
           <section id="wallet-facts" className="section">
             <h2>{family ? `Family ${family}` : "All 25 facts"}</h2>
             <WalletFactRows facts={facts} family={family} />
@@ -553,6 +562,7 @@ export function Explorer({ journal }: { journal: Journal }) {
               Community ids: {facts.verifiedSpecs.join(", ") || "none verified"}
               .
             </p>
+            {facts.verifiedSpecs.length>0&&<ul aria-label="Verified community facts">{facts.verifiedSpecs.map(id=><li key={id}><strong>{id} / {site.specs.find(s=>s.id===id)?.name||'Community fact'}</strong>{' · Accepted in Registry · '}<a href={`#/curator?trait=${id}`}>Use this fact</a></li>)}</ul>}
             <details>
               <summary>Lossless raw tokenURI metadata</summary>
               <p>
@@ -680,6 +690,7 @@ export function Integrate() {
         <a href={asset("llms.txt")}>llms.txt</a> carry every fact id, the
         authentic addresses and RPC-only examples for checking a fact.
       </p>
+      <div className="inline-links"><a className="primary" href="#/curator">Build a list and test eligibility</a><a href="#/register">Mint Rule</a></div>
       <FactArtifact />
       <Section
         title={
@@ -932,8 +943,8 @@ export function About() {
           A card is named Sworn, symbol SWORN. Supply is uncapped, with one mint
           per wallet.{" "}
           {health
-            ? `The live registry currently has ${num(health.supply)} minted cards.`
-            : "Live supply is unavailable until the deployment check finishes."}
+            ? `The latest Registry read reports ${num(health.supply)} minted cards.`
+            : "Minted supply is unavailable until the Ethereum read finishes."}
         </p>
         <p>For minting and registration, {FEE}.</p>
       </Section>

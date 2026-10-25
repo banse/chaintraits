@@ -1,0 +1,65 @@
+{
+  "capturedAt": "2026-10-24T20:36:45.342Z",
+  "chainId": 1,
+  "registry": "0x0da2679000ea5380d1361cc3cca7d4e8c881f766",
+  "blockNumber": "26264861",
+  "blockHash": "0x88bff51768d8d713111ee8e7e69bce61475d015f72b30d217c3b18fe8b47ae06",
+  "rule": "hasTrait(wallet,101) && hasTrait(wallet,701)",
+  "scope": "Four real claimant wallets from cards 1-4 only; worked example, NOT a full 19,522-wallet scan.",
+  "candidateCount": 4,
+  "includedCount": 1,
+  "rows": [
+    {
+      "card": 1,
+      "wallet": "0xe5B1275FB926613D983dA33fBfe1F331b7f64F2A",
+      "has101": false,
+      "has701": false,
+      "included": false
+    },
+    {
+      "card": 2,
+      "wallet": "0x887b86B6B6957F7bbeA88B8CEfD392f39236A88C",
+      "has101": true,
+      "has701": true,
+      "included": true
+    },
+    {
+      "card": 3,
+      "wallet": "0x84F4b7424e1B0464f9C749725C1F34bed9AA8aDA",
+      "has101": false,
+      "has701": false,
+      "included": false
+    },
+    {
+      "card": 4,
+      "wallet": "0xC6579C593b34916fCC7F3f2750E8b56749bF0808",
+      "has101": true,
+      "has701": false,
+      "included": false
+    }
+  ],
+  "curator": {
+    "totalContributors": "19522",
+    "launchTime": "1786910327",
+    "lastActiveHour": [
+      "65",
+      "690000000000000000"
+    ],
+    "isSettled": true,
+    "totalTxCount": "28353"
+  },
+  "curatorWindow": [
+    {
+      "blockNumber": "25769870",
+      "hash": "0x43ac0aadac9b134a5e4555d28323431664fd77d74cd6a28cb4ca65e34ba72256",
+      "timestamp": "1786910327",
+      "utc": "2026-08-16T19:58:47.000Z"
+    },
+    {
+      "blockNumber": "25789604",
+      "hash": "0x57852dbfd56daf8e7b4bf68c2e25f73dd583f99eac5b00c03a50603e4a2cef37",
+      "timestamp": "1787147915",
+      "utc": "2026-08-19T13:58:35.000Z"
+    }
+  ]
+}

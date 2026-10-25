@@ -7,15 +7,15 @@ export const DESCRIPTION =
 export const WHY =
   "WhitelistCurator.sol set out to curate a permissionless onchain allowlist of proven wallets, for mints, early access, airdrops or reputation, that a contract reads directly at mint time, with no merkle root and no snapshot. Its 66-hour game recorded 19,522 wallets that kept paying real gas, hour after hour, in a quiet market, and it left the reading of that record to builders. Sworn is built on it: it turns the record into facts any contract can check with hasTrait, so a mint or a grant can use the signal without indexing the list itself. Some facts are read live from the Curator, the rest are proven by the swarm, and anyone can add more.";
 export const BUILT =
-  "The contracts were built, audited and deployed by Identity.md's swarm in paid jobs, and so was this site. The job records are public.";
+  "The deployed contracts and original site were built by Identity.md's swarm in paid jobs. Their job records are public. This frontend adds interface improvements while reading the same Ethereum contracts and Swarm request data.";
 export const FEE =
   "the fee is forwarded to the BurnExecutor for bridging and burning on Base";
 export const SWARMED =
-  "Swarmed: operated a seat through 3 accepted swarm jobs. Counted up to 64 blocks before the block of your request; request again after more jobs.";
+  "Swarmed: at least 3 accepted swarm feedback entries while holding a seat. Counted up to 64 blocks before your request. If not yet proven, you can request verification again after more accepted work.";
 export const NOCOIN =
   "Sworn has no coin of its own; its only token is the card.";
 export const OWNERLESS =
-  "Ownerless: no owner roles, no upgrade path, pause or fee switch; dependencies fixed at construction. MIT. Static: no backend, no key, no analytics.";
+  "The deployed Sworn contracts have no owner roles, upgrade path, pause or fee switch; dependencies are fixed at construction. MIT licensed. This static frontend reads Ethereum and the Swarm API directly; transactions require your connected wallet.";
 export const classes = [
   {
     key: "direct",
@@ -31,15 +31,15 @@ export const classes = [
     label: "Chain",
     description:
       "Historical chain evidence, sworn by swarm. A panel of 5 IMD agents checks the recipe; 3 must agree. Each attempt costs the live oracle price per fact, even if no fact is proven.",
-    how: "Request a fact in step 02.",
+    how: "Choose a fact on Mint Facts.",
   },
   {
     key: "shared",
     name: "Shared facts",
     label: "Shared",
     description:
-      "One attested ranking, reusable by every listed wallet. A panel of 11 IMD agents needs 7 in agreement. The requester pays the full oracle price; applying a stored list costs only gas. No verdict refunds nothing.",
-    how: "Request or apply a shared fact in step 02.",
+      "One attested ranking, reusable by every listed wallet. A panel of 11 IMD agents needs 7 in agreement. The requester pays the full oracle price; applying a stored list costs only gas. The request fee is not refunded if no verdict is reached.",
+    how: "Use Mint Facts to request or apply a shared fact.",
   },
   {
     key: "panel",
@@ -47,7 +47,7 @@ export const classes = [
     label: "Panel",
     description:
       "A panel of 11 IMD agents examines a pinned rule; 7 must agree. Each attempt costs the live oracle price per fact. An attestation records agreement, not a guarantee against a mistaken answer.",
-    how: "Request a fact in step 02.",
+    how: "Choose a fact on Mint Facts.",
   },
 ];
 // Readable names of the four fixed block windows.
@@ -67,37 +67,37 @@ export type Trait = {
   rare: boolean;
 };
 const rows: [number, string, string, string, string][] = [
-  [101, "Spawned", "direct", "Joined WhitelistCurator.sol", "Live"],
+  [101, "Spawned", "direct", "Joined WhitelistCurator.sol", "Live before mint; frozen at mint"],
   [
     201,
     "Zero-Shot, hour <= 1",
     "direct",
     "First deposit in hour 0 or 1",
-    "Live",
+    "Live before mint; frozen at mint",
   ],
-  [202, "Zero-Shot, hour 0", "direct", "First deposit in hour 0", "Live"],
-  [301, "Hopper >= 3", "direct", "At least 3 deposits", "Live"],
-  [302, "Hopper >= 5", "direct", "At least 5 deposits", "Live"],
-  [303, "Hopper >= 10", "direct", "At least 10 deposits", "Live"],
-  [401, "Bullfrog >= 1 ETH", "direct", "Largest single send ≥ 1 ETH", "Live"],
-  [402, "Bullfrog >= 10 ETH", "direct", "Largest single send ≥ 10 ETH", "Live"],
+  [202, "Zero-Shot, hour 0", "direct", "First deposit in hour 0", "Live before mint; frozen at mint"],
+  [301, "Hopper >= 3", "direct", "At least 3 deposits", "Live before mint; frozen at mint"],
+  [302, "Hopper >= 5", "direct", "At least 5 deposits", "Live before mint; frozen at mint"],
+  [303, "Hopper >= 10", "direct", "At least 10 deposits", "Live before mint; frozen at mint"],
+  [401, "Bullfrog >= 1 ETH", "direct", "Largest single send ≥ 1 ETH", "Live before mint; frozen at mint"],
+  [402, "Bullfrog >= 10 ETH", "direct", "Largest single send ≥ 10 ETH", "Live before mint; frozen at mint"],
   [
     403,
     "Bullfrog >= 100 ETH",
     "direct",
     "Largest single send ≥ 100 ETH",
-    "Live",
+    "Live before mint; frozen at mint",
   ],
   [
     404,
     "Bullfrog >= 800 ETH",
     "direct",
     "Largest single send ≥ 800 ETH",
-    "Live",
+    "Live before mint; frozen at mint",
   ],
-  [501, "Benchmarked >= 1000", "direct", "At least 1,000 points", "Live"],
-  [502, "Benchmarked >= 3162", "direct", "At least 3,162 points", "Live"],
-  [503, "Benchmarked >= 10000", "direct", "At least 10,000 points", "Live"],
+  [501, "Benchmarked >= 1000", "direct", "At least 1,000 points", "Live before mint; frozen at mint"],
+  [502, "Benchmarked >= 3162", "direct", "At least 3,162 points", "Live before mint; frozen at mint"],
+  [503, "Benchmarked >= 10000", "direct", "At least 10,000 points", "Live before mint; frozen at mint"],
   [
     601,
     "Swarmed",
@@ -107,7 +107,7 @@ const rows: [number, string, string, string, string][] = [
   ],
   [701, "Uptime", "chain", "Deposited again in hours 24–65", W.JUDGED],
   [801, "Holdout", "chain", "Deposited in hour 64", W.LIFE],
-  [901, "Final Token", "chain", "The last deposit, in hour 65", W.LIFE],
+  [901, "Final Token", "chain", "Made a qualifying deposit in hour 65", W.LIFE],
   [1001, "Hotfix", "chain", "Saved an hour with HourSaved", W.LIFE],
   [1101, "PID #1", "chain", "FirstDeposit index 1", W.LIFE],
   [1102, "PID #1000", "chain", "FirstDeposit index 1,000", W.LIFE],
@@ -158,6 +158,8 @@ export const ROUTES = [
   ["/catalog", "Catalog"],
   ["/mint", "Mint"],
   ["/wallet", "Wallet"],
+  ["/register", "Mint Rule"],
+  ["/curator", "Curator"],
   ["/integrate", "Integrate"],
   ["/about", "About"],
 ];

@@ -14,7 +14,15 @@ import { ROUTES } from "./data";
 import { ContractList, Status } from "./components";
 import { Home, Catalog, Integrate, About } from "./pages";
 import { Claim } from "./claim";
+import {
+  TransactionProvider,
+  TransactionJournalSlot,
+  TransactionTopProgress,
+} from "./transactions";
+import { SwarmProgressProvider } from "./swarm";
+import { routeInfo, TASKS } from "./task-navigation.mjs";
 import { WalletFacts } from "./wallet-facts";
+import { Curator } from "./curator";
 import { READ_RPCS } from "./rpc.mjs";
 import { onReadFailure, RECOVERY_MS } from "./read-recovery.mjs";
 const FOOTER_LINKS: [string, string][] = [
@@ -26,48 +34,6 @@ const FOOTER_LINKS: [string, string][] = [
   ["IMD agents ↗", "https://imd.fun/docs"],
   ["Sworn on X ↗", "https://x.com/swornbyswarm"],
 ];
-function routeInfo() {
-  const hash = location.hash.slice(1) || "/";
-  const [path, rest] = hash.split("#");
-  const requested = path.split("?")[0];
-  // Former pages that became sections open their section.
-  if (requested === "/fact-vs-artifact")
-    return {
-      route: "/integrate",
-      anchor: "fact-vs-artifact",
-      query: new URLSearchParams(),
-    };
-  if (requested === "/whitelistcurator")
-    return {
-      route: "/about",
-      anchor: rest === "hours" || rest === "source" ? rest : "whitelistcurator",
-      query: new URLSearchParams(),
-    };
-  // Explorer is a part of Catalog: #/explorer?address=…&trait=… opens that part
-  // with the wallet loaded and scrolls to the fact once its row arrives.
-  if (requested === "/explorer") {
-    const query = new URLSearchParams(path.split("?")[1]);
-    return {
-      route: "/catalog",
-      anchor: query.get("trait") ? `trait-${query.get("trait")}` : "explorer",
-      query,
-    };
-  }
-  const route =
-    requested === "/claim"
-      ? "/mint"
-      : requested === "/wallet-facts"
-        ? "/wallet"
-        : requested;
-  return {
-    route,
-    anchor:
-      rest === "shared-fact"
-        ? "pick-1201"
-        : rest?.replace(/^shared-(\d+)$/, "pick-$1"),
-    query: new URLSearchParams(path.split("?")[1]),
-  };
-}
 export function App({ r }: { r: Runtime }) {
   const [route, setRoute] = useState(routeInfo);
   const [rpcUrl, setRpcUrlState] = useState(() => {
@@ -162,7 +128,9 @@ export function App({ r }: { r: Runtime }) {
   }, []);
   useEffect(() => {
     const label =
-      ROUTES.find(([path]) => path === route.route)?.[1] || "Page not found";
+      TASKS.find(([path]) => path === route.route)?.[1] ||
+      ROUTES.find(([path]) => path === route.route)?.[1] ||
+      "Page not found";
     document.title = `Sworn | ${label}`;
     // Establish route focus before the visitor starts typing. A delayed anchor
     // observer must never steal focus back from an already-used form.
@@ -175,7 +143,7 @@ export function App({ r }: { r: Runtime }) {
       const id =
         route.anchor ||
         (trait
-          ? route.route === "/mint"
+          ? route.route === "/request"
             ? `pick-${trait}`
             : `trait-${trait}`
           : "");
@@ -206,8 +174,8 @@ export function App({ r }: { r: Runtime }) {
   const pages: Record<string, React.ComponentType> = {
     "/": Home,
     "/catalog": Catalog,
-    "/mint": Claim,
     "/wallet": WalletFacts,
+    "/curator": Curator,
     "/integrate": Integrate,
     "/about": About,
   };
@@ -228,74 +196,101 @@ export function App({ r }: { r: Runtime }) {
         specError,
       }}
     >
-      <a
-        className="skip-link"
-        href="#main"
-        onClick={(e) => {
-          e.preventDefault();
-          document.getElementById("main")?.focus();
-        }}
-      >
-        Skip to content
-      </a>
-      <header className="site-header">
-        <a className="brand" href="#/" aria-label="Sworn home">
-          <img
-            src={asset("art/full-house.svg")}
-            width="40"
-            height="40"
-            alt=""
-          />
-          <span>SWORN</span>
-        </a>
-        <nav aria-label="Main navigation">
-          {ROUTES.filter(([path]) => path !== "/").map(([path, name]) => (
-            <a
-              key={path}
-              href={`#${path}`}
-              aria-current={route.route === path ? "page" : undefined}
-            >
-              {name}
-            </a>
-          ))}
-          <a href={asset("agents/sworn/SKILL.md")}>Agents</a>
-        </nav>
-        <ConnectControl r={r} />
-      </header>
-      <main id="main" tabIndex={-1} key={route.route + route.query.toString()}>
-        {Page ? (
-          <Page />
-        ) : (
-          <>
-            <h1>Page not found</h1>
-            <a href="#/">Return to Sworn</a>
-          </>
-        )}
-      </main>
-      <footer className="site-footer">
-        <div className="footer-top">
-          <a className="brand" href="#/">
-            SWORN
+      <TransactionProvider>
+        <SwarmProgressProvider>
+          <a
+            className="skip-link"
+            href="#main"
+            onClick={(e) => {
+              e.preventDefault();
+              document.getElementById("main")?.focus();
+            }}
+          >
+            Skip to content
           </a>
-          <span>An ownerless registry on Ethereum.</span>
-          <a href="#/integrate#fact-vs-artifact">A fact is not an artifact ↗</a>
-        </div>
-        <ContractList />
-        <Status error={!!error}>
-          {error ||
-            (health
-              ? `Dependencies verified · Ethereum block ${health.block.toLocaleString("en-US")} · priceOf read live`
-              : "Checking deployment and dependencies…")}
-        </Status>
-        <div className="footer-bottom">
-          <span>No owner. No backend. No coin.</span>
-          {FOOTER_LINKS.map(([label, href]) => (
-            <a key={href} href={href}>
-              {label}
+          <header className="site-header">
+            <a className="brand" href="#/" aria-label="Sworn home">
+              <img
+                src={asset("art/full-house.svg")}
+                width="40"
+                height="40"
+                alt=""
+              />
+              <span>SWORN</span>
             </a>
-          ))}
-        </div>
-      </footer>
+            <nav aria-label="Main navigation">
+              {ROUTES.filter(([path]) => path !== "/").map(([path, name]) => (
+                <a
+                  key={path}
+                  href={`#${path}`}
+                  aria-current={
+                    route.route === path ||
+                    (path === "/mint" &&
+                      route.route === "/request")
+                      ? "page"
+                      : undefined
+                  }
+                >
+                  {name}
+                </a>
+              ))}
+              <a href={asset("docs/index.html")}>Docs</a>
+              <a href={asset("agents/sworn/SKILL.md")}>Agents</a>
+            </nav>
+            <ConnectControl r={r} />
+          </header>
+          <main
+            id="main"
+            tabIndex={-1}
+            key={
+              TASKS.some(([path]) => path === route.route)
+                ? "tasks"
+                : route.route + route.query.toString()
+            }
+          >
+            {TASKS.some(([path]) => path === route.route) && (
+              <TransactionTopProgress task={route.route} />
+            )}
+            {TASKS.some(([path]) => path === route.route) ? (
+              <Claim task={route.route} />
+            ) : Page ? (
+              <Page />
+            ) : (
+              <>
+                <h1>Page not found</h1>
+                <a href="#/">Return to Sworn</a>
+              </>
+            )}
+            <TransactionJournalSlot />
+          </main>
+          <footer className="site-footer">
+            <div className="footer-top">
+              <a className="brand" href="#/">
+                SWORN
+              </a>
+              <span>An ownerless registry on Ethereum.</span>
+              <a href="#/integrate#fact-vs-artifact">
+                A fact is not an artifact ↗
+              </a>
+            </div>
+            <ContractList />
+            <Status error={!!error}>
+              {error ||
+                (health
+                  ? `Ethereum mainnet · block ${health.block.toLocaleString("en-US")} · current oracle quote`
+                  : "Checking Ethereum mainnet…")}
+            </Status>
+            <div className="footer-bottom">
+              <span>Sworn on Ethereum: no owner and no native coin.</span>
+              {FOOTER_LINKS.map(([label, href]) => (
+                <a key={href} href={href}>
+                  {label}
+                </a>
+              ))}
+            </div>
+          </footer>
+        </SwarmProgressProvider>
+      </TransactionProvider>
     </SiteContext.Provider>
   );
 }

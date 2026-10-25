@@ -19,6 +19,8 @@ import { injected, coinbaseWallet } from "wagmi/connectors";
 import { getAddress } from "viem";
 import { type Runtime, explain } from "./chain";
 import { WALLET_ICONS } from "./wallet-icons";
+import { connectedProvider } from "./controllers/wallet-connection.mjs";
+export { connectedProvider } from "./controllers/wallet-connection.mjs";
 export function walletConfig(r: Runtime) {
   return createConfig({
     chains: [r.chain],
@@ -33,17 +35,6 @@ export function walletConfig(r: Runtime) {
     ],
     transports: { [r.chain.id]: http(r.deployment.network.rpcUrls[0]) },
   });
-}
-export async function connectedProvider(
-  connectors: readonly any[],
-  saved: any,
-) {
-  const live =
-    connectors.find((c) => c.uid === saved?.uid) ||
-    connectors.find((c) => c.id === saved?.id);
-  if (!live || typeof live.getProvider !== "function")
-    throw Error("Reconnect your wallet to restore its provider.");
-  return await live.getProvider();
 }
 export const OPEN_IN = [
   {
@@ -209,11 +200,15 @@ export function WalletProvider({
     </WalletContext.Provider>
   );
 }
-export function ConnectControl({ r }: { r: Runtime }) {
-  const { open } = useWalletSheet();
-  const { address, isConnected, chainId, connector } = useAccount();
+export function SwitchNetworkButton({
+  r,
+  className = "primary",
+}: {
+  r: Runtime;
+  className?: string;
+}) {
+  const { connector } = useAccount();
   const config = useConfig();
-  const { disconnect } = useDisconnect();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   async function switchChain() {
@@ -250,15 +245,35 @@ export function ConnectControl({ r }: { r: Runtime }) {
     }
   }
   return (
+    <div className="network-action">
+      <button
+        type="button"
+        className={className}
+        disabled={busy}
+        onClick={switchChain}
+      >
+        {busy ? "Switching…" : "Switch to Ethereum"}
+      </button>
+      {error && (
+        <p role="status" className="danger">
+          {error}
+        </p>
+      )}
+    </div>
+  );
+}
+export function ConnectControl({ r }: { r: Runtime }) {
+  const { open } = useWalletSheet();
+  const { address, isConnected, chainId } = useAccount();
+  const { disconnect } = useDisconnect();
+  return (
     <div className="connect-control">
       {!isConnected ? (
         <button className="secondary" onClick={open}>
           Connect
         </button>
       ) : chainId !== r.deployment.chainId ? (
-        <button className="secondary" disabled={busy} onClick={switchChain}>
-          {busy ? "Switching…" : "Switch to Ethereum"}
-        </button>
+        <SwitchNetworkButton r={r} className="secondary" />
       ) : (
         <button
           className="secondary"
@@ -268,11 +283,6 @@ export function ConnectControl({ r }: { r: Runtime }) {
           {getAddress(address!).slice(0, 6)}…{getAddress(address!).slice(-4)} ·
           Disconnect
         </button>
-      )}
-      {error && (
-        <p role="status" className="danger">
-          {error}
-        </p>
       )}
     </div>
   );

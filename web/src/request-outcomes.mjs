@@ -4,7 +4,7 @@ export const NO_FACT =
   "No fact was added. The request price is spent; you can request this fact again.";
 export function registryOutcome(event) {
   if (event?.eventName === "Verified")
-    return "Stored by the Registry; your card shows the fact.";
+    return "Stored by the Registry for this wallet. If it has a card, the card reflects this fact.";
   if (event?.eventName === "Missed")
     return `Not stored by the Registry: ${MISS_REASONS[Number(event.args.reason)] ?? event.args.reason}. The request price is spent; you can request this fact again.`;
   if (event?.eventName === "NoVerdict" || event?.eventName === "Abandoned")

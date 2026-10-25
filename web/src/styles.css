@@ -1809,3 +1809,104 @@ th {
   outline: 1px solid var(--accent);
   outline-offset: -1px;
 }
+
+/* Independent creation tasks keep payment and recovery at the point of action. */
+.task-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--s2);
+  border-block-end: 1px solid var(--rule);
+  padding-block-end: var(--s4);
+  margin-block-end: var(--s6);
+}
+.task-tabs a {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: var(--s2) var(--s4);
+  border: 1px solid var(--rule);
+  color: var(--text);
+  text-decoration: none;
+}
+.task-tabs a[aria-current="page"] {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+.task-tabs a:hover {
+  border-color: var(--accent);
+}
+.task-section > .step {
+  margin-block-start: var(--s6);
+}
+.task-payment {
+  margin-block: var(--s5);
+  max-width: 65ch;
+}
+.task-payment fieldset {
+  min-width: 0;
+  flex-wrap: wrap;
+  margin: 0;
+}
+.task-payment label {
+  min-height: 44px;
+  cursor: pointer;
+}
+.task-payment input {
+  min-width: 18px;
+  min-height: 18px;
+}
+.task-payment p {
+  margin-block: var(--s2) 0;
+}
+.snapshot-summary {
+  border-inline-start: 2px solid var(--accent);
+  padding-inline-start: var(--s4);
+}
+.snapshot-summary h3 {
+  font-size: var(--prose);
+}
+.snapshot-summary ul {
+  padding-inline-start: var(--s5);
+}
+.snapshot-summary li {
+  margin-block: var(--s2);
+}
+.wallet-address {
+  overflow-wrap: anywhere;
+}
+.request-action-summary {
+  border-block-start: 1px solid var(--rule);
+  margin-block-start: var(--s6);
+  padding-block-start: var(--s4);
+}
+.network-action {
+  max-width: 100%;
+}
+.network-action p {
+  margin-block-end: 0;
+}
+@media (max-width: 480px) {
+  .task-tabs {
+    gap: var(--s2);
+  }
+  .task-tabs a {
+    padding-inline: var(--s3);
+  }
+  .mint-panel {
+    gap: var(--s6);
+  }
+  .task-payment .payment {
+    gap: var(--s4);
+  }
+}
+/* Community records and card explanations share the site's existing palette. */
+.community-journey { padding-left: 1.4rem; max-width: 76ch; }
+.community-journey li { margin: .75rem 0; }
+.community-created { border: 1px solid var(--accent, #68e943); padding: 1rem; margin: 1rem 0; }
+.card-fact-guide { margin: 1rem 0; max-width: 76ch; overflow-wrap: anywhere; }
+.card-fact-guide p { max-width: 70ch; }
+.card-fact-guide ul { padding-left: 1.2rem; }
+.card-fact-guide li { margin: .5rem 0; }
+.card-ring-link { border: 0; padding: .3rem; text-decoration: underline; background: transparent; color: inherit; }
+.card-ring-link:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.wallet-record .mint-panel { align-items: start; }

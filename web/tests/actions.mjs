@@ -43,7 +43,7 @@ const paid = [
   {
     fn: "mintCard",
     button: "Mint card",
-    label: "Mint one Sworn card",
+    label: "Mint Card",
     error: "AlreadyMinted",
     args: [wallet],
     reason: /already has a card/,
@@ -67,7 +67,7 @@ const paid = [
   {
     fn: "registerSpec",
     button: "Mint registration",
-    label: "Register the immutable community spec",
+    label: "Mint Rule",
     error: "UnexpectedSpecId",
     args: [10001, 10002],
     reason: /Another spec was registered first/,
@@ -103,7 +103,7 @@ const paid = [
 paid.push({
   fn: "registerSpec",
   button: "Mint registration",
-  label: "Register the immutable community spec",
+  label: "Mint Rule",
   error: "BadSpec",
   args: ["window"],
   reason: /Composer refused the block window/,

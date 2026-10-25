@@ -87,7 +87,7 @@ export function MintedFact({
   }, [oracleId, reader, retry]);
   return (
     <div className="minted-fact">
-      <strong>Minted</strong>
+      <strong>{id<601?(facts.token===0n?'Available live':'Captured at mint'):'Verified fact'}</strong>
       {id < 601 ? (
         facts.mintBlock !== null && facts.mintTime !== null ? (
           <>

@@ -301,7 +301,7 @@ try {
       kind: "mint",
       fn: "mintCard",
       button: "Mint card",
-      label: "Mint one Sworn card",
+      label: "Mint Card",
       fee: "0.10",
       destination: "BurnExecutor",
     },
@@ -327,7 +327,7 @@ try {
       kind: "registration",
       fn: "registerSpec",
       button: "Mint registration",
-      label: "Register the immutable community spec",
+      label: "Mint Rule",
       fee: "6.4",
       destination: "BurnExecutor",
     },
@@ -582,7 +582,7 @@ try {
       assert.equal(await d.locator("#payment-ack").isChecked(), false);
       assert.equal(
         await d
-          .getByRole("button", { name: "Mint one Sworn card", exact: true })
+          .getByRole("button", { name: "Mint Card", exact: true })
           .isDisabled(),
         true,
       );

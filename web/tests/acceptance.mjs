@@ -137,7 +137,7 @@ try {
         1,
       );
       const action = d.getByRole("button", {
-        name: "Mint one Sworn card",
+        name: "Mint Card",
         exact: true,
       });
       assert.equal(await action.isDisabled(), true);
@@ -194,7 +194,7 @@ try {
       await d.getByText("simulated", { exact: true }).waitFor();
       await page.evaluate(() => (window.__accept = false));
       await d
-        .getByRole("button", { name: "Mint one Sworn card", exact: true })
+        .getByRole("button", { name: "Mint Card", exact: true })
         .click();
       await d
         .getByText(/Rejected in your wallet/)
@@ -285,7 +285,7 @@ try {
         await page.locator("#spec-" + field).fill(value);
       await paidTest(
         "Mint registration",
-        "Register the immutable community spec",
+        "Mint Rule",
       );
     },
   );
@@ -303,7 +303,7 @@ try {
     await d.getByText("failed", { exact: true }).waitFor();
     assert.equal(
       await d
-        .getByRole("button", { name: "Mint one Sworn card", exact: true })
+        .getByRole("button", { name: "Mint Card", exact: true })
         .isDisabled(),
       true,
     );

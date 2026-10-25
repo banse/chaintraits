@@ -21,6 +21,7 @@ export function pageReads() {
     retryFailed() {
       for (const [key, entry] of entries) if (entry.failed) entries.delete(key);
     },
+    invalidate(key) { entries.delete(key); },
     stop: () => controller.abort(),
   };
 }

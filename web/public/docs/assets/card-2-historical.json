@@ -1,0 +1,124 @@
+{
+  "id": "2",
+  "claimant": "0x887b86B6B6957F7bbeA88B8CEfD392f39236A88C",
+  "owner": "0x887b86B6B6957F7bbeA88B8CEfD392f39236A88C",
+  "mintedAtBlock": "26243580",
+  "traits": [
+    101,
+    201,
+    202,
+    301,
+    302,
+    601,
+    701
+  ],
+  "specs": [],
+  "metadata": {
+    "name": "Sworn #2",
+    "description": "Sworn is an ownerless onchain registry of verifiable wallet feats. One card per wallet; every trait is a fact about the claimant wallet that minted the card, never about the holder. Direct-read traits are read from the settled WhitelistCurator; chain-proven, panel-attested and shared-fact traits are attested by the IMD oracle through the Intake and verified in the registry. Allowlists read hasTrait, never ownerOf. Facts about the wallet that minted it; direct traits frozen at mint; transferable.",
+    "image": "data:image/svg+xml,%3Csvg%20xmlns=%22http://www.w3.org/2000/svg%22%20viewBox=%220%200%201000%201000%22%20style=%22font-family:ui-monospace,SFMono-Regular,Menlo,monospace%22%3E%3Crect%20width=%221000%22%20height=%221000%22%20fill=%22%230a0a0a%22/%3E%3Cg%20transform=%22translate(500.0%20480.0)%22%3E%3Cpolygon%20points=%2289.0,0.0%2044.5,77.1%20-44.5,77.1%20-89.0,0.0%20-44.5,-77.1%2044.5,-77.1%22%20fill=%22none%22%20stroke=%22%238ff0a4%22%20stroke-width=%224%22%20stroke-linejoin=%22round%22/%3E%3Cpolygon%20points=%2277.0,0.0%2038.5,66.7%20-38.5,66.7%20-77.0,0.0%20-38.5,-66.7%2038.5,-66.7%22%20fill=%22%238ff0a4%22%20fill-opacity=%221.00%22/%3E%3C/g%3E%3Cg%20transform=%22translate(500.0%20313.7)%22%3E%3Cpolygon%20points=%2289.0,0.0%2044.5,77.1%20-44.5,77.1%20-89.0,0.0%20-44.5,-77.1%2044.5,-77.1%22%20fill=%22none%22%20stroke=%22%2300cc33%22%20stroke-width=%224%22%20stroke-linejoin=%22round%22/%3E%3Cpolygon%20points=%2277.0,0.0%2038.5,66.7%20-38.5,66.7%20-77.0,0.0%20-38.5,-66.7%2038.5,-66.7%22%20fill=%22%2300cc33%22%20fill-opacity=%221.00%22/%3E%3C/g%3E%3Cg%20transform=%22translate(644.0%20396.9)%22%3E%3Cpolygon%20points=%2289.0,0.0%2044.5,77.1%20-44.5,77.1%20-89.0,0.0%20-44.5,-77.1%2044.5,-77.1%22%20fill=%22none%22%20stroke=%22%2300cc33%22%20stroke-width=%224%22%20stroke-linejoin=%22round%22/%3E%3Cpolygon%20points=%2277.0,0.0%2038.5,66.7%20-38.5,66.7%20-77.0,0.0%20-38.5,-66.7%2038.5,-66.7%22%20fill=%22%2300cc33%22%20fill-opacity=%221.00%22/%3E%3Ccircle%20cx=%220%22%20cy=%220%22%20r=%2211.0%22%20fill=%22%23ffffff%22/%3E%3C/g%3E%3Cg%20transform=%22translate(644.0%20563.1)%22%3E%3Cpolygon%20points=%2289.0,0.0%2044.5,77.1%20-44.5,77.1%20-89.0,0.0%20-44.5,-77.1%2044.5,-77.1%22%20fill=%22none%22%20stroke=%22%2300cc33%22%20stroke-width=%224%22%20stroke-linejoin=%22round%22/%3E%3Cdefs%3E%3CclipPath%20id=%22h3%22%3E%3Cpolygon%20points=%2277.0,0.0%2038.5,66.7%20-38.5,66.7%20-77.0,0.0%20-64.2,-22.2%2064.2,-22.2%22/%3E%3C/clipPath%3E%3CclipPath%20id=%22a3%22%3E%3Cpolygon%20points=%22-64.2,-22.2%20-38.5,-66.7%2038.5,-66.7%2064.2,-22.2%22/%3E%3C/clipPath%3E%3C/defs%3E%3Cg%20clip-path=%22url(%23h3)%22%3E%3Cpolygon%20points=%2277.0,0.0%2038.5,66.7%20-38.5,66.7%20-77.0,0.0%20-38.5,-66.7%2038.5,-66.7%22%20fill=%22%2300cc33%22%20fill-opacity=%221.00%22/%3E%3C/g%3E%3Cg%20clip-path=%22url(%23a3)%22%3E%3C/g%3E%3C/g%3E%3Cg%20transform=%22translate(500.0%20646.3)%22%3E%3Cpolygon%20points=%2289.0,0.0%2044.5,77.1%20-44.5,77.1%20-89.0,0.0%20-44.5,-77.1%2044.5,-77.1%22%20fill=%22none%22%20stroke=%22%23151515%22%20stroke-width=%224%22%20stroke-linejoin=%22round%22/%3E%3C/g%3E%3Cg%20transform=%22translate(356.0%20563.1)%22%3E%3Cpolygon%20points=%2289.0,0.0%2044.5,77.1%20-44.5,77.1%20-89.0,0.0%20-44.5,-77.1%2044.5,-77.1%22%20fill=%22none%22%20stroke=%22%23151515%22%20stroke-width=%224%22%20stroke-linejoin=%22round%22/%3E%3C/g%3E%3Cg%20transform=%22translate(356.0%20396.9)%22%3E%3Cpolygon%20points=%2289.0,0.0%2044.5,77.1%20-44.5,77.1%20-89.0,0.0%20-44.5,-77.1%2044.5,-77.1%22%20fill=%22none%22%20stroke=%22%2300ff41%22%20stroke-width=%224%22%20stroke-linejoin=%22round%22/%3E%3Cpolygon%20points=%2277.0,0.0%2038.5,66.7%20-38.5,66.7%20-77.0,0.0%20-38.5,-66.7%2038.5,-66.7%22%20fill=%22%2300ff41%22%20fill-opacity=%221.00%22/%3E%3C/g%3E%3Cg%20transform=%22translate(644.0%20230.6)%22%3E%3Cpolygon%20points=%2289.0,0.0%2044.5,77.1%20-44.5,77.1%20-89.0,0.0%20-44.5,-77.1%2044.5,-77.1%22%20fill=%22none%22%20stroke=%22%23151515%22%20stroke-width=%224%22%20stroke-linejoin=%22round%22/%3E%3C/g%3E%3Cg%20transform=%22translate(788.0%20480.0)%22%3E%3Cpolygon%20points=%2289.0,0.0%2044.5,77.1%20-44.5,77.1%20-89.0,0.0%20-44.5,-77.1%2044.5,-77.1%22%20fill=%22none%22%20stroke=%22%23151515%22%20stroke-width=%224%22%20stroke-linejoin=%22round%22/%3E%3C/g%3E%3Cg%20transform=%22translate(644.0%20729.4)%22%3E%3Cpolygon%20points=%2289.0,0.0%2044.5,77.1%20-44.5,77.1%20-89.0,0.0%20-44.5,-77.1%2044.5,-77.1%22%20fill=%22none%22%20stroke=%22%23151515%22%20stroke-width=%224%22%20stroke-linejoin=%22round%22/%3E%3C/g%3E%3Cg%20transform=%22translate(356.0%20729.4)%22%3E%3Cpolygon%20points=%2289.0,0.0%2044.5,77.1%20-44.5,77.1%20-89.0,0.0%20-44.5,-77.1%2044.5,-77.1%22%20fill=%22none%22%20stroke=%22%23151515%22%20stroke-width=%224%22%20stroke-linejoin=%22round%22/%3E%3C/g%3E%3Cg%20transform=%22translate(212.0%20480.0)%22%3E%3Cpolygon%20points=%2289.0,0.0%2044.5,77.1%20-44.5,77.1%20-89.0,0.0%20-44.5,-77.1%2044.5,-77.1%22%20fill=%22none%22%20stroke=%22%23151515%22%20stroke-width=%224%22%20stroke-linejoin=%22round%22/%3E%3C/g%3E%3Cg%20transform=%22translate(356.0%20230.6)%22%3E%3Cpolygon%20points=%2289.0,0.0%2044.5,77.1%20-44.5,77.1%20-89.0,0.0%20-44.5,-77.1%2044.5,-77.1%22%20fill=%22none%22%20stroke=%22%23151515%22%20stroke-width=%224%22%20stroke-linejoin=%22round%22/%3E%3C/g%3E%3Cpolygon%20points=%22940.0,480.0%20720.0,861.1%20280.0,861.1%2060.0,480.0%20280.0,98.9%20720.0,98.9%22%20fill=%22none%22%20stroke=%22%230c0c0c%22%20stroke-width=%223%22/%3E%3C/svg%3E",
+    "attributes": [
+      {
+        "trait_type": "Claimant",
+        "value": "0x887b86b6b6957f7bbea88b8cefd392f39236a88c"
+      },
+      {
+        "trait_type": "Spawned",
+        "value": "101"
+      },
+      {
+        "trait_type": "Zero-Shot",
+        "value": "202"
+      },
+      {
+        "trait_type": "Hopper",
+        "value": "302"
+      },
+      {
+        "trait_type": "Bullfrog",
+        "value": "none"
+      },
+      {
+        "trait_type": "Benchmarked",
+        "value": "none"
+      },
+      {
+        "trait_type": "Swarmed",
+        "value": "601"
+      },
+      {
+        "trait_type": "Uptime",
+        "value": "701"
+      },
+      {
+        "trait_type": "Holdout",
+        "value": "none"
+      },
+      {
+        "trait_type": "Final Token",
+        "value": "none"
+      },
+      {
+        "trait_type": "Hotfix",
+        "value": "none"
+      },
+      {
+        "trait_type": "PID",
+        "value": "none"
+      },
+      {
+        "trait_type": "Top Weights",
+        "value": "none"
+      },
+      {
+        "trait_type": "Pretrained",
+        "value": "none"
+      },
+      {
+        "trait_type": "community_count",
+        "value": 0
+      }
+    ],
+    "traits": [
+      101,
+      201,
+      202,
+      301,
+      302,
+      601,
+      701
+    ],
+    "community": [],
+    "oracle": [
+      {
+        "traitId": 601,
+        "template": "T6",
+        "evidence": "panel",
+        "fromBlock": 25090085,
+        "toBlock": 26247610,
+        "minPanelSize": 11,
+        "minQuorum": 7,
+        "requestId": "0x3a83e6ecfc4499f1a0c87687796839a4012e874c5c3ee3377e36783266d37566",
+        "oracleRequestId": "0x5c2a22459d684c56bbfb2aa322ddbd0f00000000000000000000000000000000",
+        "target": "0x0000ec93127baa929e58e97dd0095a2bfb38ec1d",
+        "name": "Swarmed"
+      },
+      {
+        "traitId": 701,
+        "template": "T1",
+        "evidence": "chain",
+        "fromBlock": 25777045,
+        "toBlock": 25789604,
+        "minPanelSize": 5,
+        "minQuorum": 3,
+        "requestId": "0xe9bc7125a96e91b70d0b696665ec3eccf7ab9a363f8f462f19dafa3ac72056a1",
+        "oracleRequestId": "0x1955dd4ca8094c0d943261cce4cf7c4c00000000000000000000000000000000",
+        "target": "0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91",
+        "name": "Uptime"
+      }
+    ]
+  },
+  "blockNumber": "26264861",
+  "blockHash": "0x88bff51768d8d713111ee8e7e69bce61475d015f72b30d217c3b18fe8b47ae06",
+  "registry": "0x0da2679000ea5380d1361cc3cca7d4e8c881f766"
+}

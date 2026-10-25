@@ -5,6 +5,8 @@ import { loadRuntime, explain } from "./chain";
 import { walletConfig, WalletProvider } from "./wallet";
 import { App } from "./App";
 import "./styles.css";
+import { installRequestHistoryRecorder } from "./request-history.mjs";
+installRequestHistoryRecorder();
 const root = createRoot(document.getElementById("root")!);
 loadRuntime()
   .then((r) => {
