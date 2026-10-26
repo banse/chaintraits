@@ -5,7 +5,7 @@ import { routeInfo, taskAnchor, TASKS } from "../src/task-navigation.mjs";
 test("each independent task has a stable destination", () => {
   assert.deepEqual(TASKS, [
     ["/mint", "Mint Card"],
-    ["/request", "Mint Facts"],
+    ["/request", "Mint Wallet Facts"],
     ["/register", "Mint Rule"],
   ]);
   for (const [path] of TASKS) assert.equal(routeInfo(`#${path}`).route, path);
@@ -53,6 +53,24 @@ test("task progress links stay with their task while navigation keeps context", 
   );
 });
 
+test("old Wallet bookmarks lead to the card or the relevant claimed facts", () => {
+  assert.deepEqual(
+    { ...routeInfo("#/wallet"), query: undefined },
+    { route: "/mint", anchor: "your-card", query: undefined },
+  );
+  for (const link of ["#/wallet-facts", "#/wallet?view=history", "#/wallet#claimed-facts", "#/wallet#history"]) {
+    const route = routeInfo(link);
+    assert.equal(route.route, "/request", link);
+    assert.equal(route.anchor, "claimed-facts", link);
+  }
+  for (const prefix of ["/wallet", "/wallet-facts"]) {
+    const route = routeInfo(`#${prefix}?view=history#held-801`);
+    assert.equal(route.route, "/request");
+    assert.equal(route.anchor, "held-801");
+    assert.equal(route.query.get("view"), "history");
+  }
+});
+
 test("unrelated historical pages keep their original destination", () => {
   const explorer = routeInfo("#/explorer?address=0xabc&trait=101");
   assert.equal(explorer.route, "/catalog");
@@ -60,5 +78,4 @@ test("unrelated historical pages keep their original destination", () => {
   assert.equal(explorer.query.get("address"), "0xabc");
   assert.equal(routeInfo("#/fact-vs-artifact").route, "/integrate");
   assert.equal(routeInfo("#/whitelistcurator#hours").anchor, "hours");
-  assert.equal(routeInfo("#/wallet-facts").route, "/wallet");
 });

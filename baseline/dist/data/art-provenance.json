@@ -1,0 +1,7 @@
+{
+  "sourceCommit": "c4ff3238390fc51962fb67e86affc20cf418126e",
+  "rendererAbiHash": "61a60df208f0a8712452ebc563183e54d1e5ba8b43dfa1a26fbe54f265b73817",
+  "method": "eth_call of deployed Renderer; Registry code override supplies synthetic trait illustrations only; no transaction",
+  "generatedAt": "2026-10-23T02:18:05.743Z",
+  "files": 27
+}

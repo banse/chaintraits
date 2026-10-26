@@ -2,10 +2,19 @@ out/
 cache/
 broadcast/
 .env
-node_modules
+.env.*
+!.env.example
+*.key
+*.pem
+*.keystore
+node_modules/
+/web/node_modules
+/web/simulation/.runtime*/
 *.swp
 .DS_Store
 __pycache__/
 
-# Reproducible local packaging outputs
-release/
+# These are public release inputs, not private workspace runtime data.
+!/web/public/data/
+!/dist/data/
+!/baseline/dist/data/

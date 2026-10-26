@@ -1,0 +1,133 @@
+{
+  "_note": "Local synthetic wallets and chain history, not mainnet proof. A and C own cards; B and D do not. Every wallet has test IMD.",
+  "wallets": [
+    {
+      "label": "A \u00b7 existing card",
+      "address": "0xA11ce000000000000000000000000000000Ac1a1",
+      "eth": "4",
+      "imd": "25",
+      "curator": {
+        "hour": 0,
+        "joined": true,
+        "txs": 12,
+        "contributedEth": "14.5",
+        "points": 4200
+      },
+      "seed": {
+        "card": true,
+        "requests": []
+      },
+      "history": {
+        "facts": [
+          801,
+          1102,
+          701
+        ],
+        "nonceAtLaunch": 25,
+        "seatToken": 1777
+      }
+    },
+    {
+      "label": "B \u00b7 cardless, nonce 25",
+      "address": "0xB0b00000000000000000000000000000000Bc1a1",
+      "eth": "2",
+      "imd": "25",
+      "curator": {
+        "hour": 5,
+        "joined": true,
+        "txs": 3,
+        "contributedEth": "1.2",
+        "points": 900
+      },
+      "seed": {
+        "card": false,
+        "requests": []
+      },
+      "history": {
+        "facts": [
+          1104,
+          1001
+        ],
+        "nonceAtLaunch": 25
+      }
+    },
+    {
+      "label": "C \u00b7 card, no proven facts",
+      "address": "0xCa201000000000000000000000000000000Cc1a1",
+      "eth": "1",
+      "imd": "8",
+      "curator": {
+        "hour": 1,
+        "joined": true,
+        "txs": 6,
+        "contributedEth": "120",
+        "points": 11000
+      },
+      "seed": {
+        "card": true,
+        "requests": []
+      },
+      "history": {
+        "facts": [
+          701,
+          1001,
+          1103
+        ],
+        "nonceAtLaunch": 30
+      }
+    },
+    {
+      "label": "D \u00b7 empty wallet",
+      "address": "0xD0d00000000000000000000000000000000Dc1a1",
+      "eth": "1",
+      "imd": "25",
+      "curator": {
+        "hour": 0,
+        "joined": false,
+        "txs": 0,
+        "contributedEth": "0",
+        "points": 0
+      },
+      "seed": {
+        "card": false,
+        "requests": []
+      },
+      "history": {
+        "facts": [],
+        "nonceAtLaunch": 0
+      }
+    }
+  ],
+  "panel": {
+    "seats": [
+      1487,
+      1511,
+      1120,
+      1470,
+      1814,
+      1211,
+      1126,
+      1646,
+      398,
+      1876,
+      616,
+      305,
+      1112,
+      807,
+      1631,
+      978
+    ],
+    "firstAnswerSeconds": 8,
+    "answerEverySeconds": [
+      5,
+      13
+    ],
+    "dissentEvery": 4,
+    "deliverAfterSeconds": 5,
+    "attestAfterSeconds": 10
+  },
+  "price": {
+    "oracleImd": "0.5",
+    "weiPerImd": "300000000000000"
+  }
+}

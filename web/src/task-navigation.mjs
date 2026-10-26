@@ -1,6 +1,6 @@
 export const TASKS = [
   ["/mint", "Mint Card"],
-  ["/request", "Mint Facts"],
+  ["/request", "Mint Wallet Facts"],
   ["/register", "Mint Rule"],
 ];
 
@@ -9,6 +9,18 @@ export function routeInfo(hash = globalThis.location?.hash || "#/") {
   const [path, rest] = (hash.replace(/^#/, "") || "/").split("#");
   const requested = path.split("?")[0];
   const query = new URLSearchParams(path.split("?")[1]);
+  if (requested === "/fact-check-demo" || requested === "/oracle")
+    return { route: "/fact-check", anchor: rest, query };
+  if (requested === "/wallet" || requested === "/wallet-facts") {
+    const heldFact = /^held-\d+$/.test(rest || "");
+    const facts = requested === "/wallet-facts" || heldFact ||
+      rest === "claimed-facts" || rest === "history" || query.get("view") === "history";
+    return {
+      route: facts ? "/request" : "/mint",
+      anchor: facts ? heldFact ? rest : "claimed-facts" : "your-card",
+      query,
+    };
+  }
   if (requested === "/fact-vs-artifact")
     return { route: "/integrate", anchor: "fact-vs-artifact", query };
   if (requested === "/whitelistcurator")
@@ -23,12 +35,7 @@ export function routeInfo(hash = globalThis.location?.hash || "#/") {
       anchor: query.get("trait") ? `trait-${query.get("trait")}` : "explorer",
       query,
     };
-  let route =
-    requested === "/claim"
-      ? "/mint"
-      : requested === "/wallet-facts"
-        ? "/wallet"
-        : requested;
+  let route = requested === "/claim" ? "/mint" : requested;
   let anchor =
     rest === "shared-fact"
       ? "pick-1201"

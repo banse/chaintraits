@@ -3,8 +3,7 @@ import { useState, useRef, type ReactNode } from "react";
 import { isAddress, getAddress } from "viem";
 import { useSite } from "./context";
 import { eligibilityText } from "./eligibility.mjs";
-import { asset, explain, type WalletFacts } from "./chain";
-import { completion } from "./settlement";
+import { asset, type WalletFacts } from "./chain";
 import { FAMILIES, TRAITS, FEE } from "./data";
 import {
   IneligibleControl,
@@ -32,14 +31,16 @@ export function Section({
   );
 }
 export function Status({
+  id,
   error,
   children,
 }: {
+  id?: string;
   error?: boolean;
   children?: ReactNode;
 }) {
   return (
-    <p className={error ? "status danger" : "status muted"} role="status">
+    <p id={id} className={error ? "status danger" : "status muted"} role="status">
       {children}
     </p>
   );
@@ -65,9 +66,13 @@ export function Mark({ kind, rare = false }: { kind: string; rare?: boolean }) {
 export function AddressForm({
   initial = "",
   onSubmit,
+  label,
+  submitLabel,
 }: {
   initial?: string;
   onSubmit?: (a: string) => void;
+  label?: string;
+  submitLabel?: string;
 }) {
   const [value, setValue] = useState(initial);
   const [error, setError] = useState("");
@@ -90,7 +95,7 @@ export function AddressForm({
         else location.hash = `/explorer?address=${a}`;
       }}
     >
-      <label htmlFor="explore-address">Explore a wallet</label>
+      <label htmlFor="explore-address">{label || "Explore a wallet"}</label>
       <div className="input-action">
         <input
           ref={input}
@@ -105,10 +110,10 @@ export function AddressForm({
           aria-describedby="address-error"
         />
         <button className="primary" type="submit">
-          Explore wallet <span aria-hidden="true">↗</span>
+          {submitLabel || "Explore wallet"} <span aria-hidden="true">↗</span>
         </button>
       </div>
-      <Status error={!!error}>
+      <Status id="address-error" error={!!error}>
         {error || "Public facts. No wallet connection needed."}
       </Status>
     </form>
@@ -296,69 +301,6 @@ export function CommunityCard({
     />
   );
 }
-function SignedVerdict({ requestId }: { requestId: string }) {
-  const { r, client, health } = useSite();
-  const [result, setResult] = useState<any>(null);
-  const [status, setStatus] = useState("");
-  const [busy, setBusy] = useState(false);
-  async function inspect() {
-    setBusy(true);
-    setStatus("Reading signed verdict from the selected RPC…");
-    setResult(null);
-    try {
-      if (!health) throw Error("Live reads unavailable; retrying.");
-      const found = await completion(client, r, health, requestId as any);
-      if (!found)
-        throw Error(
-          "No completion was found through this RPC. Try another public RPC or retry later.",
-        );
-      setResult(found);
-      setStatus(
-        found.attestation
-          ? "Signed verdict read from the Intake completion calldata."
-          : "The completion has no successful signed verdict.",
-      );
-    } catch (e) {
-      setStatus(explain(e));
-    } finally {
-      setBusy(false);
-    }
-  }
-  return (
-    <div className="signed-verdict">
-      <button
-        className="secondary"
-        onClick={inspect}
-        disabled={busy || !health}
-      >
-        {busy ? "Reading verdict…" : "Read signed verdict"}
-      </button>
-      <Status error={!!status && !result && !busy}>{status}</Status>
-      {result && (
-        <details open>
-          <summary>Oracle completion and attestation</summary>
-          <a
-            className="source"
-            href={`${r.deployment.network.explorer}/tx/${result.txHash}`}
-            target="_blank"
-            rel="noreferrer"
-          >
-            Signed completion transaction ↗
-          </a>
-          <pre tabIndex={0}>
-            <code>
-              {JSON.stringify(
-                result,
-                (_, v) => (typeof v === "bigint" ? v.toString() : v),
-                2,
-              )}
-            </code>
-          </pre>
-        </details>
-      )}
-    </div>
-  );
-}
 export function WalletFactRows({
   facts,
   family,
@@ -394,7 +336,6 @@ export function WalletFactRows({
           const cannot =
             !facts.joined && ((t.id >= 701 && t.id <= 1105) || t.id === 1201);
           const pending = facts.pending[t.id];
-          const proof = facts.verified[t.id];
           return (
             <div
               id={`trait-${t.id}`}
@@ -428,14 +369,6 @@ export function WalletFactRows({
                   </p>
                 )}
               </div>
-              {proof && !/^0x0+$/.test(proof[0]) && (
-                <div className="proof">
-                  <SignedVerdict requestId={proof[0]} />
-                  <span>
-                    Window {num(proof[2])} → {num(proof[3])}
-                  </span>
-                </div>
-              )}
               {!result && t.class !== "direct" && !cannot && (
                 <div className="fact-request">
                   <span className="muted">

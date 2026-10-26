@@ -67,6 +67,17 @@ test("all original control/link/choice label fragments stay except the explicitl
   // Keep every unrelated accepted label under the original
   // assertion; do not regenerate the baseline snapshot from changed source.
   const taskChanges = new Set([
+    // Wallet summaries now highlight the compact table; verdict inspection was removed.
+    "Show all 25 facts",
+    "Read signed verdict",
+    "Reading verdict…",
+    "Oracle completion and attestation",
+    "Signed completion transaction ↗",
+    // These state labels moved out of checkbox labels into ordinary row text.
+    "Already proven",
+    "Request pending",
+    "cannot be true: not in WhitelistCurator.sol",
+    "Follow progress on the Wallet page",
     // Request details now shows the entire question without a nested toggle.
     "Show full question",
     "Show less",
@@ -99,17 +110,18 @@ test("all original control/link/choice label fragments stay except the explicitl
   for (const label of [
     "Mint Card",
     "Mint Card ↗",
-    "Payment method",
     "Mint Facts",
     "Mint Facts ↗",
     "Mint Rule",
-    "View the card and wallet facts",
+    "View your card",
+    "View Fact Check",
     "Switch to Ethereum",
     "Ethereum receipt:",
     "Replacement receipt:",
     "Recover a saved transaction",
   ])
     assert.ok(labels.includes(label), `Missing after-version action: ${label}`);
+  assert.ok(!labels.includes("Payment method"), "IMD-only fees need no currency selector");
 });
 test("4/5/7 export has the pinned README, prescribed read RPC order, exact new wording and no superseded labels", async () => {
   const { READ_RPCS } = await import("../src/rpc.mjs");

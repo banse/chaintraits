@@ -28,14 +28,15 @@ import {
   CommunityIntro,
   num,
 } from "./components";
-import { imd, exactUnits } from "./pure.mjs";
+import { imd } from "./pure.mjs";
 import { Settlement } from "./claim";
 import {
   useTransactions,
   TransactionJournal,
   type Journal,
 } from "./transactions";
-import { CardFactGuide } from "./card-fact-guide";
+import { WalletFactsSummary } from "./wallet-summary";
+import { loadExplorerWallet, rememberExplorerWallet } from "./wallet-summary-model.mjs";
 function IntroDescription() {
   const [a, b] = DESCRIPTION.split("IMD agents");
   return (
@@ -355,16 +356,20 @@ export function Catalog() {
 // The Explorer part of the Catalog page; #/explorer?address=… opens it.
 export function Explorer({ journal }: { journal: Journal }) {
   const site = useSite();
-  const initial =
-    new URLSearchParams(location.hash.split("?")[1]?.split("#")[0]).get(
-      "address",
-    ) || "";
-  const [address, setAddress] = useState(initial);
-  const [facts, setFacts] = useState<WalletFacts | null>(null);
+  const [address, setAddress] = useState(() => loadExplorerWallet(location.hash));
+  const [loadedFacts, setFacts] = useState<WalletFacts | null>(null);
+  const facts = loadedFacts?.address.toLowerCase() === address.toLowerCase() ? loadedFacts : null;
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [family, setFamily] = useState<number>();
   const [tick, setTick] = useState(0);
+  useEffect(() => {
+    const followAddress = () => setAddress(loadExplorerWallet(location.hash));
+    window.addEventListener("hashchange", followAddress);
+    return () => window.removeEventListener("hashchange", followAddress);
+  }, []);
+  useEffect(() => {
+    if (!address || isAddress(address, { strict: false })) rememberExplorerWallet(address);
+  }, [address]);
   useEffect(() => {
     let active = true;
     setFacts((previous) =>
@@ -427,7 +432,7 @@ export function Explorer({ journal }: { journal: Journal }) {
   }, [factsAddress]);
   function chooseWallet(value: string) {
     if (address === value) setTick(t => t + 1);
-    setFamily(undefined);
+    rememberExplorerWallet(value);
     setAddress(value);
     history.replaceState(null, "", `#/explorer?address=${value}`);
   }
@@ -469,81 +474,10 @@ export function Explorer({ journal }: { journal: Journal }) {
       )}
       {facts && site.health && (
         <>
-          <div className="explorer-head">
-            <div>
-              <h2>Wallet facts</h2>
-              <p className="break">{facts.address}</p>
-              <p className="muted">
-                Ethereum reads after deployment check at block {num(site.health.block)}.
-                Credentials use <code>hasTrait</code> and <code>tokenOf</code>,
-                never <code>ownerOf</code>.
-              </p>
-              <dl className="wallet-metrics">
-                <div>
-                  <dt>WhitelistCurator</dt>
-                  <dd>
-                    {facts.joined
-                      ? `Joined in hour ${num(facts.hour)}`
-                      : "Not in the record"}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Deposits</dt>
-                  <dd>{num(facts.count)}</dd>
-                </div>
-                <div>
-                  <dt>Largest single send</dt>
-                  <dd>{exactUnits(facts.capital)} ETH</dd>
-                </div>
-                <div>
-                  <dt>Points</dt>
-                  <dd>{num(facts.points)}</dd>
-                </div>
-                <div>
-                  <dt>Verified community specs</dt>
-                  <dd>
-                    {facts.verifiedSpecs.length
-                      ? facts.verifiedSpecs.join(", ")
-                      : "None"}
-                  </dd>
-                </div>
-                <div>
-                  <dt>Direct-fact snapshot</dt>
-                  <dd>
-                    {facts.frozen === null
-                      ? "No card minted"
-                      : `Captured at Ethereum block ${num(facts.mintBlock || 0n)}`}
-                  </dd>
-                </div>
-              </dl>
-              <p className="muted">
-                Select a hive cell to inspect that family.
-              </p>
-              {family && (
-                <button onClick={() => setFamily(undefined)}>
-                  Show all 25 facts
-                </button>
-              )}
-            </div>
-            <Card
-              facts={facts}
-              interactive
-              onFamily={(n) => {
-                setFamily(n);
-                setTimeout(
-                  () =>
-                    document
-                      .getElementById("wallet-facts")
-                      ?.scrollIntoView({ block: "start" }),
-                  0,
-                );
-              }}
-            />
-          </div>
-          <CardFactGuide ids={facts.verifiedSpecs} onFamily={setFamily}/>
+          <WalletFactsSummary facts={facts} specs={site.specs}/>
           <section id="wallet-facts" className="section">
-            <h2>{family ? `Family ${family}` : "All 25 facts"}</h2>
-            <WalletFactRows facts={facts} family={family} />
+            <h2>All 25 facts</h2>
+            <WalletFactRows facts={facts}/>
           </section>
           {Object.entries(facts.pending)
             .filter(([, rid]) => !/^0x0+$/.test(rid))

@@ -1,0 +1,20 @@
+{
+  "sourceCommit": "c4ff3238390fc51962fb67e86affc20cf418126e",
+  "compiler": "0.8.24+commit.e11b9ed9.Emscripten.clang",
+  "slots": {
+    "tokenOf": "14",
+    "claimantOf": "15",
+    "frozenDirect": "17"
+  },
+  "contracts": {
+    "Renderer": {
+      "runtimeHash": "0xcca7bdf93d170adf0f56d8dd86f026178eecbbe332c6e3a0c672caf3bcbb548e"
+    },
+    "Composer": {
+      "runtimeHash": "0xbd07cb17d0496ea40e2ecdb7e941590d1323c5a5935e099d4832cc9379e83f4e"
+    },
+    "Registry": {
+      "runtimeHash": "0xd5dc762312cd6df0875e1fed5ec70ced7a721f7810355826796059f50df7288c"
+    }
+  }
+}

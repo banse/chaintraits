@@ -11,6 +11,8 @@ export function verifyStaticRelease(root) {
     const body = fs.readFileSync(path.join(dir, 'assets', name), 'utf8');
     if (/__mock|sworn-mock|installMockBoundary|Simulation controls|Simulate speed-up/.test(body))
       throw Error(`Mock runtime remains in the mainnet export: ${name}`);
+    if (/FactCheckDemo|Fact Check Demo|Replay sequence|Choose a static snapshot|sworn-demo\.eth|scripted participation/.test(body))
+      throw Error(`Demo runtime remains in the mainnet export: ${name}`);
   }
   return { files: files.length, relativeAssets: true, mockTransport: false };
 }

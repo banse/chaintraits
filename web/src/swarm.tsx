@@ -15,7 +15,6 @@ import { contract, read, scopedClient } from "./chain";
 import { registryEvents, FEED_WINDOW, HISTORY_WINDOW } from "./settlement";
 import {
   oracleProgressReader,
-  progressCounts,
   progressStatus,
   answerText,
   WalletQuestionMismatch,
@@ -26,18 +25,23 @@ import {
 } from "./oracle-progress.mjs";
 
 import { pageReads } from "./page-reads.mjs";
-import { registryOutcome, NO_FACT } from "./request-outcomes.mjs";
+import { registryOutcome } from "./request-outcomes.mjs";
 import { savedRequests } from "./request-history.mjs";
 import {
-  agentResult,
   verificationPhase,
-  isSharedFact,
 } from "./progress-experience.mjs";
 import "./progress-experience.css";
 import { verificationDismissalKey, verificationDismissed, dismissVerification } from "./verification-dismissal.mjs";
+import { FactCheckView } from "./fact-check/FactCheckView";
+import { swarmSnapshot, readCardArtwork } from "./fact-check/swarm-snapshot.mjs";
+import { matchedOutcome } from "./fact-check/live-model.mjs";
+import { pendingOutcomeRead } from "./swarm-polling.mjs";
+import type { FactCheckSnapshot, FactCheckEvent } from "./fact-check/types";
+import { TRAITS } from "./data";
+import { oracleRequestLink } from "./fact-check/request-model.mjs";
 
 export const SWARM_POLL_MS = 5000;
-export type WatchedFact = { requestId: string; id: number; name: string };
+export type WatchedFact = { requestId: string; id: number; name: string; blockNumber?: bigint };
 const WAITING = "Waiting for the swarm to pick up the request…";
 const STALE = "Requested more than 2 hours ago.";
 const TWO_HOURS = 7200;
@@ -82,37 +86,6 @@ function ListAnswer({
     </div>
   );
 }
-function LoadingIndicator() {
-  return <span className="swarm-loading" aria-hidden="true" />;
-}
-function Question({ question }: { question: string }) {
-  return (
-    <div className="swarm-question">
-      <h4>Question</h4>
-      <p className="swarm-question-full">{question}</p>
-    </div>
-  );
-}
-function QuestionFields({ label, value }: { label: string; value: any }) {
-  if (value === undefined || value === null) return null;
-  return (
-    <div className="swarm-question-fields">
-      <h4>{label}</h4>
-      {typeof value === "object" && !Array.isArray(value) ? (
-        <dl>
-          {Object.entries(value).map(([key, text]) => (
-            <div key={key}>
-              <dt>{key}</dt>
-              <dd>{answerText(text)}</dd>
-            </div>
-          ))}
-        </dl>
-      ) : (
-        <p>{answerText(value)}</p>
-      )}
-    </div>
-  );
-}
 export function RequestTime({ requestId }: { requestId: string }) {
   const { client, r, health } = useSite();
   const [time, setTime] = useState<string>();
@@ -145,21 +118,22 @@ export function RequestTime({ requestId }: { requestId: string }) {
     </span>
   );
 }
-function useSwarmSnapshot(fact: WatchedFact, onAttested: () => void) {
+function useSwarmSnapshot(fact: WatchedFact, onAttested: () => void, wallet?: string) {
   const site = useSite();
   const { client, r } = site;
-  const { address } = useAccount();
+  const account = useAccount();
+  const address = wallet || account.address;
+  const scope = `${r.deployment.chainId}:${contract(r, "Registry").address}:${address}:${fact.id}:${fact.requestId}`;
   const callback = useRef(onAttested);
   callback.current = onAttested;
   const [view, setView] = useState<any>(null);
   // A wallet change must hide the previous wallet's panel immediately.
-  const current =
-    view?.address === address && view?.requestId === fact.requestId;
+  const current = view?.scope === scope;
   const progress = current ? view.progress : null;
   const message = current ? view.message : WAITING;
   const wrongWallet = current ? view.wrongWallet : null;
   const [retry, setRetry] = useState(0);
-  const identity = useRef<{ requestId: string; pending: any } | null>(null);
+  const identity = useRef<{ scope: string; pending: any } | null>(null);
   // "Panel agreed" belongs to one oracle request id and survives Retry progress
   // until the Registry's event for this request arrives.
   const agreement = useRef<{
@@ -167,7 +141,7 @@ function useSwarmSnapshot(fact: WatchedFact, onAttested: () => void) {
     oracleId: string;
     text: string;
   } | null>(null);
-  const backfills = useMemo(() => pageReads(), [fact.requestId, client]);
+  const backfills = useMemo(() => pageReads(), [scope, client]);
   const checked = useRef<string | null>(null);
   useEffect(() => () => backfills.stop(), [backfills]);
   useEffect(() => {
@@ -175,20 +149,27 @@ function useSwarmSnapshot(fact: WatchedFact, onAttested: () => void) {
   }, [site.readRetry, backfills]);
   // A found outcome is kept across restarts (Retry progress, wallet changes),
   // including one only a read back to launch found.
-  const ended = useRef<{ requestId: string; event: any } | null>(null);
+  const ended = useRef<{ scope: string; event: any } | null>(null);
+  const recorded = useRef<{key:string; events:Map<string,FactCheckEvent>}>({key:'',events:new Map()});
   // Kept across wallet connects and switches so a known explorer link stays.
   const load = useMemo(() => oracleProgressReader(), [fact.requestId]);
   useEffect(() => {
     let active = true,
       running = false,
-      settled = false;
+      settled = false,
+      networkChecked = false;
     let pending: any =
-      identity.current?.requestId === fact.requestId
+      identity.current?.scope === scope
         ? identity.current.pending
         : null;
     let attested = false;
     let terminal: any =
-      ended.current?.requestId === fact.requestId ? ended.current.event : null;
+      ended.current?.scope === scope ? ended.current.event : null;
+    const requestKey = scope;
+    if (recorded.current.key !== requestKey) recorded.current = {key:requestKey,events:new Map()};
+    const eventsSeen = recorded.current.events;
+    const addEvent = (event:FactCheckEvent) => { if (!eventsSeen.has(event.id)) eventsSeen.set(event.id,event); };
+    let artwork: {token?:bigint;cardImage?:string;cardError?:string} = {};
     let controller: AbortController;
     const consensusFor = (result: any) => {
       const a = agreement.current;
@@ -197,7 +178,7 @@ function useSwarmSnapshot(fact: WatchedFact, onAttested: () => void) {
       return a.text;
     };
     async function poll() {
-      if (running || settled) return;
+      if (running || settled || document.hidden || !address) return;
       running = true;
       controller = new AbortController();
       const timeout = setTimeout(() => controller.abort(), 12000);
@@ -205,7 +186,13 @@ function useSwarmSnapshot(fact: WatchedFact, onAttested: () => void) {
       const client = scopedClient(site.client, controller.signal);
       let hasFact: boolean | null = null;
       let token: bigint | null = null;
+      let apiError = "";
       try {
+        if (!networkChecked) {
+          if (r.deployment.chainId !== 1 || await client.getChainId() !== 1)
+            throw Error("This request requires Ethereum mainnet.");
+          networkChecked = true;
+        }
         let events = terminal
           ? []
           : await registryEvents(
@@ -228,7 +215,11 @@ function useSwarmSnapshot(fact: WatchedFact, onAttested: () => void) {
                     "Abandoned",
                   ],
               fact.id,
-              { window: FEED_WINDOW, fromBlock: pending?.blockNumber },
+              pending
+                ? pendingOutcomeRead(pending, FEED_WINDOW)
+                : fact.blockNumber !== undefined
+                  ? { fromBlock: fact.blockNumber }
+                  : { window: FEED_WINDOW },
             );
         if (
           !terminal &&
@@ -293,10 +284,9 @@ function useSwarmSnapshot(fact: WatchedFact, onAttested: () => void) {
           );
           if (!event) {
             // A just-confirmed request can be newer than an endpoint's head.
-            const stale =
-              p[2] !== 0n && Date.now() / 1000 - Number(p[2]) > TWO_HOURS;
             if (active)
               setView({
+            scope,
                 outcome: null,
                 consensus: consensusFor(null),
                 address,
@@ -335,17 +325,25 @@ function useSwarmSnapshot(fact: WatchedFact, onAttested: () => void) {
             blockNumber: event.blockNumber,
             questionHash: event.args.questionHash,
             spec: await read(client, r, "Registry", "specOf", [fact.id]),
+            origin: event,
+            wallet: address,
+            factId: fact.id,
+            factName: fact.name,
+            shortQuestion: fact.id === 601 ? "Did this wallet complete at least 3 accepted IMD swarm jobs while holding an IDMD seat?" : TRAITS.find(trait => trait.id === fact.id)?.rule || fact.name,
           };
-          identity.current = { requestId: fact.requestId, pending };
+          // Bind the originating event before presenting it as confirmed.
+          swarmSnapshot({fact,wallet:address,view:{address,requestId:fact.requestId,requestConfirmed:true,identity:pending}});
+          identity.current = { scope, pending };
+          addEvent({id:`request:${fact.requestId}`,time:new Date(Number(requestedAt)*1000).toISOString(),source:"Ethereum",title:"Request confirmed",href:`https://etherscan.io/tx/${event.transactionHash}`});
         }
-        const outcome = events.find(
-          (e) =>
-            e.eventName !== "TraitRequested" &&
-            e.args.requestId?.toLowerCase() === fact.requestId.toLowerCase(),
-        );
+        // Save coverage only after a successful read. It survives effect
+        // restarts on the cached identity, so a resumed tab catches up once.
+        if (!terminal && "toBlock" in events && typeof events.toBlock === "bigint")
+          pending.outcomesThrough = events.toBlock;
+        const outcome = events.find((event) => matchedOutcome(event, pending));
         if (outcome) {
           terminal = outcome;
-          ended.current = { requestId: fact.requestId, event: outcome };
+          ended.current = { scope, event: outcome };
           agreement.current = null;
           if (outcome.eventName === "Verified")
             pending.oracleRequestId = outcome.args.oracleRequestId;
@@ -369,11 +367,31 @@ function useSwarmSnapshot(fact: WatchedFact, onAttested: () => void) {
             read(client, r, "Registry", "tokenOf", [address]),
           ]);
         }
-        const result = await load(
-          { ...pending, wallet: address },
-          controller.signal,
-        );
+        if (terminal && ["Verified","SharedFactStored","Missed"].includes(terminal.eventName)) {
+          if (!artwork.cardImage && artwork.token !== 0n)
+            artwork = await readCardArtwork((name:string,args:any[]) => read(client,r,"Registry",name,args),address,token);
+          token = artwork.token ?? token;
+        }
+        let result:any = null;
+        try {
+          result = await load({ ...pending, wallet: address },controller.signal);
+        } catch (error) {
+          apiError = error instanceof Error ? error.message : "Agent progress unavailable";
+        }
         if (!active) return;
+        if (result) {
+          pending.oracleQuestion = result.question;
+          pending.oracleDefinitions = result.definitions;
+          pending.oracleWindow = result.window;
+          pending.oracleEvidence = result.evidence;
+          addEvent({id:`oracle:${result.id}`,source:"IMD Oracle",title:"Swarm request linked",time:new Date().toISOString()});
+          for (const [index,member] of result.members.entries()) {
+            if (member.ok === true || member.ok === false)
+              addEvent({id:`answer:${result.id}:${index}:${member.ok}:${answerText(member.answer?.answer)}`,source:"IMD Oracle",title:member.tokenId == null ? "Agent answer received" : `IDMD ${member.tokenId} ${member.ok ? "answer received" : "could not answer"}`,detail:member.ok ? answerText(member.answer?.answer) : answerText(member.reason),time:new Date().toISOString()});
+          }
+          if (progressStatus(result) === "attested") addEvent({id:`signed:${result.id}`,source:"IMD Oracle",title:"Signed result received",time:result.attestedAt || new Date().toISOString()});
+        }
+        if (terminal) addEvent({id:`registry:${terminal.transactionHash}:${terminal.logIndex}`,source:"Ethereum",title:terminal.eventName === "Verified" ? "Registry fact confirmed" : terminal.eventName === "SharedFactStored" ? "Shared result stored" : "Registry outcome received",detail:registryOutcome(terminal) || undefined,href:`https://etherscan.io/tx/${terminal.transactionHash}`});
         const agreed = result ? panelAgreement(result, pending.spec) : null;
         if (agreed)
           agreement.current = {
@@ -384,17 +402,23 @@ function useSwarmSnapshot(fact: WatchedFact, onAttested: () => void) {
         else if (result && agreement.current?.oracleId !== result.id)
           agreement.current = null;
         setView({
+          scope,
           requestConfirmed: true,
           outcome: registryOutcome(terminal),
           event: terminal,
           hasFact,
           token,
+          identity: pending,
+          cardImage: artwork.cardImage,
+          cardError: artwork.cardError,
+          apiError,
+          events: [...eventsSeen.values()],
           consensus: terminal ? null : consensusFor(result),
           spec: pending.spec,
           address,
           requestId: fact.requestId,
           progress: result,
-          message: result ? "" : stale ? STALE : WAITING,
+          message: apiError ? "progress unavailable" : result ? "" : stale ? STALE : WAITING,
           stale,
         });
         if (result && progressStatus(result) === "attested" && !attested) {
@@ -404,11 +428,17 @@ function useSwarmSnapshot(fact: WatchedFact, onAttested: () => void) {
       } catch (error) {
         if (active) {
           setView({
+            scope,
             requestConfirmed: !!pending,
             outcome: registryOutcome(terminal),
             event: terminal,
             hasFact,
             token,
+            identity: pending,
+            cardImage: artwork.cardImage,
+            cardError: artwork.cardError,
+            chainError: error instanceof Error ? error.message : "Registry read unavailable",
+            events: [...eventsSeen.values()],
             consensus:
               terminal || error instanceof WalletQuestionMismatch
                 ? null
@@ -434,21 +464,25 @@ function useSwarmSnapshot(fact: WatchedFact, onAttested: () => void) {
         // Terminal evidence is retained without a permanent per-request read loop.
         // A retry or route reload can explicitly recheck it. A Verified event
         // alone is insufficient until the wallet's hasTrait read agrees.
-        settled =
-          !!terminal && (terminal.eventName !== "Verified" || hasFact === true);
+        const needsArtwork = terminal && (terminal.eventName === "Verified" || terminal.eventName === "SharedFactStored" || terminal.eventName === "Missed" && Number(terminal.args.reason) === 8);
+        settled = !!terminal && (terminal.eventName !== "Verified" || hasFact === true) && (!needsArtwork || artwork.token === 0n || !!artwork.cardImage || !!artwork.cardError);
         clearTimeout(timeout);
         running = false;
       }
     }
     void poll();
     const interval = setInterval(poll, SWARM_POLL_MS);
+    const visibility = () => { if (document.hidden) controller?.abort(); else void poll(); };
+    document.addEventListener("visibilitychange",visibility);
     return () => {
       active = false;
       controller?.abort();
       clearInterval(interval);
+      document.removeEventListener("visibilitychange",visibility);
     };
   }, [
     fact.requestId,
+    scope,
     client,
     r,
     retry,
@@ -478,6 +512,7 @@ const SharedProgress = createContext<{
   facts: WatchedFact[];
   snapshots: Record<string, Snapshot>;
 } | null>(null);
+export const useSharedSwarmProgress = () => useContext(SharedProgress);
 function RequestObserver({
   fact,
   onSnapshot,
@@ -550,7 +585,7 @@ export function SwarmProgressProvider({ children }: { children: ReactNode }) {
     </SharedProgress.Provider>
   );
 }
-export function VerificationOverview({ separateFromMint = false }: { separateFromMint?: boolean }) {
+export function VerificationOverview({ separateFromMint = false, fallbacks = {} }: { separateFromMint?: boolean; fallbacks?: Record<string,ReactNode> }) {
   const shared = useContext(SharedProgress);
   const { r } = useSite();
   const { address } = useAccount();
@@ -599,6 +634,7 @@ export function VerificationOverview({ separateFromMint = false }: { separateFro
           onAttested={() => {}}
           idPrefix="top"
           compact={i > 0 && !!shared?.snapshots[fact.requestId]?.view?.event}
+          fallback={fallbacks[fact.requestId]}
         />
       ))}
     </section>
@@ -611,14 +647,19 @@ type FeedProps = {
   idPrefix?: string;
   compact?: boolean;
   onNavigate?: () => void;
+  wallet?: string;
+  embedded?: boolean;
+  variant?: 'progress' | 'history';
+  fallback?: ReactNode;
 };
 export function SwarmFeed(props: FeedProps) {
   const shared = useContext(SharedProgress);
+  const {address} = useAccount();
   const snapshot = shared?.snapshots[props.fact.requestId];
-  if (shared?.facts.some((f) => f.requestId === props.fact.requestId))
+  if ((!props.wallet || props.wallet.toLowerCase() === address?.toLowerCase()) && shared?.facts.some((f) => f.requestId === props.fact.requestId))
     return snapshot ? (
       <SwarmFeedView {...props} snapshot={snapshot} />
-    ) : (
+    ) : props.fallback || (
       <p
         role="status"
         aria-live={
@@ -633,346 +674,60 @@ export function SwarmFeed(props: FeedProps) {
   return <StandaloneSwarmFeed {...props} />;
 }
 function StandaloneSwarmFeed(props: FeedProps) {
-  const snapshot = useSwarmSnapshot(props.fact, props.onAttested);
+  const snapshot = useSwarmSnapshot(props.fact, props.onAttested, props.wallet);
   return <SwarmFeedView {...props} snapshot={snapshot} />;
 }
-function AgentDetails({
-  compact,
-  children,
-}: {
-  compact: boolean;
-  children: ReactNode;
-}) {
-  return compact ? (
-    <details className="agent-details">
-      <summary>Agent details</summary>
-      {children}
-    </details>
-  ) : (
-    <>{children}</>
-  );
-}
 function SwarmFeedView({
-  fact,
-  focus,
-  onAttested,
-  idPrefix = "swarm",
-  compact = false,
-  onNavigate,
-  snapshot,
+  fact, focus, onAttested, idPrefix = "swarm", compact = false,
+  onNavigate, embedded = idPrefix === "popup", variant = 'progress', fallback, snapshot,
 }: FeedProps & { snapshot: Snapshot }) {
-  const {
-    view,
-    current,
-    progress,
-    message,
-    wrongWallet,
-    address,
-    checked,
-    retryProgress,
-  } = snapshot;
+  const {view,current,progress,message,wrongWallet,address,checked,retryProgress} = snapshot;
   const element = useRef<HTMLDetailsElement>(null);
-  const live = ["top", "popup", "wallet"].includes(idPrefix) ? "polite" : "off";
-  const [expanded, setExpanded] = useState(!compact);
+  const [expanded,setExpanded] = useState(!compact);
   const notified = useRef<string | undefined>(undefined);
   useEffect(() => {
     if (current && view?.event && notified.current !== fact.requestId) {
       notified.current = fact.requestId;
       onAttested();
     }
-  }, [current, view?.event, fact.requestId, onAttested]);
+  }, [current,view?.event,fact.requestId,onAttested]);
   useEffect(() => {
     if (focus?.requestId === fact.requestId && element.current) {
       setExpanded(true);
       element.current.querySelector("summary")?.focus();
-      element.current.scrollIntoView({ block: "nearest" });
+      element.current.scrollIntoView({block:"nearest"});
     }
   }, [focus]);
-  const phase = verificationPhase({
-    fact,
-    wallet: address,
-    progress,
-    spec: view?.spec,
-    event: current ? view?.event : null,
-    hasFact: current ? view?.hasFact : null,
-    requestConfirmed: current && view?.requestConfirmed === true,
-  });
-  const counts = progress ? progressCounts(progress, view.spec) : null;
+  let live:FactCheckSnapshot | null = null;
+  let bindingError = "";
+  try {
+    live = swarmSnapshot({fact,wallet:address,view:current ? view : null}) as FactCheckSnapshot | null;
+  } catch (error) {
+    bindingError = error instanceof Error ? error.message : "Request details unavailable.";
+  }
+  const phase = verificationPhase({fact,wallet:address,progress,spec:view?.spec,event:current ? view?.event : null,hasFact:current ? view?.hasFact : null,requestConfirmed:current && view?.requestConfirmed === true});
   const list = progress ? agreedList(progress) : null;
-  const outcome = current ? view.outcome : null;
-  const status = progress ? progressStatus(progress) : null;
-  return (
-    <details
-      ref={element}
-      className="swarm-request"
-      id={`${idPrefix}-${fact.requestId}`}
-      open={expanded}
-      onToggle={(event) => setExpanded(event.currentTarget.open)}
-    >
-      <summary>
-        {fact.id} / {fact.name}{" "}
-        <span className={`progress-summary-${phase.tone}`}>
-          · {phase.title}
-        </span>
-      </summary>
-      <div
-        className={`verification-moment phase-${phase.kind}`}
-        role="status"
-        aria-live={live}
-        aria-atomic="true"
-      >
-        <span className="verification-mark" aria-hidden="true">
-          {phase.tone === "positive"
-            ? "✓"
-            : phase.tone === "negative"
-              ? "✕"
-              : "…"}
-        </span>
-        <div>
-          <h3>
-            {phase.kind === "proven"
-              ? "Congratulations — fact proven!"
-              : phase.title}
-          </h3>
-          {phase.kind === "proven" ? (
-            <>
-              <p>
-                The swarm has proven <strong>{fact.name}</strong> for your
-                wallet. The Registry now stores the fact.
-              </p>
-              <p>
-                {view.token > 0n
-                  ? "Your card has new facts. Check the updated card on the Wallet page."
-                  : "Your wallet fact is ready. You can view it on Wallet without creating a card."}
-              </p>
-              <a
-                className="verification-wallet-link"
-                href="#/wallet"
-                onClick={onNavigate}
-              >
-                {view.token > 0n
-                  ? "View updated card on Wallet"
-                  : "View facts on Wallet"}
-              </a>
-            </>
-          ) : phase.kind === "shared" ? (
-            <p>
-              The shared list is stored. Apply it to your wallet if you are
-              eligible; storing the list alone does not prove your wallet fact.
-            </p>
-          ) : phase.kind === "approved" ? (
-            <p>
-              {isSharedFact(fact.id, view?.spec)
-                ? "The panel signed a shared result. Waiting for the Registry to store the list."
-                : "The panel signed a positive answer. Waiting for the Registry to store it for your wallet."}
-            </p>
-          ) : phase.kind === "quorum" ? (
-            <p>
-              Enough agents agree. The panel still needs to finish signing and
-              delivering its answer.
-            </p>
-          ) : phase.kind === "failed" ? (
-            <>
-              <p>{outcome || NO_FACT}</p>
-              <a href={`#/request?trait=${fact.id}`} onClick={onNavigate}>
-                Review and retry verification
-              </a>
-            </>
-          ) : phase.kind === "unconfirmed" ? (
-            <p>
-              Checking the saved request against the Ethereum Registry. Verification
-              has not been confirmed.
-            </p>
-          ) : phase.kind === "checking" ? (
-            <p>
-              Your request is confirmed. Watch the panel answers arrive
-              below.
-            </p>
-          ) : (
-            <p>
-              We are checking the Registry result. A panel answer by itself is
-              not a wallet fact.
-            </p>
-          )}
-          <p className="muted">Live IMD panel responses. A wallet fact is confirmed only after its Registry result is read.</p>
-        </div>
-      </div>
-      <ol className="verification-phases" aria-label="Verification stages">
-        <li className={phase.kind === "unconfirmed" ? "" : "done"}>
-          <span aria-hidden="true">{phase.kind === "unconfirmed" ? "·" : "✓"}</span>{" "}
-          {phase.kind === "unconfirmed" ? "Request not yet confirmed" : "Request confirmed"}
-        </li>
-        <li
-          className={
-            ["approved", "proven", "shared"].includes(phase.kind) ? "done" : ""
-          }
-        >
-          <span aria-hidden="true">
-            {["approved", "proven", "shared"].includes(phase.kind) ? "✓" : "·"}
-          </span>{" "}
-          Agents check the rule
-        </li>
-        <li className={["proven", "shared"].includes(phase.kind) ? "done" : ""}>
-          <span aria-hidden="true">
-            {["proven", "shared"].includes(phase.kind) ? "✓" : "·"}
-          </span>{" "}
-          Registry stores result
-        </li>
-      </ol>
-      <div className="swarm-announcement">
-        {progress ? (
-          <p role="status" aria-live={live} aria-atomic="true">
-            {counts!.answered} / {progress.panelSize} responses ·{" "}
-            {counts!.count
-              ? `${counts!.met} meet the rule / ${progress.quorum} needed`
-              : counts!.boolean
-                ? `${counts!.trueAnswers} true / ${progress.quorum} needed`
-                : counts!.agreed
-                  ? `${counts!.agreed} agree / ${progress.quorum} quorum`
-                  : `no agreement yet / ${progress.quorum} quorum`}
-          </p>
-        ) : (
-          <>
-            <p role="status" aria-live={live}>
-              {phase.kind !== "unconfirmed" && message === WAITING && <LoadingIndicator />}
-              {phase.kind === "unconfirmed" && message === WAITING ? "Checking request history…" : message}
-            </p>
-            {wrongWallet && <p>Expected wallet: {shortWallet(wrongWallet)}</p>}
-          </>
-        )}
-        {current && view.stale && message !== STALE && <p>{STALE}</p>}
-        {status === "failed" && !outcome && (
-          <p>
-            The panel did not produce a usable answer. Waiting for the final
-            Registry outcome.
-          </p>
-        )}
-      </div>
-      {progress && (
-        <>
-          {idPrefix === "top" && (
-            <ol className="agent-strip" aria-label="Agent confirmations">
-              {Array.from({ length: progress.panelSize }, (_, i) => {
-                const result = agentResult(
-                  progress.members[i],
-                  view.spec,
-                  list,
-                  status !== "assessing",
-                );
-                return (
-                  <li
-                    key={i}
-                    className={`strip-${result.kind}`}
-                    title={`Agent ${i + 1}: ${result.label}`}
-                    aria-label={`Agent ${i + 1}: ${result.label}`}
-                  >
-                    <span aria-hidden="true">{result.icon}</span>
-                    <small aria-hidden="true">{i + 1}</small>
-                  </li>
-                );
-              })}
-            </ol>
-          )}
-          <AgentDetails compact={idPrefix === "top"}>
-            <ol className="swarm-seats" aria-label="Panel seats">
-              {Array.from({ length: progress.panelSize }, (_, i) => {
-                const seat = progress.members[i];
-                const result = agentResult(
-                  seat,
-                  view.spec,
-                  list,
-                  status !== "assessing",
-                );
-                return (
-                  <li key={i} className={`agent-result agent-${result.kind}`}>
-                    <span
-                      key={result.kind}
-                      className="agent-result-icon"
-                      aria-hidden="true"
-                    >
-                      {result.icon}
-                    </span>
-                    <strong>
-                      Seat {i + 1}
-                      {seat?.tokenId != null ? ` · #${seat.tokenId}` : ""}
-                    </strong>
-                    <span className="agent-result-label">{result.label}</span>
-                    {seat?.ok === true && walletList(seat.answer?.answer) ? (
-                      <ListAnswer
-                        list={seat.answer.answer}
-                        agreed={list}
-                        wallet={address}
-                      />
-                    ) : (
-                      <span>
-                        {seat?.ok === false ? (
-                          `Failed: ${answerText(seat.reason)}`
-                        ) : seat?.ok === true ? (
-                          `Answer: ${answerText(seat.answer?.answer)}`
-                        ) : status === "assessing" ? (
-                          <>
-                            <LoadingIndicator />
-                            Awaiting answer
-                          </>
-                        ) : (
-                          "No answer"
-                        )}
-                      </span>
-                    )}
-                  </li>
-                );
-              })}
-            </ol>
-          </AgentDetails>
-          <details className="progress-evidence">
-            <summary>Request details</summary>
-            <p className="break">
-              Oracle request: {progress.id} · {progress.foundBy}
-            </p>
-            {typeof progress.jobId === "string" && progress.jobId.trim() && (
-              <p>
-                <a
-                  href={`https://explorer.imd.fun/jobs/${encodeURIComponent(progress.jobId)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                >
-                  View on the IMD explorer
-                </a>
-              </p>
-            )}
-            {progress.wallet && <p>Wallet: {shortWallet(progress.wallet)}</p>}
-            {progress.previousRequestId && (
-              <p className="break">
-                The Registry confirmed a different oracle request from the one
-                shown before ({progress.previousRequestId}).
-              </p>
-            )}
-            {typeof progress.question === "string" && (
-              <Question key={progress.question} question={progress.question} />
-            )}
-            <QuestionFields label="Definitions" value={progress.definitions} />
-            <QuestionFields label="Pinned window" value={progress.window} />
-            {progress.failure && <p>{answerText(progress.failure)}</p>}
-            {progress.attestedAt && (
-              <p>
-                Attested:{" "}
-                <time dateTime={progress.attestedAt}>
-                  {progress.attestedAt}
-                </time>
-              </p>
-            )}
-          </details>
-        </>
-      )}
-      {message === "progress unavailable" && (
-        <button onClick={retryProgress}>Retry progress</button>
-      )}
-      {current && view.event && message !== "progress unavailable" && (
-        <button onClick={retryProgress}>Refresh result</button>
-      )}
-      {current && !view.event && checked === fact.requestId && (
-        <p className="muted">No Registry outcome found since launch.</p>
-      )}
-    </details>
-  );
+  if (!live && fallback && !bindingError) return <>{fallback}{current && view?.chainError && <p role="status">Request details unavailable. <button onClick={retryProgress}>Retry progress</button></p>}</>;
+  return <details ref={element} className="swarm-request" id={`${idPrefix}-${fact.requestId}`} open={expanded} onToggle={event=>setExpanded(event.currentTarget.open)}>
+    <summary>{fact.id} / {fact.name} <span className={`progress-summary-${phase.tone}`}>· {phase.title}</span></summary>
+    <div onClick={event=>{const link=(event.target as Element).closest("a");if(link?.getAttribute("href")?.startsWith("#"))onNavigate?.();}}>
+      {live ? <FactCheckView snapshot={live} embedded={embedded} variant={variant}/> : <p role="status">{bindingError || (message === WAITING ? "Checking this request against the Ethereum Registry..." : message)}</p>}
+    </div>
+    {wrongWallet && <p>Expected wallet: {shortWallet(wrongWallet)}</p>}
+    {current && view?.stale && <p className="muted">{STALE}</p>}
+    {phase.kind === "shared" && <p><a href={`#/request?trait=${fact.id}`} onClick={onNavigate}>Check eligibility and apply this shared result</a></p>}
+    {phase.kind === "failed" && <p><a href={`#/request?trait=${fact.id}`} onClick={onNavigate}>Review and retry verification</a></p>}
+    {progress?.members.some((member:any)=>member.ok === true && walletList(member.answer?.answer)) && <details className="progress-evidence">
+      <summary>Shared-list answers</summary>
+      {progress.members.map((member:any,index:number)=>member.ok === true && walletList(member.answer?.answer) ? <div key={index}>
+        <strong>{member.tokenId == null ? "Identity not reported" : `IDMD ${member.tokenId}`}</strong>
+        <ListAnswer list={member.answer.answer} agreed={list} wallet={address}/>
+      </div> : null)}
+    </details>}
+    {address && idPrefix !== "oracle" && <p><a href={oracleRequestLink(address,{...fact,blockNumber:view?.identity?.blockNumber ?? fact.blockNumber})} onClick={onNavigate}>Open request ↗</a></p>}
+    {live?.jobUrl && <p><a href={live.jobUrl} target="_blank" rel="noreferrer">View on the IMD explorer</a></p>}
+    {(bindingError || message === "progress unavailable" || live?.cardError || current && !view?.requestConfirmed) && <button onClick={retryProgress}>Retry progress</button>}
+    {current && view?.event && message !== "progress unavailable" && <button onClick={retryProgress}>Refresh result</button>}
+    {current && !view?.event && checked === fact.requestId && <p className="muted">No Registry outcome found since launch.</p>}
+  </details>;
 }

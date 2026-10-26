@@ -6,7 +6,10 @@ import { imd, ethCeiling } from "./pure.mjs";
 import { eligibilityText } from "./eligibility.mjs";
 import { Card, Status } from "./components";
 import { TRAITS } from "./data";
-import { SwarmFeed, VerificationOverview } from "./swarm";
+import { VerificationOverview, useSharedSwarmProgress } from "./swarm";
+import { FactCheckView } from "./fact-check/FactCheckView";
+import { oracleRequestLink, pendingRequestSnapshots } from "./fact-check/request-model.mjs";
+import type { FactCheckSnapshot } from "./fact-check/types";
 import { unsubmittedFactIds } from "./progress-experience.mjs";
 import { cardSuccessKey, cardSuccessDismissed, dismissCardSuccess } from "./card-success.mjs";
 import { useTransactions, type Journal } from "./controllers/transactions";
@@ -58,15 +61,15 @@ function CardCreated({
       <div>
         <h3>Mint succeeded — your card is ready!</h3>
         <p>
-          Your Sworn card #{token.toString()} was minted on Ethereum. Check
-          your card and its facts on the Wallet page.
+          Your Sworn card #{token.toString()} was minted on Ethereum. View it on
+          Mint Card and find its claimed facts on Mint Facts.
         </p>
         <a
           className="verification-wallet-link"
-          href="#/wallet"
+          href="#/mint#your-card"
           onClick={() => { dismiss(); onNavigate?.(); }}
         >
-          View your card on Wallet
+          View your card
         </a>
       </div>
       <button
@@ -83,6 +86,12 @@ function CardCreated({
 export function TransactionTopProgress({ task }: { task: string }) {
   const j = useTransactions();
   const { address } = useAccount();
+  const site = useSite();
+  const shared = useSharedSwarmProgress();
+  const bridges = pendingRequestSnapshots(j, address, TRAITS, site.specs, contract(site.r, "Registry").address) as FactCheckSnapshot[];
+  const fallbacks = Object.fromEntries(bridges.filter(snapshot => snapshot.requestId).map(snapshot => [
+    snapshot.requestId!, <FactCheckView key={snapshot.key} snapshot={snapshot}/>,
+  ]));
   const minted =
     j.plan?.account.toLowerCase() === address?.toLowerCase()
       ? j.steps.find(
@@ -94,7 +103,10 @@ export function TransactionTopProgress({ task }: { task: string }) {
       {minted?.result?.token !== undefined && (
         <CardCreated token={minted.result.token} account={j.plan!.account} hash={minted.hash} />
       )}
-      <VerificationOverview separateFromMint={task === "/mint"} />
+      {bridges.filter(snapshot => !snapshot.requestId || !shared?.facts.some(fact => fact.requestId === snapshot.requestId)).map(snapshot =>
+        <FactCheckView key={snapshot.key} snapshot={snapshot}/>,
+      )}
+      <VerificationOverview separateFromMint={task === "/mint"} fallbacks={fallbacks} />
     </>
   );
 }
@@ -124,14 +136,11 @@ export function TransactionJournal({ journal: j }: { journal: Journal }) {
     (c) => c.functionName === "registerSpec",
   );
   const active = j.steps[j.next];
-  const progressAvailable = results.some(
-    (s) => s.result?.token !== undefined || s.result?.facts?.length,
+  const legacyFunding = !!j.plan && (
+    j.plan.payment !== "IMD" || !!j.plan.quote ||
+    j.steps.some((step) => step.call?.functionName === "execute" || (step.call?.value ?? 0n) > 0n)
   );
-  const existingImd = j.plan
-    ? j.plan.balance < j.plan.amount
-      ? j.plan.balance
-      : j.plan.amount
-    : 0n;
+  const progressFact = results.flatMap((step) => step.result?.facts || [])[0];
   const terminal = j.steps.some((s) =>
     ["cancelled", "replaced", "failed", "rejected"].includes(s.state),
   );
@@ -183,7 +192,7 @@ export function TransactionJournal({ journal: j }: { journal: Journal }) {
             </button>
           </div>
           <p className="payment-network-notice" role="note">
-            ETHEREUM MAINNET · These actions use real IMD and ETH. Review each
+            ETHEREUM MAINNET · Fees are paid in IMD; Ethereum gas is paid in ETH. Review each
             transaction in your wallet before confirming.
           </p>
           {j.plan && (
@@ -212,10 +221,15 @@ export function TransactionJournal({ journal: j }: { journal: Journal }) {
               {active.gas !== undefined
                 ? `${ethCeiling(active.gas)} ETH (gas estimate)`
                 : "estimate unavailable until this step passes its check"}
-              . Fiat estimate unavailable; no exchange-rate feed is configured.
             </p>
           )}
-          {j.plan && !complete && !terminal && (
+          {legacyFunding && !complete && (
+            <Status>
+              Only IMD fee payments are supported. Recover any outstanding
+              receipt below, then prepare the action again with IMD.
+            </Status>
+          )}
+          {j.plan && !complete && !terminal && !legacyFunding && (
             <label className="ack">
               <input
                 id="payment-ack"
@@ -264,7 +278,7 @@ export function TransactionJournal({ journal: j }: { journal: Journal }) {
               Request anyway
             </button>
           )}
-          {active && !["cancelled", "replaced"].includes(active.state) && (
+          {active && !legacyFunding && !["cancelled", "replaced"].includes(active.state) && (
             <div className="step-actions">
               {["failed", "rejected"].includes(active.state) && (
                 <button
@@ -308,34 +322,18 @@ export function TransactionJournal({ journal: j }: { journal: Journal }) {
               )}
               {s.result!.facts?.map((fact) => (
                 <p key={fact.requestId} className="accent" role="status">
-                  {fact.name}: request recorded. Follow the panel below. You can
-                  close this popup; progress stays at the top of the page.
+                  {fact.name}: request recorded. Follow its progress on Fact Check.
                 </p>
               ))}
             </section>
           ))}
-          {results
-            .flatMap((s) => s.result?.facts || [])
-            .map((fact) => (
-              <SwarmFeed
-                key={fact.requestId}
-                fact={fact}
-                focus={null}
-                onAttested={site.refresh}
-                idPrefix="popup"
-                onNavigate={j.close}
-              />
-            ))}
-          {progressAvailable && (
-            <button
-              type="button"
-              onClick={() => {
-                j.close();
-                location.hash = "/wallet";
-              }}
+          {progressFact && (
+            <a
+              href={j.plan?.account ? oracleRequestLink(j.plan.account, progressFact) : "#/fact-check"}
+              onClick={j.close}
             >
-              Follow progress on the Wallet page
-            </button>
+              View Fact Check
+            </a>
           )}
           {j.plan && (
             <details>
@@ -349,21 +347,6 @@ export function TransactionJournal({ journal: j }: { journal: Journal }) {
                   <dd>{imd(j.plan.amount)} IMD</dd>
                 </div>
                 <div>
-                  <dt>Existing IMD used</dt>
-                  <dd>{imd(existingImd)} IMD</dd>
-                </div>
-                <div>
-                  <dt>IMD purchased</dt>
-                  <dd>{imd(j.plan.quote?.output || 0n)} IMD</dd>
-                </div>
-                <div>
-                  <dt>Maximum ETH for purchase</dt>
-                  <dd>
-                    {j.plan.quote ? ethCeiling(j.plan.quote.maximum) : "0"} ETH,
-                    excluding gas
-                  </dd>
-                </div>
-                <div>
                   <dt>Wallet transactions</dt>
                   <dd>{j.steps.length}; each has its own confirmation</dd>
                 </div>
@@ -375,24 +358,7 @@ export function TransactionJournal({ journal: j }: { journal: Journal }) {
                       : "Total estimate unavailable. Each step is estimated after the previous receipt."}
                   </dd>
                 </div>
-                <div>
-                  <dt>Fiat equivalent</dt>
-                  <dd>Unavailable; no exchange-rate feed is configured.</dd>
-                </div>
               </dl>
-              <p>
-                {j.plan.quote
-                  ? "ETH buys only the missing IMD. The rest comes from your existing IMD balance."
-                  : "Your existing IMD covers the fee. No ETH swap is required; ETH is still needed for gas."}
-              </p>
-              {j.plan.quote && (
-                <p>
-                  Exact-output swap quote with a 1% input margin; unspent
-                  ETH is returned by the swap. Quote expires{" "}
-                  {new Date(Number(j.plan.quote.deadline) * 1000).toISOString()}
-                  .
-                </p>
-              )}
               <ul>
                 {j.plan.lines.map((line, i) => (
                   <li key={i}>

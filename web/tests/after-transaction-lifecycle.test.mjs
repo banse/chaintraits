@@ -130,29 +130,44 @@ test("zero and partial IMD balances cannot expose a payable approval", async () 
     );
 });
 
-test("ETH funding uses existing IMD and purchases only the deficit", async () => {
-  const result = await preparation({
-    payment: "ETH",
-    balance: 40000000000000000n,
-  });
-  assert.equal(result.plan.quote.output, 60000000000000000n);
-  assert.equal(result.quoted, 1);
-  assert.deepEqual(
-    result.steps.map((s) => s.call.functionName),
-    ["execute", "approve", "mintCard"],
-  );
+test("ETH payment cannot prepare a swap, whether the wallet is funded or not", async () => {
+  for (const balance of [40000000000000000n, 100000000000000000n])
+    await assert.rejects(preparation({ payment: "ETH", balance }), /only IMD/i);
 });
 
-test("already-funded ETH route adds no swap", async () => {
+test("a funded IMD route prepares only the approval and fee action", async () => {
   const result = await preparation({
-    payment: "ETH",
     balance: 100000000000000000n,
   });
+  assert.equal(result.plan.payment, "IMD");
+  assert.equal(result.plan.quote, undefined);
   assert.equal(result.quoted, 0);
   assert.deepEqual(
     result.steps.map((s) => s.call.functionName),
     ["approve", "mintCard"],
   );
+});
+
+test("restored ETH plans and native-value or swap calls cannot reach preflight", async () => {
+  for (const override of [
+    { payment: "ETH" },
+    { quote: { maximum: 1n } },
+    { call: { functionName: "execute", args: [], amount: 0n } },
+    { call: { functionName: "mintCard", args: [], amount: 1n, value: 1n } },
+  ]) {
+    const env = {
+      getAccount: () => ({ address, chainId: 1 }), config: {},
+      plan: { account: address, payment: "IMD", calls: [], ...override },
+      ack: true, available: true, next: 0,
+      steps: [{ call: override.call || { functionName: "mintCard", args: [], amount: 1n } }],
+      site: { r: { deployment: { chainId: 1 } } },
+      health: () => assert.fail("unsupported payment must stop before RPC preflight"),
+    };
+    const checkedCall = compile(env,
+      extract("  async function checkedCall(", "\n  async function simulate(") + ";return checkedCall;",
+    );
+    await assert.rejects(checkedCall(0), /only IMD/i);
+  }
 });
 
 test("preparation uses the current account chain immediately after a switch", async () => {
@@ -227,19 +242,26 @@ test("an exact-intent successful replacement can resolve the blocked journal", a
   assert.equal(records, 1);
 });
 
-test("a late wallet hash survives Close and locks through authoritative refresh", async () => {
+for (const action of ["approve", "upgrade", "requestSharedFact", "mintCard", "rejected-upgrade"]) test(`a late ${action} hash survives Close and only fact requests navigate before receipt`, async () => {
   let reply,
     promptStarted,
     refreshStarted,
     finishRefresh,
     receiptChecks = 0,
     recorded = 0,
-    busy = false;
+    busy = false,
+    dialogOpen = true,
+    hashSubmitted,
+    finishLookup,
+    rejectWallet;
+  const submitted = new Promise(resolve => { hashSubmitted = resolve; });
+  const lookup = new Promise(resolve => { finishLookup = resolve; });
   const prompt = new Promise((resolve) => {
     promptStarted = resolve;
   });
-  const walletReply = new Promise((resolve) => {
+  const walletReply = new Promise((resolve, reject) => {
     reply = resolve;
+    rejectWallet = reject;
   });
   const refreshing = new Promise((resolve) => {
     refreshStarted = resolve;
@@ -247,7 +269,7 @@ test("a late wallet hash survives Close and locks through authoritative refresh"
   const refresh = new Promise((resolve) => {
     finishRefresh = resolve;
   });
-  const steps = [{ state: "simulated", call: { functionName: "approve" } }];
+  const steps = [{ state: "simulated", call: { functionName: action === "rejected-upgrade" ? "upgrade" : action } }];
   const intent = {
     from: address,
     to: registry,
@@ -259,6 +281,7 @@ test("a late wallet hash survives Close and locks through authoritative refresh"
     lock: { current: false },
     generation: { current: 0 },
     next: 0,
+    location: { hash: "#/request" },
     plan: { account: address },
     steps,
     stepsRef: { current: steps },
@@ -276,13 +299,13 @@ test("a late wallet hash survives Close and locks through authoritative refresh"
         estimateContractGas: async () => 21000n,
         getGasPrice: async () => 1n,
         getTransactionCount: async () => 4,
-        getTransaction: async () => intent,
+        getTransaction: async () => { await lookup; return intent; },
         waitForTransactionReceipt: async () => {
           receiptChecks++;
           return { status: "success", transactionHash: hash };
         },
       },
-      r: { chain: { id: 1 }, deployment: { chainId: 1 } },
+      r: { chain: { id: 1 }, deployment: { chainId: 1 }, abis: { Registry: [], Composer: [] } },
     },
     connectedProvider: async () => ({
       request: async () => {
@@ -302,7 +325,7 @@ test("a late wallet hash survives Close and locks through authoritative refresh"
     }),
     custom: (x) => x,
     encodeFunctionData: () => intent.input,
-    update: (i, patch) => Object.assign(steps[i], patch),
+    update: (i, patch) => { Object.assign(steps[i], patch); if (patch.hash) hashSubmitted(); },
     recordResult: () => recorded++,
     explain: String,
     resolveReceipt,
@@ -319,7 +342,7 @@ test("a late wallet hash survives Close and locks through authoritative refresh"
       assert.fail("pending steps must stay");
     },
     setRegistered() {},
-    setOpen() {},
+    setOpen(value) { dialogOpen = value; },
     setAck() {},
   };
   const execute = compile(
@@ -336,7 +359,23 @@ test("a late wallet hash survives Close and locks through authoritative refresh"
   await prompt;
   assert.equal(steps[0].state, "awaiting signature");
   assert.equal(discard(), false);
+  assert.equal(env.location.hash, "#/request", "Signing has not submitted a transaction yet");
+  if (action === "rejected-upgrade") {
+    rejectWallet(Error("User rejected the request"));
+    await running;
+    assert.equal(env.location.hash, "#/request");
+    assert.equal(dialogOpen, true);
+    assert.equal(steps[0].state, "rejected");
+    assert.equal(receiptChecks, 0);
+    return;
+  }
   reply(hash);
+  await submitted;
+  const isFact = ["upgrade", "requestSharedFact"].includes(action);
+  assert.equal(env.location.hash, isFact ? `#/fact-check?wallet=${address}` : "#/request");
+  assert.equal(dialogOpen, !isFact, "Only a submitted fact request closes the dialog");
+  assert.equal(receiptChecks, 0, "Navigation must not wait for the receipt lookup");
+  finishLookup();
   await refreshing;
   assert.equal(steps[0].hash, hash);
   assert.equal(steps[0].state, "refreshing");
@@ -380,6 +419,17 @@ test("reload keeps both replacement hashes and a settled cancellation", () => {
   assert.equal(result.steps[0].state, "cancelled");
   assert.equal(result.steps[0].hash, hash);
   assert.equal(result.steps[0].replacement, replacement);
+});
+test("old submitted ETH swap receipts remain recoverable without dropping their intent", () => {
+  const intent = { from: address, to: registry, nonce: 1, input: "0xab", value: 1n };
+  const result = restoreJournal({
+    plan: { account: address, payment: "ETH", quote: { maximum: 1n } },
+    steps: [{ state: "pending", hash, intent, call: { functionName: "execute", value: 1n } }],
+  });
+  assert.equal(result.steps[0].state, "unknown");
+  assert.equal(result.steps[0].hash, hash);
+  assert.deepEqual(result.steps[0].intent, intent);
+  assert.equal(result.plan.payment, "ETH");
 });
 test("cleared settled receipt history survives reload with no active preparation", () => {
   const history = [

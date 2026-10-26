@@ -825,20 +825,32 @@ fieldset {
 .step-title + .source {
   margin-block: 0 var(--s4);
 }
-/* 02: the three class lines and the note after them share the note's size. */
+/* Fact categories share three equal columns and the note's text size. */
+.step-intros {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--s6);
+}
 .step-intros > p,
 .step-note {
   font-size: var(--body);
   color: var(--muted);
 }
 .step-intros > p {
-  margin-block-end: var(--s2);
+  margin: 0;
+  max-width: none;
 }
 .step-intros strong {
   color: var(--text);
 }
 .step-intros + .step-note {
   margin-block-start: 1lh;
+}
+@media (max-width: 760px) {
+  .step-intros {
+    grid-template-columns: 1fr;
+    gap: var(--s4);
+  }
 }
 .info-grid {
   display: grid;
@@ -1811,32 +1823,57 @@ th {
 }
 
 /* Independent creation tasks keep payment and recovery at the point of action. */
-.task-tabs {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--s2);
-  border-block-end: 1px solid var(--rule);
-  padding-block-end: var(--s4);
-  margin-block-end: var(--s6);
-}
-.task-tabs a {
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: var(--s2) var(--s4);
-  border: 1px solid var(--rule);
-  color: var(--text);
-  text-decoration: none;
-}
-.task-tabs a[aria-current="page"] {
-  border-color: var(--accent);
-  color: var(--accent);
-}
-.task-tabs a:hover {
-  border-color: var(--accent);
-}
 .task-section > .step {
   margin-block-start: var(--s6);
+}
+.fact-evidence-guide {
+  margin-block: var(--s4) var(--s5);
+}
+.fact-evidence-guide > summary {
+  min-height: 44px;
+  padding-block: var(--s3);
+  color: var(--muted);
+  cursor: pointer;
+}
+.fact-evidence-guide > summary:hover,
+.fact-evidence-guide > summary:focus-visible {
+  color: var(--text);
+}
+.fact-evidence-guide .step-intros {
+  margin-block-start: var(--s3);
+}
+.request-cost-note {
+  color: var(--muted);
+}
+.claimed-facts-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 24px;
+}
+.claimed-facts-heading h2 { margin: 0; }
+.wallet-address code { overflow-wrap: anywhere; }
+.wallet-facts .fact-history li:target { border-color: var(--accent); }
+#your-card .inline-links a.primary {
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: var(--bg);
+  padding: 12px 18px;
+  font-weight: 700;
+  text-decoration: none;
+}
+#your-card { align-items: start; row-gap: 24px; }
+#your-card .owned-card-heading { grid-column: 1 / -1; }
+#your-card .owned-card-heading h2 { margin: 0; }
+#your-card .owned-card-heading p { margin-bottom: 0; }
+#your-card .wallet-card { grid-column: 2; grid-row: 2; }
+#your-card .claim-copy { grid-column: 1; grid-row: 2; }
+@media (max-width: 780px) {
+  #your-card { grid-template-columns: 1fr; }
+  #your-card .wallet-card { grid-column: 1; grid-row: 2; }
+  #your-card .claim-copy { grid-row: 3; }
 }
 .task-payment {
   margin-block: var(--s5);
@@ -1886,12 +1923,6 @@ th {
   margin-block-end: 0;
 }
 @media (max-width: 480px) {
-  .task-tabs {
-    gap: var(--s2);
-  }
-  .task-tabs a {
-    padding-inline: var(--s3);
-  }
   .mint-panel {
     gap: var(--s6);
   }

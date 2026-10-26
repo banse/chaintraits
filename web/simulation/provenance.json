@@ -1,0 +1,176 @@
+{
+  "importedAt": "2026-10-26",
+  "note": "Bounded public source import; runtime data and secrets excluded. Local adaptations follow import.",
+  "files": [
+    {
+      "file": "_chain.mjs",
+      "source": "/Library/Vibes/aidude/tools/surf/sworn-local/_chain.mjs",
+      "sha256": "b29d6feb327d17ec3a3c360512ea5866fc13e888d52aa33801199a1f5b54009d"
+    },
+    {
+      "file": "_oracle.mjs",
+      "source": "/Library/Vibes/aidude/tools/surf/sworn-local/_oracle.mjs",
+      "sha256": "a51228adfe48f3f4e730c869fd00a6ff898546e3fa755b228e079dfaf143e444"
+    },
+    {
+      "file": "server.mjs",
+      "source": "/Library/Vibes/aidude/tools/surf/sworn-local/server.mjs",
+      "sha256": "e29de29d10447d0a2be84b82ddd043ddc2e36cf16bfe4a9cfaac3058a0ca6d30"
+    },
+    {
+      "file": "shim.js",
+      "source": "/Library/Vibes/aidude/tools/surf/sworn-local/shim.js",
+      "sha256": "78ca890ede4013a2a5d5e1bf1851625e4b1ad8ec2292653b326f3e69ae001eae"
+    },
+    {
+      "file": "samples.json",
+      "source": "/Library/Vibes/aidude/tools/surf/sworn-local/samples.json",
+      "sha256": "10c228d3c4a8550e29f8089f7bc6217d2902f19adb728c2c522d8497249e087a"
+    },
+    {
+      "file": "multicall3.json",
+      "source": "/Library/Vibes/aidude/tools/surf/sworn-local/multicall3.json",
+      "sha256": "879497ed5597be11120870b00b4a9cf723f6aad5838205af0a2e16092946176c"
+    },
+    {
+      "file": "sol/src/Mocks.sol",
+      "source": "/Library/Vibes/aidude/tools/surf/sworn-local/sol/src/Mocks.sol",
+      "sha256": "0dc34362fb0f44221ed3ada8dad420dd49f46828d626d615f94f1f3ff18cfcae"
+    },
+    {
+      "file": "vendor/@openzeppelin/contracts/utils/Strings.sol",
+      "source": "/Library/Vibes/sworn/lib/openzeppelin-contracts/contracts/utils/Strings.sol",
+      "sha256": "e318709bbe73a7831d64c1351e8bdc43780b245f25191234e361e6ab9b98c67b"
+    },
+    {
+      "file": "vendor/@openzeppelin/contracts/utils/Bytes.sol",
+      "source": "/Library/Vibes/sworn/lib/openzeppelin-contracts/contracts/utils/Bytes.sol",
+      "sha256": "78b01e1da6f6e6aaa8ef97b5d5ed885f638520bfdafb65e813b900a14c9d4eac"
+    },
+    {
+      "file": "vendor/@openzeppelin/contracts/utils/math/Math.sol",
+      "source": "/Library/Vibes/sworn/lib/openzeppelin-contracts/contracts/utils/math/Math.sol",
+      "sha256": "bdfdbe133991c0c78042957ff5cd97167926fcaf6d15664f3835a076cb066457"
+    },
+    {
+      "file": "vendor/@openzeppelin/contracts/utils/math/SafeCast.sol",
+      "source": "/Library/Vibes/sworn/lib/openzeppelin-contracts/contracts/utils/math/SafeCast.sol",
+      "sha256": "5779bc848bde39f1ad7bc02b4f708a0040888e0083b1a33f119cd94639350134"
+    },
+    {
+      "file": "vendor/@openzeppelin/contracts/utils/Panic.sol",
+      "source": "/Library/Vibes/sworn/lib/openzeppelin-contracts/contracts/utils/Panic.sol",
+      "sha256": "270fc8401c1a13fae6a7a4a2dd6e381b95d658896701e51f0d3e2688acab3dec"
+    },
+    {
+      "file": "vendor/@openzeppelin/contracts/utils/math/SignedMath.sol",
+      "source": "/Library/Vibes/sworn/lib/openzeppelin-contracts/contracts/utils/math/SignedMath.sol",
+      "sha256": "1ed50b1056af886752f0fb48a0165d381e69bb4a4b18b893b066dc144a7e08d7"
+    },
+    {
+      "file": "vendor/@openzeppelin/contracts/utils/cryptography/ECDSA.sol",
+      "source": "/Library/Vibes/sworn/lib/openzeppelin-contracts/contracts/utils/cryptography/ECDSA.sol",
+      "sha256": "e3758f08ce5e53ada22c743450d3b61d965c92d4c76fcc8633a7eebd0455eb7c"
+    },
+    {
+      "file": "vendor/@openzeppelin/contracts/utils/ReentrancyGuard.sol",
+      "source": "/Library/Vibes/sworn/lib/openzeppelin-contracts/contracts/utils/ReentrancyGuard.sol",
+      "sha256": "94e409e8f6e3184236651a6cc2b1a6a3ea0f0a25eb85b71e524ad5791bb2fbc8"
+    },
+    {
+      "file": "vendor/@openzeppelin/contracts/utils/StorageSlot.sol",
+      "source": "/Library/Vibes/sworn/lib/openzeppelin-contracts/contracts/utils/StorageSlot.sol",
+      "sha256": "75704538dcb223239280c6726d9a31cf769a7816718517c997fc7d63bdb70778"
+    },
+    {
+      "file": "vendor/@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol",
+      "source": "/Library/Vibes/sworn/lib/openzeppelin-contracts/contracts/token/ERC20/utils/SafeERC20.sol",
+      "sha256": "93685e4e976be584a5e6abfc37376fe17c99bee53e07610efcc1ce51868e90d1"
+    },
+    {
+      "file": "vendor/@openzeppelin/contracts/interfaces/IERC20Metadata.sol",
+      "source": "/Library/Vibes/sworn/lib/openzeppelin-contracts/contracts/interfaces/IERC20Metadata.sol",
+      "sha256": "0ef8d844d8e066abd5c0d8cc1c550c89f2628a4ea9c9bb16c7593d4207800ca8"
+    },
+    {
+      "file": "vendor/@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol",
+      "source": "/Library/Vibes/sworn/lib/openzeppelin-contracts/contracts/token/ERC20/extensions/IERC20Metadata.sol",
+      "sha256": "0b7132f17d14d1d84b41b0bb429be62dafdff00fd3470f68724d8018eb07f57a"
+    },
+    {
+      "file": "vendor/@openzeppelin/contracts/token/ERC20/IERC20.sol",
+      "source": "/Library/Vibes/sworn/lib/openzeppelin-contracts/contracts/token/ERC20/IERC20.sol",
+      "sha256": "01b6f5c4fa45fd38822b286ecef6daf983d27306dd6362496fa71b3e4600b72c"
+    },
+    {
+      "file": "vendor/@openzeppelin/contracts/interfaces/IERC1363.sol",
+      "source": "/Library/Vibes/sworn/lib/openzeppelin-contracts/contracts/interfaces/IERC1363.sol",
+      "sha256": "9c3a75a925a6dac9e88b03cddc58d42fe3131b0aaaad84408521f3f7af2f991b"
+    },
+    {
+      "file": "vendor/@openzeppelin/contracts/interfaces/IERC165.sol",
+      "source": "/Library/Vibes/sworn/lib/openzeppelin-contracts/contracts/interfaces/IERC165.sol",
+      "sha256": "dfb3f56fa928a7c6cae41a7ce2c86b9210fa18d33fa26389099d66a0fa790368"
+    },
+    {
+      "file": "vendor/@openzeppelin/contracts/utils/introspection/IERC165.sol",
+      "source": "/Library/Vibes/sworn/lib/openzeppelin-contracts/contracts/utils/introspection/IERC165.sol",
+      "sha256": "9055c2994b37dea1a41b7b7926dcb510f05dbe2540b0aafc5fbee9558fffd0ca"
+    },
+    {
+      "file": "vendor/@openzeppelin/contracts/interfaces/IERC20.sol",
+      "source": "/Library/Vibes/sworn/lib/openzeppelin-contracts/contracts/interfaces/IERC20.sol",
+      "sha256": "0158e2d3e0e28bedd99eec13dcf1a8aa3a70a5b7e4bb2ad709609c95fcc740d1"
+    },
+    {
+      "file": "vendor/@openzeppelin/contracts/token/ERC721/ERC721.sol",
+      "source": "/Library/Vibes/sworn/lib/openzeppelin-contracts/contracts/token/ERC721/ERC721.sol",
+      "sha256": "ef8e2398c78851bd2ec12bc48d923058c557889d5a3d5ee4919c17ff0fb3517e"
+    },
+    {
+      "file": "vendor/@openzeppelin/contracts/interfaces/draft-IERC6093.sol",
+      "source": "/Library/Vibes/sworn/lib/openzeppelin-contracts/contracts/interfaces/draft-IERC6093.sol",
+      "sha256": "fa7068f56bc180571a6095be6eaef06d51dbe81e30cb128397d993c9599ecc30"
+    },
+    {
+      "file": "vendor/@openzeppelin/contracts/utils/introspection/ERC165.sol",
+      "source": "/Library/Vibes/sworn/lib/openzeppelin-contracts/contracts/utils/introspection/ERC165.sol",
+      "sha256": "61a2b12c96857aaa35f48aeda67a4281637a42494c0b3795be0ae976aa7b3793"
+    },
+    {
+      "file": "vendor/@openzeppelin/contracts/utils/Context.sol",
+      "source": "/Library/Vibes/sworn/lib/openzeppelin-contracts/contracts/utils/Context.sol",
+      "sha256": "847fda5460fee70f56f4200f59b82ae622bb03c79c77e67af010e31b7e2cc5b6"
+    },
+    {
+      "file": "vendor/@openzeppelin/contracts/token/ERC721/utils/ERC721Utils.sol",
+      "source": "/Library/Vibes/sworn/lib/openzeppelin-contracts/contracts/token/ERC721/utils/ERC721Utils.sol",
+      "sha256": "b48e95db8c85866c1d88af8e82f346e0d22d24b5aac5b936079d958c72e13b9f"
+    },
+    {
+      "file": "vendor/@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol",
+      "source": "/Library/Vibes/sworn/lib/openzeppelin-contracts/contracts/token/ERC721/IERC721Receiver.sol",
+      "sha256": "eafee3ffdc7cb2fba4bf6bd16fb28f8e5b4679742e81c2ad42a1b1df5c179feb"
+    },
+    {
+      "file": "vendor/@openzeppelin/contracts/token/ERC721/extensions/IERC721Metadata.sol",
+      "source": "/Library/Vibes/sworn/lib/openzeppelin-contracts/contracts/token/ERC721/extensions/IERC721Metadata.sol",
+      "sha256": "33223782ea652dca413702ce92f9f59d91d758a035065b24bbedb7dc60c63a78"
+    },
+    {
+      "file": "vendor/@openzeppelin/contracts/token/ERC721/IERC721.sol",
+      "source": "/Library/Vibes/sworn/lib/openzeppelin-contracts/contracts/token/ERC721/IERC721.sol",
+      "sha256": "ff0eb9902bf0ac099205615fac90eacf34fae637571b05aab3ea35dea53d5f17"
+    },
+    {
+      "file": "vendor/@openzeppelin/contracts/utils/cryptography/MessageHashUtils.sol",
+      "source": "/Library/Vibes/sworn/lib/openzeppelin-contracts/contracts/utils/cryptography/MessageHashUtils.sol",
+      "sha256": "538a0d7c4f0ec5a8562f58561890f7b49d14580674ecf58bc5f505b45c73df65"
+    },
+    {
+      "file": "vendor/OPENZEPPELIN-LICENSE",
+      "source": "/Library/Vibes/sworn/lib/openzeppelin-contracts/LICENSE",
+      "sha256": "20aebc68b11c063133aa2af0ef4bb29875477c6d16d715718f0daec563938b84"
+    }
+  ]
+}

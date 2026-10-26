@@ -1,0 +1,60 @@
+{
+  "1": {
+    "question": "Within the request's pinned block window (fromBlock ~G to toBlock ~H, both inclusive) on Ethereum mainnet, count the `~C` events emitted by the contract ~B whose indexed ~D argument equals ~A~I. Answer the count as one integer; answer 0 if no such event exists.",
+    "definitions": {
+      "method": "eth_getLogs on the contract with topic0 = the event's signature hash and the indexed argument(s) as topics, over exactly the pinned window; or the equivalent explorer log query. Count matching logs; do not deduplicate by transaction. Block numbers are hex.",
+      "window": "The pinned window is the whole evidence; events outside it do not count."
+    }
+  },
+  "2": {
+    "question": "Within the request's pinned block window (fromBlock ~G to toBlock ~H, both inclusive) on Ethereum mainnet, sum the ~E argument of the `~C` events emitted by the contract ~B whose indexed ~D argument equals ~A~I. Answer the sum as one integer in the argument's raw units (no decimals applied); answer 0 if no such event exists.",
+    "definitions": {
+      "method": "eth_getLogs on the contract with topic0 = the event's signature hash and the indexed argument(s) as topics, over exactly the pinned window; or the equivalent explorer log query. Sum the named argument of matching logs; do not deduplicate by transaction. Block numbers are hex.",
+      "units": "Raw integer units of the argument as emitted, e.g. wei for an ETH amount.",
+      "window": "The pinned window is the whole evidence; events outside it do not count."
+    }
+  },
+  "3": {
+    "question": "Within the request's pinned block window (fromBlock ~G to toBlock ~H, both inclusive) on Ethereum mainnet, sum the ~E argument of the `~C` events emitted by the contract ~B grouped by the indexed ~D argument (topic ~M of the log), never by a data field. Return the ~F keys with the largest sums, descending by sum, ties by address ascending (lowercase hex).",
+    "definitions": {
+      "method": "eth_getLogs over exactly the pinned window; group by the indexed ~D argument (the log's topic ~M, an address: left-pad 12 zero bytes), never by a data word; sum ~E in raw units; sort descending by sum and break ties by lowercase address ascending; include positions beyond ~F, agreement is on the first ~F. An entry that is not an address (12 leading zero bytes) is a wrong answer."
+    }
+  },
+  "4": {
+    "question": "At the last block of the request's pinned window (toBlock ~H) on Ethereum mainnet, does the view function `~C` of the contract ~B return a value ~J ~F for the address ~A? Answer true or false.",
+    "definitions": {
+      "method": "One eth_call of the function with ~A as the argument at block ~H (hex, not 'latest') on an endpoint with historical state; compare the raw integer return value with ~F using ~J. A null, pruned or 'latest' read is no evidence."
+    }
+  },
+  "5": {
+    "question": "At Ethereum mainnet block ~K (hex ~H, block hash 0x43ac0aadac9b134a5e4555d28323431664fd77d74cd6a28cb4ca65e34ba72256; the block in which the WhitelistCurator contract 0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91 was deployed), was the account nonce of address ~A, as returned by eth_getTransactionCount at that block, at least ~F? This asks about the account's nonce in the chain state at that block, not about its transaction history.",
+    "definitions": {
+      "false": "false only if an endpoint with historical state returns a count at block ~H below ~F (~L). If you could not read the historical count, write no answer; never answer false from a pruned, null or 'latest' read.",
+      "method": "Call eth_getTransactionCount(~A, ~H) (hex block, not 'latest') on an endpoint with historical state, e.g. https://rpc.mevblocker.io or https://eth.drpc.org; cite endpoint and call. Pruned or unavailable state, errors or null (flashbots, 1rpc, cloudflare, publicnode) are no evidence: use another endpoint with historical state. Explorer transaction lists are not the nonce and are not evidence.",
+      "true": "true only if an endpoint with historical state returns a transaction count at block ~H of at least ~F (~L).",
+      "window": "The window is the single block ~K; it fixes which chain state to read. It is not a time range, and the current (latest) nonce is not the answer."
+    }
+  },
+  "6": {
+    "question": "Up to block ~K on Ethereum mainnet, did the wallet ~A operate an IdentityMD seat through at least 3 accepted Identity.md swarm jobs while it held that seat? Answer true or false.",
+    "definitions": {
+      "method": "Four steps, executed in order as one procedure: seats (step 1), agent (step 2), accepted (step 3), answer (step 4). Every read is of Ethereum mainnet archive logs and state up to block ~K inclusive. A pruned, null or partial log read, or an endpoint without the window, is no evidence: write no answer, never false.",
+      "seats": "Step 1, seats. Every Transfer(from, to, tokenId; all indexed) log of the IdentityMD collection 0x0000eC93127BAA929E58E97dd0095A2BFb38ec1D from block 25090085 to ~K whose from or to is ~A. Per tokenId, a holding interval runs from the block of a transfer to the wallet (inclusive) to the block of the next transfer of that token away from it (exclusive); an interval still open at ~K ends at ~K inclusive. Same-block transfers are ordered by log index.",
+      "agent": "Step 2, the agents of a seat. The AgentBound(uint256 indexed agentId, uint8 indexed standard, address indexed tokenContract, uint256 tokenId, address registeredBy) logs of the adapter 0xde152AfB7db5373F34876E1499fbD893A82dD336 with tokenContract equal to the collection and tokenId equal to the seat. An agent is bound to the seat from the block of its AgentBound log on. A seat without a binding has no agent and counts nothing.",
+      "accepted": "Step 3, accepted jobs. The NewFeedback logs (topic 0 0x6a4a61743519c9d648a14e6493f47dbe3ff1aa29e7785c96c8326a205e58febc) of the reputation registry 0x8004baa17c55a88189ae136b182e5fda19de9b63 whose topic 2 is the batcher 0xb6d0a187b050fa5bb0b87033a203f37becf4a775, whose second data word (bytes 32 to 63) equals 1, whose block lies inside one of the wallet's holding intervals of a seat, and whose topic 1 is an agent bound to that seat at or before the log's block. Each such log is one entry.",
+      "answer": "Step 4, the answer. true when the entries of step 3, summed over every seat the wallet held, number at least 3; false otherwise. Count entries, not distinct jobs; a log whose second data word is not 1 counts nothing.",
+      "true": "true only if complete historical log reads establish at least 3 entries under the method.",
+      "false": "false only if complete historical log reads establish fewer than 3 entries under the method. If a read is pruned, null, partial or unavailable, write no answer; never answer false from an incomplete read.",
+      "window": "The window is blocks 25090085 to ~K inclusive on Ethereum mainnet; it fixes which logs and chain state count. The current head is not the window."
+    }
+  },
+  "7": {
+    "question": "At Ethereum mainnet block ~K (hex ~H; the last block of the spec's window), was the account nonce of address ~A, as returned by eth_getTransactionCount at that block, at least ~F? This asks about the account's nonce in the chain state at that block, not about its transaction history.",
+    "definitions": {
+      "false": "false only if an endpoint with historical state returns a count at block ~H below ~F (~L). If you could not read the historical count, write no answer; never answer false from a pruned, null or 'latest' read.",
+      "method": "Call eth_getTransactionCount(~A, ~H) (hex block, not 'latest') on an endpoint with historical state, e.g. https://rpc.mevblocker.io or https://eth.drpc.org; cite endpoint and call. Pruned or unavailable state, errors or null (flashbots, 1rpc, cloudflare, publicnode) are no evidence: use another endpoint with historical state. Explorer transaction lists are not the nonce and are not evidence.",
+      "true": "true only if an endpoint with historical state returns a transaction count at block ~H of at least ~F (~L).",
+      "window": "The window is the single block ~K; it fixes which chain state to read. It is not a time range, and the current (latest) nonce is not the answer."
+    }
+  }
+}

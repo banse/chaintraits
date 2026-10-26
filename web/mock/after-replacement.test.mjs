@@ -1,0 +1,22 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { encodeFunctionData } from 'viem';
+import { createEngine, addresses, abis, WALLET } from './engine.mjs';
+const mint = {from:WALLET,to:addresses.Registry,data:encodeFunctionData({abi:abis.Registry,functionName:'mintCard'})};
+for (const kind of ['speedup','cancel','revert']) test(`scripted ${kind} keeps the nonce and never mines the superseded transaction`, async () => {
+  let now=1000; const e=createEngine({now:()=>now});
+  e.configure({allowance:String(10n**18n)});
+  const original=await e.rpc({method:'eth_sendTransaction',params:[mint]});
+  const {replacement}=e.replace(original,kind);
+  now+=3000;
+  const receipt=await e.rpc({method:'eth_getTransactionReceipt',params:[replacement]});
+  assert.equal(await e.rpc({method:'eth_getTransactionReceipt',params:[original]}),null);
+  assert.equal(receipt.status,kind==='revert'?'0x0':'0x1');
+  assert.equal(e.state().token,kind==='speedup'?'1':'0');
+  const a=await e.rpc({method:'eth_getTransactionByHash',params:[original]});
+  const b=await e.rpc({method:'eth_getTransactionByHash',params:[replacement]});
+  assert.equal(a.nonce,b.nonce);
+  const block=await e.rpc({method:'eth_getBlockByNumber',params:[receipt.blockNumber,true]});
+  assert.ok(block.transactions.some(t=>t.hash===replacement));
+  assert.throws(()=>e.replace(original,'cancel'));
+});

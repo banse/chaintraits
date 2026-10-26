@@ -16,6 +16,10 @@ test('the publish gate refuses mock runtime transports and absolute local asset 
       fs.writeFileSync(path.join(temp, 'assets/app.js'), code);
       assert.throws(() => verifyStaticRelease(temp), /Mock runtime/);
     }
+    for (const label of ['Fact Check Demo', 'Replay sequence', 'Choose a static snapshot', 'sworn-demo.eth', 'scripted participation']) {
+      fs.writeFileSync(path.join(temp, 'assets/app.js'), JSON.stringify(label));
+      assert.throws(() => verifyStaticRelease(temp), /Demo runtime/);
+    }
     fs.writeFileSync(path.join(temp, 'assets/app.js'), 'console.log("public runtime")');
     fs.writeFileSync(path.join(temp, 'index.html'), '<script src="/assets/app.js"></script>');
     assert.throws(() => verifyStaticRelease(temp), /relative/);

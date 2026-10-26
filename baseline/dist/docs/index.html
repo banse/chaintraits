@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Sworn documentation: wallet facts, immutable rules, cards, verification and integration trade-offs.">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'none'">
+<meta name="color-scheme" content="dark">
+<title>Sworn documentation · Sworn docs</title>
+<link rel="stylesheet" href="style.css">
+<script src="search-data.js" defer></script><script src="app.js" defer></script>
+</head><body>
+<a class="skip-link" href="#main">Skip to content</a>
+<header class="site-header"><a class="wordmark" href="index.html">SWORN <span>Documentation</span></a>
+<nav aria-label="Documentation tools"><a href="full-guide.html">Read / print all</a><a href="sworn-handbook.md" download>Download handbook</a></nav></header>
+<div class="layout">
+<aside class="sidebar" aria-label="Documentation navigation">
+<form class="search" role="search" hidden><label for="doc-search">Search the handbook</label><div class="search-input"><input id="doc-search" type="search" placeholder="Try “Merkle” or “Mint Facts”" autocomplete="off" aria-controls="search-results"><button type="button" class="search-clear" aria-label="Clear search" hidden>×</button></div><p id="search-status" role="status" aria-live="polite"></p><ol id="search-results" hidden></ol></form>
+<nav class="chapter-nav" aria-label="Chapters"><a href="index.html" aria-current="page">Overview</a><a href="guide.html">User guide</a><a href="architecture.html">Architecture &amp; alternatives</a><a href="builders.html">Build with Sworn</a><a href="reference.html">Reference</a></nav>
+<details class="page-toc"><summary>On this page</summary><nav aria-label="On this page"><ol><li><a href="#start-with-three-distinctions">Start with three distinctions</a></li><li><a href="#how-the-pieces-connect">How the pieces connect</a></li><li><a href="#choose-a-reading-path">Choose a reading path</a></li><li><a href="#why-this-design-may-be-useful">Why this design may be useful</a></li><li><a href="#try-the-local-version">Try the local version</a></li><li><a href="#reused-material-and-evidence-dates">Reused material and evidence dates</a></li></ol></nav></details>
+<p class="sidebar-note">A source-bound handbook.<br>Updated 2026-10-25.</p>
+</aside>
+<main id="main" tabindex="-1">
+<div class="document-meta"><span>Documented contracts</span><a href="https://github.com/identity-md-launches/launch-2404-renderer-composer-registry/tree/c4ff3238390fc51962fb67e86affc20cf418126e">Source c4ff3238</a></div>
+<h1>Sworn documentation</h1>
+<p class="edition-note">Protocol behavior and local mock features are distinguished throughout. This documentation makes no wallet connections or chain requests.</p>
+<article class="prose"><p>Sworn makes a defined statement about an Ethereum wallet available to other applications through a contract read. Some statements come directly from WhitelistCurator. Others require an IMD oracle answer that passes the Registry’s checks. A collectible card can render the wallet’s facts, but a wallet does not need a card to hold or use them.</p>
+<p>This handbook explains how to use that system, what is distinctive about its design, and when a simpler mechanism may be a better fit. It documents the launch-2404 contracts at source commit <code>c4ff3238390fc51962fb67e86affc20cf418126e</code>, with a separate explanation of the revised local mock. It does not report a fresh mainnet-state audit or endorse a payment. <a href="https://github.com/identity-md-launches/launch-2404-renderer-composer-registry/tree/c4ff3238390fc51962fb67e86affc20cf418126e">Pinned contract source</a>.</p>
+<h2 id="start-with-three-distinctions">Start with three distinctions</h2>
+<div class="tablewrap" role="region" aria-label="Comparison or reference table; scroll sideways if needed" tabindex="0"><table><thead><tr><th>Term</th><th>Meaning</th><th>What it does not mean</th></tr></thead><tbody><tr><td>Rule</td><td>An immutable definition of what to check, including the evidence window and supported template.</td><td>A wallet has already satisfied it.</td></tr><tr><td>Fact</td><td>A predicate the authentic Registry currently reports for a wallet. Oracle facts require accepted evidence.</td><td>A free-floating claim, a guaranteed truth, or a unique-human identity.</td></tr><tr><td>Card</td><td>A transferable visual artifact associated with its original claimant.</td><td>Transferable ownership of that claimant’s credentials.</td></tr></tbody></table></div>
+<p>The revised interface calls the tasks <strong>Mint Card</strong>, <strong>Mint Facts</strong>, and <strong>Mint Rule</strong>. “Mint Facts” means recording an accepted wallet fact in the Registry contract. It does not put a fact inside an NFT: the card reads the Registry when producing its artwork. Submission alone does not establish a fact; only an accepted stored result does. A shared result must also be applied to the wallet. <a href="guide.html">User guide</a>.</p>
+<h2 id="how-the-pieces-connect">How the pieces connect</h2>
+<figure><img src="assets/fact-flow.svg" alt="A rule is composed into an exact question, an IMD panel supplies a signed answer, and the Registry validates and stores it. Applications read the wallet predicate; the optional card is a separate view." loading="lazy" decoding="async"></figure>
+<p>For a direct fact, the Registry uses the Curator-based read or the wallet’s frozen mint snapshot instead of an oracle. The diagram’s panel path describes oracle facts. The Registry authenticates a configured signer and validates the answer’s bindings; it does not independently replay the entire historical computation. <a href="architecture.html">Architecture and trust assumptions</a>.</p>
+<h2 id="choose-a-reading-path">Choose a reading path</h2>
+<ul>
+<li><strong>I want to understand or use Sworn:</strong> start with the <a href="guide.html">user guide</a>. It covers the Curator origin, fact classes, minting, community examples, the card and recovery.
+</li>
+<li><strong>I want to assess the design:</strong> read <a href="architecture.html">architecture and alternatives</a>. It compares Merkle allowlists, signed vouchers, NFT gates, attestation registries and cryptographic proofs without claiming that one replaces all the others.
+</li>
+<li><strong>I want to integrate it:</strong> use <a href="builders.html">Build with Sworn</a>. It includes read signatures, an authenticated-wallet gate, a reproducible allowlist procedure and the shared-list delivery path.
+</li>
+<li><strong>I need exact names and limits:</strong> use the <a href="reference.html">reference</a>, including the deployment, catalog, template limits and source inventory.
+</li></ul>
+<p>The <strong>Full handbook</strong> link combines the chapters into one printable document. The Markdown download contains the same text. Search works locally over the bundled chapters; it sends no query to an external service.</p>
+<h2 id="why-this-design-may-be-useful">Why this design may be useful</h2>
+<p>Consider two projects that both want to recognize wallets that participated in a historical activity. Each could publish its own list. Sworn instead offers a common predicate whose rule and accepted evidence can be inspected and reused. Projects still choose their own eligibility policy; sharing a predicate does not force them to share a distribution or trust every fact.</p>
+<p>That separation is the central idea: define the question once, preserve its evidence context, and let several consumers read the same wallet-level result. The optional card makes those facts visible without becoming the authorization mechanism. This is a design combination, not a claim that registries, oracles, NFTs or reusable attestations were invented by Sworn.</p>
+<p>There are costs. Oracle results depend on the configured service and signer. A historical fact is not a continuously refreshed balance. Public predicates disclose information. For a one-off distribution to an already agreed list, a Merkle tree can be simpler and cheaper to operate. A useful hybrid is to evaluate Sworn predicates at one block, apply a project’s allocation policy, and publish that exact snapshot as a Merkle root. <a href="architecture.html">Decision guide</a>.</p>
+<h2 id="try-the-local-version">Try the local version</h2>
+<p>The <a href="http://127.0.0.1:8799/#/mint">revised local mock</a> demonstrates delayed wallet transactions, panel progress, community rules, card rendering and curator consumption. It uses synthetic data, eight known wallet fixtures and scripted oracle outcomes. The close button hides a verification overview without deleting its result from Review transaction steps. Its artwork approximates parts of the deployed Renderer.</p>
+<p>The mock’s successful journey is an interface demonstration. It is not a mainnet credential, a real oracle run, a complete Ethereum wallet index or a production safety certificate. The documentation itself never connects a wallet or submits a request. The <a href="https://swornbyswarm.sites.imd.fun/">public Sworn site</a> is a separate deployment, and its interface may differ from the local revision.</p>
+<h2 id="reused-material-and-evidence-dates">Reused material and evidence dates</h2>
+<p>This edition builds on the three earlier how-to threads, the content/storyline review, the four-wallet worked example, the verified community-template examples, and the mint/curator reviews. Their useful explanations are retained; stale language and mock limitations are corrected.</p>
+<p>The reused chain examples are explicitly dated <strong>24 October 2026, Ethereum block 26,264,861</strong>. They are historical observations, not automatically refreshed claims about today. In particular, the old example showing no community facts does not establish that no community facts exist now. <a href="reference.html">Source and evidence inventory</a>.</p></article>
+<nav class="chapter-pager" aria-label="Adjacent chapters"><a href="guide.html"><span>Next</span>User guide</a></nav>
+<footer class="document-footer"><a href="reference.html">Sources and deployment reference</a><span>Sworn handbook · 2026-10-25</span><a href="#main">Back to top</a></footer>
+</main></div></body></html>

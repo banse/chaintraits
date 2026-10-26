@@ -1,0 +1,24 @@
+.single-fact-picker .picker-text > .shared-details,
+.single-fact-picker .picker-text > .source,
+.single-fact-picker .picker-text > .row-detail {
+  margin-inline-start: 0;
+}
+
+.single-fact-picker .picker-row.is-minted,
+.single-fact-picker .picker-row.is-minted :is(strong, .accent, .class-mark, .rule, .muted) {
+  color: var(--muted);
+}
+
+.single-fact-picker .picker-row.is-minted > .mini-card {
+  filter: grayscale(1);
+}
+
+.single-fact-picker .row-request-status {
+  margin-block: 8px 0;
+  font-size: var(--small);
+}
+
+.single-fact-picker .fact-request-price {
+  margin-block-end: 8px;
+  font-size: var(--small);
+}

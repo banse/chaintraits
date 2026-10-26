@@ -10,7 +10,7 @@ import { read, scopedClient, health, contract, tokenAbi, explain, ACTION, type W
 import { imd } from "../pure.mjs";
 import { checkEligibility } from "../eligibility.mjs";
 import { checkSharedSpec } from "../shared-safety.mjs";
-import { quoteEth, swapCall, type SwapQuote } from "../swap";
+import type { SwapQuote } from "../swap";
 import { TRAITS } from "../data";
 import { type WatchedFact } from "../swarm";
 import { resolveReceipt } from "../transaction-intent.mjs";
@@ -204,6 +204,8 @@ function useTransactionController() {
     payment: string,
     preview?: WalletFacts,
   ) {
+    if (payment !== "IMD")
+      throw Error("Only IMD fee payments are supported. Prepare again with IMD.");
     if (lock.current) throw Error("A transaction flow is already in progress.");
     if (
       steps.some((s) =>
@@ -260,13 +262,10 @@ function useTransactionController() {
       functionName: "balanceOf",
       args: [account.address],
     });
-    if (payment === "IMD" && balance < amount)
+    if (balance < amount)
       throw Error(
-        `Insufficient IMD. You need ${imd(amount - balance)} more IMD before approving. Choose ETH to buy only the missing amount.`,
+        `Insufficient IMD. You need ${imd(amount - balance)} more IMD before approving.`,
       );
-    let quote: SwapQuote | undefined;
-    if (payment === "ETH" && balance < amount)
-      quote = await quoteEth(site.client, site.r, amount - balance);
     const allowance = await site.client.readContract({
       address: fresh.deps.imd,
       abi: tokenAbi,
@@ -274,16 +273,6 @@ function useTransactionController() {
       args: [account.address, contract(site.r, "Registry").address],
     });
     const stage: Step[] = [];
-    if (quote)
-      stage.push({
-        label: `Buy exactly ${imd(quote.output)} IMD with ETH`,
-        state: "ready",
-        call: {
-          label: "Buy IMD",
-          ...swapCall(site.r, quote, account.address),
-          amount: 0n,
-        },
-      });
     if (allowance < amount) {
       if (allowance > 0n)
         stage.push({
@@ -314,7 +303,7 @@ function useTransactionController() {
     for (const call of calls)
       stage.push({ label: call.label, state: "ready", call });
     if (run !== generation.current)
-      throw Error("The payment choice changed. Prepare again.");
+      throw Error("The preparation was cleared. Prepare again.");
     const p: Plan = {
       title,
       from,
@@ -325,7 +314,6 @@ function useTransactionController() {
       balance,
       account: account.address,
       payment,
-      quote,
       preview,
     };
     if (steps.some((s) => s.hash))
@@ -355,6 +343,11 @@ function useTransactionController() {
       throw Error(
         "Recovered records cannot be resent. Check the receipt first.",
       );
+    if (
+      plan.payment !== "IMD" || plan.quote ||
+      call.functionName === "execute" || (call.value ?? 0n) > 0n
+    )
+      throw Error("Only IMD fee payments are supported. Recover any outstanding receipt, then prepare again with IMD.");
     const fresh = await health(site.client, site.r);
     if (
       plan.calls.some((c) =>
@@ -397,12 +390,6 @@ function useTransactionController() {
       if (balance < call.amount)
         throw Error(`Insufficient IMD. Balance ${imd(balance)} IMD.`);
     }
-    if (
-      plan.quote &&
-      index === 0 &&
-      BigInt(Math.floor(Date.now() / 1000)) >= plan.quote.deadline
-    )
-      throw Error("The ETH quote expired. Prepare again.");
     return {
       address: call.address || contract(site.r, "Registry").address,
       abi: call.abi || site.r.abis.Registry,
@@ -575,6 +562,10 @@ function useTransactionController() {
       const hash = await wallet.writeContract(simulated.request);
       submittedHash = hash;
       update(index, { state: "pending", hash });
+      if (["upgrade", "requestSharedFact"].includes(steps[index]?.call?.functionName || "")) {
+        setOpen(false);
+        location.hash = `#/fact-check?wallet=${encodeURIComponent(plan.account)}`;
+      }
       // Wallets choose the submitted nonce. Keep our target/data/value intent,
       // but bind it to the actual transaction nonce before checking replacements.
       try {

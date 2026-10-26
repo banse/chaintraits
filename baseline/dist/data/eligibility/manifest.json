@@ -1,0 +1,440 @@
+{
+  "schema": 1,
+  "chainId": 1,
+  "registry": "0x0da2679000ea5380d1361cc3cca7d4e8c881f766",
+  "curator": "0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91",
+  "fromBlock": 25769870,
+  "toBlock": 25789604,
+  "closingBlockHash": "0x57852dbfd56daf8e7b4bf68c2e25f73dd583f99eac5b00c03a50603e4a2cef37",
+  "factIds": [
+    701,
+    801,
+    901,
+    1001,
+    1101,
+    1102,
+    1103,
+    1104,
+    1105
+  ],
+  "firstDepositIndices": {
+    "from": 1,
+    "to": 19522,
+    "unique": 19522
+  },
+  "events": {
+    "Deposited": {
+      "logs": 28353,
+      "wallets": 19522
+    },
+    "HourSaved": {
+      "logs": 41,
+      "wallets": 33
+    },
+    "FirstDeposit": {
+      "logs": 19522,
+      "wallets": 19522
+    }
+  },
+  "facts": {
+    "701": {
+      "spec": {
+        "kind": 1,
+        "target": "0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91",
+        "item": "event Deposited(address indexed contributor, uint256 indexed hour, uint256 amount, uint256 creditedDelta, uint256 weightAdded, uint256 newWeight, uint256 txCount, uint256 hourTotal, uint256 earlyBps)",
+        "arg": "contributor",
+        "fixedArg": "",
+        "fixedVal": "0",
+        "sumArg": "",
+        "op": 0,
+        "threshold": "1",
+        "fromBlock": "25777045",
+        "toBlock": "25789604",
+        "name": "Uptime"
+      },
+      "matchingLogs": 5958,
+      "matchingWallets": 3936
+    },
+    "801": {
+      "spec": {
+        "kind": 1,
+        "target": "0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91",
+        "item": "event Deposited(address indexed contributor, uint256 indexed hour, uint256 amount, uint256 creditedDelta, uint256 weightAdded, uint256 newWeight, uint256 txCount, uint256 hourTotal, uint256 earlyBps)",
+        "arg": "contributor",
+        "fixedArg": "hour",
+        "fixedVal": "64",
+        "sumArg": "",
+        "op": 0,
+        "threshold": "1",
+        "fromBlock": "25769870",
+        "toBlock": "25789604",
+        "name": "Holdout"
+      },
+      "matchingLogs": 8,
+      "matchingWallets": 7
+    },
+    "901": {
+      "spec": {
+        "kind": 1,
+        "target": "0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91",
+        "item": "event Deposited(address indexed contributor, uint256 indexed hour, uint256 amount, uint256 creditedDelta, uint256 weightAdded, uint256 newWeight, uint256 txCount, uint256 hourTotal, uint256 earlyBps)",
+        "arg": "contributor",
+        "fixedArg": "hour",
+        "fixedVal": "65",
+        "sumArg": "",
+        "op": 0,
+        "threshold": "1",
+        "fromBlock": "25769870",
+        "toBlock": "25789604",
+        "name": "Final Token"
+      },
+      "matchingLogs": 1,
+      "matchingWallets": 1
+    },
+    "1001": {
+      "spec": {
+        "kind": 1,
+        "target": "0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91",
+        "item": "event HourSaved(address indexed savior, uint256 indexed hour, uint256 hourTotal)",
+        "arg": "savior",
+        "fixedArg": "",
+        "fixedVal": "0",
+        "sumArg": "",
+        "op": 0,
+        "threshold": "1",
+        "fromBlock": "25769870",
+        "toBlock": "25789604",
+        "name": "Hotfix"
+      },
+      "matchingLogs": 41,
+      "matchingWallets": 33
+    },
+    "1101": {
+      "spec": {
+        "kind": 1,
+        "target": "0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91",
+        "item": "event FirstDeposit(address indexed contributor, uint256 indexed index, uint256 timestamp)",
+        "arg": "contributor",
+        "fixedArg": "index",
+        "fixedVal": "1",
+        "sumArg": "",
+        "op": 0,
+        "threshold": "1",
+        "fromBlock": "25769870",
+        "toBlock": "25789604",
+        "name": "PID #1"
+      },
+      "matchingLogs": 1,
+      "matchingWallets": 1
+    },
+    "1102": {
+      "spec": {
+        "kind": 1,
+        "target": "0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91",
+        "item": "event FirstDeposit(address indexed contributor, uint256 indexed index, uint256 timestamp)",
+        "arg": "contributor",
+        "fixedArg": "index",
+        "fixedVal": "1000",
+        "sumArg": "",
+        "op": 0,
+        "threshold": "1",
+        "fromBlock": "25769870",
+        "toBlock": "25789604",
+        "name": "PID #1000"
+      },
+      "matchingLogs": 1,
+      "matchingWallets": 1
+    },
+    "1103": {
+      "spec": {
+        "kind": 1,
+        "target": "0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91",
+        "item": "event FirstDeposit(address indexed contributor, uint256 indexed index, uint256 timestamp)",
+        "arg": "contributor",
+        "fixedArg": "index",
+        "fixedVal": "10000",
+        "sumArg": "",
+        "op": 0,
+        "threshold": "1",
+        "fromBlock": "25769870",
+        "toBlock": "25789604",
+        "name": "PID #10000"
+      },
+      "matchingLogs": 1,
+      "matchingWallets": 1
+    },
+    "1104": {
+      "spec": {
+        "kind": 1,
+        "target": "0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91",
+        "item": "event FirstDeposit(address indexed contributor, uint256 indexed index, uint256 timestamp)",
+        "arg": "contributor",
+        "fixedArg": "index",
+        "fixedVal": "19522",
+        "sumArg": "",
+        "op": 0,
+        "threshold": "1",
+        "fromBlock": "25769870",
+        "toBlock": "25789604",
+        "name": "PID #19522"
+      },
+      "matchingLogs": 1,
+      "matchingWallets": 1
+    },
+    "1105": {
+      "spec": {
+        "kind": 1,
+        "target": "0xcb0b0531e86a9ac36fa865ca8e3dbccf047fda91",
+        "item": "event FirstDeposit(address indexed contributor, uint256 indexed index, uint256 timestamp)",
+        "arg": "contributor",
+        "fixedArg": "",
+        "fixedVal": "0",
+        "sumArg": "",
+        "op": 0,
+        "threshold": "1",
+        "fromBlock": "25769870",
+        "toBlock": "25770897",
+        "name": "First thousand"
+      },
+      "matchingLogs": 1000,
+      "matchingWallets": 1000
+    }
+  },
+  "samples": {
+    "index1": "0x200e710acaa6a93bbc77146026328c40f1d60fb1",
+    "index1000": "0x3730ce983bcde8a76c00e5fafea7b2f89feb10b0",
+    "index10000": "0xe668d9cdc74b15681ed1215700142dee2cd6b986",
+    "index19522": "0x2e96662e64ed947a9656fb586b2a3596ea8ba6c2",
+    "hour65": "0x887b86b6b6957f7bbea88b8cefd392f39236a88c"
+  },
+  "generatorCommand": "node web/scripts/snapshot-eligibility.mjs --rpc https://gateway.tenderly.co/public/mainnet --rpc https://rpc.mevblocker.io/fast",
+  "comparison": {
+    "method": "every range compared on two independent endpoints",
+    "endpoints": [
+      "https://gateway.tenderly.co/public/mainnet",
+      "https://rpc.mevblocker.io/fast"
+    ],
+    "canonicalFields": [
+      "address",
+      "blockNumber",
+      "blockHash",
+      "transactionHash",
+      "logIndex",
+      "topics",
+      "data"
+    ],
+    "logsSha256": "775a899544434fc44b85c1208cf659dc38819aeca71e50699ce928feaee70008",
+    "ranges": [
+      {
+        "fromBlock": 25769870,
+        "toBlock": 25770869,
+        "logs": 2522,
+        "sha256": "279925d511aa7664d0102c65c81614db4cbd13b5b7b170d0800fe29ea7fb909a"
+      },
+      {
+        "fromBlock": 25770870,
+        "toBlock": 25771119,
+        "logs": 3338,
+        "sha256": "6b5af2ed350618d69fb443044b3ec99c88d8f42fbb8cf53253098192d5a4e5e9"
+      },
+      {
+        "fromBlock": 25771120,
+        "toBlock": 25771369,
+        "logs": 2251,
+        "sha256": "a4710dbdf486a8b377818989eab4400bfb3b1b47ea05114c257ce4b0f0ce8d6e"
+      },
+      {
+        "fromBlock": 25771370,
+        "toBlock": 25771869,
+        "logs": 4531,
+        "sha256": "3d7b9e4fa18ebf24939758c136351cfb2adeb0b32f27e189e938dc51a08f2850"
+      },
+      {
+        "fromBlock": 25771870,
+        "toBlock": 25772869,
+        "logs": 3707,
+        "sha256": "809866376470ace2585d4938bb595076088b2646378d5efb8c09af188db6ece9"
+      },
+      {
+        "fromBlock": 25772870,
+        "toBlock": 25773869,
+        "logs": 4455,
+        "sha256": "afdcb737885de79e70cb4f835192b7c77ee1dbfc92fe2cb5444126701939d09b"
+      },
+      {
+        "fromBlock": 25773870,
+        "toBlock": 25774869,
+        "logs": 3532,
+        "sha256": "b202962ceb1d45e5e90e26ca9eacf078b03ab5a14d3bac2ebd8db6f50132d421"
+      },
+      {
+        "fromBlock": 25774870,
+        "toBlock": 25775369,
+        "logs": 2704,
+        "sha256": "01c78ac9c3c149ec693ea7fd680c09490e4a71544f87b17ebec143eb144809d4"
+      },
+      {
+        "fromBlock": 25775370,
+        "toBlock": 25775869,
+        "logs": 4965,
+        "sha256": "4447f149b97bde398db8f4307f8c7b051ea24e659f28c589cc90b1fdc109dc76"
+      },
+      {
+        "fromBlock": 25775870,
+        "toBlock": 25776369,
+        "logs": 3691,
+        "sha256": "ffa79eb8b6344ef5f4890484b27aba8bcb2329e59ad885f3ef213c61ed7edfd7"
+      },
+      {
+        "fromBlock": 25776370,
+        "toBlock": 25776869,
+        "logs": 1938,
+        "sha256": "d3c7e1d407c417e476544e476b04657f2a891456b573abcd5990e10d40b62a79"
+      },
+      {
+        "fromBlock": 25776870,
+        "toBlock": 25777869,
+        "logs": 705,
+        "sha256": "aa88d1cdcdde4acde00df3e9f19614e11eb4618adbde45f0324bbf0601845f54"
+      },
+      {
+        "fromBlock": 25777870,
+        "toBlock": 25778869,
+        "logs": 255,
+        "sha256": "d32ba882ea7235cbdea24a336cd58a90cdda0303fc528b90df0bb55a5daaa308"
+      },
+      {
+        "fromBlock": 25778870,
+        "toBlock": 25779869,
+        "logs": 415,
+        "sha256": "ada54be4a7fe99e3ce32126abd9f48cae2f3e01e4e35afffb4aa17c75207f00c"
+      },
+      {
+        "fromBlock": 25779870,
+        "toBlock": 25780869,
+        "logs": 4044,
+        "sha256": "6354df4769aca778c87e5f3518e651f1bbb190272baee32ceccd61875eca2bb8"
+      },
+      {
+        "fromBlock": 25780870,
+        "toBlock": 25781869,
+        "logs": 1437,
+        "sha256": "3f5ea4af45788524028139b1087e770a6f0275d5d3ecf056055a81503a807567"
+      },
+      {
+        "fromBlock": 25781870,
+        "toBlock": 25782869,
+        "logs": 928,
+        "sha256": "9135d8cbb5d864d9582ec6414cc91ab5c8eade628a1277945f7ef62771501d91"
+      },
+      {
+        "fromBlock": 25782870,
+        "toBlock": 25783869,
+        "logs": 898,
+        "sha256": "5e054a40ee0fd9fd22721053241c9c7b9f5f0b19b17917fd2bb5620c56b107eb"
+      },
+      {
+        "fromBlock": 25783870,
+        "toBlock": 25784869,
+        "logs": 312,
+        "sha256": "815e01d453e1179a058b0288a91e600e7a9d79b8014b178f0d91f9c9537ee155"
+      },
+      {
+        "fromBlock": 25784870,
+        "toBlock": 25785869,
+        "logs": 298,
+        "sha256": "e6f76ba7ebe7af8cb83ab602540a129ffdd787833657b0214f57ff749b348742"
+      },
+      {
+        "fromBlock": 25785870,
+        "toBlock": 25786869,
+        "logs": 287,
+        "sha256": "2c28b81518f06271d5333dc83bb43586c324de7d326dde5c1e8d729e00d5bf8c"
+      },
+      {
+        "fromBlock": 25786870,
+        "toBlock": 25787869,
+        "logs": 341,
+        "sha256": "3613b989bdc9ebb0eadbe301b465d74d694c63c5f930ea6e05615bea4a75e12d"
+      },
+      {
+        "fromBlock": 25787870,
+        "toBlock": 25788869,
+        "logs": 308,
+        "sha256": "5a69dce6d590f5107c61949885bd0d709546c483ff41f3dd2af773ec934c0d69"
+      },
+      {
+        "fromBlock": 25788870,
+        "toBlock": 25789604,
+        "logs": 54,
+        "sha256": "76b41d264d9b8e1e07ffc2e0e07966cb2b9ef523573d81767611ffbe16562f58"
+      }
+    ]
+  },
+  "files": {
+    "wallets-0.json": {
+      "sha256": "23600998aac5f1424162d660bb7045baa942751a40aa9575db2851079f2c3343",
+      "bytes": 19828
+    },
+    "wallets-1.json": {
+      "sha256": "51d15757d56854b9c9ba2d5490295dd376b2827f64cc24d52b39d88d7619005e",
+      "bytes": 20738
+    },
+    "wallets-2.json": {
+      "sha256": "4f48c74d70b2a3660dc074b828068d79bb5015924ef85f5ea704f654e70cbe93",
+      "bytes": 19177
+    },
+    "wallets-3.json": {
+      "sha256": "c36abc8f7a64e59747daff89325a7e40ca19332e92559ed2e1dd60bb9990e704",
+      "bytes": 20542
+    },
+    "wallets-4.json": {
+      "sha256": "d77b7f559dff6cac3c305459637ed80d62b9ef85e5e435e776c57a71db1e0a12",
+      "bytes": 19242
+    },
+    "wallets-5.json": {
+      "sha256": "cb36eb815a833bac7c12a1604982b8a24a15091c31c40aafdcc496a23d12e2f1",
+      "bytes": 21582
+    },
+    "wallets-6.json": {
+      "sha256": "78cd344b257ed1014c1c8334ebe3a3f9e8ed7b1509b53f2062eb1a8e17710363",
+      "bytes": 20672
+    },
+    "wallets-7.json": {
+      "sha256": "8d871365725dc507febf553e096eb839f25bbe1610724b397885ad9c17b04ec8",
+      "bytes": 22104
+    },
+    "wallets-8.json": {
+      "sha256": "5c682c883519e11295523dc2dead18af0e7d1f889aecec66e06dadbdf63ae39b",
+      "bytes": 20154
+    },
+    "wallets-9.json": {
+      "sha256": "53047c62408d22e77ba34ccb84ab76ae699c945213477f3c828fba1b22a3b774",
+      "bytes": 20090
+    },
+    "wallets-a.json": {
+      "sha256": "55567f31d53f4edd26f1dd1297d2953a93a89f0cf130802fe92b4cae220059c2",
+      "bytes": 18854
+    },
+    "wallets-b.json": {
+      "sha256": "30fcf7dc651b50acf0b7f21662519c0aa906763a927c937e0ec514138fd77ee9",
+      "bytes": 18853
+    },
+    "wallets-c.json": {
+      "sha256": "fe41937481cc3c5857dcb13ec1ebaff636faeed88ba608267f1cd35a804f1b8f",
+      "bytes": 19829
+    },
+    "wallets-d.json": {
+      "sha256": "7e7766d0fd9f08619e8e2c1b34583c3a4a8f9a6ae90c347c2847536695295bf4",
+      "bytes": 20152
+    },
+    "wallets-e.json": {
+      "sha256": "b44eb03cdb4e368c8eba63ba3860054b72364189d8a2cd271a5ff5d4a3a4e31e",
+      "bytes": 19700
+    },
+    "wallets-f.json": {
+      "sha256": "edff668535e5445e48170517be8aa194f2eda17130fcc3db944e8c8fb719f403",
+      "bytes": 19048
+    }
+  }
+}

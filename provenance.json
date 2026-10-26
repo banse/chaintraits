@@ -1,15 +1,11 @@
 {
-  "created": "2026-10-25T03:39:44.180024+00:00",
-  "baseFrontend": {
-    "repository": "https://github.com/identity-md-launches/launch-2412-workflow-frontend-stage-context",
-    "commit": "55475816f2b5d548a3e89a9a4042b02539ced51b",
-    "archiveSha256": "224456e717c9476b6ad5370d28f2082da2ef3f539a5771fc62aa28769d4a193e"
-  },
-  "uiSource": "../sworn-mint-lab-after/site",
-  "contractSource": "c4ff3238390fc51962fb67e86affc20cf418126e",
-  "liveSite": "https://swornbyswarm.sites.imd.fun/",
-  "liveDeploymentManifestSha256": "37cbbca22b484fc46c7941a25c0257345accdb2c6ec86d3ff02457c781192de6",
-  "officialReference": "https://imd.fun/docs/llms.txt",
-  "officialReferenceSha256": "345b1dd0c740914f52df327322a4d4b11917d4072a7b675141979e91aa704412",
-  "mode": "mainnet static frontend; local candidate; unpublished"
+  "created_at": "2026-10-26T04:52:02.590004+00:00",
+  "liveOrigin": "https://sworn.sites.imd.fun/",
+  "frontendRepository": "https://github.com/banse/sworn",
+  "frontendCommit": "f4e1627",
+  "sourceCopy": "../sworn-mainnet-site",
+  "baselineEvidence": "../reports/sworn-fact-check-integration-2026-10-26/evidence/baseline-verification.json",
+  "verifiedLiveAssets": 84,
+  "scope": "Local copy with mainnet Fact Check above Fact History; Wallet sections moved into Mint Card and Mint Facts; demo retired",
+  "published": false
 }

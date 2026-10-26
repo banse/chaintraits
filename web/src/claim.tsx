@@ -13,6 +13,8 @@ import {
 import { TRAITS, SWARMED, FEE, classes } from "./data";
 import { specExamples, templateStart, applyExample } from "./spec-examples.mjs";
 import { sharedMembership } from "./shared-safety.mjs";
+import { factMintState } from "./fact-mint-action.mjs";
+import "./fact-mint-actions.css";
 import {
   imd,
   exactUnits,
@@ -31,6 +33,8 @@ import {
 } from "./components";
 import { useTransactions, type Journal } from "./transactions";
 import { useWalletSheet, SwitchNetworkButton } from "./wallet";
+import { YourSwornCard, ClaimedFacts, RecentVerificationRequests } from "./wallet-facts";
+import { requestHistory as buildRequestHistory, feeKey, savedRequestFees, savedRequests } from "./request-history.mjs";
 import { TASKS } from "./task-navigation.mjs";
 import { eligibilityText } from "./eligibility.mjs";
 import { lastPersonalRequests, lastRequestText } from "./request-outcomes.mjs";
@@ -47,7 +51,6 @@ import {
   MintedFact,
   ineligibleFact,
   useAttestedReader,
-  useFactChecks,
 } from "./fact-ui";
 import {
   RequestTime,
@@ -55,7 +58,7 @@ import {
   SWARM_POLL_MS,
   type WatchedFact,
 } from "./swarm";
-// The connected wallet's open requests, shared by Mint and Wallet.
+// The connected wallet's open verification requests.
 export function openRequests(
   facts: WalletFacts | null,
   address: string | undefined,
@@ -93,48 +96,6 @@ function TaskAction({
   if (account.chainId !== site.r.deployment.chainId)
     return <SwitchNetworkButton r={site.r} />;
   return <>{children}</>;
-}
-function PaymentChoice({
-  id,
-  value,
-  onChange,
-  disabled,
-}: {
-  id: string;
-  value: string;
-  onChange: (value: string) => void;
-  disabled: boolean;
-}) {
-  return (
-    <div className="task-payment" id={id}>
-      <fieldset
-        className="payment"
-        disabled={disabled}
-        aria-describedby={`${id}-help`}
-      >
-        <legend>Payment method</legend>
-        {["IMD", "ETH"].map((method) => (
-          <label key={method}>
-            <input
-              type="radio"
-              name={id}
-              value={method}
-              checked={value === method}
-              onChange={() => onChange(method)}
-            />
-            {method}
-          </label>
-        ))}
-      </fieldset>
-      <p className="muted" id={`${id}-help`}>
-        {value === "ETH"
-          ? "Uses existing IMD first; ETH buys only the missing IMD. The swap quote has a 1% maximum input margin and a 120-second deadline."
-          : "Pay the fee from your IMD balance. A separate approval may be required."}{" "}
-        Ethereum gas is separate and estimated before each transaction. Fiat
-        equivalents are unavailable because no exchange-rate feed is configured.
-      </p>
-    </div>
-  );
 }
 function disableReason(site: any, account: any, busy: boolean) {
   return busy
@@ -355,8 +316,6 @@ function SharedFactRow({
   payment,
   journal,
   facts,
-  selected,
-  onSelect,
   request,
   cache,
   wanted,
@@ -369,9 +328,7 @@ function SharedFactRow({
   payment: string;
   journal: Journal;
   facts: WalletFacts | null;
-  selected: boolean;
-  onSelect: (checked: boolean) => void;
-  request: () => void;
+  request: (shared: any) => Promise<string>;
   cache: ReturnType<typeof pageReads>;
   wanted: number;
   onPending: (id: number, requestId: string | null) => void;
@@ -416,6 +373,7 @@ function SharedFactRow({
     if (value) onPending(t.id, pending ? value.pending : null);
   }, [value?.pending]);
   const membership = sharedMembership(value,account.address);
+  const action = factMintState({ wallet: account.address, facts, id: t.id, kind: 3, shared: value, readError: !!error });
   const included = membership==='included';
   useEffect(() => {
     onEligibility(t.id, !!facts && membership==='excluded');
@@ -438,16 +396,13 @@ function SharedFactRow({
             : stored && !included
               ? "not in the list"
               : "");
-  // A stored list is applied directly; selection is only for paid requests.
-  useEffect(() => {
-    if (stored || pending || proven) onSelect(false);
-  }, [stored, pending, proven]);
   async function apply() {
     setBusy(true);
     setStatus("Checking…");
     try {
+      if (action !== "apply" || reason) throw Error(reason || "This shared fact cannot be applied to this wallet.");
       await journal.prepare(
-        `Mint Facts: apply shared fact ${t.id} / ${t.name}`,
+        `Mint Fact: apply shared fact ${t.id} / ${t.name}`,
         "step-02",
         [
           {
@@ -469,18 +424,12 @@ function SharedFactRow({
   }
   return (
     <div
-      className={`picker-row ${wanted === t.id ? "highlight" : ""}`}
+      className={`picker-row${proven ? " is-minted" : ""} ${wanted === t.id ? "highlight" : ""}`}
       id={`pick-${t.id}`}
       hidden={hidden}
     >
       <div className="picker-text">
-        <label>
-          <input
-            type="checkbox"
-            checked={selected}
-            disabled={!!cannot || !!proven || !!pending || !!stored || !!error}
-            onChange={(e) => onSelect(e.target.checked)}
-          />
+        <div className="fact-description">
           <span>
             <strong>
               {t.id} / {t.name}
@@ -495,7 +444,7 @@ function SharedFactRow({
               )}
             </span>
           </span>
-        </label>
+        </div>
         {t.id === 1201 ? (
           // 1201 keeps one short line, only while its list is stored or a
           // request is pending.
@@ -572,21 +521,27 @@ function SharedFactRow({
         <div className="row-actions">
           <MintedFact facts={facts} id={t.id} reader={reader} />
         </div>
-      ) : (
+      ) : (action === "request" || action === "apply") && (
         <div className="row-actions">
-          <TaskAction connectLabel="Connect to Mint Facts">
+          {action === "request" && site.health && <span className="muted fact-request-price">{imd(site.health.price)} IMD + gas</span>}
+          <TaskAction connectLabel="Connect to Mint Fact">
             <button
               type="button"
               className="secondary"
               disabled={!!reason || busy}
-              aria-label={`${stored ? "Apply shared fact" : "Mint Facts"}: ${t.id} / ${t.name}`}
-              onClick={stored ? apply : request}
+              aria-label={`${stored ? "Apply shared fact" : "Mint Fact"}: ${t.id} / ${t.name}`}
+              onClick={stored ? apply : async () => {
+                if (action !== "request" || reason) return;
+                setBusy(true);
+                setStatus("Checking…");
+                try { setStatus(await request(value)); } finally { setBusy(false); }
+              }}
             >
               {busy
                 ? "Checking…"
                 : stored
                   ? "Apply shared fact"
-                  : "Mint Facts"}
+                  : "Mint Fact"}
             </button>
           </TaskAction>
         </div>
@@ -610,11 +565,9 @@ const defaultForm = {
 };
 function CommunityForm({
   payment,
-  setPayment,
   journal,
 }: {
   payment: string;
-  setPayment: (value: string) => void;
   journal: Journal;
 }) {
   const site = useSite();
@@ -865,12 +818,6 @@ function CommunityForm({
         its ID; then use <a href="#/request">Mint Facts</a> separately to verify
         it for your wallet.
       </p>
-      <PaymentChoice
-        id="registration-payment"
-        value={payment}
-        onChange={setPayment}
-        disabled={journal.busy || busy}
-      />
       <TaskAction connectLabel="Connect to Mint Rule">
         <button
           disabled={
@@ -905,8 +852,10 @@ function CommunityForm({
 export function Claim({ task = "/mint" }: { task?: string }) {
   const site = useSite();
   const account = useAccount();
+  const { open: openWallet } = useWalletSheet();
   const journal = useTransactions();
   const [facts, setFacts] = useState<WalletFacts | null>(null);
+  const currentFacts = facts?.address.toLowerCase() === account.address?.toLowerCase() ? facts : null;
   const [owned, setOwned] = useState<{ address: string; token: bigint } | null>(
     null,
   );
@@ -919,13 +868,7 @@ export function Claim({ task = "/mint" }: { task?: string }) {
   const cardReady =
     cardRead.address === account.address && cardRead.state === "ready";
   const [factError, setFactError] = useState("");
-  const [payments, setPayments] = useState<Record<string, string>>({});
-  const payment = payments[task] || "IMD";
-  function setPayment(value: string) {
-    setPayments((old) => ({ ...old, [task]: value }));
-    journal.discard();
-  }
-  const [selected, setSelected] = useState<number[]>([]);
+  const payment = "IMD";
   const [showIneligible, setShowIneligible] = useState(false);
   const [sharedEligibility, setSharedEligibility] = useState<{
     wallet?: string;
@@ -939,6 +882,9 @@ export function Claim({ task = "/mint" }: { task?: string }) {
     wallet?: string;
     lines: Record<number, string>;
     older?: boolean;
+    attempts?: any[];
+    fromBlock?: string;
+    error?: string;
   }>({ lines: {} });
   const backfills = useMemo(() => pageReads(), [site.client]);
   useEffect(() => () => backfills.stop(), [backfills]);
@@ -947,7 +893,13 @@ export function Claim({ task = "/mint" }: { task?: string }) {
   }, [site.readRetry, backfills]);
   const [busy, setBusy] = useState("");
   const [status, setStatus] = useState<Record<string, string>>({});
+  useEffect(() => setStatus({}), [account.address]);
   const [refreshTick, setRefreshTick] = useState(0);
+  useEffect(() => {
+    const refresh = () => setRefreshTick(tick => tick + 1);
+    window.addEventListener('sworn-request-confirmed', refresh);
+    return () => window.removeEventListener('sworn-request-confirmed', refresh);
+  }, []);
   const pendingFacts = openRequests(facts, account.address, site.specs);
   const pendingKey = pendingFacts
     .map((f) => `${f.id}:${f.requestId}`)
@@ -987,15 +939,6 @@ export function Claim({ task = "/mint" }: { task?: string }) {
     };
   }, [account.address, site.client, site.health, pendingKey]);
   useEffect(() => {
-    if (account.address)
-      void journal.checkPersonal(
-        selected.filter(
-          (id) =>
-            id !== 1201 && !site.specs.some((s) => s.id === id && s.kind === 3),
-        ),
-      );
-  }, [selected.join(","), account.address, site.client, !!site.health]);
-  useEffect(() => {
     let active = true;
     const wallet = account.address;
     // Leaving the page or switching wallets stops this read's requests.
@@ -1006,10 +949,11 @@ export function Claim({ task = "/mint" }: { task?: string }) {
         let events: any[] = await registryEvents(
           client,
           site.r,
-          ["TraitRequested", "Verified", "Missed", "NoVerdict", "Abandoned"],
+          ["TraitRequested", "Verified", "SharedFactStored", "Missed", "NoVerdict", "Abandoned"],
           undefined,
           { window: HISTORY_WINDOW },
         );
+        const fromBlock = String((events as any).fromBlock ?? '');
         const requested = new Set(
           events
             .filter(
@@ -1031,6 +975,7 @@ export function Claim({ task = "/mint" }: { task?: string }) {
                 [
                   "TraitRequested",
                   "Verified",
+                  "SharedFactStored",
                   "Missed",
                   "NoVerdict",
                   "Abandoned",
@@ -1061,11 +1006,19 @@ export function Claim({ task = "/mint" }: { task?: string }) {
             return [id, lastRequestText(value.outcome, block.timestamp)];
           }),
         );
+        const registry = contract(site.r, 'Registry').address;
+        const sharedIds = savedRequests(sessionStorage, site.r.deployment.chainId, registry, wallet)
+          .filter((fact: any) => fact.id === 1201 || site.specs.some(spec => spec.id === fact.id && spec.kind === 3))
+          .map((fact: any) => fact.requestId);
+        const fees = savedRequestFees(sessionStorage);
+        const attempts = buildRequestHistory(events, wallet, sharedIds).map(row => ({
+          ...row, fee: fees[feeKey(site.r.deployment.chainId, registry, wallet, row.requestId)],
+        }));
         if (active)
-          setRequestHistory({ wallet, lines: Object.fromEntries(lines) });
+          setRequestHistory({ wallet, lines: Object.fromEntries(lines), attempts, fromBlock });
       })().catch(() => {
         // An incomplete read implies no outcome. Read recovery runs it again.
-        if (active) setRequestHistory({ wallet, lines: {} });
+        if (active) setRequestHistory({ wallet, lines: {}, error: 'Recent requests could not be read. Your claimed facts are shown separately.' });
       });
     }
     return () => {
@@ -1132,24 +1085,6 @@ export function Claim({ task = "/mint" }: { task?: string }) {
     };
   }, [account.address, site.health, site.specs, refreshTick]);
   useEffect(() => {
-    if (facts)
-      setSelected((old) =>
-        old.filter(
-          (id) =>
-            !facts.traits.includes(id) &&
-            !facts.verifiedSpecs.includes(id) &&
-            !impossible(facts.joined, id) &&
-            (!facts.pending[id] || /^0x0+$/.test(facts.pending[id])),
-        ),
-      );
-  }, [facts]);
-  useEffect(() => {
-    const custom = site.specs.find((s) => s.id === wanted);
-    if (
-      wanted &&
-      (TRAITS.some((t) => t.id === wanted && t.class !== "direct") || custom)
-    )
-      setSelected([wanted]);
     if (wanted) {
       const timeout = setTimeout(
         () =>
@@ -1180,20 +1115,20 @@ export function Claim({ task = "/mint" }: { task?: string }) {
     })),
     ...customTraits,
   ].sort((a, b) => a.id - b.id);
-  const checks = useFactChecks(
-    facts?.address.toLowerCase() === account.address?.toLowerCase()
-      ? facts
-      : null,
-    paid.map((t) => t.id),
-  );
-  // Hidden by default only on what is known before any selection; a
-  // selected fact keeps its row and shows its eligibility result there.
+  const personalChecks = paid.filter(t => t.kind !== 3 && currentFacts &&
+    !currentFacts.traits.includes(t.id) && !currentFacts.verifiedSpecs.includes(t.id) &&
+    !impossible(currentFacts.joined, t.id) &&
+    (!currentFacts.pending[t.id] || /^0x0+$/.test(currentFacts.pending[t.id]))).map(t => t.id);
+  useEffect(() => {
+    if (task === "/request" && currentFacts && site.health && personalChecks.length)
+      void journal.checkPersonal(personalChecks);
+  }, [task, currentFacts?.address, site.client, !!site.health, site.readRetry, personalChecks.join(",")]);
+  const checks = Object.fromEntries(paid.map(t => [t.id, journal.eligibility[journal.eligibilityKey(t.id)]]));
   function paidIneligible(id: number) {
-    if (selected.includes(id)) return false;
     return (
-      ineligibleFact(facts, id, checks[id]) ||
-      (!facts?.traits.includes(id) &&
-        !facts?.verifiedSpecs.includes(id) &&
+      ineligibleFact(currentFacts, id, checks[id]) ||
+      (!currentFacts?.traits.includes(id) &&
+        !currentFacts?.verifiedSpecs.includes(id) &&
         sharedEligibility.wallet === account.address &&
         !!sharedEligibility.ids[id])
     );
@@ -1230,74 +1165,59 @@ export function Claim({ task = "/mint" }: { task?: string }) {
       setBusy("");
     }
   }
-  // "Mint Facts" and a row's "Mint Facts" open the same dialog;
-  // a row's button requests that fact alone and leaves the selection as is.
-  async function prepareFacts(ids: number[] = selected) {
-    setBusy("facts");
-    setStatus((v) => ({ ...v, facts: "Checking…" }));
+  async function prepareFact(id: number, shared?: any) {
+    const statusKey = `fact-${id}`;
+    setBusy(statusKey);
+    setStatus(v => ({ ...v, [statusKey]: "Checking…" }));
     try {
-      if (!site.health || !facts)
-        throw Error("Wallet reads unavailable; retrying.");
-      if (!ids.length) throw Error("Select at least one fact.");
+      const trait = paid.find(t => t.id === id);
+      if (reason || !site.health || !currentFacts || !trait)
+        throw Error(reason || "Wallet reads unavailable; retrying.");
+      const action = factMintState({ wallet: account.address, facts: currentFacts,
+        id, kind: trait.kind, check: checks[id], shared });
+      if (action !== "request")
+        throw Error(action === "ineligible" ? "This wallet does not meet this rule."
+          : action === "claimed" ? "This fact is already claimed."
+            : action === "pending" ? "A request is already pending."
+              : "Eligibility is not ready. Retry the check before requesting this fact.");
       const price = site.health.price;
-      const rows = ids.map((id) => paid.find((t) => t.id === id)!);
       await journal.prepare(
-        rows.length === 1 && rows[0].kind === 3
-          ? `Mint Facts: request shared list ${rows[0].id} / ${rows[0].name}`
-          : `Mint Facts: verify ${rows.map((t) => `${t.id} / ${t.name}`).join(", ")}`,
+        `Mint Fact: ${trait.kind === 3 ? "request shared list" : "verify"} ${id} / ${trait.name}`,
         "step-02",
-        rows.map((t) => ({
-          label: `${t.kind === 3 ? "Request shared fact" : "Request"} ${t.id} / ${t.name}`,
-          functionName: traitMethod(t.kind),
-          args: t.kind === 3 ? [t.id, price] : [[t.id], price],
-          amount: price,
-          ids: [t.id],
-        })),
-        rows.map((t) => ({ id: t.id, name: t.name, amount: price })),
+        [{ label: `${trait.kind === 3 ? "Request shared fact" : "Request"} ${id} / ${trait.name}`,
+          functionName: traitMethod(trait.kind),
+          args: trait.kind === 3 ? [id, price] : [[id], price], amount: price, ids: [id] }],
+        [{ id, name: trait.name, amount: price }],
         payment,
       );
-      setStatus((v) => ({
-        ...v,
-        facts: "Ready: confirm the steps in the dialog.",
-      }));
+      const message = "Ready: confirm the steps in the dialog.";
+      setStatus(v => ({ ...v, [statusKey]: message }));
+      return message;
     } catch (e) {
-      setStatus((v) => ({
-        ...v,
-        facts: explain(e, [...site.r.abis.Registry, ...site.r.abis.Composer]),
-      }));
+      const message = explain(e, [...site.r.abis.Registry, ...site.r.abis.Composer]);
+      setStatus(v => ({ ...v, [statusKey]: message }));
+      return message;
     } finally {
       setBusy("");
     }
   }
   return (
     <>
-      <nav className="task-tabs" aria-label="Choose a task">
-        {TASKS.map(([path, title]) => (
-          <a
-            key={path}
-            href={`#${path}`}
-            aria-current={task === path ? "page" : undefined}
-          >
-            {title}
-          </a>
-        ))}
-      </nav>
       <h1>{TASKS.find(([path]) => path === task)?.[1]}</h1>
       {task === "/mint" && (
         <>
-          <p className="prose">
+          {(!minted || minted === 0n) && <p className="prose">
             The card is an optional collectible. You can use wallet facts and{" "}
             <a href="#/request">Mint Facts</a> without minting a card. Facts
             belong to your wallet in the Registry contract; the card reads
             them from that contract to render its artwork.
-          </p>
+          </p>}
           {minted !== null && minted !== 0n ? (
-            <p className="minted-card" id="mint">
-              This original wallet already minted card #{minted.toString()} and
-              cannot mint again, even if that card is transferred.{" "}
-              <a href="#/wallet">View the card and wallet facts</a>. Ownership
-              of a card does not transfer the original wallet's credentials.
-            </p>
+            currentFacts ? <YourSwornCard facts={currentFacts}/> : <section id="your-card">
+              <h2>Your Sworn Card</h2>
+              <Status error={!!factError}>{factError || 'Reading your card…'}</Status>
+              {factError && <button onClick={() => setRefreshTick(tick => tick + 1)}>Retry wallet reads</button>}
+            </section>
           ) : (
             <section className="mint-panel" id="mint">
               <div className="claim-copy">
@@ -1374,12 +1294,6 @@ export function Claim({ task = "/mint" }: { task?: string }) {
                     <p className="muted">
                       {FEE.charAt(0).toUpperCase() + FEE.slice(1)}.
                     </p>
-                    <PaymentChoice
-                      id="card-payment"
-                      value={payment}
-                      onChange={setPayment}
-                      disabled={journal.busy || !!busy}
-                    />
                   </>
                 )}
                 <TaskAction connectLabel="Connect to Mint Card">
@@ -1435,18 +1349,15 @@ export function Claim({ task = "/mint" }: { task?: string }) {
       {task === "/request" && (
         <section id="mint-facts" className="task-section">
           <p className="prose">
-            <strong>Mint Facts stores facts in the Registry contract for your
-            wallet, not inside the card.</strong> The card reads those facts
-            from the contract to render its artwork. Here, “minted” means
-            recorded in the contract; it does not create another NFT. A card
-            is optional. Minting a rule or requesting verification uses real IMD and ETH gas.
+            Review your claimed facts or choose a new fact to verify. A card is optional.
           </p>
-          <p className="prose">
-            Choose a rule and ask the swarm to check it. A confirmed request
-            starts verification; the fact is only minted after an accepted
-            result is stored for your wallet. A shared result must also be
-            applied to your wallet. Pending or failed requests add no fact.
-          </p>
+          <nav className="inline-links" aria-label="Mint Facts sections">
+            <a href="#/request#claimed-facts">Claimed Facts</a>
+            <a href="#/request#step-02">Choose facts to mint</a>
+            <a href="#/fact-check">Fact Check</a>
+          </nav>
+          <ClaimedFacts facts={currentFacts} specs={site.specs} connected={!!account.address}
+            error={factError} onRetry={() => setRefreshTick(tick => tick + 1)} onConnect={openWallet}/>
           {pendingFacts.length > 0 && (
             <section className="pending-notice" aria-label="Pending facts">
               <h2>Waiting for the swarm</h2>
@@ -1464,50 +1375,50 @@ export function Claim({ task = "/mint" }: { task?: string }) {
           )}
           <section id="step-02" className="step">
             <h2>Choose facts to mint</h2>
-            <div className="step-intros">
-              {classes
-                .filter((c) => c.key !== "direct")
-                .map((c) => (
-                  <p key={c.key}>
-                    <strong>{c.name}</strong> · {c.description}
-                  </p>
-                ))}
-            </div>
-            <p className="step-note">
-              Chain-proven facts use 5 agents / quorum 3. Panel-sworn facts use
-              11 / 7. For a requestable fact, unclaimed means unproven. It does
-              not mean the fact is false. {SWARMED}
+            <p>A request starts verification. A fact is only stored for your wallet after an accepted result; shared results must also be applied. Pending or failed requests add no fact.</p>
+            <p className="request-cost-note">
+              Request fees are paid in IMD and are not refunded if no fact is
+              proven. Ethereum gas is separate.
             </p>
-            <PaymentChoice
-              id="request-payment"
-              value={payment}
-              onChange={setPayment}
-              disabled={journal.busy || !!busy}
-            />
+            <details className="fact-evidence-guide">
+              <summary>How verification works</summary>
+              <div className="step-intros">
+                {classes
+                  .filter((c) => c.key !== "direct")
+                  .map((c) => (
+                    <p key={c.key}>
+                      <strong>{c.name}</strong> · {c.description}
+                    </p>
+                  ))}
+              </div>
+              <p className="step-note">
+                Chain-proven facts use 5 agents / quorum 3. Panel-sworn facts use
+                11 / 7. For a requestable fact, unclaimed means unproven. It does
+                not mean the fact is false. {SWARMED}
+              </p>
+            </details>
             <IneligibleControl
               count={paid.filter((t) => paidIneligible(t.id)).length}
               shown={showIneligible}
               onChange={() => setShowIneligible((v) => !v)}
             />
             <div
-              className="trait-picker"
+              className="trait-picker single-fact-picker"
               role="group"
-              aria-label="Select paid facts"
+              aria-label="Wallet facts available to mint"
             >
               {paid.map((t) => {
                 const hidden = !showIneligible && paidIneligible(t.id);
-                const cant = facts && impossible(facts.joined, t.id);
-                const proven =
-                  facts?.traits.includes(t.id) ||
-                  facts?.verifiedSpecs.includes(t.id);
-                const pending =
-                  facts?.pending[t.id] && !/^0x0+$/.test(facts.pending[t.id]);
-                const requestable =
-                  !!facts && !!account.address && !cant && !proven && !pending;
+                const cant = currentFacts && impossible(currentFacts.joined, t.id);
+                const proven = currentFacts?.traits.includes(t.id) || currentFacts?.verifiedSpecs.includes(t.id);
+                const pending = currentFacts?.pending[t.id] && !/^0x0+$/.test(currentFacts.pending[t.id]);
+                const action = factMintState({ wallet: account.address, facts: currentFacts,
+                  id: t.id, kind: t.kind, check: checks[t.id] });
+                const rowStatus = status[`fact-${t.id}`];
                 if (t.kind === 3)
                   return (
                     <SharedFactRow
-                      key={t.id}
+                      key={`${account.address || "disconnected"}:${t.id}`}
                       trait={t}
                       hidden={hidden}
                       reader={mintedReader}
@@ -1522,18 +1433,8 @@ export function Claim({ task = "/mint" }: { task?: string }) {
                       }
                       payment={payment}
                       journal={journal}
-                      facts={facts}
-                      selected={selected.includes(t.id)}
-                      onSelect={(checked) =>
-                        setSelected((old) =>
-                          checked
-                            ? old.includes(t.id)
-                              ? old
-                              : [...old, t.id]
-                            : old.filter((id) => id !== t.id),
-                        )
-                      }
-                      request={() => prepareFacts([t.id])}
+                      facts={currentFacts}
+                      request={shared => prepareFact(t.id, shared)}
                       cache={backfills}
                       wanted={wanted}
                       onPending={(id, rid) =>
@@ -1552,22 +1453,10 @@ export function Claim({ task = "/mint" }: { task?: string }) {
                   <div
                     key={t.id}
                     id={`pick-${t.id}`}
-                    className={`picker-row ${wanted === t.id ? "highlight" : ""}`}
+                    className={`picker-row${proven ? " is-minted" : ""} ${wanted === t.id ? "highlight" : ""}`}
                   >
-                    <label>
-                      <input
-                        type="checkbox"
-                        checked={selected.includes(t.id)}
-                        disabled={!!cant || proven || !!pending}
-                        onChange={(e) =>
-                          setSelected((old) =>
-                            e.target.checked
-                              ? [...old, t.id]
-                              : old.filter((id) => id !== t.id),
-                          )
-                        }
-                      />
-                      <span>
+                    <div className="picker-text">
+                      <div className="fact-description">
                         <strong>
                           {t.id} / {t.name}
                         </strong>
@@ -1587,18 +1476,17 @@ export function Claim({ task = "/mint" }: { task?: string }) {
                               {requestHistory.lines[t.id]}
                             </span>
                           )}
-                        {!proven && account.address && (selected.includes(t.id) || t.id === 601) && (
+                        {!proven && !pending && !cant && currentFacts && (
                           <span
                             className={
-                              journal.eligibility[journal.eligibilityKey(t.id)]
-                                ?.state === "not-met"
+                              checks[t.id]?.state === "not-met"
                                 ? "danger eligibility-advice"
                                 : "muted eligibility-advice"
                             }
                             role="status"
                           >
                             {eligibilityText(
-                              journal.eligibility[journal.eligibilityKey(t.id)] || checks[t.id],
+                              checks[t.id],
                               site.health?.price,
                             )}
                           </span>
@@ -1610,31 +1498,31 @@ export function Claim({ task = "/mint" }: { task?: string }) {
                         ) : proven ? null : pending ? (
                           <span className="muted">Request pending</span>
                         ) : null}
-                      </span>
-                    </label>
+                        {rowStatus && <p className="row-request-status" role="status">{rowStatus}</p>}
+                      </div>
+                    </div>
                     {t.id < 10001 && <Card miniId={t.id} />}
-                    {proven && facts ? (
+                    {proven && currentFacts ? (
                       <div className="row-actions">
                         <MintedFact
-                          facts={facts}
+                          facts={currentFacts}
                           id={t.id}
                           reader={mintedReader}
                         />
                       </div>
                     ) : (
-                      requestable && (
+                      (action === "request" || action === "unavailable") && (
                         <div className="row-actions">
-                          <TaskAction connectLabel="Connect to Mint Facts">
-                            <button
-                              type="button"
-                              className="secondary"
-                              disabled={!!reason || !!busy}
-                              aria-label={`Mint Facts: ${t.id} / ${t.name}`}
-                              onClick={() => prepareFacts([t.id])}
-                            >
-                              Mint Facts
+                          {action === "request" && site.health && <span className="muted fact-request-price">{imd(site.health.price)} IMD + gas</span>}
+                          {action === "unavailable" ? <button type="button" className="secondary"
+                            disabled={!!reason || !!busy} onClick={() => journal.checkPersonal([t.id])}>
+                            Retry eligibility
+                          </button> : <TaskAction connectLabel="Connect to Mint Fact">
+                            <button type="button" className="secondary" disabled={!!reason || !!busy}
+                              aria-label={`Mint Fact: ${t.id} / ${t.name}`} onClick={() => prepareFact(t.id)}>
+                              {busy === `fact-${t.id}` ? "Checking…" : "Mint Fact"}
                             </button>
-                          </TaskAction>
+                          </TaskAction>}
                         </div>
                       )
                     )}
@@ -1647,69 +1535,6 @@ export function Claim({ task = "/mint" }: { task?: string }) {
             ) : site.error || site.specError ? (
               <Status error>{site.error || site.specError}</Status>
             ) : null}
-            <div className="request-action-summary">
-              <h3>Review your selected requests</h3>
-              <p>
-                {selected.length} {selected.length === 1 ? "fact" : "facts"}{" "}
-                selected. Request fees:{" "}
-                {site.health
-                  ? `${imd(site.health.price * BigInt(selected.length))} IMD`
-                  : "reading price…"}
-                . A false answer or no verdict adds no fact; the request fee is
-                still spent.
-              </p>
-              <PaymentChoice
-                id="selected-request-payment"
-                value={payment}
-                onChange={setPayment}
-                disabled={journal.busy || !!busy}
-              />
-              <p id="oracle-ack" className="muted">
-                The payment dialog explains the cost and requires your
-                confirmation before any wallet signature.
-              </p>
-              <TaskAction connectLabel="Connect to Mint Facts">
-                <button
-                  disabled={
-                    !!reason ||
-                    !facts ||
-                    selected.length === 0 ||
-                    !!busy ||
-                    selected.some(
-                      (id) =>
-                        impossible(facts?.joined, id) ||
-                        facts?.traits.includes(id) ||
-                        facts?.verifiedSpecs.includes(id) ||
-                        (facts?.pending[id] &&
-                          !/^0x0+$/.test(facts.pending[id])),
-                    )
-                  }
-                  onClick={() => prepareFacts()}
-                >
-                  {busy === "facts" ? "Checking…" : "Mint Facts"}
-                </button>
-              </TaskAction>
-              <Status
-                error={
-                  !!status.facts &&
-                  !status.facts.startsWith("Ready:") &&
-                  status.facts !== "Checking…"
-                }
-              >
-                {status.facts ||
-                  reason ||
-                  (!facts
-                    ? "Wait for wallet reads."
-                    : !selected.length
-                      ? "Select at least one fact."
-                      : "")}
-              </Status>
-              {status.facts?.startsWith("Ready:") && (
-                <a href={claimAnchor("transaction-steps")}>
-                  Transaction steps ↓
-                </a>
-              )}
-            </div>
             {facts &&
               Object.entries({ ...facts.pending, ...sharedPendings })
                 .filter(([, rid]) => !/^0x0+$/.test(rid))
@@ -1755,6 +1580,12 @@ export function Claim({ task = "/mint" }: { task?: string }) {
               </section>
             )}
           </section>
+          {account.address && <RecentVerificationRequests wallet={account.address}
+            rows={requestHistory.wallet === account.address ? requestHistory.attempts : undefined}
+            error={requestHistory.wallet === account.address ? requestHistory.error : undefined}
+            fromBlock={requestHistory.wallet === account.address ? requestHistory.fromBlock : undefined}
+            specs={site.specs} explorer={site.r.deployment.network.explorer}
+            onRefresh={() => setRefreshTick(tick => tick + 1)}/>}
         </section>
       )}
       {task === "/register" && (
@@ -1775,7 +1606,6 @@ export function Claim({ task = "/mint" }: { task?: string }) {
           {!!journal.registered&&<div className="community-created" role="status"><strong>Rule {journal.registered} minted in the Registry.</strong><p>The rule is registered; no wallet fact has been verified or minted yet.</p><div className="inline-links"><a href={`#/request?trait=${journal.registered}`}>Mint Facts for your wallet</a><a href={`#/curator?trait=${journal.registered}`}>Use this rule in Curator</a></div></div>}
           <CommunityForm
             payment={payment}
-            setPayment={setPayment}
             journal={journal}
           />
         </section>

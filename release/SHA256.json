@@ -1,0 +1,14 @@
+[
+  {
+    "file": "sworn-mainnet-static.zip",
+    "files": 85,
+    "bytes": 899428,
+    "sha256": "6bd70a359207d33a10d36e3f73167fe7c5d8f80a7c0c3773e0bc409aecbefb76"
+  },
+  {
+    "file": "sworn-mainnet-source.zip",
+    "files": 293,
+    "bytes": 1790872,
+    "sha256": "627b4414f864455cfc065d50f6288d442f54dfeb9e227c4a840422e559ab8118"
+  }
+]

@@ -131,7 +131,7 @@ try {
         { x: 0, y: 0, width: 390, height: 844 },
       );
       assert.match(await d.innerText(), /0.10 IMD/);
-      assert.match(await d.innerText(), /IMD balance/);
+      assert.doesNotMatch(await d.innerText(), /Pay the fee from your IMD balance|Fiat estimate unavailable|no exchange-rate feed is configured|Fees are paid from your IMD balance/);
       assert.equal(
         await d.getByRole("heading", { name: "Your card's facts" }).count(),
         1,

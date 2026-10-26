@@ -1,0 +1,79 @@
+.wallet-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, 0.9fr);
+  gap: 40px;
+  align-items: start;
+}
+.wallet-summary-copy,
+.wallet-summary-art {
+  min-width: 0;
+}
+.wallet-summary-copy h2 {
+  margin-top: 0;
+}
+.wallet-summary-address {
+  overflow-wrap: anywhere;
+  font-size: var(--small);
+}
+.wallet-summary-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: var(--small);
+}
+.wallet-summary-table th,
+.wallet-summary-table td {
+  padding: 12px 8px;
+  text-align: left;
+  vertical-align: top;
+  overflow-wrap: anywhere;
+  border-bottom: 1px solid var(--faint);
+}
+.wallet-summary-table th:first-child {
+  width: 38%;
+}
+.wallet-summary-table thead th {
+  color: var(--muted);
+  font-weight: normal;
+}
+.wallet-summary-table tbody td {
+  color: var(--muted);
+}
+.wallet-summary-table .is-highlighted {
+  background: #122413;
+  outline: 1px solid var(--accent);
+  outline-offset: -1px;
+}
+.wallet-summary-table .is-highlighted th,
+.wallet-summary-table .is-highlighted td {
+  color: #b6f1b2;
+}
+.wallet-summary-selection {
+  font-size: var(--small);
+}
+.wallet-summary-art .card-figure {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+}
+.wallet-summary-art .card-fact-guide {
+  margin-top: 24px;
+}
+.wallet-summary-art .cell-controls button {
+  clip-path: polygon(100% 50%, 75% 100%, 25% 100%, 0% 50%, 25% 0%, 75% 0%);
+}
+.wallet-summary-art .cell-controls button:focus-visible {
+  background: rgb(0 255 65 / 0.2);
+}
+#your-card.wallet-summary-section {
+  margin-top: 32px;
+}
+@media (max-width: 800px) {
+  .wallet-summary {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 24px;
+  }
+  .wallet-summary-art .card-figure {
+    max-width: 420px;
+  }
+}

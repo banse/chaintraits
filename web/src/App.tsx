@@ -1,4 +1,12 @@
-import { useState, useEffect, useMemo, useCallback, useRef } from "react";
+import {
+  useState,
+  useEffect,
+  useMemo,
+  useCallback,
+  useRef,
+  lazy,
+  Suspense,
+} from "react";
 import {
   type Runtime,
   type Health,
@@ -22,11 +30,16 @@ import {
 } from "./transactions";
 import { SwarmProgressProvider } from "./swarm";
 import { routeInfo, TASKS } from "./task-navigation.mjs";
-import { WalletFacts } from "./wallet-facts";
+import { SiteNavigation, focusRouteTarget } from "./site-navigation";
 import { Curator } from "./curator";
 import { READ_RPCS } from "./rpc.mjs";
 import { onReadFailure, RECOVERY_MS } from "./read-recovery.mjs";
 import { boundedRefresh } from "./read-loading.mjs";
+const FactCheckLive = lazy(() =>
+  import("./fact-check/FactCheckLive").then((module) => ({
+    default: module.FactCheckLive,
+  })),
+);
 const FOOTER_LINKS: [string, string][] = [
   [
     "Source repository ↗",
@@ -38,6 +51,7 @@ const FOOTER_LINKS: [string, string][] = [
 ];
 export function App({ r }: { r: Runtime }) {
   const [route, setRoute] = useState(routeInfo);
+  const previousPage = useRef("");
   const [rpcUrl, setRpcUrlState] = useState(() => {
     try {
       return READ_RPCS.includes(localStorage.getItem("sworn.public-rpc") || "")
@@ -160,49 +174,15 @@ export function App({ r }: { r: Runtime }) {
       ROUTES.find(([path]) => path === route.route)?.[1] ||
       "Page not found";
     document.title = `Sworn | ${label}`;
-    // Establish route focus before the visitor starts typing. A delayed anchor
-    // observer must never steal focus back from an already-used form.
-    const main = document.getElementById("main");
-    main?.focus({ preventScroll: true });
-    window.scrollTo(0, 0);
-    let observer: MutationObserver | undefined;
-    const timeout = setTimeout(() => {
-      const trait = route.query.get("trait");
-      const id =
-        route.anchor ||
-        (trait
-          ? route.route === "/request"
-            ? `pick-${trait}`
-            : `trait-${trait}`
-          : "");
-      const scrollToTarget = () => {
-        if (!id) return false;
-        const el = document.getElementById(id);
-        if (el) {
-          el.scrollIntoView({ block: "start" });
-          if (el instanceof HTMLInputElement) el.focus();
-          observer?.disconnect();
-          return true;
-        }
-        return false;
-      };
-      if (scrollToTarget()) return;
-      if (id && main) {
-        // Community rows and wallet history can arrive after navigation.
-        // Stop watching after the first match or when the route changes.
-        observer = new MutationObserver(scrollToTarget);
-        observer.observe(main, { childList: true, subtree: true });
-      }
-    }, 100);
-    return () => {
-      clearTimeout(timeout);
-      observer?.disconnect();
-    };
+    const page = `${route.route}?${route.query}`;
+    const samePage = previousPage.current === page;
+    previousPage.current = page;
+    return focusRouteTarget(route, samePage);
   }, [route]);
   const pages: Record<string, React.ComponentType> = {
     "/": Home,
     "/catalog": Catalog,
-    "/wallet": WalletFacts,
+    "/fact-check": FactCheckLive,
     "/curator": Curator,
     "/integrate": Integrate,
     "/about": About,
@@ -236,7 +216,7 @@ export function App({ r }: { r: Runtime }) {
           >
             Skip to content
           </a>
-          <header className="site-header">
+          <header className="site-header site-header-compact">
             <a className="brand" href="#/" aria-label="Sworn home">
               <img
                 src={asset("art/full-house.svg")}
@@ -246,24 +226,7 @@ export function App({ r }: { r: Runtime }) {
               />
               <span>SWORN</span>
             </a>
-            <nav aria-label="Main navigation">
-              {ROUTES.filter(([path]) => path !== "/").map(([path, name]) => (
-                <a
-                  key={path}
-                  href={`#${path}`}
-                  aria-current={
-                    route.route === path ||
-                    (path === "/mint" && route.route === "/request")
-                      ? "page"
-                      : undefined
-                  }
-                >
-                  {name}
-                </a>
-              ))}
-              <a href={asset("docs/index.html")}>Docs</a>
-              <a href={asset("agents/sworn/SKILL.md")}>Agents</a>
-            </nav>
+            <SiteNavigation route={route.route} />
             <ConnectControl r={r} />
           </header>
           <main
@@ -281,7 +244,9 @@ export function App({ r }: { r: Runtime }) {
             {TASKS.some(([path]) => path === route.route) ? (
               <Claim task={route.route} />
             ) : Page ? (
-              <Page />
+              <Suspense fallback={<p role="status">Loading page…</p>}>
+                <Page />
+              </Suspense>
             ) : (
               <>
                 <h1>Page not found</h1>
