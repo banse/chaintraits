@@ -8,10 +8,14 @@ import {
 } from "viem";
 import { imd } from "./pure.mjs";
 import { snapshotFact, snapshotEligibility } from "./eligibility-snapshot.mjs";
+import { indexedEligibility } from "./indexer.mjs";
 
 export const NOT_CHECKABLE =
   "Could not check eligibility; the request price is spent whatever the answer.";
 export function eligibilityText(result, price) {
+  const source = result?.source === "indexer"
+    ? ` Source: indexer, block ${Number(result.lastIndexedBlock).toLocaleString("en-US")}.`
+    : result?.source === "chain scan" ? " Source: chain scan." : "";
   if (!result || result.state === "checking") return "Checking eligibility…";
   if (result.state === "unknown" && result.reason === "accepted-work-unchecked")
     return "Seat history found; eligibility is not confirmed. Swarmed requires at least 3 accepted feedback entries during qualifying seat ownership and agent bindings. The panel must check that history; the request price is spent whatever the answer.";
@@ -19,10 +23,10 @@ export function eligibilityText(result, price) {
     result.state === "unknown" ||
     (result.state === "not-met" && price == null)
   )
-    return NOT_CHECKABLE;
+    return NOT_CHECKABLE + source;
   return result.state === "met"
-    ? `Our check of the public chain data finds this rule met (${result.found}). The panel decides.`
-    : `This wallet does not meet this rule (${result.found}). The panel will most likely answer false and the ${imd(price)} IMD request price is spent.`;
+    ? `Our check of the public chain data finds this rule met (${result.found}). The panel decides.${source}`
+    : `This wallet does not meet this rule (${result.found}). The panel will most likely answer false and the ${imd(price)} IMD request price is spent.${source}`;
 }
 const equal = (a, b) =>
   typeof a === "string" &&
@@ -93,6 +97,12 @@ export async function checkEligibility(
   };
   const scan = async () => {
     if (snapshotFact(id)) return snapshot(wallet, id);
+    if (Number(id) >= 10001) {
+      guard();
+      const indexed = await indexedEligibility(wallet, id, controller.signal);
+      guard();
+      if (indexed) return indexed;
+    }
     // The spec read shares the check's signal: it stops with the check.
     const spec = await readSpec(id, controller.signal);
     guard();
@@ -252,7 +262,7 @@ export async function checkEligibility(
         );
   };
   try {
-    return await Promise.race([
+    const checked = await Promise.race([
       scan(),
       new Promise((resolve) => {
         timer = setTimeout(() => {
@@ -261,8 +271,11 @@ export async function checkEligibility(
         }, timeoutMs);
       }),
     ]);
+    return Number(id) >= 10001 && checked.source !== "indexer"
+      ? { ...checked, source: "chain scan" } : checked;
   } catch {
-    return { state: "unknown" };
+    return Number(id) >= 10001
+      ? { state: "unknown", source: "chain scan" } : { state: "unknown" };
   } finally {
     stop();
     signal?.removeEventListener("abort", stop);

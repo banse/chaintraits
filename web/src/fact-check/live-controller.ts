@@ -5,6 +5,7 @@ import { launchBlock, latestBlock } from "../settlement";
 import { oracleProgressReader, answerText } from "../oracle-progress.mjs";
 import { decodeMetadata } from "../pure.mjs";
 import { TRAITS } from "../data";
+import { indexedWallet } from "../indexer.mjs";
 import {
   bindProgress,
   discoverRequests,
@@ -16,6 +17,7 @@ import {
   HISTORY_BLOCKS,
   visiblePolling,
 } from "./live-polling.mjs";
+import { shortFactRule } from "./history-model.mjs";
 import type { FactCheckEvent, FactCheckSnapshot } from "./types";
 
 export type LiveRequest = {
@@ -71,6 +73,22 @@ export function useRequestHistory(wallet: string) {
       ]);
       try {
         const c = scopedClient(client, signal);
+        const registry = contract(r, "Registry").address;
+        const indexed = await indexedWallet(wallet, registry, signal);
+        if (indexed && r.deployment.chainId === 1) {
+          const first = await launchBlock();
+          if (id === generation.current && !signal.aborted)
+            setState({
+              wallet,
+              rows: discoverRequests(indexed.events, wallet, registry) as LiveRequest[],
+              loading: false,
+              error: "",
+              from: first,
+              to: BigInt(indexed.lastIndexedBlock),
+              first,
+            });
+          return;
+        }
         if ((await c.getChainId()) !== 1 || r.deployment.chainId !== 1)
           throw Error("This page requires Ethereum mainnet reads.");
         const [first, head] = await Promise.all([
@@ -257,7 +275,7 @@ export function useLiveRequest(
               shortQuestion:
                 request.traitId === 601
                   ? "Did this wallet complete at least 3 accepted IMD swarm jobs while holding an IDMD seat?"
-                  : trait?.rule ||
+                  : shortFactRule(request.traitId, TRAITS, spec) ||
                     spec.name ||
                     `Check fact ${request.traitId} for this wallet.`,
               spec,
@@ -287,13 +305,21 @@ export function useLiveRequest(
           const identity = state.identity;
           identity.ensName = ensName;
           if (!state.terminal) {
-            const head = await latestBlock(c);
+            const indexed = await indexedWallet(wallet, identity.registry, signal);
+            const indexedRequest = indexed?.requests.find((item: any) =>
+              item.requestId.toLowerCase() === request.requestId.toLowerCase());
+            if (indexedRequest) {
+              state.terminal = indexed.events
+                .map((event: any) => matchedOutcome(event, identity)).find(Boolean);
+              state.through = BigInt(indexed.lastIndexedBlock);
+            }
+            const head = indexedRequest ? BigInt(indexed.lastIndexedBlock) : await latestBlock(c);
             const start =
               state.through === undefined
                 ? request.blockNumber
                 : state.through + 1n;
             const behind = start + HISTORY_BLOCKS - 1n < head;
-            if (!behind || allowOlderWindow) {
+            if (!indexedRequest && (!behind || allowOlderWindow)) {
               // At most one 7,200-block status window per explicit historical step.
               const fromBlock =
                 state.through === undefined

@@ -48,6 +48,7 @@ test('quorum and delivery cannot reveal a wallet verdict', () => {
 test('status normalizes pending ellipses and confirms receipt milestones', () => {
   assert.equal(phaseStatus('Waiting for the oracle job.', 'admission'), 'Waiting for the oracle job...');
   assert.equal(phaseStatus('Request confirmed', 'admission'), '✓ Request confirmed');
+  assert.equal(phaseStatus('No verdict reached. No fact was added.', 'failed'), 'No verdict reached. No fact was added');
 });
 
 test('artwork URLs reject executable schemes and keep data, ipfs and ordinary images', () => {

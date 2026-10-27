@@ -4,7 +4,7 @@ import { TRAITS } from './data';
 import { Mark, Status } from './components';
 import { useSite } from './context';
 import { WalletFactsSummary } from './wallet-summary';
-import { claimedFactRows } from './claimed-facts.mjs';
+import { claimedFactRows, FACT_GROUPS } from './claimed-facts.mjs';
 import { oracleRequestLink } from './fact-check/request-model.mjs';
 import './request-history.css';
 
@@ -21,7 +21,7 @@ export function ClaimedFacts({ facts, specs, connected, error, onRetry, onConnec
   onRetry: () => void; onConnect: () => void;
 }) {
   const rows = claimedFactRows(facts, TRAITS, specs);
-  const groups = [['direct', 'Direct facts'], ['oracle', 'Oracle-verified facts'], ['community', 'Community facts']];
+  const groups = FACT_GROUPS;
   return <section className="section wallet-facts" id="claimed-facts" aria-labelledby="claimed-facts-title">
     <div className="claimed-facts-heading">
       <h2 id="claimed-facts-title">Claimed Wallet Facts</h2>

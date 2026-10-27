@@ -251,6 +251,7 @@ for (const action of ["approve", "upgrade", "requestSharedFact", "mintCard", "re
     recorded = 0,
     busy = false,
     dialogOpen = true,
+    followed = 0,
     hashSubmitted,
     finishLookup,
     rejectWallet;
@@ -282,6 +283,10 @@ for (const action of ["approve", "upgrade", "requestSharedFact", "mintCard", "re
     generation: { current: 0 },
     next: 0,
     location: { hash: "#/request" },
+    window: {},
+    followHive() {
+      followed++;
+    },
     plan: { account: address },
     steps,
     stepsRef: { current: steps },
@@ -373,6 +378,7 @@ for (const action of ["approve", "upgrade", "requestSharedFact", "mintCard", "re
   await submitted;
   const isFact = ["upgrade", "requestSharedFact"].includes(action);
   assert.equal(env.location.hash, isFact ? `#/fact-check?wallet=${address}` : "#/request");
+  assert.equal(followed, isFact ? 1 : 0, "Only a fact request brings its hive into view");
   assert.equal(dialogOpen, !isFact, "Only a submitted fact request closes the dialog");
   assert.equal(receiptChecks, 0, "Navigation must not wait for the receipt lookup");
   finishLookup();

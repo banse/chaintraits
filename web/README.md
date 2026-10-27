@@ -2,6 +2,22 @@
 
 Sworn is an ownerless Ethereum registry of facts about wallets. This Vite, React and TypeScript application reads the deployed Registry, Composer and Renderer, explores public wallet facts, mints cards, requests oracle facts and registers community specs. The finished static site is delivered in repository-root `dist/`.
 
+## Current indexer integration (2026-10-27)
+
+The current export is rebuilt from `banse/sworn` commit `f6e80c156946020d5eb411a22fbf9ff962615438` with four changes: indexer-first community eligibility, field-derived community rule meaning and registrant, existing CommunityCard icons, and indexer-first wallet request history. The design, routes, catalog snapshot/chain checks, ABIs, runtime inputs, build configuration and dependencies are preserved.
+
+`src/indexer.mjs` owns the single `INDEXER_BASE_URL` constant (default `https://sworn.vibingco.de/api`). Optional reads have a 1.5-second deadline and caller cancellation; missing/unsupported/incomplete answers keep the chain fallback. Only community eligibility ids 10001 and above use the rule endpoint. Catalog and Mint Facts use `/rules` with `specOf`/registration-event fallback; fact-check/history uses `/wallets/:address` with the original log scan fallback. The existing ineligible-row disclosure still applies.
+
+The canonical root `agents/sworn/SKILL.md` and `llms.txt` are included so the install/build recipe below works from this repository. No npm dependency was added. See the [root README](../README.md) for current hosting, build and preview instructions, [VALIDATION.md](VALIDATION.md) for current results and [root DESIGN.md](../DESIGN.md) for the implemented design. Older sections below describe retained features and historical test suites, not checks rerun for this assignment.
+
+Current checks:
+
+```sh
+npm test
+node tests/indexer-browser.mjs
+SWORN_TEST_RPC=https://ethereum-rpc.publicnode.com node tests/indexer-live-browser.mjs
+```
+
 ## Install, check and preview
 
 Use Node 22.12 or newer and npm 10 or newer. From the repository root:
@@ -68,7 +84,7 @@ Run `node scripts/agents.mjs` before building after changing the canonical root 
 
 The handoff contains no `poolKey`. The export therefore adds none. The optional ETH route's market descriptor is derived from public onchain initialization events and current liquidity; router and quoter addresses come from the unchanged network object. The route buys the exact missing IMD, caps ETH input at a ceiling of 101% of the quote, expires after 120 seconds and refunds unused ETH in the swap transaction. An expired quote or a changed oracle price requires preparation again. Every Registry operation is nonpayable; ETH goes only to the configured swap router. IMD approval appears only when the allowance is below the total. A positive short allowance is reset first; a sufficient allowance needs no new approval.
 
-Application API reads are limited to the optional Intake admission lookup and swarm-progress feed described below. No analytics, backend, relay or project ID is needed. Browser extensions use EIP-6963 through wagmi; mobile visitors receive in-wallet links; Coinbase Wallet supplies its SDK/passkey option. RPC selection and the receipt journal are stored only in the visitor's browser. Reloading never resends a transaction, and an uncertain or replaced broadcast must be recovered before continuing.
+Application API reads include the optional Intake admission lookup, swarm-progress feed and the Sworn indexer described above. No analytics, backend, relay or project ID is needed. Browser extensions use EIP-6963 through wagmi; mobile visitors receive in-wallet links; Coinbase Wallet supplies its SDK/passkey option. RPC selection and the receipt journal are stored only in the visitor's browser. Reloading never resends a transaction, and an uncertain or replaced broadcast must be recovered before continuing.
 
 ## Settled-event eligibility snapshot
 
@@ -119,7 +135,7 @@ The compiler script uses Solidity 0.8.24 with the protected repository compiler 
 
 The six canonical routes and their aliases use hash navigation and same-origin relative assets. Static `index.html` deliberately has title `swornbyswarm`; after rendering, each tab reads `Sworn | <page>`. The local PNG share image, favicon and social metadata are included.
 
-[Root DESIGN.md](../DESIGN.md) documents the implemented design, including the pending notice and swarm feed. Contracts, addresses, chain, ABIs, build configuration, dependency manifests and lockfile are preserved. No publication or redeployment command is part of this delivery; the publisher hosts the completed export later under `swornbyswarm.site.identitymd.eth`.
+[Root DESIGN.md](../DESIGN.md) documents the implemented design, including the pending notice and swarm feed. Contracts, addresses, chain, ABIs, build configuration, dependency manifests and lockfile are preserved. No publication or redeployment command is part of this delivery; the publisher hosts the completed export later under this project’s existing `sworn.site.identitymd.eth` name.
 
 The existing ignore files exclude generated frontend dependency, cache, coverage and browser-report directories. This revision changes no ignore file. Dependencies, package caches, downloaded browser libraries and temporary archives are excluded from the submission. No frontend dependency archive or new submodule is required. The inherited protected `lib/` Git entries are preserved.
 

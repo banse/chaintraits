@@ -14,6 +14,7 @@ import type { SwapQuote } from "../swap";
 import { TRAITS } from "../data";
 import { type WatchedFact } from "../swarm";
 import { resolveReceipt } from "../transaction-intent.mjs";
+import { followHive } from "../fact-check/hive-anchor.mjs";
 export type Call = {
   label: string;
   functionName: string;
@@ -564,6 +565,7 @@ function useTransactionController() {
       update(index, { state: "pending", hash });
       if (["upgrade", "requestSharedFact"].includes(steps[index]?.call?.functionName || "")) {
         setOpen(false);
+        followHive(window);
         location.hash = `#/fact-check?wallet=${encodeURIComponent(plan.account)}`;
       }
       // Wallets choose the submitted nonce. Keep our target/data/value intent,

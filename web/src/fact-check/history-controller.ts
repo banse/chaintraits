@@ -4,6 +4,7 @@ import { contract, read, scopedClient } from "../chain";
 import { TRAITS } from "../data";
 import { launchBlock, latestBlock } from "../settlement";
 import { decodeMetadata } from "../pure.mjs";
+import { indexedWallet } from "../indexer.mjs";
 import { oracleProgressReader, oracleUuid } from "../oracle-progress.mjs";
 import { bindProgress, liveSnapshot } from "./live-model.mjs";
 import { boundedRange, HISTORY_BLOCKS } from "./live-polling.mjs";
@@ -12,6 +13,7 @@ import {
   factHistoryRows,
   mergeFactHistory,
   mergeHistoryCoverage,
+  shortFactRule,
   updateHistory,
 } from "./history-model.mjs";
 import type { FactCheckSnapshot } from "./types";
@@ -22,11 +24,12 @@ export type FactHistoryRow = {
   factId: number;
   factName: string;
   blockNumber: bigint;
-  logIndex: number;
+  logIndex?: number;
   transactionHash: string;
   requestId?: string;
   oracleRequestId?: string;
   terminal: any;
+  origin?: any;
   tokenId?: bigint;
   directFacts?: { id: number; name: string }[];
 };
@@ -100,9 +103,34 @@ export function useFactHistory(wallet: string) {
       let rows = previous.rows;
       let coverage = previous.coverage;
       try {
+        const registry = contract(r, "Registry").address;
+        const indexed = await indexedWallet(wallet, registry, signal);
+        if (!current()) return;
+        if (indexed && r.deployment.chainId === 1) {
+          const frozen: Record<string, bigint> = {};
+          if (indexed.card)
+            frozen[String(indexed.card.tokenId)] = await read(
+              c, r, "Registry", "frozenDirect", [BigInt(indexed.card.tokenId)],
+            );
+          const found = factHistoryRows(indexed.events, {
+            wallet, registry, traits: TRAITS, frozen,
+          }) as FactHistoryRow[];
+          const first = await launchBlock();
+          if (current()) {
+            publish({
+              rows: found,
+              coverage: {
+                first, from: first, to: BigInt(indexed.lastIndexedBlock), complete: true,
+              },
+              loading: false,
+              backgroundLoading: false,
+            });
+            resume.current = null;
+          }
+          return;
+        }
         if (r.deployment.chainId !== 1 || (await c.getChainId()) !== 1)
           throw Error("Fact history requires Ethereum mainnet.");
-        const registry = contract(r, "Registry").address;
         const [first, head, code] = await Promise.all([
           launchBlock(),
           older && previous.coverage.to !== undefined
@@ -218,7 +246,10 @@ export function useHistoryFact(
   ensName: string | undefined,
   row: FactHistoryRow | undefined,
 ) {
-  const { r, client, readRetry } = useSite();
+  const { r, client, readRetry, specs } = useSite();
+  // Rule texts only; a later specs refresh must not restart the chain reads below.
+  const specsRef = useRef(specs);
+  specsRef.current = specs;
   const key = `${wallet}:${row?.key || ""}`.toLowerCase();
   const [state, setState] = useState<{
     key: string;
@@ -306,7 +337,6 @@ export function useHistoryFact(
           } catch (error) {
             cardError = reason(error);
           }
-        const trait = TRAITS.find((item) => item.id === historyRow.factId);
         const direct = historyRow.kind === "direct";
         const question = direct
           ? "Direct facts recorded when this card was minted."
@@ -316,7 +346,11 @@ export function useHistoryFact(
             ? "Did this wallet complete at least 3 accepted IMD swarm jobs while holding an IDMD seat?"
             : direct
               ? question
-              : trait?.rule || historyRow.factName;
+              : shortFactRule(
+                  historyRow.factId,
+                  TRAITS,
+                  specsRef.current.find((spec) => Number(spec.id) === historyRow.factId),
+                ) || historyRow.factName;
         snapshot = {
           key: `history:${key}`,
           mode: "live",
@@ -379,7 +413,7 @@ export function useHistoryFact(
             historyRow.blockNumber - HISTORY_BLOCKS + 1n > first
               ? historyRow.blockNumber - HISTORY_BLOCKS + 1n
               : first;
-          const requests = await ec.getLogs({
+          const requests = historyRow.origin ? [historyRow.origin] : await ec.getLogs({
             address: registry,
             event: r.abis.Registry.find(
               (item: any) =>

@@ -104,7 +104,8 @@ test("stopping before a refresh starts sends nothing and immediate resume is fre
   assert.equal(starts, 1);
 });
 
-test("health caches deployment validation per pool and pin, but refreshes price, supply, head and new rules", async () => {
+test("health caches deployment validation per pool and pin, but refreshes price, supply, head and new rules", async t => {
+  t.mock.method(globalThis, "fetch", async () => new Response("null"));
   const vite = await createServer({
     server: { middlewareMode: true, hmr: false },
     appType: "custom",

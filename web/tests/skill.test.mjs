@@ -166,7 +166,7 @@ test("B all 25 skill ids match the pinned catalog source exactly", () => {
     .map((m) => Number(m[1]))
     .filter((i) => i > 100);
   const source = fs
-    .readFileSync(new URL("../../src/Catalog.sol", import.meta.url), "utf8")
+    .readFileSync(new URL("./fixtures/pinned-Catalog.sol", import.meta.url), "utf8")
     .split("function ids()")[1]
     .split("function family")[0];
   const pinned = [

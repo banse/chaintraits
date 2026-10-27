@@ -72,7 +72,8 @@ export function phaseStatus(event, phase) {
   const clean = event.replace(/^[✓✔]\s*/, '').replace(/[.\s…]+$/, '');
   const waiting = /waiting|pending|checking|confirming|loading|retrieving/i.test(clean);
   const confirmation = /confirmed|received|linked|reached|recorded|saved|refreshed|completed/i.test(clean);
-  if (confirmation && !waiting) return `✓ ${clean}`;
+  // A failed attempt can read "No verdict reached"; nothing in it was confirmed.
+  if (confirmation && !waiting && phase !== 'failed') return `✓ ${clean}`;
   return ['failed', 'negative', 'saved'].includes(phase) ? clean : `${clean}...`;
 }
 

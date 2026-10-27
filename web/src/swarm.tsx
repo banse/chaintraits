@@ -13,6 +13,7 @@ import { useAccount } from "wagmi";
 import { useSite } from "./context";
 import { contract, read, scopedClient } from "./chain";
 import { registryEvents, FEED_WINDOW, HISTORY_WINDOW } from "./settlement";
+import { indexedWallet } from "./indexer.mjs";
 import {
   oracleProgressReader,
   progressStatus,
@@ -39,6 +40,7 @@ import { pendingOutcomeRead } from "./swarm-polling.mjs";
 import type { FactCheckSnapshot, FactCheckEvent } from "./fact-check/types";
 import { TRAITS } from "./data";
 import { oracleRequestLink } from "./fact-check/request-model.mjs";
+import { shortFactRule } from "./fact-check/history-model.mjs";
 
 export const SWARM_POLL_MS = 5000;
 export type WatchedFact = { requestId: string; id: number; name: string; blockNumber?: bigint };
@@ -193,8 +195,14 @@ function useSwarmSnapshot(fact: WatchedFact, onAttested: () => void, wallet?: st
             throw Error("This request requires Ethereum mainnet.");
           networkChecked = true;
         }
-        let events = terminal
+        const indexed = terminal ? null : await indexedWallet(
+          address, contract(r, "Registry").address, controller.signal,
+        );
+        const indexedRequest = indexed?.requests.find((item: any) =>
+          item.requestId.toLowerCase() === fact.requestId.toLowerCase());
+        let events: any[] = terminal
           ? []
+          : indexedRequest ? indexed.events
           : await registryEvents(
               client,
               r,
@@ -315,6 +323,7 @@ function useSwarmSnapshot(fact: WatchedFact, onAttested: () => void, wallet?: st
             event.args.claimant.toLowerCase() !== address?.toLowerCase()
           )
             throw Error("Request belongs to another wallet.");
+          const spec = await read(client, r, "Registry", "specOf", [fact.id]);
           pending = {
             registry: contract(r, "Registry").address,
             chainId: r.deployment.chainId,
@@ -324,12 +333,12 @@ function useSwarmSnapshot(fact: WatchedFact, onAttested: () => void, wallet?: st
             requestedAt,
             blockNumber: event.blockNumber,
             questionHash: event.args.questionHash,
-            spec: await read(client, r, "Registry", "specOf", [fact.id]),
+            spec,
             origin: event,
             wallet: address,
             factId: fact.id,
             factName: fact.name,
-            shortQuestion: fact.id === 601 ? "Did this wallet complete at least 3 accepted IMD swarm jobs while holding an IDMD seat?" : TRAITS.find(trait => trait.id === fact.id)?.rule || fact.name,
+            shortQuestion: fact.id === 601 ? "Did this wallet complete at least 3 accepted IMD swarm jobs while holding an IDMD seat?" : shortFactRule(fact.id, TRAITS, spec) || fact.name,
           };
           // Bind the originating event before presenting it as confirmed.
           swarmSnapshot({fact,wallet:address,view:{address,requestId:fact.requestId,requestConfirmed:true,identity:pending}});

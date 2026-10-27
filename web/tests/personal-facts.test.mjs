@@ -1,5 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+// These pre-indexer regressions deliberately verify the retained chain fallback.
+test.beforeEach(t => {
+  const original = globalThis.fetch;
+  t.mock.method(globalThis, "fetch", (url, options) => String(url).startsWith("https://sworn.vibingco.de/api/")
+    ? Promise.resolve(new Response("null")) : original(url, options));
+});
 import {
   parseAbiItem,
   encodeAbiParameters,
@@ -285,11 +291,11 @@ test("6 count reads bounded inclusive chunks, filters claimant/fixed value, sums
   assert.match(summed.found, /sum 2 in raw units/);
   assert.equal(
     eligibilityText(summed, 1250000000000000000n),
-    `This wallet does not meet this rule (${summed.found}). The panel will most likely answer false and the 1.25 IMD request price is spent.`,
+    `This wallet does not meet this rule (${summed.found}). The panel will most likely answer false and the 1.25 IMD request price is spent. Source: chain scan.`,
   );
   assert.match(
     eligibilityText(met, 1n),
-    /^Our check of the public chain data finds this rule met \(.+\)\. The panel decides\.$/,
+    /^Our check of the public chain data finds this rule met \(.+\)\. The panel decides\. Source: chain scan\.$/,
   );
 });
 test("6 no matching logs is not-met; refusal, malformed logs and timeout are advisory unknown", async () => {
@@ -317,7 +323,7 @@ test("6 no matching logs is not-met; refusal, malformed logs and timeout are adv
       10001,
     );
     assert.equal(r.state, "unknown");
-    assert.equal(eligibilityText(r, 1n), NOT_CHECKABLE);
+    assert.equal(eligibilityText(r, 1n), NOT_CHECKABLE + " Source: chain scan.");
   }
   let resolve,
     calls = 0;

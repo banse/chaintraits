@@ -1,6 +1,7 @@
 import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 'react';
 import { HIVE_CELLS } from '../hive-layout';
 import { arrangeAgents, CELL_POINTS, completionKind, FRAME_POINTS, hiveOutline, matchingAnswerCount, phaseStatus, progressSteps, quorumFamilies, safeImageSource } from './canvas-model.mjs';
+import { installHiveAnchor } from './hive-anchor.mjs';
 import type { FactCheckAgent, FactCheckSnapshot } from './types';
 import './fact-check.css';
 
@@ -149,7 +150,7 @@ function FactCheckContent({ snapshot, history, reduced, flashAt, artworkUrl, art
     {snapshot.evidenceKind !== 'direct' && <section className="fc-quorum" aria-label="Required agreement">
       <div className="fc-quorum-heading"><h2 className="fc-label">Required agreement</h2><p aria-label={snapshot.quorum !== null && snapshot.panelSize !== null ? `${snapshot.quorum} matching answers required from ${snapshot.panelSize} agents` : undefined}><strong>{snapshot.quorum === null ? 'Quorum not reported' : `${snapshot.quorum} / ${snapshot.panelSize ?? '?'}`}</strong></p></div>
       {snapshot.quorum !== null && snapshot.quorum > 0 && snapshot.quorum <= 50 ? <div className="fc-meter" aria-label={`${matching} matching reported answers; ${snapshot.quorum} required`}>{Array.from({ length: snapshot.quorum }, (_, i) => <i key={i} className={i < matching ? snapshot.answerKind === 'boolean' && disagree > agree ? 'fc-meter-negative' : 'fc-meter-filled' : ''}/>)}</div> : null}
-      <p className="fc-quorum-detail">{snapshot.agents.length ? snapshot.answerKind === 'boolean' ? `${valid} valid answers · ${agree} TRUE · ${disagree} FALSE` : snapshot.answerKind === 'count' ? `${valid} valid answers · ${agree} matching count · ${disagree} different count` : `${valid} classified answers · ${agree} matching · ${disagree} differing` : snapshot.phase === 'tx' || snapshot.phase === 'admission' ? 'The panel starts after the request is confirmed and its oracle job is linked.' : 'No member answers have been reported for this request.'}</p>
+      <p className="fc-quorum-detail">{snapshot.agents.length ? snapshot.answerKind === 'boolean' ? `${valid} valid answers · ${agree} TRUE · ${disagree} FALSE` : snapshot.answerKind === 'count' ? `${valid} valid answers · ${agree} matching count · ${disagree} not matching` : `${valid} classified answers · ${agree} matching · ${disagree} differing` : snapshot.phase === 'tx' || snapshot.phase === 'admission' ? 'The panel starts after the request is confirmed and its oracle job is linked.' : 'No member answers have been reported for this request.'}</p>
     </section>}
     </div>
     <section className="fc-card-panel" aria-label="Oracle agent visualization">
@@ -253,6 +254,7 @@ export function FactCheckView({ snapshot, embedded = false, variant = 'progress'
     }
   }, [snapshot.key, snapshot.quorumReached, reduced]);
 
+  useEffect(() => { installHiveAnchor(window); }, []);
   useEffect(() => { setDismissedKey(readDismissed(snapshot.key) ? snapshot.key : null); }, [snapshot.key]);
   const dismiss = () => { setDismissedKey(snapshot.key); try { localStorage.setItem(`sworn:fact-check:dismissed:${snapshot.key}`, '1'); } catch { /* Persistence may be disabled by the browser. */ } };
   const presentation: Presentation = { snapshot, history, reduced, flashAt, artworkUrl: imageUrl, artworkLoaded, artworkError: errorKey === imageKey, revealAt: reveal?.key === imageKey ? reveal.at : null, revealed, dismissed: dismissedKey === snapshot.key, onImageLoad: () => setLoadedKey(imageKey), onImageError: () => setErrorKey(imageKey), onDismiss: dismiss };

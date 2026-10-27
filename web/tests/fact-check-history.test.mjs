@@ -59,17 +59,17 @@ test("community history questions retain the registered condition and block wind
   assert.match(count, /at least 3 Deposited events/);
   assert.match(count, /contributor = this wallet/);
   assert.match(count, /hour = 24/);
-  assert.match(count, /blocks 100–200/);
-  assert.ok(count.includes(registry));
+  assert.match(count, /between blocks 100 and 200/);
+  assert.ok(count.includes(`${registry.slice(0, 6)}…${registry.slice(-4)}`));
   assert.match(
     shortFactQuestion(10001, traits, [{ ...spec, kind: 2, sumArg: "amount" }]),
-    /sum of amount at least 3/,
+    /summed amount \(raw units\) at least 3/,
   );
   assert.match(
     shortFactQuestion(10001, traits, [
       { ...spec, kind: 3, sumArg: "amount", fixedArg: "" },
     ]),
-    /top 3 wallets by summed amount/,
+    /top 3 by summed amount/,
   );
   assert.match(
     shortFactQuestion(10001, traits, [
@@ -80,7 +80,7 @@ test("community history questions retain the registered condition and block wind
         op: 1,
       },
     ]),
-    /balanceOf\(this wallet\) ≥ 3 at block 200/,
+    /balanceOf\(this wallet\) on 0x\w{4}…\w{4} return at least 3 at block 200/,
   );
   assert.match(
     shortFactQuestion(10001, traits, [{ ...spec, kind: 5 }]),

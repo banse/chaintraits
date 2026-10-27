@@ -497,6 +497,10 @@ export function fakeChain(options = {}) {
 export async function mockPage(page, fixture) {
   await page.route(/^https:\/\//, async (route) => {
     const url = route.request().url();
+    // Existing suites exercise the original chain path deterministically.
+    // Indexer integration suites override this route with captured API replies.
+    if (url.startsWith("https://sworn.vibingco.de/api/"))
+      return route.fulfill({ status: 200, contentType: "application/json", body: "null" });
     if (
       !/ethereum-rpc.publicnode.com|gateway.tenderly.co|rpc.mevblocker.io|1.rpc.thirdweb.com/.test(
         url,

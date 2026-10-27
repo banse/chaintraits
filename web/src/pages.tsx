@@ -18,6 +18,7 @@ import {
 import {
   AddressForm,
   Card,
+  CommunityCard,
   ContractList,
   Section,
   Mark,
@@ -29,6 +30,7 @@ import {
   num,
 } from "./components";
 import { imd } from "./pure.mjs";
+import { communityFact } from "./community-rule.mjs";
 import { Settlement } from "./claim";
 import {
   useTransactions,
@@ -298,15 +300,13 @@ export function Catalog() {
           </p>
         ) : (
           <div className="fact-rows">
-            {specs.map((s) => (
+            {specs.map(communityFact).map((s) => (
               <div className="fact-row" key={s.id} id={`community-${s.id}`}>
-                <strong>
-                  {s.id} / {s.name}
-                </strong>
-                <p>
-                  T{s.kind} · threshold {s.threshold.toString()} ·{" "}
-                  {num(s.fromBlock)} → {num(s.toBlock)}
-                </p>
+                <div>
+                  <strong>{s.id} / {s.name}</strong>
+                  <CommunityCard fact={s} />
+                </div>
+                <p className="break">{s.detail}<br />Registrant: {s.registrant || "unavailable"}</p>
                 <Mark
                   kind={
                     s.kind === 3 ? "shared" : s.kind >= 5 ? "panel" : "chain"

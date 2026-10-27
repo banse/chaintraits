@@ -1,0 +1,1 @@
+{"supported":true,"ruleId":10001,"name":"Early Flock","wallet":"0x84f4b7424e1b0464f9c749725c1f34bed9aa8ada","count":0,"threshold":"5","op":0,"met":false,"window":{"fromBlock":26038414,"toBlock":26279931},"windowFullyIndexed":true,"lastIndexedBlock":26281085,"transfers":[]}

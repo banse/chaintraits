@@ -19,6 +19,7 @@ import { READ_RPCS, resilientRpc } from "./rpc.mjs";
 import { runtimeAssets } from "./runtime-assets";
 import { validateRuntimeAssets } from "./runtime-integrity.mjs";
 import { cachedReads } from "./read-loading.mjs";
+import { indexedRules } from "./indexer.mjs";
 export type Deployment = {
   version: 1;
   launchId: string;
@@ -347,7 +348,10 @@ export async function lookup(
     verified: Object.fromEntries(oracleIds.map((id, i) => [id, proofs[i]])),
   };
 }
-export async function community(client: any, r: Runtime) {
+export async function community(client: any, r: Runtime, signal?: AbortSignal) {
+  const indexed = await indexedRules(signal);
+  if (signal?.aborted) throw signal.reason;
+  if (indexed) return indexed;
   const next = Number(await read(client, r, "Registry", "nextSpecId"));
   return readCache(client, r).read(
     "community",
@@ -363,6 +367,26 @@ export async function community(client: any, r: Runtime) {
             })),
           )),
         );
+      if (ids.length) {
+        // specOf omits the registrant. Read it from the registration event;
+        // failure of this optional attribution must not hide a usable rule.
+        try {
+          const launch = await fetch(asset("data/launch.json"), { signal })
+            .then(response => response.json());
+          const logs = await client.getLogs({
+            address: contract(r, "Registry").address,
+            event: r.abis.Registry.find((item: any) =>
+              item.type === "event" && item.name === "SpecRegistered"),
+            fromBlock: BigInt(launch.blockNumber),
+            toBlock: "latest",
+          });
+          for (const spec of result)
+            spec.registrant = logs.find((event: any) =>
+              !event.removed && Number(event.args.traitId) === spec.id)?.args.registrant;
+        } catch {
+          /* Display attribution as unavailable; retain specOf fields. */
+        }
+      }
       return result;
       // Re-read the count every refresh; a new rule is visible immediately. The
       // bounded TTL also rechecks unchanged IDs after a possible short reorg.

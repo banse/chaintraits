@@ -21,7 +21,7 @@ const terminalNames = new Set([
   "Abandoned",
 ]);
 
-/** All history comes from Registry logs. Browser journals are not evidence. */
+/** Registry events, read from the indexer or chain. Browser journals are not evidence. */
 export function discoverRequests(events, wallet, registry) {
   const byId = new Map();
   for (const event of events) {
@@ -43,7 +43,7 @@ export function discoverRequests(events, wallet, registry) {
   }
   return [...byId.values()].sort((a, b) =>
     a.blockNumber === b.blockNumber
-      ? Number(b.origin.logIndex) - Number(a.origin.logIndex)
+      ? Number(b.origin.logIndex ?? 0) - Number(a.origin.logIndex ?? 0) || a.requestId.localeCompare(b.requestId)
       : a.blockNumber > b.blockNumber
         ? -1
         : 1,
@@ -113,13 +113,27 @@ function canonicalCount(value) {
   const number = BigInt(value);
   return number < 1n << 256n ? number.toString() : null;
 }
-function countAgreement(progress, identity) {
+// The plane agrees on recipe and answer together: a member counts only when its submission hash is
+// in agreement.cluster. The same value outside it (a count from a differently written filter) is not
+// agreement. The cluster is read once the request has ended; until then values are grouped as a
+// live estimate.
+function agreementCluster(progress) {
+  const cluster = progress?.agreement?.cluster;
+  return Array.isArray(cluster)
+    ? new Set(cluster.map((hash) => String(hash).toLowerCase()))
+    : null;
+}
+const outsideCluster = (cluster, member) =>
+  !!cluster && !cluster.has(String(member?.submissionHash ?? "").toLowerCase());
+function countAgreement(progress, identity, cluster) {
   const values = progress.members.map((member) =>
     member.ok === true ? canonicalCount(member.answer?.answer) : null,
   );
   const groups = new Map();
-  for (const value of values)
-    if (value !== null) groups.set(value, (groups.get(value) || 0) + 1);
+  values.forEach((value, index) => {
+    if (value !== null && !outsideCluster(cluster, progress.members[index]))
+      groups.set(value, (groups.get(value) || 0) + 1);
+  });
   let reference = null;
   if (progressStatus(progress) === "attested") {
     const attestation = progress.attestation;
@@ -168,8 +182,10 @@ export function liveSnapshot({
   const progress = bindProgress(raw, identity);
   const terminal = matchedOutcome(outcome, identity);
   const counts = progress ? progressCounts(progress, identity.spec) : null;
+  const ended = progress && progressStatus(progress) !== "assessing";
+  const cluster = ended ? agreementCluster(progress) : null;
   const countConsensus = counts?.count
-    ? countAgreement(progress, identity)
+    ? countAgreement(progress, identity, cluster)
     : null;
   const window = progress?.window || identity.oracleWindow;
   const definitions = progress?.definitions || identity.oracleDefinitions;
@@ -178,36 +194,56 @@ export function liveSnapshot({
     ? progress.members.filter(
         (member) =>
           member.ok === true &&
+          !outsideCluster(cluster, member) &&
           agentResult(member, identity.spec, agreed).kind === "positive",
       ).length
     : null;
-  const ended = progress && progressStatus(progress) !== "assessing";
+  const clustered = (answer) =>
+    progress.members.filter(
+      (member) =>
+        member.ok === true &&
+        !outsideCluster(cluster, member) &&
+        member.answer?.answer === answer,
+    ).length;
   const yes = counts
     ? counts.count
       ? countConsensus.matching
       : counts.boolean
-        ? counts.trueAnswers
+        ? cluster ? clustered(true) : counts.trueAnswers
         : (listMatching ?? counts.agreed)
     : null;
   const no = counts
     ? counts.count
       ? 0
       : counts.boolean
-        ? counts.falseAnswers
+        ? cluster ? clustered(false) : counts.falseAnswers
         : 0
     : null;
+  const recipeSplit = (detail) => ({
+    kind: "negative",
+    icon: "✕",
+    label: `${detail}, different recipe. Not in the panel's agreement.`,
+  });
   const quorumReached =
     !!progress && (yes >= progress.quorum || no >= progress.quorum);
   const agents = (progress?.members || []).map((member, index) => {
     let result = agentResult(member, identity.spec, agreed, ended);
+    if (
+      result.kind === "positive" &&
+      outsideCluster(cluster, member) &&
+      (!counts?.boolean || String(progress.agreement?.answer) === "true")
+    )
+      result = recipeSplit("Same answer");
     if (countConsensus && member.ok === true) {
       const value = countConsensus.values[index];
       result =
         value === null
           ? { kind: "received", icon: "·", label: "Count unavailable" }
-          : value === countConsensus.reference
-            ? { kind: "positive", icon: "✓", label: "Matching count" }
-            : { kind: "negative", icon: "✕", label: "Different count" };
+          : value !== countConsensus.reference
+            ? { kind: "negative", icon: "✕", label: "Different count" }
+            : outsideCluster(cluster, member)
+              ? recipeSplit("Same count")
+              : { kind: "positive", icon: "✓", label: "Matching count" };
     }
     const tokenId =
       /^\d+$/.test(String(member.tokenId)) &&

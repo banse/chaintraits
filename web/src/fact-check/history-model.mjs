@@ -1,3 +1,5 @@
+import { summarizeCommunityRule } from "../community-rule.mjs";
+
 const same = (a, b) =>
   typeof a === "string" &&
   typeof b === "string" &&
@@ -21,26 +23,13 @@ export function shortFactQuestion(id, traits, specs = []) {
   const trait = traits.find((item) => item.id === id);
   if (trait) return builtinQuestions[id] || trait.rule || "";
   const spec = specs.find((item) => Number(item.id) === id);
-  if (!spec) return "";
-  const kind = Number(spec.kind);
-  const item = spec.item?.match(/^(?:event|function)\s+(\w+)/)?.[1];
-  const source = `on ${spec.target}, blocks ${spec.fromBlock}–${spec.toBlock}`;
-  const filter = `${spec.arg} = this wallet${spec.fixedArg ? ` and ${spec.fixedArg} = ${spec.fixedVal}` : ""}`;
-  if (kind === 1 && item)
-    return `Were there at least ${spec.threshold} ${item} events with ${filter} (${source})?`;
-  if (kind === 2 && item)
-    return `Was the sum of ${spec.sumArg} at least ${spec.threshold} in ${item} events with ${filter} (${source})?`;
-  if (kind === 3 && item)
-    return `Was this wallet among the top ${spec.threshold} wallets by summed ${spec.sumArg}, grouped by ${spec.arg} in ${item} events (${source})?`;
-  if (kind === 4 && item) {
-    const op = { 1: "≥", 2: ">", 3: "≤", 4: "<", 5: "=" }[Number(spec.op)];
-    return op
-      ? `Was ${item}(this wallet) ${op} ${spec.threshold} at block ${spec.toBlock} on ${spec.target}?`
-      : "";
-  }
-  if (kind === 5)
-    return `Was this wallet’s account nonce at least ${spec.threshold} at block ${spec.toBlock}?`;
-  return "";
+  return spec?.item ? summarizeCommunityRule(spec).question : "";
+}
+/** The one line a fact shows beside its canvas: a builtin rule or a community rule's summary. */
+export function shortFactRule(id, traits, spec) {
+  const trait = traits.find((item) => item.id === id);
+  if (trait) return trait.rule;
+  return spec?.item ? summarizeCommunityRule(spec).rule : "";
 }
 export function decodeDirectFacts(mask, traits) {
   const bits = BigInt(mask);
@@ -72,11 +61,12 @@ export function factHistoryRows(
     )
       continue;
     const base = {
-      key: `${event.transactionHash}:${event.logIndex}`.toLowerCase(),
+      key: (event.sourceKey || `${event.transactionHash}:${event.logIndex}`).toLowerCase(),
       blockNumber: event.blockNumber,
-      logIndex: Number(event.logIndex),
+      logIndex: event.logIndex == null ? undefined : Number(event.logIndex),
       transactionHash: event.transactionHash,
       terminal: event,
+      origin: event.requestOrigin,
     };
     if (event.eventName === "Verified") {
       const factId = Number(event.args.traitId);
@@ -109,10 +99,21 @@ export function factHistoryRows(
 }
 export function mergeFactHistory(previous, next) {
   const rows = new Map(previous.map((row) => [row.key, row]));
-  for (const row of next) rows.set(row.key, row);
+  // The API omits log indices. Match the same confirmed write by its real
+  // request/card identity, block and transaction when switching data sources.
+  const evidenceKey = row => `${row.kind}:${row.requestId || row.tokenId}:${row.blockNumber}:${row.transactionHash}`.toLowerCase();
+  const evidence = new Map(previous.map(row => [evidenceKey(row), row]));
+  for (const row of next) {
+    const key = evidenceKey(row), duplicate = evidence.get(key);
+    if (duplicate && duplicate.key !== row.key &&
+      (duplicate.terminal?.source === "indexer" || row.terminal?.source === "indexer"))
+      rows.delete(duplicate.key);
+    rows.set(row.key, row);
+    evidence.set(key, row);
+  }
   return [...rows.values()].sort((a, b) =>
     a.blockNumber === b.blockNumber
-      ? b.logIndex - a.logIndex
+      ? (b.logIndex ?? 0) - (a.logIndex ?? 0) || a.key.localeCompare(b.key)
       : a.blockNumber > b.blockNumber
         ? -1
         : 1,

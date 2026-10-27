@@ -88,7 +88,7 @@ export function App({ r }: { r: Runtime }) {
         if (signal.aborted || ticket !== refreshId.current) return;
         setHealth(result);
         try {
-          const list = await community(current, r);
+          const list = await community(current, r, signal);
           if (signal.aborted || ticket !== refreshId.current) return;
           setSpecs(list);
           setSpecError("");

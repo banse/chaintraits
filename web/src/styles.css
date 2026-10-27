@@ -974,6 +974,14 @@ fieldset {
 .fact-group-title {
   color: var(--accent);
 }
+/* Choose facts to mint: each group's rows start under a rule, as in Claimed Wallet Facts. */
+.step > .fact-group {
+  margin-block-start: 20px;
+}
+.fact-group > .trait-picker {
+  margin-block-start: 0;
+  border-block-start: 1px solid var(--rule);
+}
 /* Direct facts: two per row; id and name, then meaning, in aligned columns. */
 .direct-facts {
   display: grid;

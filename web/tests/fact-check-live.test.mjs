@@ -408,3 +408,60 @@ test("hidden and unmounted pages abort live polling and reject stale completions
   for (const call of calls) call.resolve();
   await Promise.resolve();
 });
+// Request 1abac750 (rule 10001, 2026-10-27): three answers of 5, but seat 1211 wrote the `to` filter as
+// a decimal, so the plane clustered it apart and the request ended disagreed (2 of 3 required).
+const split = (status, cluster) => ({
+  ...progress,
+  status,
+  answerType: "uint256",
+  panelSize: 5,
+  quorum: 3,
+  agreement: { agreed: cluster.length, answer: "5", quorum: 3, cluster },
+  members: [
+    { tokenId: "1641", ok: true, submissionHash: "086a", answer: { answer: "5" } },
+    { tokenId: "1470", ok: true, submissionHash: "1df3", answer: { answer: "5" } },
+    { tokenId: "1211", ok: true, submissionHash: "A417", answer: { answer: "5" } },
+  ],
+});
+test("a disagreed panel keeps a same count from another recipe outside the agreement", () => {
+  const s = liveSnapshot({
+    identity: { ...identity, spec: { kind: 1, threshold: 5 } },
+    progress: split("disagreed", ["086a", "1df3"]),
+  });
+  assert.equal(s.phase, "failed");
+  assert.equal(s.quorumReached, false);
+  assert.equal(s.matchingAnswers, 2);
+  assert.deepEqual(s.agents.map((a) => a.state), ["agree", "agree", "disagree"]);
+  assert.equal(s.agents[2].detail, "Same count, different recipe. Not in the panel's agreement.");
+});
+test("the plane's cluster decides agreement only once the request has ended", () => {
+  const assessing = liveSnapshot({
+    identity: { ...identity, spec: { kind: 1, threshold: 5 } },
+    progress: split("assessing", ["086a", "1df3"]),
+  });
+  assert.equal(assessing.matchingAnswers, 3);
+  const attested = liveSnapshot({
+    identity: { ...identity, spec: { kind: 1, threshold: 5 } },
+    progress: split("attested", ["086a", "1df3", "a417"]),
+  });
+  assert.equal(attested.quorumReached, true);
+  assert.ok(attested.agents.every((a) => a.state === "agree"));
+});
+test("a boolean NO verdict leaves its minority TRUE answers as they are", () => {
+  const s = liveSnapshot({
+    identity,
+    progress: {
+      ...progress,
+      status: "attested",
+      panelSize: 3,
+      quorum: 2,
+      agreement: { agreed: 2, answer: false, quorum: 2, cluster: ["b", "c"] },
+      members: [
+        { tokenId: "1", ok: true, submissionHash: "a", answer: { answer: true } },
+        { tokenId: "2", ok: true, submissionHash: "b", answer: { answer: false } },
+        { tokenId: "3", ok: true, submissionHash: "c", answer: { answer: false } },
+      ],
+    },
+  });
+  assert.deepEqual(s.agents.map((a) => a.state), ["agree", "disagree", "disagree"]);
+});
