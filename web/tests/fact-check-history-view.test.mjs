@@ -88,7 +88,7 @@ test("completed oracle requests retain agents and answers in live and history vi
         variant: "history",
       }),
     );
-    assert.match(direct, /Direct facts recorded at card mint/);
+    assert.match(direct, /Direct Facts Recorded at Card Mint/);
     assert.match(direct, /data:image\/svg\+xml/);
     assert.doesNotMatch(
       direct,

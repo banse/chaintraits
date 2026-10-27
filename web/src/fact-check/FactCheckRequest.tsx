@@ -21,7 +21,7 @@ export function FactCheckRequest({ wallet, latestFact, onAttested }: { wallet: s
     catch (error) { return { request: null, error: error instanceof Error ? error.message : 'Invalid oracle request link.' }; }
   }, []);
   const complete = () => { site.refresh(); onAttested(); };
-  if (selection.error) return <section><p role="alert">{selection.error}</p><a href="#/request">Mint Facts ↗</a></section>;
+  if (selection.error) return <section><p role="alert">{selection.error}</p><a href="#/request">Wallet Facts ↗</a></section>;
   if (selection.request) {
     const { wallet, requestId, factId, blockNumber } = selection.request;
     const name = site.specs.find(spec => Number(spec.id) === factId)?.name || TRAITS.find(trait => trait.id === factId)?.name || `Fact ${factId}`;

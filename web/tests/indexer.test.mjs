@@ -345,12 +345,19 @@ test("a community rule gets a short line, window and question like the builtin f
   t.mock.method(globalThis, "fetch", async () => reply({ rules: [rule] }));
   const [spec] = await indexedRules();
   const fact = communityFact(spec);
-  assert.equal(fact.rule, "At least 5 paid requests to the swarm since the start");
+  assert.equal(fact.rule, "At least 5 paid requests to the swarm between the start and block 26,279,931");
   assert.equal(fact.window, "Until block 26,279,931");
   assert.equal(fact.detail, describeCommunityRule(spec));
   assert.equal(
     shortFactQuestion(10001, [], [spec]),
-    "Did this wallet make at least 5 paid requests to the swarm since the start, until block 26,279,931?",
+    "Did this wallet make at least 5 paid requests to the swarm between the start and block 26,279,931?",
+  );
+  // Block 26,279,931 was mined at 2026-10-26 22:43:35 UTC.
+  const dated = { ...spec, toTime: Date.UTC(2026, 9, 26, 22, 43, 35) / 1000 };
+  assert.equal(communityFact(dated).rule, "At least 5 paid requests to the swarm between the start and 2026-10-26");
+  assert.equal(
+    shortFactQuestion(10001, [], [dated]),
+    "Did this wallet make at least 5 paid requests to the swarm between the start and 2026-10-26 (block 26,279,931)?",
   );
   const later = summarizeCommunityRule({ ...spec, fromBlock: 26100000n });
   assert.equal(later.rule, "At least 5 paid requests to the swarm");

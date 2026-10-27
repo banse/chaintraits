@@ -4,9 +4,9 @@ import { routeInfo, taskAnchor, TASKS } from "../src/task-navigation.mjs";
 
 test("each independent task has a stable destination", () => {
   assert.deepEqual(TASKS, [
-    ["/mint", "Mint Card"],
-    ["/request", "Mint Wallet Facts"],
-    ["/register", "Mint Rule"],
+    ["/mint", "Sworn Card"],
+    ["/request", "Wallet Facts"],
+    ["/register", "Community Facts"],
   ]);
   for (const [path] of TASKS) assert.equal(routeInfo(`#${path}`).route, path);
 });

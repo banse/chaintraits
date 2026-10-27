@@ -59,10 +59,10 @@ function CardCreated({
         ✓
       </span>
       <div>
-        <h3>Mint succeeded — your card is ready!</h3>
+        <h3>Mint Succeeded — Your Card Is Ready!</h3>
         <p>
           Your Sworn card #{token.toString()} was minted on Ethereum. View it on
-          Mint Card and find its claimed facts on Mint Facts.
+          Sworn Card and find its claimed facts on Wallet Facts.
         </p>
         <a
           className="verification-wallet-link"
@@ -155,7 +155,7 @@ export function TransactionJournal({ journal: j }: { journal: Journal }) {
       className="section journal"
       aria-label="Saved transaction progress"
     >
-      <h2>Transaction steps</h2>
+      <h2>Transaction Steps</h2>
       <p>
         {j.plan?.title || "Saved transaction receipts"} ·{" "}
         {complete ? "Confirmed" : active?.state || "Saved on this browser"}
@@ -243,7 +243,7 @@ export function TransactionJournal({ journal: j }: { journal: Journal }) {
                 : oraclePayment
                   ? "I understand this spends the IMD request fee plus ETH gas. The request fee is not refunded for a false answer, no verdict or failed verification. A mined request is not yet a verified fact."
                   : registrationPayment
-                    ? "I understand this spends the Mint Rule fee plus ETH gas. Mint Rule registers a definition; it does not prove it for a wallet or pay for a later Mint Facts verification request."
+                    ? "I understand this spends the Mint Rule fee plus ETH gas. Mint Rule registers a definition; it does not prove it for a wallet or pay for a later verification request on Wallet Facts."
                     : "I understand these transactions spend the displayed amounts plus ETH gas."}
             </label>
           )}
@@ -446,7 +446,7 @@ export function TransactionJournal({ journal: j }: { journal: Journal }) {
             <p className="accent" role="status">
               Rule {j.registered} minted in the contract. No wallet fact has been minted yet.{" "}
               <a href={`#/request?trait=${j.registered}`} onClick={j.close}>
-                Mint Facts
+                Wallet Facts
               </a>
             </p>
           )}

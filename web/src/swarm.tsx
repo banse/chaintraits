@@ -11,7 +11,7 @@ import {
 } from "react";
 import { useAccount } from "wagmi";
 import { useSite } from "./context";
-import { contract, read, scopedClient } from "./chain";
+import { contract, endTime, read, scopedClient } from "./chain";
 import { registryEvents, FEED_WINDOW, HISTORY_WINDOW } from "./settlement";
 import { indexedWallet } from "./indexer.mjs";
 import {
@@ -323,7 +323,9 @@ function useSwarmSnapshot(fact: WatchedFact, onAttested: () => void, wallet?: st
             event.args.claimant.toLowerCase() !== address?.toLowerCase()
           )
             throw Error("Request belongs to another wallet.");
-          const spec = await read(client, r, "Registry", "specOf", [fact.id]);
+          const registered = await read(client, r, "Registry", "specOf", [fact.id]);
+          const toTime = fact.id >= 10001 ? await endTime(client, registered?.toBlock) : undefined;
+          const spec = toTime === undefined ? registered : { ...registered, toTime };
           pending = {
             registry: contract(r, "Registry").address,
             chainId: r.deployment.chainId,

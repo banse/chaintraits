@@ -68,11 +68,17 @@ export function AddressForm({
   onSubmit,
   label,
   submitLabel,
+  onClear,
+  note,
 }: {
   initial?: string;
   onSubmit?: (a: string) => void;
   label?: string;
   submitLabel?: string;
+  /** Shown as a Clear button: forget the entered wallet. */
+  onClear?: () => void;
+  /** Added to the form's status line. */
+  note?: string;
 }) {
   const [value, setValue] = useState(initial);
   const [error, setError] = useState("");
@@ -112,9 +118,22 @@ export function AddressForm({
         <button className="primary" type="submit">
           {submitLabel || "Explore wallet"} <span aria-hidden="true">↗</span>
         </button>
+        {onClear && (
+          <button
+            type="button"
+            onClick={() => {
+              setValue("");
+              setError("");
+              onClear();
+            }}
+          >
+            Clear wallet
+          </button>
+        )}
       </div>
       <Status id="address-error" error={!!error}>
-        {error || "Public facts. No wallet connection needed."}
+        {error ||
+          `Public facts. No wallet connection needed.${note ? ` ${note}` : ""}`}
       </Status>
     </form>
   );
@@ -199,6 +218,7 @@ export function Card({
   interactive = false,
   onFamily,
   activeFamily,
+  activeFamilies,
   availableFamilies,
   showCaption = true,
 }: {
@@ -209,6 +229,8 @@ export function Card({
   interactive?: boolean;
   onFamily?: (n: number) => void;
   activeFamily?: number;
+  /** Several pressed cells at once (a preview); otherwise `activeFamily` names the one pressed cell. */
+  activeFamilies?: number[];
   availableFamilies?: number[];
   showCaption?: boolean;
 }) {
@@ -241,9 +263,11 @@ export function Card({
                 key={family}
                 aria-label={`Inspect ${FAMILIES[family - 1]} cell`}
                 aria-pressed={
-                  activeFamily === undefined
-                    ? undefined
-                    : activeFamily === family
+                  activeFamilies
+                    ? activeFamilies.includes(family)
+                    : activeFamily === undefined
+                      ? undefined
+                      : activeFamily === family
                 }
                 style={{
                   left: `${(x - 89) / 10}%`,

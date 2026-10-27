@@ -812,14 +812,14 @@ function CommunityForm({
       </div>
       <p>
         {site.health
-          ? `Mint Rule costs 6.4 IMD. Using Mint Facts later costs ${exactUnits(site.health.price)} IMD per verification request at the current oracle quote, plus gas. The rule fee is forwarded to the BurnExecutor for bridging and burning on Base.`
-          : "Mint Rule costs 6.4 IMD. Using Mint Facts later pays the oracle price per verification request, plus gas. The rule fee is forwarded to the BurnExecutor for bridging and burning on Base."}{" "}
+          ? `Mint Rule costs 6.4 IMD. A later verification request on Wallet Facts costs ${exactUnits(site.health.price)} IMD at the current oracle quote, plus gas. The rule fee is forwarded to the BurnExecutor for bridging and burning on Base.`
+          : "Mint Rule costs 6.4 IMD. A later verification request on Wallet Facts pays the oracle price, plus gas. The rule fee is forwarded to the BurnExecutor for bridging and burning on Base."}{" "}
         The request price is read again when you prepare; it can change.
-        Mint Rule and Mint Facts are separate transactions; minting a rule alone adds no wallet fact.
+        Mint Rule and Mint Fact are separate transactions; minting a rule alone adds no wallet fact.
       </p>
       <p className="muted">
         Mint Rule registers the definition in the contract. The receipt supplies
-        its ID; then use <a href="#/request">Mint Facts</a> separately to verify
+        its ID; then use <a href="#/request">Wallet Facts</a> separately to verify
         it for your wallet.
       </p>
       <TaskAction connectLabel="Connect to Mint Rule">
@@ -1128,6 +1128,9 @@ export function Claim({ task = "/mint" }: { task?: string }) {
         !!sharedEligibility.ids[id])
     );
   }
+  const firstShown = FACT_GROUPS.map(([group]) => group).find((group) =>
+    paid.some((t) => factGroup(t.id, TRAITS) === group && (showIneligible || !paidIneligible(t.id))),
+  );
   async function prepareMint() {
     setBusy("mint");
     setStatus((v) => ({ ...v, mint: "Checking…" }));
@@ -1203,7 +1206,7 @@ export function Claim({ task = "/mint" }: { task?: string }) {
         <>
           {(!minted || minted === 0n) && <p className="prose">
             The card is an optional collectible. You can use wallet facts and{" "}
-            <a href="#/request">Mint Facts</a> without minting a card. Facts
+            <a href="#/request">Wallet Facts</a> without minting a card. Facts
             belong to your wallet in the Registry contract; the card reads
             them from that contract to render its artwork.
           </p>}
@@ -1219,9 +1222,9 @@ export function Claim({ task = "/mint" }: { task?: string }) {
                 <h2>
                   {account.address && !cardReady
                     ? factError
-                      ? "Retry wallet reads"
-                      : "Reading your card…"
-                    : "Mint your Sworn card"}
+                      ? "Retry Wallet Reads"
+                      : "Reading Your Card…"
+                    : "Mint Your Sworn Card"}
                 </h2>
                 {(!account.address || (cardReady && minted === 0n)) && (
                   <>
@@ -1243,7 +1246,7 @@ export function Claim({ task = "/mint" }: { task?: string }) {
                       aria-labelledby="snapshot-title"
                     >
                       <h3 id="snapshot-title">
-                        The direct facts you will save
+                        The Direct Facts You Will Save
                       </h3>
                       <p>
                         Minting permanently saves this wallet's direct-fact
@@ -1346,30 +1349,14 @@ export function Claim({ task = "/mint" }: { task?: string }) {
           <p className="prose">
             Review your claimed facts or choose a new fact to verify. A card is optional.
           </p>
-          <nav className="inline-links" aria-label="Mint Facts sections">
+          <nav className="inline-links" aria-label="Wallet Facts sections">
+            <a href="#/request#step-02">Choose Facts to Mint</a>
             <a href="#/request#claimed-facts">Claimed Facts</a>
-            <a href="#/request#step-02">Choose facts to mint</a>
             <a href="#/fact-check">Fact Check</a>
           </nav>
-          <ClaimedFacts facts={currentFacts} specs={site.specs} connected={!!account.address}
-            error={factError} onRetry={() => setRefreshTick(tick => tick + 1)} onConnect={openWallet}/>
-          {pendingFacts.length > 0 && (
-            <section className="pending-notice" aria-label="Pending facts">
-              <h2>Waiting for the swarm</h2>
-              {pendingFacts.map((fact) => (
-                <p key={fact.requestId}>
-                  <strong>
-                    {fact.id} / {fact.name}
-                  </strong>{" "}
-                  · Pending since <RequestTime requestId={fact.requestId} />.
-                  This fact cannot be requested again until its answer arrives.
-                  Other facts and actions remain available.
-                </p>
-              ))}
-            </section>
-          )}
+          {/* Facts that can be minted come first, right below the page header. */}
           <section id="step-02" className="step">
-            <h2>Choose facts to mint</h2>
+            <h2>Choose Facts to Mint</h2>
             <p>A request starts verification. A fact is only stored for your wallet after an accepted result; shared results must also be applied. Pending or failed requests add no fact.</p>
             <p className="request-cost-note">
               Request fees are paid in IMD and are not refunded if no fact is
@@ -1392,19 +1379,37 @@ export function Claim({ task = "/mint" }: { task?: string }) {
                 not mean the fact is false. {SWARMED}
               </p>
             </details>
-            <IneligibleControl
-              count={paid.filter((t) => paidIneligible(t.id)).length}
-              shown={showIneligible}
-              onChange={() => setShowIneligible((v) => !v)}
-            />
+            {/* The ineligible-facts link sits in the first shown group's header; above the groups when none is shown. */}
+            {firstShown === undefined && (
+              <IneligibleControl
+                count={paid.filter((t) => paidIneligible(t.id)).length}
+                shown={showIneligible}
+                onChange={() => setShowIneligible((v) => !v)}
+              />
+            )}
             {FACT_GROUPS.map(([group, title]) => {
-              const list = paid.filter((t) => factGroup(t.id, TRAITS) === group);
+              // Facts the wallet does not hold yet come first; known from its facts at once, so rows never jump.
+              const held = (id: number) =>
+                !!(currentFacts?.traits.includes(id) || currentFacts?.verifiedSpecs.includes(id));
+              const list = paid
+                .filter((t) => factGroup(t.id, TRAITS) === group)
+                .sort((a, b) => Number(held(a.id)) - Number(held(b.id)));
               if (!list.length) return null;
               // Hidden, not removed: shared rows keep reporting their eligibility while hidden.
               const visible = list.some((t) => showIneligible || !paidIneligible(t.id));
               return (
                 <div className="fact-group" key={group} hidden={!visible}>
-                  <h3 className="fact-group-title">{title}</h3>
+                  <div className="fact-group-head">
+                    <h3 className="fact-group-title">{title}</h3>
+                    {group === firstShown && (
+                      <IneligibleControl
+                        link
+                        count={paid.filter((t) => paidIneligible(t.id)).length}
+                        shown={showIneligible}
+                        onChange={() => setShowIneligible((v) => !v)}
+                      />
+                    )}
+                  </div>
                   <div
                     className="trait-picker single-fact-picker"
                     role="group"
@@ -1547,7 +1552,7 @@ export function Claim({ task = "/mint" }: { task?: string }) {
                 .filter(([, rid]) => !/^0x0+$/.test(rid))
                 .map(([id, rid]) => (
                   <div key={id}>
-                    <h4>{id} / pending request</h4>
+                    <h4>{id} / Pending Request</h4>
                     <Settlement
                       requestId={rid}
                       journal={journal}
@@ -1571,7 +1576,7 @@ export function Claim({ task = "/mint" }: { task?: string }) {
             {/* Pending requests remain inside the fact-request step. */}
             {pendingFacts.length > 0 && (
               <section className="swarm-feed" aria-label="Swarm progress">
-                <h4 className="subpart-title">Swarm progress</h4>
+                <h4 className="subpart-title">Swarm Progress</h4>
                 <p className="muted">
                   Live panel progress, not proof. Facts and card updates come
                   from the Registry.
@@ -1587,6 +1592,23 @@ export function Claim({ task = "/mint" }: { task?: string }) {
               </section>
             )}
           </section>
+          <ClaimedFacts facts={currentFacts} specs={site.specs} connected={!!account.address}
+            error={factError} onRetry={() => setRefreshTick(tick => tick + 1)} onConnect={openWallet}/>
+          {pendingFacts.length > 0 && (
+            <section className="pending-notice" aria-label="Pending facts">
+              <h2>Waiting for the Swarm</h2>
+              {pendingFacts.map((fact) => (
+                <p key={fact.requestId}>
+                  <strong>
+                    {fact.id} / {fact.name}
+                  </strong>{" "}
+                  · Pending since <RequestTime requestId={fact.requestId} />.
+                  This fact cannot be requested again until its answer arrives.
+                  Other facts and actions remain available.
+                </p>
+              ))}
+            </section>
+          )}
           {account.address && <RecentVerificationRequests wallet={account.address}
             rows={requestHistory.wallet === account.address ? requestHistory.attempts : undefined}
             error={requestHistory.wallet === account.address ? requestHistory.error : undefined}
@@ -1600,15 +1622,15 @@ export function Claim({ task = "/mint" }: { task?: string }) {
           <p className="prose">
             Mint Rule registers a reusable, immutable community rule in the
             Registry contract and gives it a rule ID. It does not verify a
-            wallet or add a fact to a card. Use <a href="#/request">Mint Facts</a>{" "}
+            wallet or add a fact to a card. Use <a href="#/request">Wallet Facts</a>{" "}
             separately to verify the rule for your wallet and store an accepted
             fact in the contract.
           </p>
           <CommunityIntro />
           <ol className="community-journey">
-            <li><strong>Mint Rule.</strong> Choose a template, define its evidence window and register the rule in the contract.</li>
-            <li><strong>Mint Facts.</strong> Submit a separate verification request. Only an accepted result adds a wallet fact to the contract; shared results must also be applied.</li>
-            <li><strong>Use the fact.</strong> See it on the wallet’s card preview, select it in Curator or check its ID with <code>hasTrait</code>. A card is optional.</li>
+            <li><strong>1. Mint Rule.</strong> Choose a template, define its evidence window and register the rule in the contract.</li>
+            <li><strong>2. Wallet Facts.</strong> Submit a separate verification request. Only an accepted result adds a wallet fact to the contract; shared results must also be applied.</li>
+            <li><strong>3. Read the fact.</strong> See it on the wallet’s card preview, select it in Curator or check its ID with <code>hasTrait</code>. A card is optional.</li>
           </ol>
           {!!journal.registered&&<div className="community-created" role="status"><strong>Rule {journal.registered} minted in the Registry.</strong><p>The rule is registered; no wallet fact has been verified or minted yet.</p><div className="inline-links"><a href={`#/request?trait=${journal.registered}`}>Mint Facts for your wallet</a><a href={`#/curator?trait=${journal.registered}`}>Use this rule in Curator</a></div></div>}
           <CommunityForm

@@ -689,8 +689,9 @@ a.wallet-row:hover {
   max-width: 300px;
   margin-inline: auto;
 }
+/* The text beside the card uses its whole column. */
 .mint-panel p {
-  max-width: 65ch;
+  max-width: none;
 }
 .minted-card {
   border-block-start: 1px solid var(--rule);
@@ -973,6 +974,30 @@ fieldset {
 }
 .fact-group-title {
   color: var(--accent);
+}
+/* A group's title row; the first one also holds the ineligible-facts link, right aligned. */
+.fact-group-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--s2) var(--s4);
+}
+.eligibility-toggle.eligibility-link {
+  margin: 0 0 0 auto;
+  padding: 0;
+  min-height: 0;
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font-size: var(--small);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.eligibility-toggle.eligibility-link:hover,
+.eligibility-toggle.eligibility-link:focus-visible {
+  color: var(--text);
 }
 /* Choose facts to mint: each group's rows start under a rule, as in Claimed Wallet Facts. */
 .step > .fact-group {
@@ -1906,6 +1931,9 @@ th {
 .snapshot-summary {
   border-inline-start: 2px solid var(--accent);
   padding-inline-start: var(--s4);
+  /* A blank line above and below the box, on top of the paragraph gap. */
+  margin-block: 37px;
+  margin-block: calc(16px + 1lh);
 }
 .snapshot-summary h3 {
   font-size: var(--prose);
@@ -1939,8 +1967,11 @@ th {
   }
 }
 /* Community records and card explanations share the site's existing palette. */
-.community-journey { padding-left: 1.4rem; max-width: 76ch; }
-.community-journey li { margin: .75rem 0; }
+/* Three steps side by side, their text grey and each numbered title white. One column on phones. */
+.community-journey { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--s5); padding-left: 0; list-style: none; }
+.community-journey li { margin: .75rem 0; color: var(--muted); }
+.community-journey li strong { color: var(--text); }
+@media (max-width: 760px) { .community-journey { grid-template-columns: minmax(0, 1fr); gap: 0; } }
 .community-created { border: 1px solid var(--accent, #68e943); padding: 1rem; margin: 1rem 0; }
 .card-fact-guide { margin: 1rem 0; max-width: 76ch; overflow-wrap: anywhere; }
 .card-fact-guide p { max-width: 70ch; }

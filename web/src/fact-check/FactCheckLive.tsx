@@ -76,7 +76,7 @@ export function FactCheckLive() {
       <h1>Fact Check</h1>
       <p className="prose">Follow verification requests and review facts saved in the Registry.</p>
       {wallet && <p className="fc-history-wallet">Wallet <code>{wallet}</code></p>}
-      <div className="inline-links"><a href={`#${routeInfo().route}${routeInfo().query.size ? `?${routeInfo().query}` : ''}#fact-history`}>Fact History ↓</a><a href="#/request">Mint Facts</a></div>
+      <div className="inline-links"><a href={`#${routeInfo().route}${routeInfo().query.size ? `?${routeInfo().query}` : ''}#fact-history`}>Fact History ↓</a><a href="#/request">Wallet Facts</a></div>
       <FactCheckRequest
         wallet={wallet}
         latestFact={latestOracle?.requestId ? {
@@ -216,8 +216,8 @@ export function FactCheckLive() {
 function MintLinks() {
   return (
     <div className="fc-history-mint-links">
-      <a href="#/request">Mint Facts ↗</a>
-      <a href="#/mint">Mint Card ↗</a>
+      <a href="#/request">Wallet Facts ↗</a>
+      <a href="#/mint">Sworn Card ↗</a>
     </div>
   );
 }

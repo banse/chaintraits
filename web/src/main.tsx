@@ -27,7 +27,7 @@ loadRuntime()
   .catch((e) =>
     root.render(
       <main className="startup-error">
-        <h1>Sworn could not load</h1>
+        <h1>Sworn Could Not Load</h1>
         <p role="alert">{explain(e)}</p>
         <button onClick={() => location.reload()}>Retry loading</button>
       </main>,

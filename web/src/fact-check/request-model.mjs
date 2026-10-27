@@ -8,7 +8,7 @@ export function oracleRequestSelection(query) {
   if (!['request', 'fact', 'block'].some(key => query.has(key))) return null;
   const wallet = query.get('wallet') || '', requestId = query.get('request') || '', id = query.get('fact');
   if (!isAddress(wallet) || !requestHash(requestId) || !factNumber(id))
-    throw Error('This oracle request link is incomplete or invalid. Open it from Mint Facts or your wallet history.');
+    throw Error('This oracle request link is incomplete or invalid. Open it from Wallet Facts or your wallet history.');
   const block = query.get('block');
   if (block !== null && !/^\d+$/.test(block)) throw Error('The request block is invalid.');
   return { wallet, requestId, factId: Number(id), blockNumber: block === null ? undefined : BigInt(block) };

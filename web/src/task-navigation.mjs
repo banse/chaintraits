@@ -1,7 +1,7 @@
 export const TASKS = [
-  ["/mint", "Mint Card"],
-  ["/request", "Mint Wallet Facts"],
-  ["/register", "Mint Rule"],
+  ["/mint", "Sworn Card"],
+  ["/request", "Wallet Facts"],
+  ["/register", "Community Facts"],
 ];
 
 // Keep old bookmarks meaningful when the combined Mint page becomes three tasks.

@@ -14,6 +14,7 @@ import {
   type Abi,
   type PublicClient,
 } from "viem";
+import { mainnet } from "viem/chains";
 import { decodeMetadata, MISS_REASONS } from "./pure.mjs";
 import { READ_RPCS, resilientRpc } from "./rpc.mjs";
 import { runtimeAssets } from "./runtime-assets";
@@ -71,7 +72,14 @@ export async function loadRuntime(): Promise<Runtime> {
       blockExplorers: {
         default: { name: "Explorer", url: deployment.network.explorer },
       },
-      contracts: { multicall3: { address: MULTICALL3 } },
+      contracts: {
+        multicall3: { address: MULTICALL3 },
+        // Primary ENS names (getEnsName) on mainnet: viem's own Universal Resolver entry, checked onchain
+        // 2026-10-27 (code present; reverse(0x887b…, 60) returns hisdudeness.eth).
+        ...(deployment.chainId === mainnet.id
+          ? { ensUniversalResolver: mainnet.contracts.ensUniversalResolver }
+          : {}),
+      },
     }),
   };
 }
@@ -348,7 +356,38 @@ export async function lookup(
     verified: Object.fromEntries(oracleIds.map((id, i) => [id, proofs[i]])),
   };
 }
+const endTimes = new Map<string, Promise<number | undefined>>();
+/** The time (seconds) of a community rule's end block, read once per block; undefined while it is ahead or unreadable. */
+export function endTime(client: any, toBlock: unknown) {
+  const end = BigInt((toBlock as any) ?? 0);
+  if (!end) return Promise.resolve(undefined);
+  const key = String(end);
+  if (!endTimes.has(key))
+    endTimes.set(
+      key,
+      client.getBlock({ blockNumber: end }).then(
+        (block: any) => Number(block.timestamp),
+        () => {
+          endTimes.delete(key);
+          return undefined;
+        },
+      ),
+    );
+  return endTimes.get(key)!;
+}
+/** Each rule with its end-block time (`toTime`) for its wording. */
+async function withEndTimes(client: any, specs: any[]) {
+  return Promise.all(
+    specs.map(async (spec) => {
+      const toTime = await endTime(client, spec.toBlock);
+      return toTime === undefined ? spec : { ...spec, toTime };
+    }),
+  );
+}
 export async function community(client: any, r: Runtime, signal?: AbortSignal) {
+  return withEndTimes(client, await communityRules(client, r, signal));
+}
+async function communityRules(client: any, r: Runtime, signal?: AbortSignal) {
   const indexed = await indexedRules(signal);
   if (signal?.aborted) throw signal.reason;
   if (indexed) return indexed;

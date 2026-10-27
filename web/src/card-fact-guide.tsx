@@ -6,7 +6,7 @@ export function CardFactGuide({ids,onFamily}:{ids:number[];onFamily?:(family:num
   const display=communityDisplay(ids,HIVE_CELLS.map(cell=>cell.family));
   return <details className="card-fact-guide">
     <summary>How facts appear on this card · {display.count} community {display.count===1?'fact':'facts'}</summary>
-    <p>The card reads your facts from the Registry contract. The 13 cells show the built-in fact families. Verified community facts add rings in acceptance order, up to three per cell. Mint Rule alone adds no ring; Mint Facts must first store an accepted fact for your wallet.</p>
+    <p>The card reads your facts from the Registry contract. The 13 cells show the built-in fact families. Verified community facts add rings in acceptance order, up to three per cell. Mint Rule alone adds no ring; an accepted fact must first be stored for your wallet on Wallet Facts.</p>
     {display.count>0&&<ul aria-label="Community facts on the card">{display.positions.map(({id,family,ring}: {id:number;family:number|null;ring:number|null})=><li key={id}>
       <a href={`#/catalog#community-${id}`}>{id}</a>{' · '}
       {family!==null&&onFamily?<button className="card-ring-link" onClick={()=>onFamily(family)}>Ring {ring} on {FAMILIES[family-1]}</button>:family!==null?`Ring ${ring} on ${FAMILIES[family-1]}`:'Contributes to the frame level'}

@@ -118,7 +118,7 @@ export function WalletProvider({
         aria-labelledby="wallet-title"
       >
         <div className="sheet-head">
-          <h2 id="wallet-title">Connect a wallet</h2>
+          <h2 id="wallet-title">Connect a Wallet</h2>
           <button
             aria-label="Close wallet picker"
             className="close"

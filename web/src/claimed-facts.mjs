@@ -1,7 +1,7 @@
 import { shortFactQuestion } from './fact-check/history-model.mjs';
 
 /** The fact tables of Claimed Wallet Facts and Choose facts to mint, in this order and with these titles. */
-export const FACT_GROUPS = [['direct', 'Direct facts'], ['oracle', 'Oracle-verified facts'], ['community', 'Community facts']];
+export const FACT_GROUPS = [['direct', 'Direct Facts'], ['oracle', 'Oracle-Verified Facts'], ['community', 'Community Facts']];
 export function factGroup(id, traits) {
   const trait = traits.find(item => item.id === id);
   return !trait ? 'community' : trait.class === 'direct' ? 'direct' : 'oracle';

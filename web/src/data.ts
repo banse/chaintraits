@@ -31,7 +31,7 @@ export const classes = [
     label: "Chain",
     description:
       "Historical chain evidence, sworn by swarm. A panel of 5 IMD agents checks the recipe; 3 must agree. Each attempt costs the live oracle price per fact, even if no fact is proven.",
-    how: "Choose a fact on Mint Facts.",
+    how: "Choose a fact on Wallet Facts.",
   },
   {
     key: "shared",
@@ -39,7 +39,7 @@ export const classes = [
     label: "Shared",
     description:
       "One attested ranking, reusable by every listed wallet. A panel of 11 IMD agents needs 7 in agreement. The requester pays the full oracle price; applying a stored list costs only gas. The request fee is not refunded if no verdict is reached.",
-    how: "Use Mint Facts to request or apply a shared fact.",
+    how: "Use Wallet Facts to request or apply a shared fact.",
   },
   {
     key: "panel",
@@ -47,7 +47,7 @@ export const classes = [
     label: "Panel",
     description:
       "A panel of 11 IMD agents examines a pinned rule; 7 must agree. Each attempt costs the live oracle price per fact. An attestation records agreement, not a guarantee against a mistaken answer.",
-    how: "Choose a fact on Mint Facts.",
+    how: "Choose a fact on Wallet Facts.",
   },
 ];
 // Readable names of the four fixed block windows.
@@ -215,11 +215,11 @@ export const FAMILIES = [
 ];
 export const ROUTES = [
   ["/", "Home"],
-  ["/catalog", "Catalog"],
-  ["/mint", "Mint Card"],
-  ["/request", "Mint Facts"],
+  ["/catalog", "Explorer"],
+  ["/mint", "Sworn Card"],
+  ["/request", "Wallet Facts"],
   ["/fact-check", "Fact Check"],
-  ["/register", "Mint Rule"],
+  ["/register", "Community Facts"],
   ["/curator", "Curator"],
   ["/integrate", "Integrate"],
   ["/about", "About"],

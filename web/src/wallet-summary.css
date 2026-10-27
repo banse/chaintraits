@@ -8,7 +8,8 @@
 .wallet-summary-art {
   min-width: 0;
 }
-.wallet-summary-copy h2 {
+.wallet-summary-copy h2,
+.wallet-facts-summary > h2 {
   margin-top: 0;
 }
 .wallet-summary-address {
@@ -51,12 +52,36 @@
 .wallet-summary-selection {
   font-size: var(--small);
 }
+/* Below the card, centred like its caption. */
+.wallet-summary-art .wallet-summary-selection {
+  max-width: 560px;
+  margin: 16px auto 0;
+  text-align: center;
+}
 .wallet-summary-art .card-figure {
   width: 100%;
   max-width: 560px;
   margin: 0 auto;
 }
-.wallet-summary-art .card-fact-guide {
+.wallet-summary .card-fact-guide {
+  margin-top: 24px;
+}
+/* The symbol box is always there and no taller than a one-line row: selecting never changes a row's height. */
+.wallet-summary-table .wallet-summary-symbol {
+  width: 52px;
+  padding: 4px 8px;
+  vertical-align: middle;
+}
+.wallet-summary-symbol img,
+.wallet-summary-symbol span {
+  display: block;
+  width: 36px;
+  height: 36px;
+}
+.wallet-preview .wallet-summary {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+.wallet-preview .wallet-summary-art .wallet-summary-table {
   margin-top: 24px;
 }
 .wallet-summary-art .cell-controls button {
@@ -69,11 +94,31 @@
   margin-top: 32px;
 }
 @media (max-width: 800px) {
-  .wallet-summary {
+  .wallet-summary,
+  .wallet-preview .wallet-summary {
     grid-template-columns: minmax(0, 1fr);
     gap: 24px;
   }
   .wallet-summary-art .card-figure {
     max-width: 420px;
   }
+  /* On phones every interactive card comes before its list of facts. */
+  .wallet-summary-art {
+    order: -1;
+  }
+}
+.wallet-preview {
+  margin-top: 24px;
+}
+.wallet-preview > p {
+  max-width: none;
+}
+/* The Explorer's own status line takes no room while it has nothing to say. */
+#explorer > .status:empty {
+  margin: 0;
+}
+/* Right below the Explorer's separator line. */
+.explorer-content > .wallet-preview:first-child,
+.explorer-content > .wallet-facts-summary:first-child {
+  margin-top: 0;
 }

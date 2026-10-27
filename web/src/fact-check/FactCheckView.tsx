@@ -2,6 +2,8 @@ import { useEffect, useId, useMemo, useRef, useState, type CSSProperties } from 
 import { HIVE_CELLS } from '../hive-layout';
 import { arrangeAgents, CELL_POINTS, completionKind, FRAME_POINTS, hiveOutline, matchingAnswerCount, phaseStatus, progressSteps, quorumFamilies, safeImageSource } from './canvas-model.mjs';
 import { installHiveAnchor } from './hive-anchor.mjs';
+import { CardShare } from './CardShare';
+import { usePrimaryName } from '../ens-name';
 import type { FactCheckAgent, FactCheckSnapshot } from './types';
 import './fact-check.css';
 
@@ -129,6 +131,7 @@ function FactCheckContent({ snapshot, history, reduced, flashAt, artworkUrl, art
   const revealDelay = useMemo(() => revealAt ? -(Date.now() - revealAt) : 0, [revealAt]);
   const explaining = !resultAgents && snapshot.phase === 'panel' && !snapshot.quorumReached;
   const headingId = useId();
+  const cardPanel = useRef<HTMLElement>(null);
   const showMember = (key: string) => {
     setSelectedMember(key);
     if (memberList.current) { memberList.current.open = true; memberList.current.scrollIntoView({ behavior: reduced ? 'instant' : 'smooth', block: 'nearest' }); }
@@ -138,28 +141,30 @@ function FactCheckContent({ snapshot, history, reduced, flashAt, artworkUrl, art
   const displayStatus = resultAgents && completed ? '' : resultAgents && snapshot.registryStored ? '✓ Registry confirmed this result.' : snapshot.cardError && snapshot.registryStored ? 'Registry write confirmed. Card artwork is unavailable.' : completed ? (snapshot.cardError || artworkError ? 'Registry result confirmed. Card artwork is unavailable.' : snapshot.cardLoading || !artworkUrl && !snapshot.cardless ? 'Registry result confirmed. Loading your card...' : snapshot.cardless ? 'Registry result confirmed. This wallet has no card.' : !revealed ? 'Registry result confirmed. Refreshing your card...' : '') : phaseStatus(snapshot.latestEvent || 'Waiting for request evidence', snapshot.phase);
   const progressLabel = ({ tx: 'Waiting for Ethereum confirmation...', admission: 'Waiting for the oracle job...', panel: 'Agents are checking your fact...', quorum: 'Agreement reached · waiting for a signed result...', delivery: 'Waiting for Registry delivery...', registry: 'Confirming the Registry result...', saved: kind === 'neutral' ? 'Registry result confirmed' : 'Registry fact confirmed', negative: 'Negative result confirmed', failed: 'Attempt ended without a saved fact', offline: 'Checking the latest status...' })[snapshot.phase];
   return <div className="fc-content">
-    <div className="fc-check-panel">
+    {/* The step strip stays pinned while the card is on screen; the card's end scrolls it away. */}
+    <div className="fc-pinned">
     {!history && !(completed && dismissed) && <section className={`fc-progress-strip${completed ? ' fc-progress-complete' : ''}`} aria-label="Request progress">
       <div className="fc-progress-current"><span className={`fc-progress-icon${completed || snapshot.phase === 'failed' || snapshot.phase === 'offline' ? '' : ' fc-progress-active'}`} aria-hidden="true">{completed ? kind === 'negative' ? '×' : '✓' : snapshot.phase === 'failed' ? '×' : '◌'}</span><div><span>{snapshot.factName} / {snapshot.factId}</span><strong>{progressLabel}</strong></div></div>
       <ol>{progressSteps(snapshot.phase).map((step, i) => <li key={step.label} className={`fc-step-${step.state}`} aria-current={step.state === 'current' ? 'step' : undefined}><span aria-hidden="true">{step.state === 'done' ? '✓' : i + 1}</span><span>{step.label}</span><span className="fc-screen-reader">{step.state === 'done' ? 'confirmed' : step.state === 'current' ? 'pending' : 'not confirmed'}</span></li>)}</ol>
     </section>}
+    <div className="fc-check-panel">
     <section className="fc-question" aria-labelledby={headingId}>
-      <h2 id={headingId} className="fc-label">{snapshot.evidenceKind === 'direct' ? 'Direct facts recorded at card mint' : 'Oracle Question'}</h2>
+      <h2 id={headingId} className="fc-label">{snapshot.evidenceKind === 'direct' ? 'Direct Facts Recorded at Card Mint' : 'Oracle Question'}</h2>
       <p>{snapshot.question || 'The exact oracle question has not been reported yet.'}</p>
     </section>
     {snapshot.evidenceKind !== 'direct' && <section className="fc-quorum" aria-label="Required agreement">
-      <div className="fc-quorum-heading"><h2 className="fc-label">Required agreement</h2><p aria-label={snapshot.quorum !== null && snapshot.panelSize !== null ? `${snapshot.quorum} matching answers required from ${snapshot.panelSize} agents` : undefined}><strong>{snapshot.quorum === null ? 'Quorum not reported' : `${snapshot.quorum} / ${snapshot.panelSize ?? '?'}`}</strong></p></div>
+      <div className="fc-quorum-heading"><h2 className="fc-label">Required Agreement</h2><p aria-label={snapshot.quorum !== null && snapshot.panelSize !== null ? `${snapshot.quorum} matching answers required from ${snapshot.panelSize} agents` : undefined}><strong>{snapshot.quorum === null ? 'Quorum not reported' : `${snapshot.quorum} / ${snapshot.panelSize ?? '?'}`}</strong></p></div>
       {snapshot.quorum !== null && snapshot.quorum > 0 && snapshot.quorum <= 50 ? <div className="fc-meter" aria-label={`${matching} matching reported answers; ${snapshot.quorum} required`}>{Array.from({ length: snapshot.quorum }, (_, i) => <i key={i} className={i < matching ? snapshot.answerKind === 'boolean' && disagree > agree ? 'fc-meter-negative' : 'fc-meter-filled' : ''}/>)}</div> : null}
       <p className="fc-quorum-detail">{snapshot.agents.length ? snapshot.answerKind === 'boolean' ? `${valid} valid answers · ${agree} TRUE · ${disagree} FALSE` : snapshot.answerKind === 'count' ? `${valid} valid answers · ${agree} matching count · ${disagree} not matching` : `${valid} classified answers · ${agree} matching · ${disagree} differing` : snapshot.phase === 'tx' || snapshot.phase === 'admission' ? 'The panel starts after the request is confirmed and its oracle job is linked.' : 'No member answers have been reported for this request.'}</p>
     </section>}
     </div>
-    <section className="fc-card-panel" aria-label="Oracle agent visualization">
+    <section className="fc-card-panel" aria-label="Oracle agent visualization" ref={cardPanel}>
       <h2 className="fc-canvas-title">{snapshot.evidenceKind === 'direct' ? 'YOUR WALLET CARD' : 'IDENTITY.MD JURY'}</h2>
       <div className={`fc-card-layout${snapshot.evidenceKind !== 'direct' ? ' fc-oracle-layout' : ''}${completed ? ' fc-completed' : ''}${textResult || resultAgents && !snapshot.agents.length ? ' fc-without-art' : ''}`}>
         <div className="fc-context">
           {snapshot.evidenceKind === 'direct' ? <>
             <p className="fc-short-question">{snapshot.shortQuestion || snapshot.question}</p>
-            <div className="fc-wallet">{snapshot.ensName && <strong>{snapshot.ensName}</strong>}<span>{snapshot.wallet || 'Wallet not reported'}</span></div>
+            <div className="fc-wallet"><span>{snapshot.wallet || 'Wallet not reported'}</span>{snapshot.ensName && <strong>{snapshot.ensName}</strong>}</div>
           </> : <>
             <div className="fc-fact"><h3 className="fc-context-label">FACT</h3><p className="fc-short-question">{snapshot.shortQuestion || snapshot.question}</p></div>
             <p className="fc-fact-name"><strong>{snapshot.factName}</strong></p>
@@ -175,7 +180,7 @@ function FactCheckContent({ snapshot, history, reduced, flashAt, artworkUrl, art
           {textResult && <div className="fc-no-art"><strong>{snapshot.cardless ? 'Wallet fact record' : artworkError || snapshot.cardError ? 'Card artwork unavailable' : 'Loading your card...'}</strong><p>{snapshot.cardless ? 'This wallet has no minted card. Its Registry result is available independently.' : snapshot.cardError || (artworkError ? 'The card image could not be loaded. The Registry result is unchanged.' : 'Waiting for the actual token metadata image.')}</p></div>}
         </div>
         <div className="fc-answer" aria-live="polite">
-          {snapshot.evidenceKind !== 'direct' && <div className="fc-wallet"><h3 className="fc-context-label">WALLET</h3>{snapshot.ensName && <strong>{snapshot.ensName}</strong>}<span>{snapshot.wallet || 'Wallet not reported'}</span></div>}
+          {snapshot.evidenceKind !== 'direct' && <div className="fc-wallet"><h3 className="fc-context-label">WALLET</h3><span>{snapshot.wallet || 'Wallet not reported'}</span>{snapshot.ensName && <strong>{snapshot.ensName}</strong>}</div>}
           {explaining && <p className="fc-explanation">{geometric && snapshot.quorum && snapshot.answerKind === 'boolean' ? <>Spinners mean agents are checking. Green answers move inside the border; red answers move outside. All {snapshot.quorum} bordered agent hives must turn green for YES. {snapshot.quorum} FALSE answers mean NO.</> : <>Each hive shows one reported agent. Spinners mean a response is pending. The complete member list below shows every reported answer.{snapshot.quorum === null ? ' The required quorum has not been reported.' : ` ${snapshot.quorum} matching answers are required.`}{snapshot.answerKind === 'count' ? ' Green means the same reported count; red means a different count. The Registry applies the rule’s threshold after agreement.' : snapshot.answerKind === 'list' ? ' Green means agreement with the reported list, not personal wallet eligibility.' : ''}</>}</p>}
           {resultVisible && <span className={`fc-result-mark${kind === 'negative' ? ' fc-no' : ''}`} aria-label={kind === 'positive' ? 'Confirmed true' : kind === 'negative' ? 'Confirmed false' : 'Registry result confirmed'}><span className="fc-result-badge" aria-hidden="true">{kind === 'negative' ? '×' : '✓'}</span></span>}
         </div>
@@ -187,11 +192,13 @@ function FactCheckContent({ snapshot, history, reduced, flashAt, artworkUrl, art
       {displayStatus && <p className={`fc-latest-event${snapshot.phase === 'failed' ? ' fc-no' : ''}`} role="status">{displayStatus}</p>}
       {!resultAgents && snapshot.cardError && !completed && <p className="fc-notice">{snapshot.registryStored ? 'The Registry write is confirmed. ' : ''}{snapshot.cardError} Refresh the request to retry the artwork read. No new fact request is needed.</p>}
       {!geometric && <p className="fc-notice">This panel does not fit the card’s 12 agent positions. Every reported member appears below; no member has been omitted.</p>}
+      {resultVisible && kind && <CardShare panel={cardPanel} snapshot={snapshot} kind={kind} title={snapshot.evidenceKind === 'direct' ? 'YOUR WALLET CARD' : 'IDENTITY.MD JURY'} saved={[...(kind !== 'negative' && snapshot.evidenceKind !== 'direct' ? ['✓ SWORN BY SWARM'] : []), kind === 'positive' ? '✓ FACT SAVED' : kind === 'negative' ? '× FACT NOT ADDED' : '✓ RESULT SAVED']}/>}
     </section>
+    </div>
     {finalMessageVisible && <section className={`fc-confirmation${kind === 'negative' ? ' fc-confirmation-negative' : ''}`} role="status">
       <button className="fc-dismiss" type="button" aria-label="Dismiss Registry confirmation" onClick={onDismiss}>×</button>
       <span className="fc-confirmation-icon" aria-hidden="true">{kind === 'negative' ? '×' : '✓'}</span>
-      <div><p className="fc-label">Registry confirmed</p><h2>{kind === 'positive' ? `${snapshot.factName} is now a wallet fact.` : kind === 'negative' ? 'The result is NO.' : 'The result is saved in the Registry.'}</h2>
+      <div><p className="fc-label">Registry confirmed</p><h2>{kind === 'positive' ? `${snapshot.factName} Is Now a Wallet Fact.` : kind === 'negative' ? 'The Result Is NO.' : 'The Result Is Saved in the Registry.'}</h2>
       <p>{kind === 'positive' ? `Fact ${snapshot.factId} is saved. ${snapshot.cardless ? 'A card can read it when you mint one.' : 'Your card now reads and displays it.'}` : kind === 'negative' ? 'The Registry recorded a negative result. No new wallet fact was added.' : 'This result is stored in the Registry. It does not establish a personal wallet fact.'}</p>
       {snapshot.mode === 'live' && <div className="fc-actions"><a href={`#/explorer?address=${encodeURIComponent(snapshot.wallet)}`} onClick={onDismiss}>{snapshot.cardless ? 'View wallet facts' : 'View wallet and card'}</a>{isUrl(snapshot.jobUrl) && <a href={snapshot.jobUrl} target="_blank" rel="noreferrer">View oracle job</a>}</div>}
       </div>
@@ -204,7 +211,7 @@ function FactCheckContent({ snapshot, history, reduced, flashAt, artworkUrl, art
       </li>)}</ul>
     </details>}
     {snapshot.notice && <p className="fc-notice" role="status">{snapshot.notice}</p>}
-    {!history && <section className="fc-feed" aria-label="Action feed"><h2>Action feed</h2>
+    {!history && <section className="fc-feed" aria-label="Action feed"><h2>Action Feed</h2>
       {snapshot.events.length ? <ol>{snapshot.events.map(event => <li key={event.id}>
         <div className="fc-event-meta">{event.time && <time>{event.time}</time>}<span>{event.source}</span></div>
         <div><strong>{event.title}</strong>{event.detail && <p>{event.detail}</p>}{isUrl(event.href) && <a href={event.href} target="_blank" rel="noreferrer">View source ↗</a>}</div>
@@ -218,7 +225,9 @@ function FactCheckContent({ snapshot, history, reduced, flashAt, artworkUrl, art
 }
 
 /** Presentation only. All chain evidence is provided by the parent controller. */
-export function FactCheckView({ snapshot, embedded = false, variant = 'progress' }: { snapshot: FactCheckSnapshot; embedded?: boolean; variant?: 'progress' | 'history' }) {
+export function FactCheckView({ snapshot: reported, embedded = false, variant = 'progress' }: { snapshot: FactCheckSnapshot; embedded?: boolean; variant?: 'progress' | 'history' }) {
+  const primaryName = usePrimaryName(reported.ensName ? undefined : reported.wallet);
+  const snapshot = useMemo(() => primaryName && !reported.ensName ? { ...reported, ensName: primaryName } : reported, [reported, primaryName]);
   const prefersReducedMotion = useReducedMotion();
   const history = variant === 'history';
   const reduced = prefersReducedMotion || history;

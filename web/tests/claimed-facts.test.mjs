@@ -33,6 +33,6 @@ test('claimed facts include every verified community record beyond the artwork d
 });
 
 test('Claimed Wallet Facts and Choose facts to mint share three groups with the same titles', () => {
-  assert.deepEqual(FACT_GROUPS.map(([, title]) => title), ['Direct facts', 'Oracle-verified facts', 'Community facts']);
+  assert.deepEqual(FACT_GROUPS.map(([, title]) => title), ['Direct Facts', 'Oracle-Verified Facts', 'Community Facts']);
   assert.deepEqual([101, 601, 10001].map(id => factGroup(id, traits)), ['direct', 'oracle', 'community']);
 });

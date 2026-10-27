@@ -58,7 +58,7 @@ export function describeCommunityRule(spec) {
 }
 
 // Contracts the site already names (network.json pairToken). Other addresses and long hex values
-// are shortened; the Catalog keeps the full rule.
+// are shortened; the Explorer page keeps the full rule.
 const SYMBOLS = { "0xd34a99bc0f67ae1bbd63c660e6d0b0dd03e263b7": "IMD" };
 const brief = (value) => {
   const text = String(value);
@@ -97,11 +97,14 @@ export function summarizeCommunityRule(spec) {
     String(fixedRuleValue(spec)).toLowerCase() === SWARM_PAYEE
   ) {
     const start = BigInt(spec.fromBlock) <= FIRST_SWARM_PAYMENT;
-    const until = `until block ${number(spec.toBlock)}`;
+    const end = `block ${number(spec.toBlock)}`;
+    // The end block's UTC date once its time is read (`toTime`); the block itself until then.
+    const date = spec.toTime ? new Date(Number(spec.toTime) * 1000).toISOString().slice(0, 10) : "";
+    const between = `between the start and ${date || end}`;
     return {
-      rule: `${capital(than)} ${threshold} paid requests to the swarm${start ? " since the start" : ""}`,
-      window: start ? capital(until) : range,
-      question: `Did this wallet make ${than} ${threshold} paid requests to the swarm ${start ? `since the start, ${until}` : blocks}?`,
+      rule: `${capital(than)} ${threshold} paid requests to the swarm${start ? ` ${between}` : ""}`,
+      window: start ? `Until ${end}` : range,
+      question: `Did this wallet make ${than} ${threshold} paid requests to the swarm ${start ? (date ? `${between} (${end})` : between) : blocks}?`,
     };
   }
   if (kind === 1 && item === "Transfer" && ["from", "to"].includes(spec.arg)) {

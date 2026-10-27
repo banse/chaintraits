@@ -29,16 +29,19 @@ export function IneligibleControl({
   count,
   shown,
   onChange,
+  link = false,
 }: {
   count: number;
   shown: boolean;
   onChange: () => void;
+  /** Shown as a link in a table header rather than as a button above it. */
+  link?: boolean;
 }) {
   if (count < 1) return null;
   return (
     <button
       type="button"
-      className="eligibility-toggle"
+      className={link ? "eligibility-toggle eligibility-link" : "eligibility-toggle"}
       aria-pressed={shown}
       onClick={onChange}
     >

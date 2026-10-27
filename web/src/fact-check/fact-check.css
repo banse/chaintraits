@@ -40,6 +40,13 @@
 .fact-check-view .fc-toolbar { display:flex; justify-content:flex-end; align-items:center; flex-wrap:wrap; gap:12px; margin:0 0 24px; }
 .fact-check-view .fc-content { display:grid; gap:28px; width:100%; min-width:0; }
 .fact-check-view .fc-check-panel { display:grid; min-width:0; padding-bottom:24px; border:1px solid var(--fc-rule); }
+.fact-check-view .fc-pinned { display:grid; min-width:0; }
+.fact-check-view .fc-pinned>.fc-card-panel { margin-top:28px; }
+.fact-check-view .fc-pinned>.fc-progress-strip { border:1px solid var(--fc-rule); border-bottom-color:#344333; }
+.fact-check-view .fc-progress-strip+.fc-check-panel { border-top:0; }
+.fact-check-view .fc-share { display:flex; flex-wrap:wrap; justify-content:center; align-items:center; gap:12px; margin-top:16px; }
+.fact-check-view .fc-share [role=status] { flex-basis:100%; min-height:1.8em; text-align:center; color:var(--fc-muted); font-size:12px; }
+.fact-check-view .fc-wallet strong { overflow-wrap:anywhere; }
 .fact-check-view .fc-progress-strip { position:sticky; top:0; z-index:6; display:flex; align-items:center; justify-content:space-between; gap:24px; padding:16px 18px; border:0; border-bottom:1px solid #344333; background:#0d140d; }
 .fact-check-view .fc-progress-current { display:flex; align-items:center; gap:14px; min-width:0; }
 .fact-check-view .fc-progress-current>div { display:flex; flex-direction:column; gap:5px; font-size:11px; line-height:1.7; color:var(--fc-muted); }
@@ -217,6 +224,7 @@
   .fact-check-view .fc-progress-strip li { font-size:8px; white-space:normal; text-align:center; flex:1; }
   .fact-check-view .fc-progress-current strong { font-size:12px; }
   .fact-check-view .fc-content { gap:22px; }
+  .fact-check-view .fc-pinned>.fc-card-panel { margin-top:22px; }
   .fact-check-view .fc-question,.fact-check-view .fc-quorum { padding-inline:12px; }
   .fact-check-view .fc-question>p { font-size:14px; }
   .fact-check-view .fc-card-panel { padding:18px 12px; }

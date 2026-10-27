@@ -109,10 +109,11 @@ test("all original control/link/choice label fragments stay except the explicitl
   );
   for (const label of [
     "Mint Card",
-    "Mint Card ↗",
-    "Mint Facts",
-    "Mint Facts ↗",
+    "Sworn Card ↗",
+    "Wallet Facts",
+    "Wallet Facts ↗",
     "Mint Rule",
+    "Community Facts",
     "View your card",
     "View Fact Check",
     "Switch to Ethereum",

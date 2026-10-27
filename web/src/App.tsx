@@ -172,7 +172,7 @@ export function App({ r }: { r: Runtime }) {
     const label =
       TASKS.find(([path]) => path === route.route)?.[1] ||
       ROUTES.find(([path]) => path === route.route)?.[1] ||
-      "Page not found";
+      "Page Not Found";
     document.title = `Sworn | ${label}`;
     const page = `${route.route}?${route.query}`;
     const samePage = previousPage.current === page;
@@ -249,7 +249,7 @@ export function App({ r }: { r: Runtime }) {
               </Suspense>
             ) : (
               <>
-                <h1>Page not found</h1>
+                <h1>Page Not Found</h1>
                 <a href="#/">Return to Sworn</a>
               </>
             )}

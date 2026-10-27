@@ -37,7 +37,8 @@ import {
   TransactionJournal,
   type Journal,
 } from "./transactions";
-import { WalletFactsSummary } from "./wallet-summary";
+import { titleCase } from "./title-case.mjs";
+import { WalletFactsSummary, WalletPreview } from "./wallet-summary";
 import { loadExplorerWallet, rememberExplorerWallet } from "./wallet-summary-model.mjs";
 function IntroDescription() {
   const [a, b] = DESCRIPTION.split("IMD agents");
@@ -104,7 +105,7 @@ export function Home() {
           <AddressForm />
           <IntroDescription />
           <div className="inline-links">
-            <a href="#/mint">Mint Card ↗</a>
+            <a href="#/mint">Sworn Card ↗</a>
             <a href="#/catalog">Read the 25 facts ↗</a>
           </div>
         </div>
@@ -131,7 +132,7 @@ export function Home() {
           <span>Ethereum mainnet</span>
         </div>
       </div>
-      <Section title="Four kinds of evidence" id="evidence">
+      <Section title="Four Kinds of Evidence" id="evidence">
         <p className="prose">
           A green cell has a rule behind it. The class tells you where that fact
           comes from and how it was sworn by swarm.
@@ -149,38 +150,38 @@ export function Home() {
           ))}
         </div>
       </Section>
-      <Section title="How it works">
+      <Section title="How It Works">
         <div className="two-col">
           <article>
-            <h3>For a wallet</h3>
+            <h3>For a Wallet</h3>
             <ol className="story">
               <li>
-                <strong>Mint Card (optional)</strong>
+                <strong>Sworn Card (optional)</strong>
                 <p>
                   Minting saves your direct facts permanently; wallet
                   verification also works without a card.{" "}
-                  <a href="#/mint#mint">Mint Card</a>.
+                  <a href="#/mint#mint">Sworn Card</a>.
                 </p>
               </li>
               <li>
-                <strong>Mint Facts</strong>
+                <strong>Wallet Facts</strong>
                 <p>
                   Verify a fact and store the accepted result in the Registry
                   contract for your wallet. The card reads it from the contract.{" "}
-                  <a href="#/request">Mint Facts</a>.
+                  <a href="#/request">Wallet Facts</a>.
                 </p>
               </li>
               <li>
-                <strong>Mint Rule</strong>
+                <strong>Community Facts</strong>
                 <p>
                   Define an immutable community rule.{" "}
-                  <a href="#/register">Mint Rule</a>.
+                  <a href="#/register">Community Facts</a>.
                 </p>
               </li>
             </ol>
           </article>
           <article>
-            <h3>For a curator</h3>
+            <h3>For a Curator</h3>
             <ol className="story">
               <li>
                 <strong>Find a signal</strong>
@@ -225,14 +226,10 @@ export function Catalog() {
   const { health, specs, specError, loading, error } = useSite();
   return (
     <>
-      <h1>Catalog</h1>
-      <p className="prose">
-        25 facts, thirteen families. Every id names a rule any contract can
-        check. A white dot marks a rare fact.
-      </p>
+      <h1>Explorer</h1>
       <Explorer journal={journal} />
       {classes.map((c) => (
-        <Section key={c.key} title={c.name} id={c.key}>
+        <Section key={c.key} title={titleCase(c.name)} id={c.key}>
           <p className="prose">
             {c.description} {c.how}
           </p>
@@ -241,7 +238,7 @@ export function Catalog() {
               {health
                 ? `${imd(health.price)} IMD · live oracle quote`
                 : "Cost: oracle price per request, simulated here"}{" "}
-              · <a href="#/request">Mint Facts ↗</a>
+              · <a href="#/request">Wallet Facts ↗</a>
             </div>
           )}
           <div className="catalog-table" role="table" aria-label={c.name}>
@@ -285,7 +282,7 @@ export function Catalog() {
           />
         </Section>
       ))}
-      <Section title="Community facts" id="community">
+      <Section title="Community Facts" id="community">
         <CommunityIntro />
         {loading ? (
           <Status>Reading community specs…</Status>
@@ -312,7 +309,7 @@ export function Catalog() {
                     s.kind === 3 ? "shared" : s.kind >= 5 ? "panel" : "chain"
                   }
                 />
-                <a href={`#/request?trait=${s.id}`}>Mint Facts ↗</a>
+                <a href={`#/request?trait=${s.id}`}>Wallet Facts ↗</a>
                 <a href={`#/curator?trait=${s.id}`}>Use in Curator</a>
               </div>
             ))}
@@ -324,7 +321,7 @@ export function Catalog() {
         />
       </Section>
       <TransactionJournal journal={journal} />
-      <Section title="Four fixed block windows">
+      <Section title="Four Fixed Block Windows">
         <div className="window-grid">
           {WINDOWS.map(([name, a, b]) => (
             <div key={name}>
@@ -337,7 +334,7 @@ export function Catalog() {
         </div>
         <p>{SWARMED}</p>
       </Section>
-      <Section title="Limits of the record">
+      <Section title="Limits of the Record">
         <p className="prose">
           WhitelistCurator.sol records wallet behavior, not people. It is not
           sybil-resistant. An oracle attestation shows which agents agreed on a
@@ -353,7 +350,7 @@ export function Catalog() {
     </>
   );
 }
-// The Explorer part of the Catalog page; #/explorer?address=… opens it.
+// The Explorer page (route #/catalog); #/explorer?address=… opens it with a wallet.
 export function Explorer({ journal }: { journal: Journal }) {
   const site = useSite();
   const [address, setAddress] = useState(() => loadExplorerWallet(location.hash));
@@ -430,6 +427,11 @@ export function Explorer({ journal }: { journal: Journal }) {
       return () => clearTimeout(timeout);
     }
   }, [factsAddress]);
+  function clearWallet() {
+    rememberExplorerWallet("");
+    setAddress("");
+    history.replaceState(null, "", "#/explorer");
+  }
   function chooseWallet(value: string) {
     if (address === value) setTick(t => t + 1);
     rememberExplorerWallet(value);
@@ -437,10 +439,9 @@ export function Explorer({ journal }: { journal: Journal }) {
     history.replaceState(null, "", `#/explorer?address=${value}`);
   }
   return (
-    <section className="part" id="explorer" aria-labelledby="explorer-title">
-      <h2 className="part-title" id="explorer-title">
-        Explorer
-      </h2>
+    <>
+    {/* The page intro: what the Explorer reads, and the wallet to read. */}
+    <div className="explorer-intro" id="explorer">
       <p className="prose">
         Inspect any Ethereum wallet’s card, facts and request status, read from
         the Registry, Curator and Renderer. Cards and wallet connections are optional.
@@ -449,6 +450,8 @@ export function Explorer({ journal }: { journal: Journal }) {
         key={address}
         initial={address}
         onSubmit={chooseWallet}
+        onClear={address ? clearWallet : undefined}
+        note={address ? undefined : "Enter any wallet address to inspect its facts."}
       />
       <Status error={!!error}>
         {error ||
@@ -458,9 +461,7 @@ export function Explorer({ journal }: { journal: Journal }) {
               : "Reading the Registry, Curator and deployed Renderer…"
             : facts
               ? "Wallet facts loaded."
-              : !address
-                ? "Enter any wallet address to inspect its facts."
-                : "")}
+              : "")}
       </Status>
       {error && (
         <button
@@ -472,18 +473,22 @@ export function Explorer({ journal }: { journal: Journal }) {
           Retry reads
         </button>
       )}
+    </div>
+    {/* Below the separator: the Wallet Preview, or the entered wallet. */}
+    <section className="part explorer-content" aria-label="Wallet">
+      {!address && <WalletPreview specs={site.specs} />}
       {facts && site.health && (
         <>
           <WalletFactsSummary facts={facts} specs={site.specs}/>
           <section id="wallet-facts" className="section">
-            <h2>All 25 facts</h2>
+            <h2>All 25 Facts</h2>
             <WalletFactRows facts={facts}/>
           </section>
           {Object.entries(facts.pending)
             .filter(([, rid]) => !/^0x0+$/.test(rid))
             .map(([id, rid]) => (
               <section key={id} className="section">
-                <h2>{id} / Pending verdict</h2>
+                <h2>{id} / Pending Verdict</h2>
                 <Settlement
                   requestId={rid}
                   journal={journal}
@@ -491,7 +496,7 @@ export function Explorer({ journal }: { journal: Journal }) {
                 />
               </section>
             ))}
-          <Section title="Community and raw metadata">
+          <Section title="Community and Raw Metadata">
             <p>
               Community ids: {facts.verifiedSpecs.join(", ") || "none verified"}
               .
@@ -531,20 +536,21 @@ export function Explorer({ journal }: { journal: Journal }) {
         </>
       )}
     </section>
+    </>
   );
 }
 // A section of Integrate; #/fact-vs-artifact opens it.
 function FactArtifact() {
   return (
     <section id="fact-vs-artifact" className="section">
-      <h2>Fact vs artifact</h2>
+      <h2>Fact vs Artifact</h2>
       <p className="prose">
         A fact is about a wallet. A card is a transferable view of that wallet’s
         record.
       </p>
       <div className="comparison">
         <article>
-          <h3>The fact</h3>
+          <h3>The Fact</h3>
           <p>
             A credential is the Registry’s <code>hasTrait(wallet, id)</code>. A
             card is not required. The wallet that proves an oracle fact is its
@@ -552,7 +558,7 @@ function FactArtifact() {
           </p>
         </article>
         <article>
-          <h3>The artifact</h3>
+          <h3>The Artifact</h3>
           <p>
             A Sworn card is an ERC-721. It may be sold or transferred, but its
             facts stay about the original claimant. Direct facts are frozen at
@@ -560,7 +566,7 @@ function FactArtifact() {
           </p>
         </article>
         <article>
-          <h3>The attestation</h3>
+          <h3>The Attestation</h3>
           <p>
             A signed answer binds a request, question hash, rule, chain, panel
             and block window. A chain-proven fact has a reproducible recipe. A
@@ -570,7 +576,7 @@ function FactArtifact() {
         </article>
       </div>
       <div className="subsection">
-        <h3>How to verify a card</h3>
+        <h3>How to Verify a Card</h3>
         <ol className="story verify-steps">
           <li>
             Read <code>claimantOf(tokenId)</code> on the authentic Registry.
@@ -638,7 +644,7 @@ export function Integrate() {
       <Section title="Read with cast">
         <CodeBlock>{cast}</CodeBlock>
       </Section>
-      <Section title="Verify the deployment">
+      <Section title="Verify the Deployment">
         <ContractList />
         <p>
           Source commit:{" "}
@@ -674,7 +680,7 @@ export function Integrate() {
           ))}
         </div>
       </Section>
-      <Section title="For coding agents">
+      <Section title="For Coding Agents">
         <p>
           Read the verification skill as Markdown: facts, artifact rules, all 25
           ids and reproducible mainnet calls.
@@ -813,7 +819,7 @@ function WhitelistCurator() {
           ))}
         </div>
       </section>
-      <Section title="The hour-24 cliff">
+      <Section title="The Hour-24 Cliff">
         <p className="prose">
           The grace period ended after hour 23. From hour 24, an unsaved hour
           could end the game. Activity fell sharply. Hour 65 held the last
@@ -827,7 +833,7 @@ function WhitelistCurator() {
       </Section>
       {error && <Status error>{error}</Status>}
       {data && (
-        <Section title="Every hour" id="hours">
+        <Section title="Every Hour" id="hours">
           <HourChart hours={data.hours} />
           <p className="source">
             Window: {num(data.fromBlock)} → {num(data.toBlock)} · method:
@@ -885,7 +891,7 @@ export function About() {
       <Section title="BUILT BY THE SWARM">
         <Built />
       </Section>
-      <Section title="The record and its lore">
+      <Section title="The Record and Its Lore">
         <p className="prose">
           WhitelistCurator.sol was a game of escalating contributions. It
           recorded the largest single send, deposit count, first hour and score.
